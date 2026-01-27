@@ -1,0 +1,5 @@
+# OMC (oh-my-claudecode)
+.omc/
+
+# Git worktrees
+.worktree/
