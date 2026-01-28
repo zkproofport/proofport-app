@@ -1,24 +1,17 @@
-// Note: @walletconnect/react-native-compat is imported in index.js (entry point)
-
 import {
   createAppKit,
   type AppKitNetwork,
   type Storage,
 } from '@reown/appkit-react-native';
-import { EthersAdapter } from '@reown/appkit-ethers-react-native';
+import {EthersAdapter} from '@reown/appkit-ethers-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { mainnet as viemMainnet, base as viemBase } from 'viem/chains';
+import {mainnet as viemMainnet, base as viemBase} from 'viem/chains';
 
-// Reown Project ID - from Reown Cloud Dashboard
 const projectId = '9a54a0419fc6c86a2bde3d44c4f1615c';
 
-// Always log projectId for debugging
-console.log('[AppKit] Project ID:', projectId, '| Length:', projectId.length);
-
-// App metadata - following official docs format exactly
 const metadata = {
-  name: 'zkProofPort',
+  name: 'ZKProofPort',
   description: 'ZK Proof Mobile App',
   url: 'https://zkproofport.com',
   icons: ['https://avatars.githubusercontent.com/u/37784886'],
@@ -27,7 +20,6 @@ const metadata = {
   },
 };
 
-// Networks - explicitly defined following AppKitNetwork type (viem Chain compatible)
 const mainnet: AppKitNetwork = {
   id: 1,
   name: 'Ethereum',
@@ -66,7 +58,6 @@ const base: AppKitNetwork = {
 
 const networks: AppKitNetwork[] = [mainnet, base];
 
-// Storage adapter using AsyncStorage with JSON serialization
 const storage: Storage = {
   getItem: async <T = string>(key: string): Promise<T | undefined> => {
     try {
@@ -125,13 +116,12 @@ const storage: Storage = {
   },
 };
 
-// Create AppKit instance - inline all values explicitly
 export const appKit = createAppKit({
-  projectId: projectId,
+  projectId,
   networks: [viemMainnet, viemBase],
   adapters: [new EthersAdapter()],
-  metadata: metadata,
-  storage: storage,
+  metadata,
+  storage,
   debug: true,
   enableAnalytics: false,
 });
