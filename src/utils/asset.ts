@@ -1,11 +1,7 @@
 import RNFS from 'react-native-fs';
 import {getCircuitFilePath, circuitFileExists} from './circuitDownload';
 
-/**
- * Get the path to circuit assets
- * Files are downloaded from GitHub and stored in DocumentDirectory/circuits/
- */
-export const getAssetPath = async (filename: string): Promise<string> => {
+export async function getAssetPath(filename: string): Promise<string> {
   // Extract circuit name and extension from filename
   const match = filename.match(/^(.+)\.(json|srs|vk)$/);
   if (!match) {
@@ -24,16 +20,12 @@ export const getAssetPath = async (filename: string): Promise<string> => {
   }
 
   return filePath;
-};
+}
 
-/**
- * Pre-load circuit assets
- * Verifies that circuit files exist (should be downloaded first)
- */
-export const preloadCircuitAssets = async (
+export async function preloadCircuitAssets(
   circuitName: string,
   addLog?: (msg: string) => void,
-): Promise<{circuitPath: string; srsPath: string}> => {
+): Promise<{circuitPath: string; srsPath: string}> {
   const log = addLog || console.log;
 
   log(`Verifying circuit assets for ${circuitName}...`);
@@ -51,15 +43,11 @@ export const preloadCircuitAssets = async (
 
   log('Circuit assets ready');
   return {circuitPath, srsPath};
-};
+}
 
-/**
- * Clear mopro-ffi polynomial cache files (poly-mmap-*)
- * These files are created during proof generation and can accumulate to GB size
- */
-export const clearProofCache = async (
+export async function clearProofCache(
   addLog?: (msg: string) => void,
-): Promise<{cleared: number; bytes: number}> => {
+): Promise<{cleared: number; bytes: number}> {
   const log = addLog || console.log;
   let clearedCount = 0;
   let clearedBytes = 0;
@@ -89,12 +77,9 @@ export const clearProofCache = async (
   }
 
   return {cleared: clearedCount, bytes: clearedBytes};
-};
+}
 
-/**
- * Get current cache size
- */
-export const getCacheSize = async (): Promise<{files: number; bytes: number}> => {
+export async function getCacheSize(): Promise<{files: number; bytes: number}> {
   let totalFiles = 0;
   let totalBytes = 0;
 
@@ -113,16 +98,13 @@ export const getCacheSize = async (): Promise<{files: number; bytes: number}> =>
   }
 
   return {files: totalFiles, bytes: totalBytes};
-};
+}
 
-/**
- * Get available storage space on device
- */
-export const getAvailableStorage = async (): Promise<{
+export async function getAvailableStorage(): Promise<{
   free: number;
   total: number;
   freeGB: string;
-}> => {
+}> {
   try {
     const info = await RNFS.getFSInfo();
     return {
@@ -133,15 +115,11 @@ export const getAvailableStorage = async (): Promise<{
   } catch {
     return {free: 0, total: 0, freeGB: '0'};
   }
-};
+}
 
-/**
- * Aggressive cache clear - clears ALL cache directories
- * Use this when storage is critically low
- */
-export const clearAllCache = async (
+export async function clearAllCache(
   addLog?: (msg: string) => void,
-): Promise<{cleared: number; bytes: number}> => {
+): Promise<{cleared: number; bytes: number}> {
   const log = addLog || console.log;
   let clearedCount = 0;
   let clearedBytes = 0;
@@ -180,16 +158,12 @@ export const clearAllCache = async (
   log(`Aggressively cleared ${clearedCount} files (${mbCleared} MB)`);
 
   return {cleared: clearedCount, bytes: clearedBytes};
-};
+}
 
-/**
- * Ensure minimum storage is available before proof generation
- * Returns true if enough space, false otherwise
- */
-export const ensureStorageAvailable = async (
+export async function ensureStorageAvailable(
   minMB: number = 500,
   addLog?: (msg: string) => void,
-): Promise<boolean> => {
+): Promise<boolean> {
   const log = addLog || console.log;
 
   const storage = await getAvailableStorage();
@@ -213,16 +187,12 @@ export const ensureStorageAvailable = async (
   }
 
   return true;
-};
+}
 
-/**
- * Load verification key from bundled assets
- * VK is pre-generated during build and bundled with the app
- */
-export const loadVkFromAssets = async (
+export async function loadVkFromAssets(
   circuitName: string,
   addLog?: (msg: string) => void,
-): Promise<ArrayBuffer> => {
+): Promise<ArrayBuffer> {
   const log = addLog || console.log;
 
   const vkPath = await getAssetPath(`${circuitName}.vk`);
@@ -238,4 +208,4 @@ export const loadVkFromAssets = async (
 
   log(`VK loaded: ${vkArrayBuffer.byteLength} bytes`);
   return vkArrayBuffer;
-};
+}

@@ -1,6 +1,5 @@
 import {ethers} from 'ethers';
 
-// Authorized Coinbase signers (from reference implementation)
 export const AUTHORIZED_SIGNERS = [
   '0x952f32128AF084422539C4Ff96df5C525322E564',
   '0x8844591D47F17bcA6F5dF8f6B64F4a739F1C0080',
@@ -8,12 +7,8 @@ export const AUTHORIZED_SIGNERS = [
   '0x44ace9abb148e8412ac4492e9a1ae6bd88226803',
 ];
 
-// Coinbase Attester Contract address
 export const COINBASE_ATTESTER_CONTRACT = '0x357458739F90461b99789350868CD7CF330Dd7EE';
 
-/**
- * Extract x and y coordinates from a public key
- */
 export function extractPubkeyCoordinates(pubkey: string): {x: string; y: string} {
   // Remove 0x04 prefix if present (uncompressed pubkey format)
   const pubkeyHex = pubkey.startsWith('0x04') ? pubkey.slice(4) : pubkey.slice(2);
@@ -22,9 +17,6 @@ export function extractPubkeyCoordinates(pubkey: string): {x: string; y: string}
   return {x, y};
 }
 
-/**
- * Convert hex string to byte array for Noir circuit
- */
 export function hexToByteArray(hex: string): number[] {
   const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
   const bytes: number[] = [];
@@ -34,9 +26,6 @@ export function hexToByteArray(hex: string): number[] {
   return bytes;
 }
 
-/**
- * Pad array to target length with zeros
- */
 export function padArray(arr: number[], targetLength: number): number[] {
   const result = [...arr];
   while (result.length < targetLength) {
@@ -45,16 +34,10 @@ export function padArray(arr: number[], targetLength: number): number[] {
   return result;
 }
 
-/**
- * Convert byte array to Noir input format (string array)
- */
 export function bytesToNoirInput(bytes: number[]): string[] {
   return bytes.map(b => '0x' + b.toString(16).padStart(2, '0'));
 }
 
-/**
- * Simple Merkle Tree implementation for signer verification
- */
 export class SimpleMerkleTree {
   private leaves: string[];
   private layers: string[][];
@@ -74,8 +57,7 @@ export class SimpleMerkleTree {
       const nextLayer: string[] = [];
       for (let i = 0; i < currentLayer.length; i += 2) {
         const left = currentLayer[i];
-        const right = currentLayer[i + 1] || left; // Duplicate last if odd
-        // Hash pair (no sorting to match circuit)
+        const right = currentLayer[i + 1] || left;
         const combined = ethers.utils.concat([
           ethers.utils.arrayify(left),
           ethers.utils.arrayify(right),
@@ -103,7 +85,7 @@ export class SimpleMerkleTree {
       if (siblingIdx < layer.length) {
         proof.push(layer[siblingIdx]);
       } else {
-        proof.push(layer[idx]); // Duplicate if no sibling
+        proof.push(layer[idx]);
       }
 
       idx = Math.floor(idx / 2);
@@ -121,21 +103,16 @@ export class SimpleMerkleTree {
   }
 }
 
-/**
- * Sign a message with MetaMask and return the signature components
- */
 export async function signMessage(
   sdk: any,
   account: string,
   messageHash: string,
 ): Promise<{signature: string; r: string; s: string; v: number}> {
-  // Use personal_sign for Ethereum signed message
   const signature = await sdk.request({
     method: 'personal_sign',
     params: [messageHash, account],
   });
 
-  // Parse signature into r, s, v
   const sig = ethers.utils.splitSignature(signature);
   return {
     signature,
@@ -145,25 +122,15 @@ export async function signMessage(
   };
 }
 
-/**
- * Recover public key from signature
- */
 export function recoverPublicKey(messageHash: string, signature: string): string {
-  // Create the Ethereum signed message hash
   const ethSignedHash = ethers.utils.hashMessage(ethers.utils.arrayify(messageHash));
   const recoveredPubKey = ethers.utils.recoverPublicKey(ethSignedHash, signature);
   return recoveredPubKey;
 }
 
-/**
- * Create unsigned transaction hash for EIP-1559 transaction
- * This is used to verify the Coinbase attester's signature
- */
 export function createUnsignedTxHash(rawTx: string): string {
-  // Parse the transaction
   const tx = ethers.utils.parseTransaction(rawTx);
 
-  // Reconstruct the unsigned transaction for EIP-1559
   const unsignedTx: ethers.utils.UnsignedTransaction = {
     to: tx.to,
     nonce: tx.nonce,
@@ -173,17 +140,13 @@ export function createUnsignedTxHash(rawTx: string): string {
     data: tx.data,
     value: tx.value,
     chainId: tx.chainId,
-    type: 2, // EIP-1559
+    type: 2,
   };
 
-  // Serialize and hash
   const serialized = ethers.utils.serializeTransaction(unsignedTx);
   return ethers.utils.keccak256(serialized);
 }
 
-/**
- * Extract signature from parsed transaction
- */
 export function extractTxSignature(rawTx: string): {r: string; s: string; v: number} {
   const tx = ethers.utils.parseTransaction(rawTx);
   return {
@@ -193,14 +156,10 @@ export function extractTxSignature(rawTx: string): {r: string; s: string; v: num
   };
 }
 
-/**
- * Recover signer's public key from transaction
- */
 export function recoverTxSignerPubkey(rawTx: string): string {
   const tx = ethers.utils.parseTransaction(rawTx);
   const unsignedTxHash = createUnsignedTxHash(rawTx);
 
-  // Create signature from transaction components
   const signature = ethers.utils.joinSignature({
     r: tx.r!,
     s: tx.s!,
@@ -210,9 +169,6 @@ export function recoverTxSignerPubkey(rawTx: string): string {
   return ethers.utils.recoverPublicKey(unsignedTxHash, signature);
 }
 
-/**
- * Verify that a transaction is a valid Coinbase attestation
- */
 export function verifyAttestationTx(
   rawTx: string,
   expectedUserAddress: string,
@@ -263,9 +219,6 @@ export function verifyAttestationTx(
   }
 }
 
-/**
- * Prepare all inputs for the Coinbase KYC circuit
- */
 export interface CoinbaseKycCircuitInputs {
   // Public inputs
   signal_hash: string[];
@@ -293,46 +246,36 @@ export function prepareCircuitInputs(
   rawTransaction: string,
   coinbaseSignerIndex: number,
 ): CoinbaseKycCircuitInputs {
-  // Build Merkle tree from authorized signers
   const merkleTree = new SimpleMerkleTree(AUTHORIZED_SIGNERS);
   const merkleRoot = merkleTree.getRoot();
   const {proof: merkleProof, leafIndex, depth} = merkleTree.getProof(coinbaseSignerIndex);
 
-  // Extract user pubkey coordinates
   const userPubkeyCoords = extractPubkeyCoordinates(userPubkey);
 
-  // Parse user signature (remove v, keep r + s)
   const userSig = ethers.utils.splitSignature(userSignature);
   const userSigBytes = [
     ...hexToByteArray(userSig.r),
     ...hexToByteArray(userSig.s),
   ];
 
-  // Get raw transaction bytes and pad to 300
   const txBytes = hexToByteArray(rawTransaction);
   const paddedTxBytes = padArray(txBytes, 300);
 
-  // Recover Coinbase signer pubkey from transaction
   const coinbasePubkey = recoverTxSignerPubkey(rawTransaction);
   const coinbasePubkeyCoords = extractPubkeyCoordinates(coinbasePubkey);
 
-  // Pad merkle proof to depth 8 (max 256 signers)
   const paddedProof: string[] = [];
   for (let i = 0; i < 8; i++) {
     if (i < merkleProof.length) {
       paddedProof.push(...bytesToNoirInput(hexToByteArray(merkleProof[i])));
     } else {
-      // Pad with zeros
       paddedProof.push(...bytesToNoirInput(new Array(32).fill(0)));
     }
   }
 
   return {
-    // Public inputs
     signal_hash: bytesToNoirInput(Array.from(signalHash)),
     signer_list_merkle_root: bytesToNoirInput(hexToByteArray(merkleRoot)),
-
-    // Private inputs
     user_address: bytesToNoirInput(hexToByteArray(userAddress)),
     user_signature: bytesToNoirInput(userSigBytes),
     user_pubkey_x: bytesToNoirInput(hexToByteArray(userPubkeyCoords.x)),
@@ -347,16 +290,10 @@ export function prepareCircuitInputs(
   };
 }
 
-/**
- * Flatten circuit inputs to a single array for mopro
- */
 export function flattenCircuitInputs(inputs: CoinbaseKycCircuitInputs): string[] {
   return [
-    // Public inputs first
     ...inputs.signal_hash,
     ...inputs.signer_list_merkle_root,
-
-    // Private inputs
     ...inputs.user_address,
     ...inputs.user_signature,
     ...inputs.user_pubkey_x,

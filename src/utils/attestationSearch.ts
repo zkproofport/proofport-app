@@ -1,15 +1,9 @@
 import {ethers} from 'ethers';
 
-// EAS GraphQL endpoint for Base chain
 const EAS_GRAPHQL_ENDPOINT = 'https://base.easscan.org/graphql';
-
-// Coinbase Verification schema ID on Base
 const COINBASE_SCHEMA_ID = '0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9';
-
-// Coinbase Attester Contract address
 const COINBASE_ATTESTER_CONTRACT = '0x357458739F90461b99789350868CD7CF330Dd7EE';
 
-// Base RPC endpoints (multiple fallbacks)
 const BASE_RPC_URLS = [
   'https://base.llamarpc.com',
   'https://base-rpc.publicnode.com',
@@ -26,9 +20,6 @@ export interface AttestationInfo {
   rawTransaction?: string;
 }
 
-/**
- * Search for Coinbase attestations for a given wallet address using EAS GraphQL
- */
 export async function searchAttestations(
   walletAddress: string,
   addLog?: (msg: string) => void,
@@ -99,9 +90,6 @@ export async function searchAttestations(
   }
 }
 
-/**
- * Fetch transaction and reconstruct raw transaction data from Base chain
- */
 export async function fetchRawTransaction(
   txHash: string,
   addLog?: (msg: string) => void,
@@ -181,11 +169,7 @@ export async function fetchRawTransaction(
   throw lastError || new Error('All RPC endpoints failed');
 }
 
-/**
- * Reconstruct raw signed transaction from transaction object
- */
 function reconstructRawTransaction(tx: any): string {
-  // EIP-1559 transaction (type 2)
   if (tx.type === '0x2') {
     const txData: ethers.utils.UnsignedTransaction = {
       type: 2,
@@ -200,11 +184,7 @@ function reconstructRawTransaction(tx: any): string {
       accessList: tx.accessList || [],
     };
 
-    // EIP-1559 uses yParity (0 or 1), not full v value
-    // v from RPC is already yParity for type-2 transactions (0x0 or 0x1)
     const vValue = parseInt(tx.v, 16);
-    // For EIP-1559, v should be 0 or 1 (yParity)
-    // If legacy v format is returned, extract parity with modulo
     const yParity = vValue <= 1 ? vValue : vValue % 2;
     const signature = {
       r: tx.r,
@@ -215,7 +195,6 @@ function reconstructRawTransaction(tx: any): string {
     return ethers.utils.serializeTransaction(txData, signature);
   }
 
-  // Legacy transaction (type 0)
   const txData: ethers.utils.UnsignedTransaction = {
     nonce: parseInt(tx.nonce, 16),
     gasPrice: ethers.BigNumber.from(tx.gasPrice),
@@ -235,9 +214,6 @@ function reconstructRawTransaction(tx: any): string {
   return ethers.utils.serializeTransaction(txData, signature);
 }
 
-/**
- * Validate that a transaction is a valid Coinbase attestation
- */
 export function validateAttestationTransaction(
   rawTx: string,
   expectedRecipient: string,
@@ -248,7 +224,6 @@ export function validateAttestationTransaction(
   try {
     const tx = ethers.utils.parseTransaction(rawTx);
 
-    // Check destination is Coinbase Attester Contract
     if (tx.to?.toLowerCase() !== COINBASE_ATTESTER_CONTRACT.toLowerCase()) {
       return {valid: false, error: 'Transaction not sent to Coinbase Attester Contract'};
     }
@@ -259,7 +234,6 @@ export function validateAttestationTransaction(
       return {valid: false, error: 'Invalid function selector'};
     }
 
-    // Extract address from calldata (last 20 bytes of 32-byte padded address)
     const calldataAddress = '0x' + tx.data.slice(34, 74);
     if (calldataAddress.toLowerCase() !== expectedRecipient.toLowerCase()) {
       return {
@@ -278,16 +252,12 @@ export function validateAttestationTransaction(
   }
 }
 
-/**
- * Full flow: Search attestation and fetch raw transaction
- */
 export async function findAttestationTransaction(
   walletAddress: string,
   addLog?: (msg: string) => void,
 ): Promise<{attestation: AttestationInfo; rawTransaction: string} | null> {
   const log = addLog || console.log;
 
-  // Search for attestations
   const attestations = await searchAttestations(walletAddress, log);
 
   if (attestations.length === 0) {
@@ -295,15 +265,12 @@ export async function findAttestationTransaction(
     return null;
   }
 
-  // Use the most recent attestation
   const attestation = attestations[0];
   log(`Using attestation from ${new Date(attestation.time * 1000).toLocaleString()}`);
   log(`TX Hash: ${attestation.txHash}`);
 
-  // Fetch raw transaction
   const rawTransaction = await fetchRawTransaction(attestation.txHash, log);
 
-  // Validate the transaction
   const validation = validateAttestationTransaction(rawTransaction, walletAddress, log);
   if (!validation.valid) {
     log(`Validation failed: ${validation.error}`);

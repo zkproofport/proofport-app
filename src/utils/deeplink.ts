@@ -1,8 +1,3 @@
-/**
- * Deep Link utilities for ProofPort App
- */
-
-// Linking import removed - now using HTTP POST for callbacks
 
 export type CircuitType = 'age_verifier' | 'coinbase_attestation';
 
@@ -64,20 +59,15 @@ export interface ProofResponse {
 
 const SCHEME = 'zkproofport';
 
-/**
- * Decode base64url encoded data (with UTF-8 support)
- */
 function decodeData<T>(encoded: string): T {
   let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
   while (base64.length % 4) {
     base64 += '=';
   }
 
-  // React Native에서는 base-64 라이브러리 사용
   const {decode} = require('base-64');
   const decoded = decode(base64);
 
-  // UTF-8 디코딩
   let json: string;
   try {
     json = decodeURIComponent(
@@ -87,19 +77,12 @@ function decodeData<T>(encoded: string): T {
         .join(''),
     );
   } catch {
-    // fallback: 이미 ASCII인 경우
     json = decoded;
   }
 
   return JSON.parse(json) as T;
 }
 
-/**
- * Parse proof request from deep link URL
- * Supports two formats:
- * 1. zkproofport://proof-request?data=<base64_encoded_full_request>
- * 2. zkproofport://proof-request?circuit=...&requestId=...&inputs=<base64>&callbackUrl=...
- */
 export function parseProofRequestUrl(url: string): ProofRequest | null {
   try {
     const urlObj = new URL(url);
@@ -156,9 +139,6 @@ export function parseProofRequestUrl(url: string): ProofRequest | null {
   }
 }
 
-/**
- * Validate proof request
- */
 export function validateProofRequest(
   request: ProofRequest,
 ): {valid: boolean; error?: string} {
@@ -219,9 +199,6 @@ export function validateProofRequest(
   return {valid: true};
 }
 
-/**
- * Build callback URL with proof response
- */
 export function buildCallbackUrl(
   callbackUrl: string,
   response: ProofResponse,
@@ -249,9 +226,6 @@ export function buildCallbackUrl(
   return url.toString();
 }
 
-/**
- * Send proof response back to dapp via HTTP POST (webhook style)
- */
 export async function sendProofResponse(response: ProofResponse, callbackUrl: string): Promise<boolean> {
   try {
     console.log('[DeepLink] Sending response via HTTP POST to:', callbackUrl);
@@ -278,10 +252,6 @@ export async function sendProofResponse(response: ProofResponse, callbackUrl: st
   }
 }
 
-/**
- * Check if URL is a ProofPort proof request deep link
- * Returns false for other zkproofport:// URLs (e.g., wallet callbacks)
- */
 export function isProofPortDeepLink(url: string): boolean {
   const lowerUrl = url.toLowerCase();
   // Only match proof-request URLs, not wallet callbacks or other URLs

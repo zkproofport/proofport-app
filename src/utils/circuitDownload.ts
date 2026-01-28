@@ -1,10 +1,8 @@
 import RNFS from 'react-native-fs';
 
-// GitHub raw URL bases
 const GITHUB_ZKPROOFPORT = 'https://raw.githubusercontent.com/zkproofport/circuits/main';
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofPortApp/assets/circuits';
 
-// Circuit configurations with their repo and paths
 const CIRCUIT_CONFIGS: Record<string, {
   repoBase: string;
   basePath: string;
@@ -25,25 +23,17 @@ const CIRCUIT_CONFIGS: Record<string, {
   },
 };
 
-// Circuit file extensions
 const CIRCUIT_EXTENSIONS = ['json', 'srs', 'vk'] as const;
 
-// No bundled circuits - all downloaded from GitHub
 const BUNDLED_CIRCUITS: string[] = [];
 
-/**
- * Get the bundled asset path for a circuit file
- * iOS: Resources are copied directly to MainBundlePath
- * Android: Resources are in assets/circuits/ subdirectory
- */
-const getBundledAssetPath = (circuitName: string, extension: string): string => {
+function getBundledAssetPath(circuitName: string, extension: string): string {
   const Platform = require('react-native').Platform;
   if (Platform.OS === 'ios') {
     return `${RNFS.MainBundlePath}/${circuitName}.${extension}`;
-  } else {
-    return `${RNFS.MainBundlePath}/assets/circuits/${circuitName}.${extension}`;
   }
-};
+  return `${RNFS.MainBundlePath}/assets/circuits/${circuitName}.${extension}`;
+}
 
 export interface DownloadProgress {
   circuitName: string;
@@ -59,35 +49,23 @@ export interface CircuitDownloadResult {
   vkPath: string;
 }
 
-/**
- * Get the local directory for storing downloaded circuit files
- */
-export const getCircuitDirectory = (): string => {
+export function getCircuitDirectory(): string {
   return `${RNFS.DocumentDirectoryPath}/circuits`;
-};
+}
 
-/**
- * Get the local path for a specific circuit file
- */
-export const getCircuitFilePath = (circuitName: string, extension: string): string => {
+export function getCircuitFilePath(circuitName: string, extension: string): string {
   return `${getCircuitDirectory()}/${circuitName}.${extension}`;
-};
+}
 
-/**
- * Check if a circuit file exists locally
- */
-export const circuitFileExists = async (
+export async function circuitFileExists(
   circuitName: string,
   extension: string,
-): Promise<boolean> => {
+): Promise<boolean> {
   const filePath = getCircuitFilePath(circuitName, extension);
   return RNFS.exists(filePath);
-};
+}
 
-/**
- * Check if all circuit files exist locally
- */
-export const allCircuitFilesExist = async (circuitName: string): Promise<boolean> => {
+export async function allCircuitFilesExist(circuitName: string): Promise<boolean> {
   for (const ext of CIRCUIT_EXTENSIONS) {
     const exists = await circuitFileExists(circuitName, ext);
     if (!exists) {
@@ -95,14 +73,11 @@ export const allCircuitFilesExist = async (circuitName: string): Promise<boolean
     }
   }
   return true;
-};
+}
 
-/**
- * Get file sizes for a circuit (returns 0 if file doesn't exist)
- */
-export const getCircuitFileSizes = async (
+export async function getCircuitFileSizes(
   circuitName: string,
-): Promise<{json: number; srs: number; vk: number}> => {
+): Promise<{json: number; srs: number; vk: number}> {
   const sizes = {json: 0, srs: 0, vk: 0};
 
   for (const ext of CIRCUIT_EXTENSIONS) {
@@ -118,24 +93,19 @@ export const getCircuitFileSizes = async (
   }
 
   return sizes;
-};
+}
 
-/**
- * Copy a bundled circuit file from app assets to DocumentDirectory
- * Falls back to download if bundle file is not available
- */
-const copyBundledCircuitFile = async (
+async function copyBundledCircuitFile(
   circuitName: string,
   extension: string,
   onProgress?: (progress: DownloadProgress) => void,
   addLog?: (msg: string) => void,
-): Promise<string> => {
+): Promise<string> {
   const log = addLog || console.log;
   const fileName = `${circuitName}.${extension}`;
   const sourcePath = getBundledAssetPath(circuitName, extension);
   const destPath = getCircuitFilePath(circuitName, extension);
 
-  // Ensure directory exists
   const circuitDir = getCircuitDirectory();
   if (!(await RNFS.exists(circuitDir))) {
     await RNFS.mkdir(circuitDir);
@@ -165,17 +135,13 @@ const copyBundledCircuitFile = async (
     }
 
     return destPath;
-  } else {
-    // Fallback to download if bundle file not available
-    log(`Bundle file not found at ${sourcePath}, downloading instead...`);
-    return downloadCircuitFileFromGitHub(circuitName, extension, onProgress, log);
   }
-};
 
-/**
- * Get the GitHub URL for a circuit file based on circuit config
- */
-const getCircuitFileUrl = (circuitName: string, extension: string): string => {
+  log(`Bundle file not found at ${sourcePath}, downloading instead...`);
+  return downloadCircuitFileFromGitHub(circuitName, extension, onProgress, log);
+}
+
+function getCircuitFileUrl(circuitName: string, extension: string): string {
   const config = CIRCUIT_CONFIGS[circuitName];
 
   if (!config) {
@@ -186,31 +152,25 @@ const getCircuitFileUrl = (circuitName: string, extension: string): string => {
   const { repoBase, basePath, vkPath, vkFileName } = config;
 
   if (extension === 'vk') {
-    // Use vkPath and vkFileName for verification key
     const path = vkPath ? `${vkPath}/${vkFileName}` : vkFileName;
     return `${repoBase}/${path}`;
   }
 
-  // For json and srs files
   const path = basePath ? `${basePath}/${circuitName}.${extension}` : `${circuitName}.${extension}`;
   return `${repoBase}/${path}`;
-};
+}
 
-/**
- * Download a single circuit file from GitHub (internal function)
- */
-const downloadCircuitFileFromGitHub = async (
+async function downloadCircuitFileFromGitHub(
   circuitName: string,
   extension: string,
   onProgress?: (progress: DownloadProgress) => void,
   addLog?: (msg: string) => void,
-): Promise<string> => {
+): Promise<string> {
   const log = addLog || console.log;
   const fileName = `${circuitName}.${extension}`;
   const url = getCircuitFileUrl(circuitName, extension);
   const destPath = getCircuitFilePath(circuitName, extension);
 
-  // Ensure directory exists
   const circuitDir = getCircuitDirectory();
   if (!(await RNFS.exists(circuitDir))) {
     await RNFS.mkdir(circuitDir);
@@ -250,36 +210,28 @@ const downloadCircuitFileFromGitHub = async (
   log(`Downloaded ${fileName}: ${sizeMB} MB`);
 
   return destPath;
-};
+}
 
-/**
- * Download a single circuit file (tries bundle first, then downloads)
- */
-export const downloadCircuitFile = async (
+export async function downloadCircuitFile(
   circuitName: string,
   extension: string,
   onProgress?: (progress: DownloadProgress) => void,
   addLog?: (msg: string) => void,
-): Promise<string> => {
+): Promise<string> {
   const log = addLog || console.log;
 
-  // If circuit is bundled, try to copy from assets first
   if (BUNDLED_CIRCUITS.includes(circuitName)) {
     return copyBundledCircuitFile(circuitName, extension, onProgress, log);
   }
 
-  // Otherwise download from GitHub
   return downloadCircuitFileFromGitHub(circuitName, extension, onProgress, log);
-};
+}
 
-/**
- * Download all circuit files (json, srs, vk)
- */
-export const downloadCircuitFiles = async (
+export async function downloadCircuitFiles(
   circuitName: string,
   onProgress?: (progress: DownloadProgress) => void,
   addLog?: (msg: string) => void,
-): Promise<CircuitDownloadResult> => {
+): Promise<CircuitDownloadResult> {
   const log = addLog || console.log;
 
   log(`=== Downloading circuit files for ${circuitName} ===`);
@@ -310,15 +262,12 @@ export const downloadCircuitFiles = async (
 
   log(`=== Circuit files ready ===`);
   return paths;
-};
+}
 
-/**
- * Delete all downloaded circuit files for a specific circuit
- */
-export const deleteCircuitFiles = async (
+export async function deleteCircuitFiles(
   circuitName: string,
   addLog?: (msg: string) => void,
-): Promise<void> => {
+): Promise<void> {
   const log = addLog || console.log;
 
   for (const ext of CIRCUIT_EXTENSIONS) {
@@ -333,14 +282,11 @@ export const deleteCircuitFiles = async (
       log(`Failed to delete ${circuitName}.${ext}: ${errorMsg}`);
     }
   }
-};
+}
 
-/**
- * Delete all downloaded circuit files
- */
-export const deleteAllCircuitFiles = async (
+export async function deleteAllCircuitFiles(
   addLog?: (msg: string) => void,
-): Promise<void> => {
+): Promise<void> {
   const log = addLog || console.log;
   const circuitDir = getCircuitDirectory();
 
@@ -353,16 +299,13 @@ export const deleteAllCircuitFiles = async (
     const errorMsg = error instanceof Error ? error.message : String(error);
     log(`Failed to delete circuit directory: ${errorMsg}`);
   }
-};
+}
 
-/**
- * Get total size of downloaded circuit files
- */
-export const getDownloadedCircuitsSize = async (): Promise<{
+export async function getDownloadedCircuitsSize(): Promise<{
   files: number;
   bytes: number;
   sizeMB: string;
-}> => {
+}> {
   const circuitDir = getCircuitDirectory();
   let totalFiles = 0;
   let totalBytes = 0;
@@ -386,4 +329,4 @@ export const getDownloadedCircuitsSize = async (): Promise<{
     bytes: totalBytes,
     sizeMB: (totalBytes / (1024 * 1024)).toFixed(2),
   };
-};
+}

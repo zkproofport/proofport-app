@@ -1,28 +1,19 @@
-/**
- * Convert ArrayBuffer to hex string for display
- */
-export const arrayBufferToHex = (buffer: ArrayBuffer): string => {
+export function arrayBufferToHex(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   return Array.from(bytes)
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
-};
+}
 
-/**
- * Get current timestamp in HH:MM:SS format
- */
-export const getTimestamp = (): string => {
+export function getTimestamp(): string {
   return new Date().toLocaleTimeString();
-};
+}
 
-/**
- * Validate age verification inputs
- */
-export const validateInputs = (
+export function validateInputs(
   birthYear: string,
   currentYear: string,
   minAge: string,
-): {isValid: boolean; error?: string} => {
+): {isValid: boolean; error?: string} {
   const birthYearNum = parseInt(birthYear, 10);
   const currentYearNum = parseInt(currentYear, 10);
   const minAgeNum = parseInt(minAge, 10);
@@ -36,4 +27,4 @@ export const validateInputs = (
   }
 
   return {isValid: true};
-};
+}
