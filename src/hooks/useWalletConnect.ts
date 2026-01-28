@@ -76,12 +76,12 @@ export const useWalletConnect = (addLog?: (msg: string) => void): UseWalletConne
   // chainId from useAccount - may be number or undefined
   const chainId = accountChainId ? Number(accountChainId) : null;
 
-  const getStatus = (): ConnectionStatus => {
+  function getStatus(): ConnectionStatus {
     if (isConnected && address) return 'connected';
     if (isConnecting) return 'connecting';
     if (error) return 'error';
     return 'disconnected';
-  };
+  }
 
   const openWalletStore = useCallback(async () => {
     const storeUrl = Platform.OS === 'ios'
@@ -159,10 +159,10 @@ export const useWalletConnect = (addLog?: (msg: string) => void): UseWalletConne
     return signature;
   }, [isConnected, walletProvider, address, log]);
 
-  const formatAddress = (addr: string | undefined): string => {
+  function formatAddress(addr: string | undefined): string {
     if (!addr) return '';
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
+  }
 
   return {
     account: address ?? null,

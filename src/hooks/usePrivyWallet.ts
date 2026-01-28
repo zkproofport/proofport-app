@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
-import { usePrivy, useLoginWithSiwe } from '@privy-io/expo';
-import { useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
-import { ethers } from 'ethers';
+import {useState, useCallback, useEffect} from 'react';
+import {usePrivy, useLoginWithSiwe} from '@privy-io/expo';
+import {useAppKit, useAccount, useProvider} from '@reown/appkit-react-native';
+import {ethers} from 'ethers';
 
 export type PrivyConnectionStatus =
   | 'initializing'
@@ -76,19 +76,19 @@ export const usePrivyWallet = (
   // Use AppKit address when connected, or Privy wallet address when authenticated
   const account = address || privyWalletAddress || null;
 
-  const getStatus = (): PrivyConnectionStatus => {
+  function getStatus(): PrivyConnectionStatus {
     if (!isReady) return 'initializing';
     if (error) return 'error';
     if (isConnecting || isSigning) return 'connecting';
     if (isAuthenticated) return 'authenticated';
     if (isConnected && address) return 'wallet_connected';
     return 'disconnected';
-  };
+  }
 
-  const formatAddress = (addr: string | undefined): string => {
+  function formatAddress(addr: string | undefined): string {
     if (!addr) return '';
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
+  }
 
   // Connect wallet via AppKit modal
   const connect = useCallback(async () => {
