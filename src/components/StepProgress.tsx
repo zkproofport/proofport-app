@@ -15,32 +15,46 @@ interface StepProgressProps {
   title?: string;
 }
 
-export const StepProgress: React.FC<StepProgressProps> = ({steps, title}) => {
-  const getStatusIcon = (status: StepStatus) => {
-    switch (status) {
-      case 'completed':
-        return '✓';
-      case 'error':
-        return '✗';
-      case 'in_progress':
-        return null; // Will show spinner
-      default:
-        return '○';
-    }
-  };
+function getStatusIcon(status: StepStatus): string | null {
+  switch (status) {
+    case 'completed':
+      return '✓';
+    case 'error':
+      return '✗';
+    case 'in_progress':
+      return null;
+    default:
+      return '○';
+  }
+}
 
-  const getStatusColor = (status: StepStatus) => {
-    switch (status) {
-      case 'completed':
-        return '#34C759';
-      case 'error':
-        return '#FF3B30';
-      case 'in_progress':
-        return '#007AFF';
-      default:
-        return '#C7C7CC';
-    }
-  };
+function getStatusColor(status: StepStatus): string {
+  switch (status) {
+    case 'completed':
+      return '#34C759';
+    case 'error':
+      return '#FF3B30';
+    case 'in_progress':
+      return '#007AFF';
+    default:
+      return '#C7C7CC';
+  }
+}
+
+function getStepLabelColor(status: StepStatus): string {
+  switch (status) {
+    case 'in_progress':
+      return '#007AFF';
+    case 'completed':
+      return '#34C759';
+    case 'error':
+      return '#FF3B30';
+    default:
+      return '#8E8E93';
+  }
+}
+
+export const StepProgress: React.FC<StepProgressProps> = ({steps, title}) => {
 
   return (
     <View style={styles.container}>
@@ -88,14 +102,7 @@ export const StepProgress: React.FC<StepProgressProps> = ({steps, title}) => {
               style={[
                 styles.stepLabel,
                 {
-                  color:
-                    step.status === 'in_progress'
-                      ? '#007AFF'
-                      : step.status === 'completed'
-                      ? '#34C759'
-                      : step.status === 'error'
-                      ? '#FF3B30'
-                      : '#8E8E93',
+                  color: getStepLabelColor(step.status),
                   fontWeight: step.status === 'in_progress' ? '600' : '400',
                 },
               ]}>

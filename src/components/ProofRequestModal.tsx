@@ -1,7 +1,3 @@
-/**
- * Modal component for displaying incoming proof requests from dapps
- */
-
 import React from 'react';
 import {
   Modal,
@@ -50,19 +46,18 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
   const isAgeVerifier = request.circuit === 'age_verifier';
   const inputs = request.inputs as AgeVerifierInputs | CoinbaseKycInputs;
 
-  const formatTime = (timestamp?: number) => {
+  function formatTime(timestamp?: number): string {
     if (!timestamp) return 'No expiry';
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString();
-  };
+    return new Date(timestamp).toLocaleTimeString();
+  }
 
-  const getDappHost = (url: string) => {
+  function getDappHost(url: string): string {
     try {
       return new URL(url).host;
     } catch {
       return url;
     }
-  };
+  }
 
   return (
     <Modal
