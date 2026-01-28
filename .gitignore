@@ -1,5 +1,154 @@
-# OMC (oh-my-claudecode)
+# ====================
+# OS Generated Files
+# ====================
+.DS_Store
+
+# ====================
+# Xcode
+# ====================
+build/
+DerivedData/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.xcuserstate
+**/.xcode.env.local
+
+# ====================
+# Android / IntelliJ
+# ====================
+.idea/
+.gradle/
+.cxx/
+.kotlin/
+local.properties
+*.iml
+*.hprof
+*.keystore
+!debug.keystore
+
+# ====================
+# Node.js
+# ====================
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# ====================
+# Yarn
+# ====================
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# ====================
+# Ruby / CocoaPods
+# ====================
+**/Pods/
+vendor/bundle/
+.bundle/
+Gemfile.lock
+
+# ====================
+# Bundle artifact
+# ====================
+*.jsbundle
+
+# ====================
+# Metro
+# ====================
+.metro-health-check*
+
+# ====================
+# Testing
+# ====================
+coverage/
+
+# ====================
+# Fastlane
+# ====================
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots/
+**/fastlane/test_output/
+
+# ====================
+# Mopro Bindings
+# ====================
+mopro_bindings/node_modules/
+mopro_bindings/lib/
+mopro_bindings/package-lock.json
+
+# ====================
+# Native Libraries (build artifacts)
+# ====================
+*.a
+*.so
+*.dylib
+**/*.xcframework/
+
+# ====================
+# Circuit Files (downloaded at runtime)
+# ====================
+android/app/src/main/assets/custom/
+ios/ProofPortApp/AgeVerifierApp/*.srs
+ios/ProofPortApp/AgeVerifierApp/*.json
+ios/ProofPortApp/AgeVerifierApp/*.vk
+
+# ====================
+# Expo
+# ====================
+.expo/
+dist/
+web-build/
+
+# ====================
+# oh-my-claudecode
+# ====================
 .omc/
 
-# Git worktrees
-.worktree/
+# ====================
+# Backup files
+# ====================
+*.bak
+*.backup
+mopro_bindings.bak/
+
+# ====================
+# Generated files
+# ====================
+**/link-assets-manifest.json
+
+# ====================
+# Environment files
+# ====================
+.env
+.env.*
+!.env.example
+
+# ====================
+# Logs
+# ====================
+*.log
+logs/
+
+# ====================
+# Temp files
+# ====================
+tmp/
+.tmp/
+*.tmp
