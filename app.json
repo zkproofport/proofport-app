@@ -1,4 +1,20 @@
 {
   "name": "zkProofPort",
-  "displayName": "ZKProofPort"
+  "displayName": "ZKProofPort",
+  "expo": {
+    "name": "ZKProofPort",
+    "splash": {
+      "backgroundColor": "#FFFFFF"
+    },
+    "android": {
+      "splash": {
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "ios": {
+      "splash": {
+        "backgroundColor": "#FFFFFF"
+      }
+    }
+  }
 }

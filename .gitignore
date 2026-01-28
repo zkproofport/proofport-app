@@ -94,7 +94,7 @@ mopro_bindings/lib/
 mopro_bindings/package-lock.json
 
 # ====================
-# Native Libraries (build artifacts)
+# Native Libraries (build artifacts - too large for GitHub)
 # ====================
 *.a
 *.so
