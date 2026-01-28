@@ -1,42 +1,29 @@
-import React, {useEffect, useState, useCallback} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  Animated,
-} from 'react-native';
+import React, {useEffect, useState, useCallback, useRef} from 'react';
+import {View, Text, StyleSheet, Image, Animated} from 'react-native';
+
 import {
   downloadCircuitFiles,
   allCircuitFilesExist,
   type DownloadProgress,
 } from '../utils/circuitDownload';
 
-
-// Circuit names to download
 const CIRCUITS = ['age_verifier', 'coinbase_attestation'];
+const SPLASH_DURATION = 3000;
 
 interface LoadingScreenProps {
   onReady: () => void;
 }
 
-export const LoadingScreen: React.FC<LoadingScreenProps> = ({onReady}) => {
+export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement {
+  const [showSplash, setShowSplash] = useState(true);
   const [status, setStatus] = useState('Initializing...');
   const [currentFile, setCurrentFile] = useState('');
   const [progress, setProgress] = useState(0);
   const [overallProgress, setOverallProgress] = useState(0);
-  const [fadeAnim] = useState(new Animated.Value(0));
   const [pulseAnim] = useState(new Animated.Value(1));
+  const splashTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fade in animation
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-
-    // Pulse animation for logo
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -51,7 +38,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({onReady}) => {
         }),
       ]),
     ).start();
-  }, [fadeAnim, pulseAnim]);
+  }, [pulseAnim]);
 
   const handleProgress = useCallback((prog: DownloadProgress) => {
     setCurrentFile(prog.fileName);
@@ -87,30 +74,43 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({onReady}) => {
       setProgress(100);
       setOverallProgress(100);
 
-      // Small delay before transitioning
-      setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          onReady();
-        });
-      }, 500);
+      setTimeout(() => onReady(), 500);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       setStatus(`Error: ${errorMsg}`);
       console.error('Circuit download error:', error);
     }
-  }, [handleProgress, fadeAnim, onReady]);
+  }, [handleProgress, onReady]);
 
   useEffect(() => {
-    checkAndDownloadCircuits();
+    splashTimerRef.current = setTimeout(() => {
+      setShowSplash(false);
+      checkAndDownloadCircuits();
+    }, SPLASH_DURATION);
+
+    return () => {
+      if (splashTimerRef.current) {
+        clearTimeout(splashTimerRef.current);
+      }
+    };
   }, [checkAndDownloadCircuits]);
 
+  if (showSplash) {
+    return (
+      <View style={styles.splashContainer}>
+        <Animated.View style={[styles.splashLogoContainer, {transform: [{scale: pulseAnim}]}]}>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.splashLogo}
+            resizeMode="contain"
+          />
+        </Animated.View>
+      </View>
+    );
+  }
+
   return (
-    <Animated.View style={[styles.container, {opacity: fadeAnim}]}>
-      {/* Logo */}
+    <View style={styles.container}>
       <Animated.View style={[styles.logoContainer, {transform: [{scale: pulseAnim}]}]}>
         <Image
           source={require('../../assets/logo.png')}
@@ -119,56 +119,56 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({onReady}) => {
         />
       </Animated.View>
 
-      {/* App Name */}
       <Text style={styles.appName}>ZKProofPort</Text>
       <Text style={styles.tagline}>Privacy-Preserving Identity Proofs</Text>
 
-      {/* Progress Section */}
       <View style={styles.progressSection}>
         <Text style={styles.status}>{status}</Text>
+        {currentFile ? <Text style={styles.currentFile}>{currentFile}</Text> : null}
 
-        {currentFile ? (
-          <Text style={styles.currentFile}>{currentFile}</Text>
-        ) : null}
-
-        {/* Overall Progress Bar */}
         <View style={styles.progressBarContainer}>
           <View style={styles.progressBarBackground}>
-            <View
-              style={[
-                styles.progressBarFill,
-                {width: `${overallProgress}%`},
-              ]}
-            />
+            <View style={[styles.progressBarFill, {width: `${overallProgress}%`}]} />
           </View>
-          <Text style={styles.progressText}>
-            {Math.round(overallProgress)}%
-          </Text>
+          <Text style={styles.progressText}>{Math.round(overallProgress)}%</Text>
         </View>
 
-        {/* Current File Progress (when downloading) */}
         {progress > 0 && progress < 100 && currentFile && (
           <View style={styles.fileProgressContainer}>
             <View style={styles.fileProgressBarBackground}>
-              <View
-                style={[
-                  styles.fileProgressBarFill,
-                  {width: `${progress}%`},
-                ]}
-              />
+              <View style={[styles.fileProgressBarFill, {width: `${progress}%`}]} />
             </View>
             <Text style={styles.fileProgressText}>{progress}%</Text>
           </View>
         )}
       </View>
 
-      {/* Footer */}
       <Text style={styles.footer}>Powered by mopro & Noir</Text>
-    </Animated.View>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: '#1A2332',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splashLogoContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  splashLogo: {
+    width: 100,
+    height: 100,
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
