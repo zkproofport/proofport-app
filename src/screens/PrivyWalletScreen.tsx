@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,16 @@ import {
   Linking,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePrivy } from '@privy-io/expo';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {usePrivy} from '@privy-io/expo';
 import {
   useAppKit,
   useAccount,
   useWalletInfo,
   useAppKitState,
 } from '@reown/appkit-react-native';
-import { useLogs } from '../hooks';
-import { LogViewer } from '../components';
+import {useLogs} from '../hooks';
+import {LogViewer} from '../components';
 
 const CONNECTION_TIMEOUT = 30000;
 
@@ -143,22 +143,21 @@ export const PrivyWalletScreen: React.FC = () => {
     }
   }, [addLog]);
 
-  const formatAddress = (addr: string): string => {
+  function formatAddress(addr: string): string {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
+  }
 
-  const getStatusColor = (): string => {
+  function getStatusColor(): string {
     if (isAuthenticated) return '#4CAF50';
     if (isConnected) return '#FF9800';
-    if (!isReady) return '#9E9E9E';
     return '#9E9E9E';
-  };
+  }
 
-  const getStatusText = (): string => {
+  function getStatusText(): string {
     if (isAuthenticated) return 'Authenticated with Privy';
     if (isConnected) return 'Wallet Connected';
     return 'Not connected';
-  };
+  }
 
   // Track modal state to detect when modal closes
   useEffect(() => {

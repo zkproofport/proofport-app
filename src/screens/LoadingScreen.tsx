@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Image,
   Animated,
-  Dimensions,
 } from 'react-native';
 import {
   downloadCircuitFiles,
@@ -13,7 +12,6 @@ import {
   type DownloadProgress,
 } from '../utils/circuitDownload';
 
-const {width} = Dimensions.get('window');
 
 // Circuit names to download
 const CIRCUITS = ['age_verifier', 'coinbase_attestation'];
@@ -122,7 +120,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({onReady}) => {
       </Animated.View>
 
       {/* App Name */}
-      <Text style={styles.appName}>zkProofport</Text>
+      <Text style={styles.appName}>ZKProofPort</Text>
       <Text style={styles.tagline}>Privacy-Preserving Identity Proofs</Text>
 
       {/* Progress Section */}

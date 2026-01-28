@@ -12,10 +12,9 @@ import {
   Alert,
 } from 'react-native';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
-import {Header, InputForm, LogViewer, StepProgress} from '../components';
+import {InputForm, LogViewer, StepProgress} from '../components';
 import {useLogs, useAgeVerifier, useDeepLink} from '../hooks';
-import type {AgeVerifierInputs, RootStackParamList, ProofRequest} from '../types';
-import type {DeepLinkAgeVerifierInputs} from '../types';
+import type {AgeVerifierInputs, RootStackParamList, DeepLinkAgeVerifierInputs} from '../types';
 
 type AgeVerifierRouteProp = RouteProp<RootStackParamList, 'AgeVerifier'>;
 
@@ -143,12 +142,12 @@ export const AgeVerifierScreen: React.FC = () => {
     }
   }, [proofRequest, handleGenerateProof, addLog]);
 
-  const getStatusColor = () => {
+  function getStatusColor(): string {
     if (status.includes('Error') || status.includes('invalid')) return '#FF3B30';
     if (status.includes('verified')) return '#34C759';
     if (status === 'Ready') return '#8E8E93';
     return '#007AFF';
-  };
+  }
 
   const hasProof = !!parsedProof;
   const hasAnyStepStarted = proofSteps.some(s => s.status !== 'pending');

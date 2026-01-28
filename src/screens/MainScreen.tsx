@@ -17,7 +17,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({navigation}) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>zkProofPort</Text>
+        <Text style={styles.title}>ZKProofPort</Text>
         <Text style={styles.subtitle}>Select a feature to explore</Text>
 
         <View style={styles.buttonContainer}>

@@ -40,28 +40,27 @@ export const WalletScreen: React.FC = () => {
     openWalletStore,
   } = useWalletConnect(addLog);
 
-  // Check if error is related to missing wallet app
   const isWalletNotFoundError = error?.includes('wallet app') || error?.includes('LINKING_ERROR');
 
-  const handleConnect = async () => {
+  async function handleConnect(): Promise<void> {
     clearLogs();
     addLog('Connect button pressed');
     await connect();
-  };
+  }
 
-  const handleDisconnect = async () => {
+  async function handleDisconnect(): Promise<void> {
     addLog('Disconnect button pressed');
     await disconnect();
-  };
+  }
 
-  const handleCopyAddress = () => {
+  function handleCopyAddress(): void {
     if (account) {
       Clipboard.setString(account);
       Alert.alert('Copied', 'Wallet address copied to clipboard');
     }
-  };
+  }
 
-  const handleClearCache = async () => {
+  async function handleClearCache(): Promise<void> {
     try {
       addLog('Clearing WalletConnect cache...');
       const allKeys = await AsyncStorage.getAllKeys();
@@ -82,14 +81,14 @@ export const WalletScreen: React.FC = () => {
       addLog(`Clear cache error: ${msg}`);
       Alert.alert('Error', msg);
     }
-  };
+  }
 
-  const getChainName = (id: number | null): string => {
+  function getChainName(id: number | null): string {
     if (!id) return 'Unknown';
     return CHAIN_NAMES[id] || `Chain ${id}`;
-  };
+  }
 
-  const getStatusColor = (): string => {
+  function getStatusColor(): string {
     switch (status) {
       case 'connected':
         return '#4CAF50';
@@ -100,7 +99,7 @@ export const WalletScreen: React.FC = () => {
       default:
         return '#9E9E9E';
     }
-  };
+  }
 
   return (
     <SafeAreaView style={styles.container}>

@@ -187,25 +187,25 @@ export const CoinbaseKycScreen: React.FC = () => {
     }
   }, [proofRequest, isWalletConnected, isPrivyReady, addLog]);
 
-  const getStatusColor = () => {
+  function getStatusColor(): string {
     if (status.includes('Error') || status.includes('invalid')) return '#FF3B30';
     if (status.includes('verified')) return '#34C759';
     if (status === 'Ready') return '#8E8E93';
     return '#0052FF';
-  };
+  }
 
-  const getWalletButtonStyle = () => {
+  function getWalletButtonStyle(): object {
     if (isWalletConnected) return styles.connectedButton;
     if (walletStatus === 'connecting') return styles.connectingButton;
     return styles.disconnectedButton;
-  };
+  }
 
-  const getWalletButtonText = () => {
+  function getWalletButtonText(): string {
     if (isWalletConnected) return `${formattedAddress} (Disconnect)`;
     if (walletStatus === 'connecting') return 'Connecting...';
     if (!isPrivyReady) return 'Initializing...';
     return 'Connect Wallet';
-  };
+  }
 
   const handleWalletPress = () => {
     if (isWalletConnected) {
