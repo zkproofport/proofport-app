@@ -1,0 +1,6 @@
+rust:
+  directory: /Users/nhn/Workspace/mopro-101/mopro
+  manifestPath: Cargo.toml
+
+android:
+    apiLevel: 28
