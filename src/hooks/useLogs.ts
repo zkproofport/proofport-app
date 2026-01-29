@@ -6,6 +6,7 @@ export interface UseLogsReturn {
   logs: string[];
   addLog: (message: string) => void;
   clearLogs: () => void;
+  getLatestLogs: () => string[];
   logScrollRef: React.RefObject<ScrollView | null>;
 }
 
@@ -14,6 +15,7 @@ export interface UseLogsReturn {
  */
 export const useLogs = (): UseLogsReturn => {
   const [logs, setLogs] = useState<string[]>([]);
+  const logsRef = useRef<string[]>([]);
   const logScrollRef = useRef<ScrollView>(null);
 
   // Auto-scroll to bottom when logs change
@@ -25,17 +27,25 @@ export const useLogs = (): UseLogsReturn => {
 
   const addLog = useCallback((message: string) => {
     const timestamp = getTimestamp();
-    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+    const entry = `[${timestamp}] ${message}`;
+    logsRef.current = [...logsRef.current, entry];
+    setLogs(logsRef.current);
   }, []);
 
   const clearLogs = useCallback(() => {
+    logsRef.current = [];
     setLogs([]);
+  }, []);
+
+  const getLatestLogs = useCallback(() => {
+    return logsRef.current;
   }, []);
 
   return {
     logs,
     addLog,
     clearLogs,
+    getLatestLogs,
     logScrollRef,
   };
 };
