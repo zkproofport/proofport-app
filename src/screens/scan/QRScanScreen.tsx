@@ -14,14 +14,15 @@ import {
   useCameraPermission,
   useCodeScanner,
 } from 'react-native-vision-camera';
-import {useNavigation, useFocusEffect} from '@react-navigation/native';
-import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useNavigation, useFocusEffect, CommonActions} from '@react-navigation/native';
+import {parseProofRequestUrl} from '../../utils/deeplink';
 
 const QRScanScreen: React.FC = () => {
   const {hasPermission, requestPermission} = useCameraPermission();
   const device = useCameraDevice('back');
   const [isActive, setIsActive] = useState(true);
   const [scannedData, setScannedData] = useState<string | null>(null);
+  const navigation = useNavigation();
 
   useFocusEffect(
     useCallback(() => {
@@ -42,24 +43,32 @@ const QRScanScreen: React.FC = () => {
         setIsActive(false);
 
         if (value.startsWith('zkproofport://')) {
-          Alert.alert(
-            'Proof Request Found',
-            'Opening proof request...',
-            [
-              {
-                text: 'Open',
-                onPress: () => {
-                  Linking.openURL(value);
-                  resetScanner();
+          const request = parseProofRequestUrl(value);
+          if (request) {
+            navigation.dispatch(
+              CommonActions.navigate({
+                name: 'ProofTab',
+                params: {
+                  screen: 'ProofGeneration',
+                  params: {
+                    circuitId: request.circuit === 'coinbase_attestation' ? 'coinbase-kyc' : request.circuit,
+                    proofRequest: request,
+                  },
                 },
-              },
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: resetScanner,
-              },
-            ],
-          );
+              })
+            );
+          } else {
+            Alert.alert(
+              'Invalid QR Code',
+              'Failed to parse proof request URL',
+              [
+                {
+                  text: 'OK',
+                  onPress: resetScanner,
+                },
+              ],
+            );
+          }
         } else if (value.startsWith('http://') || value.startsWith('https://')) {
           Alert.alert(
             'Link Scanned',
