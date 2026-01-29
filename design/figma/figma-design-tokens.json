@@ -1,0 +1,368 @@
+{
+  "colors": {
+    "background": {
+      "primary": { "value": "#0F1419", "type": "color", "description": "Main app background" },
+      "secondary": { "value": "#1A2332", "type": "color", "description": "Card backgrounds, elevated surfaces" },
+      "tertiary": { "value": "#232D3F", "type": "color", "description": "Hover states, pressed states" }
+    },
+    "border": {
+      "primary": { "value": "#2D3748", "type": "color", "description": "Card borders, dividers" },
+      "secondary": { "value": "#3D4A5C", "type": "color", "description": "Focus rings, emphasis borders" }
+    },
+    "text": {
+      "primary": { "value": "#FFFFFF", "type": "color", "description": "Headings, primary content" },
+      "secondary": { "value": "#9CA3AF", "type": "color", "description": "Body text, descriptions" },
+      "tertiary": { "value": "#6B7280", "type": "color", "description": "Muted text, placeholders" },
+      "disabled": { "value": "#4B5563", "type": "color", "description": "Disabled states" }
+    },
+    "success": {
+      "400": { "value": "#34D399", "type": "color", "description": "Success text, highlights" },
+      "500": { "value": "#10B981", "type": "color", "description": "Success icons, completed states" },
+      "600": { "value": "#059669", "type": "color", "description": "Success pressed state" },
+      "background": { "value": "rgba(16, 185, 129, 0.13)", "type": "color", "description": "Success background tint" }
+    },
+    "warning": {
+      "400": { "value": "#FBBF24", "type": "color", "description": "Warning highlights" },
+      "500": { "value": "#F59E0B", "type": "color", "description": "Warnings, brand accent, logo" },
+      "600": { "value": "#D97706", "type": "color", "description": "Warning pressed state" },
+      "background": { "value": "rgba(245, 158, 11, 0.13)", "type": "color", "description": "Warning background tint" }
+    },
+    "info": {
+      "400": { "value": "#60A5FA", "type": "color", "description": "Info highlights" },
+      "500": { "value": "#3B82F6", "type": "color", "description": "Links, interactive elements" },
+      "600": { "value": "#2563EB", "type": "color", "description": "Info pressed state" },
+      "background": { "value": "rgba(59, 130, 246, 0.13)", "type": "color", "description": "Info background tint" }
+    },
+    "error": {
+      "400": { "value": "#F87171", "type": "color", "description": "Error highlights" },
+      "500": { "value": "#EF4444", "type": "color", "description": "Errors, destructive actions" },
+      "600": { "value": "#DC2626", "type": "color", "description": "Error pressed state" },
+      "background": { "value": "rgba(239, 68, 68, 0.13)", "type": "color", "description": "Error background tint" }
+    },
+    "wallets": {
+      "metamask": { "value": "#E2761B", "type": "color", "description": "MetaMask brand orange" },
+      "coinbase": { "value": "#0052FF", "type": "color", "description": "Coinbase brand blue" },
+      "trust": { "value": "#0500FF", "type": "color", "description": "Trust Wallet brand blue" },
+      "walletconnect": { "value": "#3B99FC", "type": "color", "description": "WalletConnect brand blue" }
+    }
+  },
+  "typography": {
+    "display": {
+      "large": {
+        "value": {
+          "fontFamily": "SF Pro Display",
+          "fontSize": 32,
+          "fontWeight": 700,
+          "lineHeight": 40,
+          "letterSpacing": -0.5
+        },
+        "type": "typography",
+        "description": "Hero text, large numbers"
+      },
+      "medium": {
+        "value": {
+          "fontFamily": "SF Pro Display",
+          "fontSize": 28,
+          "fontWeight": 700,
+          "lineHeight": 36,
+          "letterSpacing": -0.5
+        },
+        "type": "typography",
+        "description": "Page titles"
+      }
+    },
+    "heading": {
+      "h1": {
+        "value": {
+          "fontFamily": "SF Pro Display",
+          "fontSize": 24,
+          "fontWeight": 700,
+          "lineHeight": 32,
+          "letterSpacing": -0.25
+        },
+        "type": "typography",
+        "description": "Screen titles"
+      },
+      "h2": {
+        "value": {
+          "fontFamily": "SF Pro Display",
+          "fontSize": 20,
+          "fontWeight": 600,
+          "lineHeight": 28,
+          "letterSpacing": -0.25
+        },
+        "type": "typography",
+        "description": "Section headers"
+      },
+      "h3": {
+        "value": {
+          "fontFamily": "SF Pro Display",
+          "fontSize": 18,
+          "fontWeight": 600,
+          "lineHeight": 26,
+          "letterSpacing": 0
+        },
+        "type": "typography",
+        "description": "Card titles"
+      }
+    },
+    "body": {
+      "large": {
+        "value": {
+          "fontFamily": "SF Pro Text",
+          "fontSize": 17,
+          "fontWeight": 400,
+          "lineHeight": 24,
+          "letterSpacing": 0
+        },
+        "type": "typography",
+        "description": "Primary body text"
+      },
+      "medium": {
+        "value": {
+          "fontFamily": "SF Pro Text",
+          "fontSize": 16,
+          "fontWeight": 400,
+          "lineHeight": 24,
+          "letterSpacing": 0
+        },
+        "type": "typography",
+        "description": "Standard body text"
+      },
+      "small": {
+        "value": {
+          "fontFamily": "SF Pro Text",
+          "fontSize": 15,
+          "fontWeight": 400,
+          "lineHeight": 22,
+          "letterSpacing": 0
+        },
+        "type": "typography",
+        "description": "Secondary text"
+      }
+    },
+    "caption": {
+      "default": {
+        "value": {
+          "fontFamily": "SF Pro Text",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0.1
+        },
+        "type": "typography",
+        "description": "Captions, labels"
+      },
+      "small": {
+        "value": {
+          "fontFamily": "SF Pro Text",
+          "fontSize": 13,
+          "fontWeight": 400,
+          "lineHeight": 18,
+          "letterSpacing": 0.1
+        },
+        "type": "typography",
+        "description": "Timestamps, metadata"
+      }
+    },
+    "small": {
+      "value": {
+        "fontFamily": "SF Pro Text",
+        "fontSize": 12,
+        "fontWeight": 400,
+        "lineHeight": 16,
+        "letterSpacing": 0.2
+      },
+      "type": "typography",
+      "description": "Fine print, badges"
+    },
+    "tiny": {
+      "value": {
+        "fontFamily": "SF Pro Text",
+        "fontSize": 11,
+        "fontWeight": 500,
+        "lineHeight": 14,
+        "letterSpacing": 0.2
+      },
+      "type": "typography",
+      "description": "Status tags"
+    },
+    "mono": {
+      "medium": {
+        "value": {
+          "fontFamily": "SF Mono",
+          "fontSize": 14,
+          "fontWeight": 400,
+          "lineHeight": 20,
+          "letterSpacing": 0.5
+        },
+        "type": "typography",
+        "description": "Addresses, hashes"
+      },
+      "small": {
+        "value": {
+          "fontFamily": "SF Mono",
+          "fontSize": 12,
+          "fontWeight": 400,
+          "lineHeight": 16,
+          "letterSpacing": 0.5
+        },
+        "type": "typography",
+        "description": "Log entries"
+      }
+    }
+  },
+  "spacing": {
+    "0": { "value": "0", "type": "spacing", "description": "None" },
+    "1": { "value": "4", "type": "spacing", "description": "Tight inline spacing" },
+    "2": { "value": "8", "type": "spacing", "description": "Icon-to-text gap" },
+    "3": { "value": "12", "type": "spacing", "description": "Compact element spacing" },
+    "4": { "value": "16", "type": "spacing", "description": "Standard component padding" },
+    "5": { "value": "20", "type": "spacing", "description": "Medium spacing" },
+    "6": { "value": "24", "type": "spacing", "description": "Section spacing" },
+    "8": { "value": "32", "type": "spacing", "description": "Large section spacing" },
+    "10": { "value": "40", "type": "spacing", "description": "Extra large spacing" },
+    "12": { "value": "48", "type": "spacing", "description": "Screen section gaps" },
+    "16": { "value": "64", "type": "spacing", "description": "Major section breaks" },
+    "20": { "value": "80", "type": "spacing", "description": "Full-bleed spacing" }
+  },
+  "gap": {
+    "xs": { "value": "4", "type": "spacing", "description": "Inline elements (icon + text)" },
+    "sm": { "value": "8", "type": "spacing", "description": "Compact lists, button groups" },
+    "md": { "value": "12", "type": "spacing", "description": "Standard list items" },
+    "lg": { "value": "16", "type": "spacing", "description": "Cards in a list" },
+    "xl": { "value": "24", "type": "spacing", "description": "Sections" },
+    "2xl": { "value": "32", "type": "spacing", "description": "Major sections" }
+  },
+  "borderRadius": {
+    "none": { "value": "0", "type": "borderRadius" },
+    "sm": { "value": "4", "type": "borderRadius", "description": "Small elements" },
+    "md": { "value": "8", "type": "borderRadius", "description": "Buttons, inputs" },
+    "lg": { "value": "12", "type": "borderRadius", "description": "Cards, modals" },
+    "xl": { "value": "16", "type": "borderRadius", "description": "Large cards" },
+    "2xl": { "value": "24", "type": "borderRadius", "description": "Bottom sheets" },
+    "full": { "value": "9999", "type": "borderRadius", "description": "Pills, circles" }
+  },
+  "borderWidth": {
+    "none": { "value": "0", "type": "borderWidth" },
+    "thin": { "value": "1", "type": "borderWidth", "description": "Default borders" },
+    "medium": { "value": "1.5", "type": "borderWidth", "description": "Focus states" },
+    "thick": { "value": "2", "type": "borderWidth", "description": "Emphasis" }
+  },
+  "shadow": {
+    "button": {
+      "value": "0 4px 12px rgba(59, 130, 246, 0.25)",
+      "type": "boxShadow",
+      "description": "Primary button shadow"
+    },
+    "buttonPressed": {
+      "value": "0 2px 4px rgba(59, 130, 246, 0.2)",
+      "type": "boxShadow",
+      "description": "Button pressed state"
+    },
+    "card": {
+      "value": "0 2px 8px rgba(0, 0, 0, 0.2)",
+      "type": "boxShadow",
+      "description": "Card elevation"
+    },
+    "modal": {
+      "value": "0 8px 24px rgba(0, 0, 0, 0.4)",
+      "type": "boxShadow",
+      "description": "Modal/dropdown shadow"
+    },
+    "toggle": {
+      "value": "0 2px 4px rgba(0, 0, 0, 0.2)",
+      "type": "boxShadow",
+      "description": "Toggle thumb shadow"
+    }
+  },
+  "opacity": {
+    "disabled": { "value": "0.38", "type": "opacity", "description": "Disabled buttons, icons" },
+    "overlayLight": { "value": "0.08", "type": "opacity", "description": "Subtle hover overlays" },
+    "overlayMedium": { "value": "0.16", "type": "opacity", "description": "Pressed states" },
+    "overlayHeavy": { "value": "0.32", "type": "opacity", "description": "Modal backdrops (light)" },
+    "overlayModal": { "value": "0.72", "type": "opacity", "description": "Modal backdrop (heavy)" },
+    "divider": { "value": "0.12", "type": "opacity", "description": "Divider lines" }
+  },
+  "sizing": {
+    "icon": {
+      "xs": { "value": "12", "type": "sizing", "description": "Inline badges" },
+      "sm": { "value": "16", "type": "sizing", "description": "Compact lists, log entries" },
+      "md": { "value": "20", "type": "sizing", "description": "Standard UI (chevrons, actions)" },
+      "lg": { "value": "24", "type": "sizing", "description": "Primary icons, nav, cards" },
+      "xl": { "value": "32", "type": "sizing", "description": "Feature icons" },
+      "2xl": { "value": "48", "type": "sizing", "description": "Loading spinners" },
+      "3xl": { "value": "64", "type": "sizing", "description": "Empty states" },
+      "hero": { "value": "80", "type": "sizing", "description": "Success/error states" }
+    },
+    "touchTarget": { "value": "44", "type": "sizing", "description": "Minimum touch target size" },
+    "buttonHeight": {
+      "large": { "value": "52", "type": "sizing", "description": "Primary button height" },
+      "medium": { "value": "44", "type": "sizing", "description": "Standard button height" },
+      "small": { "value": "40", "type": "sizing", "description": "Ghost/compact button height" }
+    },
+    "inputHeight": { "value": "52", "type": "sizing", "description": "Input/dropdown height" },
+    "toggleWidth": { "value": "51", "type": "sizing", "description": "Toggle switch width" },
+    "toggleHeight": { "value": "31", "type": "sizing", "description": "Toggle switch height" },
+    "toggleThumb": { "value": "27", "type": "sizing", "description": "Toggle thumb diameter" }
+  },
+  "screen": {
+    "width": { "value": "393", "type": "sizing", "description": "iPhone 14 Pro width" },
+    "height": { "value": "852", "type": "sizing", "description": "iPhone 14 Pro height" },
+    "statusBar": { "value": "44", "type": "sizing", "description": "Status bar height" },
+    "navHeader": { "value": "52", "type": "sizing", "description": "Navigation header height" },
+    "tabBar": { "value": "83", "type": "sizing", "description": "Tab bar + home indicator" },
+    "tabBarContent": { "value": "49", "type": "sizing", "description": "Tab bar content height" },
+    "homeIndicator": { "value": "34", "type": "sizing", "description": "Home indicator safe area" },
+    "contentPadding": { "value": "16", "type": "sizing", "description": "Screen horizontal padding" }
+  },
+  "animation": {
+    "duration": {
+      "instant": { "value": "0", "type": "duration" },
+      "fast": { "value": "100", "type": "duration", "description": "Micro-interactions" },
+      "normal": { "value": "200", "type": "duration", "description": "Standard transitions" },
+      "slow": { "value": "300", "type": "duration", "description": "Modal enter/exit" },
+      "slower": { "value": "400", "type": "duration", "description": "Complex animations" },
+      "slowest": { "value": "500", "type": "duration", "description": "Page transitions" }
+    },
+    "easing": {
+      "linear": { "value": "linear", "type": "easing" },
+      "easeIn": { "value": "cubic-bezier(0.4, 0, 1, 0.5)", "type": "easing", "description": "Exit animations" },
+      "easeOut": { "value": "cubic-bezier(0, 0, 0.2, 1)", "type": "easing", "description": "Enter animations" },
+      "easeInOut": { "value": "cubic-bezier(0.4, 0, 0.2, 1)", "type": "easing", "description": "State changes" },
+      "spring": { "value": "cubic-bezier(0.34, 1.56, 0.64, 1)", "type": "easing", "description": "Bouncy effects" }
+    }
+  },
+  "gradient": {
+    "primary": {
+      "value": "linear-gradient(135deg, #1A2332 0%, #0F1419 100%)",
+      "type": "gradient",
+      "description": "For hero elements"
+    },
+    "accent": {
+      "value": "linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)",
+      "type": "gradient",
+      "description": "For CTAs"
+    },
+    "success": {
+      "value": "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+      "type": "gradient",
+      "description": "For completed states"
+    },
+    "gold": {
+      "value": "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+      "type": "gradient",
+      "description": "For brand/premium elements"
+    },
+    "progressFill": {
+      "value": "linear-gradient(90deg, #10B981 0%, #34D399 100%)",
+      "type": "gradient",
+      "description": "Progress bar fill"
+    },
+    "shimmer": {
+      "value": "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%)",
+      "type": "gradient",
+      "description": "Loading shimmer effect"
+    }
+  }
+}

@@ -1,0 +1,219 @@
+{
+  "_meta": {
+    "description": "Content Reel / JSON to Figma plugin compatible format",
+    "usage": "Select text layers in Figma, then use plugin to populate with matching keys",
+    "plugin": "Content Reel, JSON to Figma, Able Plugin"
+  },
+  "screens": [
+    {
+      "id": "circuit_selection",
+      "name": "1. Proof - Circuit Selection",
+      "navTitle": "Proof",
+      "sectionTitle": "Select Proof Type",
+      "cards": [
+        {
+          "title": "Coinbase KYC Verification",
+          "subtitle": "Prove identity without revealing wallet",
+          "status": "active"
+        },
+        {
+          "title": "Age Verification",
+          "subtitle": "Coming Soon",
+          "status": "disabled"
+        },
+        {
+          "title": "Location Proof",
+          "subtitle": "Coming Soon",
+          "status": "disabled"
+        }
+      ],
+      "tabs": ["Proof", "Wallet", "MyInfo"]
+    },
+    {
+      "id": "proof_generation",
+      "name": "2. Proof - Generation View",
+      "navTitle": "Coinbase KYC Verification",
+      "hero": {
+        "label": "PROOF PORTAL",
+        "title": "Private Coinbase KYC Verification",
+        "description": "Prove identity and eligibility without exposing your wallet or personal data."
+      },
+      "steps": [
+        { "label": "Wallet connected", "status": "complete" },
+        { "label": "Fetching KYC attestation...", "status": "active" },
+        { "label": "Fetching raw transaction", "status": "pending" },
+        { "label": "Verifying Coinbase signer", "status": "pending" },
+        { "label": "Signing dApp challenge", "status": "pending" },
+        { "label": "Generating ZK proof", "status": "pending" }
+      ],
+      "engine": "UltraHonk Engine",
+      "logs": [
+        "[21:30:01] Initializing circuit...",
+        "[21:30:02] Loading witness data...",
+        "[21:30:03] Computing proof (45%)..."
+      ],
+      "ctaButton": "Generate ZK Proof"
+    },
+    {
+      "id": "proof_complete",
+      "name": "3. Proof - Complete View",
+      "navTitle": "Coinbase KYC Verification",
+      "successTitle": "Proof Generated!",
+      "proofHash": "0x7a8b...3f2e",
+      "details": {
+        "verificationChain": "Base",
+        "circuit": "coinbase-kyc",
+        "generated": "2026-01-28 21:30",
+        "status": "Verified"
+      },
+      "buttons": {
+        "primary": "View on Explorer",
+        "secondary": "Generate Another Proof"
+      }
+    },
+    {
+      "id": "wallet_empty",
+      "name": "4. Wallet - No Connection",
+      "navTitle": "Wallet",
+      "emptyState": {
+        "title": "No Wallet Connected",
+        "description": "Connect your wallet to generate zero-knowledge proofs"
+      },
+      "ctaButton": "Connect Wallet",
+      "supportedWallets": ["MetaMask", "Coinbase Wallet", "Rainbow", "Trust Wallet", "WalletConnect"]
+    },
+    {
+      "id": "wallet_connected",
+      "name": "5. Wallet - Connected",
+      "navTitle": "Wallet",
+      "sectionTitle": "Connected Wallets",
+      "wallets": [
+        {
+          "name": "MetaMask",
+          "address": "0x7a8b...3f2e",
+          "network": "Base - Connected",
+          "isActive": true
+        },
+        {
+          "name": "Coinbase Wallet",
+          "address": "0x4c1d...8a9f",
+          "network": "",
+          "isActive": false
+        }
+      ],
+      "addButton": "+ Add Another Wallet"
+    },
+    {
+      "id": "myinfo_main",
+      "name": "6. MyInfo - Main",
+      "navTitle": "MyInfo",
+      "menuItems": [
+        { "title": "Proof History", "subtitle": "View all your generated proofs" },
+        { "title": "Settings", "subtitle": "App preferences & configuration" },
+        { "title": "Notifications", "subtitle": "" },
+        { "title": "Security", "subtitle": "" },
+        { "title": "Legal", "subtitle": "" },
+        { "title": "About", "subtitle": "" }
+      ],
+      "version": "Version 1.0.0"
+    },
+    {
+      "id": "wallet_connect_modal",
+      "name": "7. Wallet Connect Modal",
+      "sheetTitle": "Connect Wallet",
+      "sheetSubtitle": "Select a wallet to connect:",
+      "walletOptions": ["MetaMask", "Coinbase Wallet", "Rainbow", "WalletConnect"]
+    },
+    {
+      "id": "error_state",
+      "name": "8. Error State",
+      "navTitle": "Coinbase KYC Verification",
+      "errorTitle": "Something went wrong",
+      "errorDescription": "Unable to complete proof generation. Please try again.",
+      "errorDetails": {
+        "errorCode": "0x003",
+        "message": "Network timeout"
+      },
+      "buttons": {
+        "primary": "Try Again",
+        "link": "Contact Support"
+      }
+    },
+    {
+      "id": "loading_state",
+      "name": "9. Loading State",
+      "loadingTitle": "Generating proof...",
+      "loadingSubtitle": "This may take a moment"
+    }
+  ],
+  "textContent": {
+    "navTitle_proof": "Proof",
+    "navTitle_wallet": "Wallet",
+    "navTitle_myinfo": "MyInfo",
+    "sectionTitle_selectProof": "Select Proof Type",
+    "sectionTitle_connectedWallets": "Connected Wallets",
+    "card_coinbaseKyc_title": "Coinbase KYC Verification",
+    "card_coinbaseKyc_subtitle": "Prove identity without revealing wallet",
+    "card_ageVerification_title": "Age Verification",
+    "card_locationProof_title": "Location Proof",
+    "badge_comingSoon": "Coming Soon",
+    "badge_active": "Active",
+    "badge_verified": "Verified",
+    "hero_label": "PROOF PORTAL",
+    "hero_title": "Private Coinbase KYC Verification",
+    "hero_description": "Prove identity and eligibility without exposing your wallet or personal data.",
+    "step_walletConnected": "Wallet connected",
+    "step_fetchingKyc": "Fetching KYC attestation...",
+    "step_fetchingTx": "Fetching raw transaction",
+    "step_verifyingSigner": "Verifying Coinbase signer",
+    "step_signingChallenge": "Signing dApp challenge",
+    "step_generatingProof": "Generating ZK proof",
+    "engine_name": "UltraHonk Engine",
+    "btn_generateProof": "Generate ZK Proof",
+    "btn_viewExplorer": "View on Explorer",
+    "btn_generateAnother": "Generate Another Proof",
+    "btn_connectWallet": "Connect Wallet",
+    "btn_addWallet": "+ Add Another Wallet",
+    "btn_tryAgain": "Try Again",
+    "link_contactSupport": "Contact Support",
+    "empty_title": "No Wallet Connected",
+    "empty_description": "Connect your wallet to generate zero-knowledge proofs",
+    "success_title": "Proof Generated!",
+    "error_title": "Something went wrong",
+    "error_description": "Unable to complete proof generation. Please try again.",
+    "loading_title": "Generating proof...",
+    "loading_subtitle": "This may take a moment",
+    "label_proofHash": "Proof Hash:",
+    "label_verificationChain": "Verification Chain:",
+    "label_circuit": "Circuit:",
+    "label_generated": "Generated:",
+    "label_errorCode": "Error Code:",
+    "label_message": "Message:",
+    "label_supportedWallets": "Supported Wallets:",
+    "value_proofHash": "0x7a8b...3f2e",
+    "value_chain": "Base",
+    "value_circuit": "coinbase-kyc",
+    "value_timestamp": "2026-01-28 21:30",
+    "value_errorCode": "0x003",
+    "value_errorMessage": "Network timeout",
+    "wallet_metamask": "MetaMask",
+    "wallet_coinbase": "Coinbase Wallet",
+    "wallet_rainbow": "Rainbow",
+    "wallet_trust": "Trust Wallet",
+    "wallet_walletconnect": "WalletConnect",
+    "menu_proofHistory": "Proof History",
+    "menu_proofHistory_sub": "View all your generated proofs",
+    "menu_settings": "Settings",
+    "menu_settings_sub": "App preferences & configuration",
+    "menu_notifications": "Notifications",
+    "menu_security": "Security",
+    "menu_legal": "Legal",
+    "menu_about": "About",
+    "app_version": "Version 1.0.0",
+    "modal_title": "Connect Wallet",
+    "modal_subtitle": "Select a wallet to connect:",
+    "address_1": "0x7a8b...3f2e",
+    "address_2": "0x4c1d...8a9f",
+    "network_base": "Base - Connected"
+  }
+}

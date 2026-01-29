@@ -1,0 +1,101 @@
+[
+  {
+    "#Nav Title": "Proof",
+    "#Section Title": "Select Proof Type",
+    "#Card 1 Title": "Coinbase KYC Verification",
+    "#Card 1 Subtitle": "Prove identity without revealing wallet",
+    "#Card 2 Title": "Age Verification",
+    "#Card 2 Badge": "Coming Soon",
+    "#Card 3 Title": "Location Proof",
+    "#Card 3 Badge": "Coming Soon",
+    "#Tab Proof": "Proof",
+    "#Tab Wallet": "Wallet",
+    "#Tab MyInfo": "MyInfo"
+  },
+  {
+    "#Nav Title": "Coinbase KYC Verification",
+    "#Hero Label": "PROOF PORTAL",
+    "#Hero Title": "Private Coinbase KYC Verification",
+    "#Hero Desc": "Prove identity and eligibility without exposing your wallet or personal data.",
+    "#Step 1": "Wallet connected",
+    "#Step 2": "Fetching KYC attestation...",
+    "#Step 3": "Fetching raw transaction",
+    "#Step 4": "Verifying Coinbase signer",
+    "#Step 5": "Signing dApp challenge",
+    "#Step 6": "Generating ZK proof",
+    "#Engine Name": "UltraHonk Engine",
+    "#Log 1": "[21:30:01] Initializing circuit...",
+    "#Log 2": "[21:30:02] Loading witness data...",
+    "#Log 3": "[21:30:03] Computing proof (45%)...",
+    "#CTA Text": "Generate ZK Proof"
+  },
+  {
+    "#Nav Title": "Coinbase KYC Verification",
+    "#Success Title": "Proof Generated!",
+    "#Hash Label": "Proof Hash:",
+    "#Hash Value": "0x7a8b...3f2e",
+    "#Detail 1 L": "Verification Chain:",
+    "#Detail 1 V": "Base",
+    "#Detail 2 L": "Circuit:",
+    "#Detail 2 V": "coinbase-kyc",
+    "#Detail 3 L": "Generated:",
+    "#Detail 3 V": "2026-01-28 21:30",
+    "#Status Text": "Verified",
+    "#Explorer Text": "View on Explorer",
+    "#Another Text": "Generate Another Proof"
+  },
+  {
+    "#Nav Title": "Wallet",
+    "#Empty Title": "No Wallet Connected",
+    "#Empty Desc": "Connect your wallet to generate zero-knowledge proofs",
+    "#Connect Text": "Connect Wallet",
+    "#Supported Label": "Supported Wallets:",
+    "#Wallet List": "MetaMask\nCoinbase Wallet\nRainbow\nTrust Wallet\nWalletConnect"
+  },
+  {
+    "#Nav Title": "Wallet",
+    "#Section Title": "Connected Wallets",
+    "#Wallet 1 Name": "MetaMask",
+    "#Active Text": "Active",
+    "#Address 1": "0x7a8b...3f2e",
+    "#Network 1": "Base - Connected",
+    "#Wallet 2 Name": "Coinbase Wallet",
+    "#Address 2": "0x4c1d...8a9f",
+    "#Add Text": "+ Add Another Wallet"
+  },
+  {
+    "#Nav Title": "MyInfo",
+    "#Menu 1 Title": "Proof History",
+    "#Menu 1 Sub": "View all your generated proofs",
+    "#Menu 2 Title": "Settings",
+    "#Menu 2 Sub": "App preferences & configuration",
+    "#Menu 3 Title": "Notifications",
+    "#Menu 4 Title": "Security",
+    "#Menu 5 Title": "Legal",
+    "#Menu 6 Title": "About",
+    "#Version": "Version 1.0.0"
+  },
+  {
+    "#Sheet Title": "Connect Wallet",
+    "#Sheet Sub": "Select a wallet to connect:",
+    "#MM Name": "MetaMask",
+    "#CB Name": "Coinbase Wallet",
+    "#Rainbow Name": "Rainbow",
+    "#WC Name": "WalletConnect"
+  },
+  {
+    "#Nav Title": "Coinbase KYC Verification",
+    "#Error Title": "Something went wrong",
+    "#Error Desc": "Unable to complete proof generation. Please try again.",
+    "#E1 Label": "Error Code:",
+    "#E1 Value": "0x003",
+    "#E2 Label": "Message:",
+    "#E2 Value": "Network timeout",
+    "#Try Again Text": "Try Again",
+    "#Support": "Contact Support"
+  },
+  {
+    "#Loading Title": "Generating proof...",
+    "#Loading Sub": "This may take a moment"
+  }
+]
