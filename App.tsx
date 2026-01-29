@@ -6,8 +6,8 @@ import {Linking} from 'react-native';
 import {
   NavigationContainer,
   NavigationContainerRef,
+  CommonActions,
 } from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppKitProvider, AppKit} from '@reown/appkit-react-native';
 import {PrivyProvider} from '@privy-io/expo';
@@ -61,13 +61,9 @@ const privyStorage: Storage = {
     }
   },
 };
-import {
-  MainScreen,
-  AgeVerifierScreen,
-  CoinbaseKycScreen,
-  PrivyWalletScreen,
-  LoadingScreen,
-} from './src/screens';
+import {LoadingScreen} from './src/screens';
+import {TabNavigator} from './src/navigation';
+import type {TabParamList} from './src/navigation/types';
 import {ProofRequestModal} from './src/components';
 import {DeepLinkProvider} from './src/context';
 import {
@@ -76,9 +72,7 @@ import {
   sendProofResponse,
   isProofPortDeepLink,
 } from './src/utils/deeplink';
-import type {RootStackParamList, ProofRequest} from './src/types';
-
-const Stack = createNativeStackNavigator<RootStackParamList>();
+import type {ProofRequest} from './src/types';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +80,7 @@ const App: React.FC = () => {
     null,
   );
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const navigationRef = useRef<NavigationContainerRef<TabParamList>>(null);
   // Track currently active request to prevent processing while modal is open
   const activeRequestId = useRef<string | null>(null);
 
@@ -171,28 +165,58 @@ const App: React.FC = () => {
     console.log('[App] Accepting request:', pendingRequest.requestId);
     setShowRequestModal(false);
 
-    // Reset navigation stack and navigate to appropriate screen
-    // This ensures fresh state even when coming from the same screen
-    if (pendingRequest.circuit === 'age_verifier') {
-      navigationRef.current?.reset({
-        index: 1,
-        routes: [
-          {name: 'Main'},
-          {name: 'AgeVerifier', params: {proofRequest: pendingRequest}},
-        ],
-      });
-    } else if (pendingRequest.circuit === 'coinbase_attestation') {
-      navigationRef.current?.reset({
-        index: 1,
-        routes: [
-          {name: 'Main'},
-          {name: 'CoinbaseKyc', params: {proofRequest: pendingRequest}},
-        ],
-      });
+    // Use CommonActions.reset for nested tab navigation
+    if (pendingRequest.circuit === 'coinbase_attestation') {
+      navigationRef.current?.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: 'ProofTab',
+              state: {
+                routes: [
+                  {name: 'CircuitSelection'},
+                  {
+                    name: 'ProofGeneration',
+                    params: {
+                      circuitId: 'coinbase-kyc',
+                      proofRequest: pendingRequest,
+                    },
+                  },
+                ],
+                index: 1,
+              },
+            },
+          ],
+        }),
+      );
+    } else if (pendingRequest.circuit === 'age_verifier') {
+      navigationRef.current?.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: 'ProofTab',
+              state: {
+                routes: [
+                  {name: 'CircuitSelection'},
+                  {
+                    name: 'ProofGeneration',
+                    params: {
+                      circuitId: 'age-verifier',
+                      proofRequest: pendingRequest,
+                    },
+                  },
+                ],
+                index: 1,
+              },
+            },
+          ],
+        }),
+      );
     }
 
-    // Clear active request after navigation so new requests can come in
-    // Note: The request data is passed via navigation params
+    // Clear active request after navigation
     activeRequestId.current = null;
     setPendingRequest(null);
   }, [pendingRequest]);
@@ -236,38 +260,7 @@ const App: React.FC = () => {
         >
           <AppKitProvider instance={appKit}>
             <NavigationContainer ref={navigationRef}>
-              <Stack.Navigator
-                initialRouteName="Main"
-                screenOptions={{
-                  headerStyle: {
-                    backgroundColor: '#F5F5F5',
-                  },
-                  headerTintColor: '#333',
-                  headerTitleStyle: {
-                    fontWeight: '600',
-                  },
-                }}>
-                <Stack.Screen
-                  name="Main"
-                  component={MainScreen}
-                  options={{headerShown: false}}
-                />
-                <Stack.Screen
-                  name="AgeVerifier"
-                  component={AgeVerifierScreen}
-                  options={{title: 'Age Verifier'}}
-                />
-                <Stack.Screen
-                  name="CoinbaseKyc"
-                  component={CoinbaseKycScreen}
-                  options={{title: 'Coinbase KYC'}}
-                />
-                <Stack.Screen
-                  name="PrivyWallet"
-                  component={PrivyWalletScreen}
-                  options={{title: 'Wallet'}}
-                />
-              </Stack.Navigator>
+              <TabNavigator />
             </NavigationContainer>
             <AppKit />
             <ProofRequestModal
