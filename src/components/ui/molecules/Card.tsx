@@ -1,0 +1,49 @@
+import React from 'react';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  ViewStyle,
+  GestureResponderEvent,
+} from 'react-native';
+
+interface CardProps {
+  children: React.ReactNode;
+  onPress?: (event: GestureResponderEvent) => void;
+  style?: ViewStyle;
+}
+
+export const Card: React.FC<CardProps> = ({children, onPress, style}) => {
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={[styles.card, styles.touchable, style]}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={[styles.card, style]}>{children}</View>;
+};
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#1A2332',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2D3748',
+    padding: 16,
+  },
+  touchable: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+});
