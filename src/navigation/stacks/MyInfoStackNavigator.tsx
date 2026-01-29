@@ -7,14 +7,9 @@ import {
   LegalScreen,
   PlaceholderScreen,
 } from '../../screens/myinfo';
-import {stackScreenOptions, headerBackButton} from '../shared';
+import { stackScreenOptions } from '../shared';
 
 const Stack = createNativeStackNavigator<MyInfoStackParamList>();
-
-const makeOptions = (title: string) => ({navigation}: {navigation: any}) => ({
-  title,
-  headerLeft: () => headerBackButton(navigation),
-});
 
 const MyInfoStackNavigator: React.FC = () => {
   return (
@@ -27,27 +22,27 @@ const MyInfoStackNavigator: React.FC = () => {
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
-        options={makeOptions('Settings')}
+        options={{ title: 'Settings' }}
       />
       <Stack.Screen
         name="Notifications"
         component={PlaceholderScreen}
-        options={makeOptions('Notifications')}
+        options={{ title: 'Notifications' }}
       />
       <Stack.Screen
         name="Security"
         component={PlaceholderScreen}
-        options={makeOptions('Security')}
+        options={{ title: 'Security' }}
       />
       <Stack.Screen
         name="Legal"
         component={LegalScreen}
-        options={makeOptions('Legal')}
+        options={{ title: 'Legal' }}
       />
       <Stack.Screen
         name="About"
         component={PlaceholderScreen}
-        options={makeOptions('About')}
+        options={{ title: 'About' }}
       />
     </Stack.Navigator>
   );

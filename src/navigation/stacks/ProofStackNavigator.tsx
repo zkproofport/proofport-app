@@ -6,7 +6,7 @@ import {
   ProofGenerationScreen,
   ProofCompleteScreen,
 } from '../../screens/proof';
-import {stackScreenOptions, headerBackButton} from '../shared';
+import {stackScreenOptions} from '../shared';
 
 const Stack = createNativeStackNavigator<ProofStackParamList>();
 
@@ -21,10 +21,7 @@ const ProofStackNavigator: React.FC = () => {
       <Stack.Screen
         name="ProofGeneration"
         component={ProofGenerationScreen}
-        options={({navigation}) => ({
-          title: 'Generate Proof',
-          headerLeft: () => headerBackButton(navigation),
-        })}
+        options={{ title: 'Generate Proof' }}
       />
       <Stack.Screen
         name="ProofComplete"
