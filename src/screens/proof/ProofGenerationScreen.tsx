@@ -1,0 +1,455 @@
+import React, {useState, useCallback, useEffect, useRef} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
+import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {
+  Button,
+  Card,
+  StepIndicator,
+  type StepData,
+} from '../../components/ui';
+import {useCoinbaseKyc, usePrivyWallet, useLogs, useDeepLink} from '../../hooks';
+import {findAttestationTransaction} from '../../utils';
+import {colors} from '../../theme';
+import type {ProofStackParamList} from '../../navigation/types';
+import {proofHistoryStore} from '../../stores';
+
+type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
+type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
+
+interface UserFacingStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'active' | 'complete' | 'error';
+  icon: string;
+}
+
+const mapHookStepsToUserSteps = (
+  hookSteps: Array<{id: string; label: string; status: string}>,
+  isWalletConnected: boolean,
+): StepData[] => {
+  const userSteps: UserFacingStep[] = [
+    {
+      id: 'wallet',
+      label: 'Wallet connected',
+      status: isWalletConnected ? 'complete' : 'pending',
+      icon: 'wallet',
+    },
+    {
+      id: 'attestation',
+      label: 'Fetching KYC attestation',
+      status: 'pending',
+      icon: 'search',
+    },
+    {
+      id: 'transaction',
+      label: 'Fetching raw transaction',
+      status: 'pending',
+      icon: 'download',
+    },
+    {
+      id: 'signer',
+      label: 'Verifying Coinbase signer',
+      status: 'pending',
+      icon: 'shield',
+    },
+    {
+      id: 'signing',
+      label: 'Signing dApp challenge',
+      status: 'pending',
+      icon: 'edit-3',
+    },
+    {
+      id: 'proof',
+      label: 'Generating ZK proof',
+      status: 'pending',
+      icon: 'cpu',
+    },
+  ];
+
+  const stepMapping: Record<string, string> = {
+    validate: 'attestation',
+    vk: 'transaction',
+    inputs: 'transaction',
+    signal: 'signer',
+    pubkey: 'signer',
+    sign: 'signing',
+    storage: 'proof',
+    proof: 'proof',
+    parse: 'proof',
+    cleanup: 'proof',
+  };
+
+  hookSteps.forEach(hookStep => {
+    const userStepId = stepMapping[hookStep.id];
+    if (userStepId) {
+      const userStep = userSteps.find(s => s.id === userStepId);
+      if (userStep) {
+        if (hookStep.status === 'in_progress') {
+          userStep.status = 'active';
+        } else if (hookStep.status === 'completed') {
+          if (userStep.status !== 'active') {
+            userStep.status = 'complete';
+          }
+        } else if (hookStep.status === 'error') {
+          userStep.status = 'error';
+        }
+      }
+    }
+  });
+
+  const activeIdx = userSteps.findIndex(s => s.status === 'active');
+  if (activeIdx > 0) {
+    for (let i = 0; i < activeIdx; i++) {
+      if (userSteps[i].status === 'pending') {
+        userSteps[i].status = 'complete';
+      }
+    }
+  }
+
+  return userSteps.map(step => ({
+    id: step.id,
+    label: step.label,
+    status: step.status,
+    icon: step.icon,
+  }));
+};
+
+export const ProofGenerationScreen: React.FC = () => {
+  const route = useRoute<ProofGenerationRouteProp>();
+  const navigation = useNavigation<NavigationProp>();
+  const proofRequest = route.params?.proofRequest;
+
+  const hasAutoStarted = useRef(false);
+  const proofStartedAt = useRef<number | null>(null);
+  const historyIdRef = useRef<string | null>(null);
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const {addLog, clearLogs} = useLogs();
+
+  const {
+    status,
+    isLoading,
+    parsedProof,
+    proofSteps,
+    generateProofWithSteps,
+  } = useCoinbaseKyc();
+
+  const {
+    account,
+    isReady: isPrivyReady,
+    isWalletConnected,
+    connect: connectWallet,
+    getProvider,
+  } = usePrivyWallet(addLog);
+
+  const {sendProof} = useDeepLink();
+
+  const userSteps = mapHookStepsToUserSteps(proofSteps, isWalletConnected);
+
+
+  const handleGenerateProof = useCallback(async () => {
+    if (!account) {
+      addLog('Please connect wallet first');
+      return;
+    }
+
+    clearLogs();
+    setIsSearching(true);
+    setErrorMessage(null);
+    proofStartedAt.current = Date.now();
+
+    const circuitId = route.params?.circuitId || 'coinbase-kyc';
+    const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
+      'coinbase-kyc': 'Coinbase KYC',
+      'age-verifier': 'Age Verifier',
+      'location-proof': 'Location Proof',
+    };
+    const circuitName = CIRCUIT_DISPLAY_NAMES[circuitId] || circuitId;
+
+    const historyItem = await proofHistoryStore.add({
+      circuitId,
+      circuitName,
+      proofHash: '',
+      offChainStatus: 'pending',
+      onChainStatus: 'pending',
+      overallStatus: 'started',
+      timestamp: new Date().toISOString(),
+      network: 'Sepolia',
+      walletAddress: account || '',
+    });
+    historyIdRef.current = historyItem.id;
+    addLog(`[History] Proof record created: ${historyItem.id}`);
+
+    try {
+      addLog('=== Searching for Coinbase Attestation ===');
+      const result = await findAttestationTransaction(account, addLog);
+
+      if (!result) {
+        setErrorMessage('No valid attestation found for this wallet');
+        addLog('No valid attestation found for this wallet');
+        return;
+      }
+
+      addLog('Attestation transaction found!');
+      addLog(`TX length: ${result.rawTransaction.length} characters`);
+
+      const provider = await getProvider();
+      if (!provider) {
+        setErrorMessage('No wallet provider available');
+        addLog('No wallet provider available');
+        return;
+      }
+
+      const ethereumProvider = {
+        request: async (args: {method: string; params?: unknown[]}) => {
+          return provider.send(args.method, args.params || []);
+        },
+      };
+
+      await generateProofWithSteps(
+        {
+          userAddress: account,
+          rawTransaction: result.rawTransaction,
+          signerIndex: 0,
+        },
+        ethereumProvider,
+        addLog,
+      );
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      setErrorMessage(errMsg);
+      addLog(`Error: ${errMsg}`);
+      if (historyIdRef.current) {
+        proofHistoryStore.update(historyIdRef.current, {
+          overallStatus: 'failed',
+        }).catch(console.error);
+      }
+    } finally {
+      setIsSearching(false);
+    }
+  }, [account, addLog, clearLogs, getProvider, generateProofWithSteps]);
+
+  useEffect(() => {
+    if (parsedProof && proofStartedAt.current) {
+      const generatedAt = Date.now();
+
+      if (historyIdRef.current) {
+        proofHistoryStore.update(historyIdRef.current, {
+          proofHash: parsedProof.proofHex,
+          overallStatus: 'pending',
+        }).catch(console.error);
+      }
+
+      if (proofRequest) {
+        sendProof(proofRequest, {
+          proof: parsedProof.proofHex,
+          publicInputs: parsedProof.publicInputsHex,
+          numPublicInputs: parsedProof.numPublicInputs,
+          verificationType: 'off-chain',
+          verificationResult: false,
+          startedAt: proofStartedAt.current,
+          completedAt: generatedAt,
+        }).catch(console.error);
+      }
+
+      navigation.navigate('ProofComplete', {
+        proofHex: parsedProof.proofHex,
+        publicInputsHex: parsedProof.publicInputsHex,
+        numPublicInputs: parsedProof.numPublicInputs,
+        circuitId: route.params?.circuitId || 'coinbase-kyc',
+        timestamp: generatedAt.toString(),
+        verification: {
+          offChain: null,
+          onChain: null,
+          verifierContract: '0x121632902482B658e0F2D055126dBe977deb9FC1',
+          chainName: 'Sepolia',
+          explorerUrl: 'https://sepolia.etherscan.io',
+        },
+        walletAddress: account || undefined,
+        historyId: historyIdRef.current || undefined,
+      });
+    }
+  }, [parsedProof, navigation, route.params?.circuitId, proofRequest, sendProof, account]);
+
+  useEffect(() => {
+    if (proofRequest && isWalletConnected && account && !hasAutoStarted.current) {
+      hasAutoStarted.current = true;
+      addLog(`[DeepLink] Request from: ${proofRequest.dappName || 'Unknown'}`);
+      addLog(`[DeepLink] Request ID: ${proofRequest.requestId}`);
+      addLog(`[DeepLink] Auto-starting proof generation...`);
+
+      const timer = setTimeout(() => {
+        handleGenerateProof();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [proofRequest, isWalletConnected, account, handleGenerateProof, addLog]);
+
+  useEffect(() => {
+    if (proofRequest && !isWalletConnected && isPrivyReady && !hasAutoStarted.current) {
+      addLog(`[DeepLink] Request from: ${proofRequest.dappName || 'Unknown'}`);
+      addLog(`[DeepLink] Wallet not connected, please connect to continue`);
+    }
+  }, [proofRequest, isWalletConnected, isPrivyReady, addLog]);
+
+  const isProcessing = isLoading || isSearching;
+  const hasAnyStepStarted = proofSteps.some(s => s.status !== 'pending');
+
+  const getButtonState = () => {
+    if (!isWalletConnected) {
+      return {
+        title: 'Connect Wallet',
+        onPress: connectWallet,
+        disabled: !isPrivyReady,
+        loading: false,
+      };
+    }
+    if (isSearching) {
+      return {
+        title: 'Searching Attestation...',
+        onPress: () => {},
+        disabled: true,
+        loading: true,
+      };
+    }
+    if (isLoading) {
+      return {
+        title: 'Generating Proof...',
+        onPress: () => {},
+        disabled: true,
+        loading: true,
+      };
+    }
+    if (errorMessage) {
+      return {
+        title: 'Retry',
+        onPress: handleGenerateProof,
+        disabled: false,
+        loading: false,
+      };
+    }
+    return {
+      title: 'Generate ZK Proof',
+      onPress: handleGenerateProof,
+      disabled: false,
+      loading: false,
+    };
+  };
+
+  const buttonState = getButtonState();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}>
+        <Card style={styles.heroCard}>
+          <Text style={styles.heroLabel}>PROOF PORTAL</Text>
+          <Text style={styles.heroTitle}>Coinbase KYC Verification</Text>
+          <Text style={styles.heroDescription}>
+            Generate a zero-knowledge proof of your Coinbase identity verification
+            without revealing any personal information.
+          </Text>
+        </Card>
+
+        {(hasAnyStepStarted || isProcessing) && (
+          <Card style={styles.stepsCard}>
+            <StepIndicator steps={userSteps} />
+          </Card>
+        )}
+
+        {errorMessage && (
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </Card>
+        )}
+
+        <View style={styles.buttonContainer}>
+          <Button
+            title={buttonState.title}
+            onPress={buttonState.onPress}
+            disabled={buttonState.disabled}
+            loading={buttonState.loading}
+            size="large"
+          />
+        </View>
+
+        {isProcessing && (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color={colors.info[500]} />
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background.primary,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  heroCard: {
+    marginBottom: 20,
+    padding: 24,
+  },
+  heroLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.info[400],
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: 12,
+  },
+  heroDescription: {
+    fontSize: 15,
+    color: colors.text.secondary,
+    lineHeight: 22,
+  },
+  stepsCard: {
+    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  errorCard: {
+    marginBottom: 20,
+    backgroundColor: colors.error.background,
+    borderColor: colors.error[500],
+  },
+  errorText: {
+    color: colors.error[400],
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    marginBottom: 20,
+  },
+  loaderContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+});
