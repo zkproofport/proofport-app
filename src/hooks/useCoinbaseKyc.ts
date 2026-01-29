@@ -28,6 +28,11 @@ const CIRCUIT_NAME = 'coinbase_attestation';
 // On-chain Verifier contract on Sepolia Testnet
 const VERIFIER_CONTRACT_ADDRESS = '0x121632902482B658e0F2D055126dBe977deb9FC1';
 
+// Module-level proof cache — persists across hook instances (screen navigations)
+let _cachedVk: ArrayBuffer | null = null;
+let _cachedFullProof: ArrayBuffer | null = null;
+let _cachedParsedProof: ParsedProofData | null = null;
+
 // Minimal ABI for HonkVerifier contract (Noir generated)
 const VERIFIER_ABI = [
   'function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool)',
@@ -68,7 +73,7 @@ export interface UseCoinbaseKycReturn {
     ethereum: EthereumProvider | null,
     addLog: (msg: string) => void,
   ) => Promise<void>;
-  verifyProofOffChain: (addLog: (msg: string) => void) => Promise<void>;
+  verifyProofOffChain: (addLog: (msg: string) => void) => Promise<boolean>;
   verifyProofOnChain: (addLog: (msg: string) => void) => Promise<boolean>;
   validateTransaction: (
     rawTx: string,
@@ -76,6 +81,7 @@ export interface UseCoinbaseKycReturn {
     addLog: (msg: string) => void,
   ) => boolean;
   resetSteps: () => void;
+  resetProofCache: () => void;
 }
 
 const INITIAL_PROOF_STEPS: Step[] = [
@@ -176,12 +182,17 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 1: Load VK
         updateStep('vk', {status: 'in_progress'});
         addLog('Step 1: Loading verification key...');
+        addLog('[VK] Loading verification key from assets...');
+        addLog(`[VK] Circuit name: ${CIRCUIT_NAME}`);
 
         const vkStartTime = Date.now();
         currentVk = await loadVkFromAssets(CIRCUIT_NAME, addLog);
         const vkElapsed = Date.now() - vkStartTime;
 
+        addLog(`[VK] VK loaded successfully: ${currentVk.byteLength} bytes`);
+        addLog('[VK] Caching VK for cross-screen persistence');
         setVk(currentVk);
+        _cachedVk = currentVk;
         updateStep('vk', {
           status: 'completed',
           detail: `${currentVk.byteLength} bytes (${vkElapsed}ms)`,
@@ -191,18 +202,21 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 2: Validate transaction
         updateStep('validate', {status: 'in_progress'});
         addLog('Step 2: Validating attestation transaction...');
+        addLog('[Validate] Checking transaction format and signer...');
 
         const validation = verifyAttestationTx(inputs.rawTransaction, inputs.userAddress);
         if (!validation.valid) {
           throw new Error(validation.error || 'Invalid transaction');
         }
 
+        addLog('[Validate] Transaction recipient confirmed');
         signerIndex = AUTHORIZED_SIGNERS.findIndex(
           addr => addr.toLowerCase() === validation.signerAddress?.toLowerCase(),
         );
         if (signerIndex === -1) {
           throw new Error('Signer not found in authorized list');
         }
+        addLog(`[Validate] Authorized signer index: ${signerIndex}`);
 
         updateStep('validate', {
           status: 'completed',
@@ -213,11 +227,13 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 3: Generate signal hash
         updateStep('signal', {status: 'in_progress'});
         addLog('Step 3: Generating signal hash...');
+        addLog('[Signal] Generating random 32-byte challenge...');
 
         currentSignalHash = ethers.utils.randomBytes(32);
         setSignalHash(currentSignalHash);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
 
+        addLog(`[Signal] Challenge hash: 0x${signalHashHex.slice(0, 32)}...`);
         updateStep('signal', {
           status: 'completed',
           detail: `0x${signalHashHex.slice(0, 16)}...`,
@@ -227,6 +243,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 4: Sign with wallet
         updateStep('sign', {status: 'in_progress'});
         addLog('Step 4: Requesting signature from wallet...');
+        addLog('[Sign] Preparing EIP-191 personal_sign request...');
 
         if (!ethereum) {
           throw new Error('Wallet provider not available');
@@ -235,6 +252,8 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         const messageHex = ethers.utils.hexlify(currentSignalHash);
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
+        addLog(`[Sign] Signer address: ${from}`);
+        addLog(`[Sign] Message: ${messageHex.slice(0, 20)}...`);
 
         if (isSigningRef.current) {
           throw new Error('Signing already in progress');
@@ -251,6 +270,8 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           if (!userSignature) {
             throw new Error('Empty signature returned');
           }
+          addLog(`[Sign] Signature received (${userSignature.length} chars)`);
+          addLog(`[Sign] Signature: ${userSignature.slice(0, 40)}...`);
         } catch (signError) {
           const signErrorMsg = signError instanceof Error ? signError.message : String(signError);
           const errorCode = (signError as {code?: number})?.code;
@@ -272,9 +293,12 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 5: Recover public key
         updateStep('pubkey', {status: 'in_progress'});
         addLog('Step 5: Recovering public key from signature...');
+        addLog('[PubKey] Recovering secp256k1 public key from signature...');
 
         userPubkey = recoverPublicKey(messageHex, userSignature);
 
+        addLog(`[PubKey] Public key: ${userPubkey.slice(0, 40)}...`);
+        addLog(`[PubKey] Key length: ${userPubkey.length} chars`);
         updateStep('pubkey', {
           status: 'completed',
           detail: `${userPubkey.slice(0, 20)}...`,
@@ -284,6 +308,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 6: Prepare circuit inputs
         updateStep('inputs', {status: 'in_progress'});
         addLog('Step 6: Preparing circuit inputs...');
+        addLog('[Inputs] Preparing Noir circuit inputs...');
 
         const circuitInputs = prepareCircuitInputs(
           currentSignalHash,
@@ -295,6 +320,13 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         );
         const flatInputs = flattenCircuitInputs(circuitInputs);
 
+        addLog('[Inputs] Signal hash: ✓');
+        addLog('[Inputs] User address: ✓');
+        addLog('[Inputs] Signature: ✓');
+        addLog('[Inputs] Public key: ✓');
+        addLog('[Inputs] Raw transaction: ✓');
+        addLog(`[Inputs] Signer index: ${signerIndex}`);
+        addLog(`[Inputs] Flattened to ${flatInputs.length} input values`);
         updateStep('inputs', {
           status: 'completed',
           detail: `${flatInputs.length} input values`,
@@ -318,10 +350,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 8: Generate proof
         updateStep('proof', {status: 'in_progress'});
         addLog('Step 8: Generating ZK proof...');
+        addLog(`[Proof] Loading circuit file: ${CIRCUIT_NAME}.json`);
+        addLog(`[Proof] Loading SRS file: ${CIRCUIT_NAME}.srs`);
 
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
 
+        addLog('[Proof] Starting Noir proof generation (low memory mode)...');
+        addLog('[Proof] This may take 30-60 seconds...');
         const proofStartTime = Date.now();
         currentProof = generateNoirProof(
           circuitPath,
@@ -333,7 +369,10 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         );
         const proofElapsed = Date.now() - proofStartTime;
 
+        addLog(`[Proof] Proof generated! Size: ${currentProof!.byteLength} bytes`);
+        addLog(`[Proof] Generation time: ${proofElapsed}ms`);
         setFullProof(currentProof);
+        _cachedFullProof = currentProof;
         updateStep('proof', {
           status: 'completed',
           detail: `${currentProof!.byteLength} bytes (${proofElapsed}ms)`,
@@ -343,17 +382,24 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 9: Parse proof
         updateStep('parse', {status: 'in_progress'});
         addLog('Step 9: Parsing proof...');
+        addLog('[Parse] Extracting public inputs from proof...');
 
         const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        addLog(`[Parse] Number of public inputs: ${numPublicInputs}`);
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(
           currentProof!,
           numPublicInputs,
         );
 
         const proofHex = arrayBufferToHex(parsed.proof);
+        addLog(`[Parse] Proof hex length: ${proofHex.length} chars`);
         const publicInputsHex: string[] = parsed.publicInputs.map(
           (pi: ArrayBuffer) => '0x' + arrayBufferToHex(pi),
         );
+
+        publicInputsHex.slice(0, 3).forEach((pi, i) => {
+          addLog(`[Parse] Public input #${i}: ${pi.slice(0, 20)}...`);
+        });
 
         const parsedData: ParsedProofData = {
           proofHex: '0x' + proofHex,
@@ -361,6 +407,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           numPublicInputs,
         };
         setParsedProof(parsedData);
+        _cachedParsedProof = parsedData;
         setProof(parsed.proof);
 
         updateStep('parse', {
@@ -405,36 +452,48 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    * Verify proof off-chain using mopro
    */
   const verifyProofOffChain = useCallback(
-    async (addLog: (msg: string) => void) => {
-      if (!vk || !fullProof) {
+    async (addLog: (msg: string) => void): Promise<boolean> => {
+      const useVk = vk || _cachedVk;
+      const useFullProof = fullProof || _cachedFullProof;
+
+      if (!useVk || !useFullProof) {
         addLog('Please generate proof first');
-        return;
+        return false;
       }
 
       setIsLoading(true);
       setStatus('Verifying proof...');
       addLog('=== Starting Off-Chain Verification ===');
+      addLog('[OffChain] Starting local verification...');
+      addLog(`[OffChain] Using cached VK: ${useVk ? useVk.byteLength + ' bytes' : 'null'}`);
+      addLog(`[OffChain] Using cached proof: ${useFullProof ? useFullProof.byteLength + ' bytes' : 'null'}`);
 
       try {
+        addLog(`[OffChain] Loading circuit: ${CIRCUIT_NAME}.json`);
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
 
+        addLog('[OffChain] Calling mopro verifyNoirProof...');
         const startTime = Date.now();
         const isValid = verifyNoirProof(
           circuitPath,
-          fullProof,
+          useFullProof,
           true, // onChain format (Keccak hash)
-          vk,
+          useVk,
           true, // lowMemoryMode
         );
         const elapsed = Date.now() - startTime;
 
+        addLog(`[OffChain] Verification time: ${elapsed}ms`);
+        addLog(`[OffChain] Result: ${isValid ? 'VALID ✓' : 'INVALID ✗'}`);
         addLog(`Verification completed in ${elapsed}ms`);
         addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
         setStatus(isValid ? 'Proof verified!' : 'Proof invalid');
+        return isValid;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         addLog(`Error: ${errorMessage}`);
         setStatus('Error verifying proof');
+        return false;
       } finally {
         setIsLoading(false);
       }
@@ -447,7 +506,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    */
   const verifyProofOnChain = useCallback(
     async (addLog: (msg: string) => void): Promise<boolean> => {
-      if (!parsedProof) {
+      const useParsedProof = parsedProof || _cachedParsedProof;
+
+      if (!useParsedProof) {
         addLog('Please generate proof first');
         return false;
       }
@@ -455,31 +516,42 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
       setIsLoading(true);
       setStatus('Verifying proof on-chain...');
       addLog('=== Starting On-Chain Verification ===');
+      addLog('[OnChain] Starting on-chain verification...');
+      addLog(`[OnChain] Contract: ${VERIFIER_CONTRACT_ADDRESS}`);
+      addLog('[OnChain] Chain: Sepolia (11155111)');
       addLog(`Verifier contract: ${VERIFIER_CONTRACT_ADDRESS}`);
       addLog(`Chain: Sepolia Testnet (11155111)`);
 
       try {
+        addLog('[OnChain] Connecting to Sepolia RPC...');
         const provider = new ethers.providers.JsonRpcProvider(SEPOLIA_RPC_URL);
         addLog('Connected to Sepolia RPC');
 
+        addLog('[OnChain] Creating contract instance...');
         const verifierContract = new ethers.Contract(
           VERIFIER_CONTRACT_ADDRESS,
           VERIFIER_ABI,
           provider,
         );
 
-        addLog(`Proof hex (first 40 chars): ${parsedProof.proofHex.substring(0, 42)}...`);
-        addLog(`Public inputs count: ${parsedProof.numPublicInputs}`);
+        addLog(`[OnChain] Proof size: ${useParsedProof.proofHex.length} chars`);
+        addLog(`[OnChain] Public inputs: ${useParsedProof.numPublicInputs}`);
+        addLog(`Proof hex (first 40 chars): ${useParsedProof.proofHex.substring(0, 42)}...`);
+        addLog(`Public inputs count: ${useParsedProof.numPublicInputs}`);
 
+        addLog('[OnChain] Calling verify(bytes, bytes32[])...');
         addLog('Calling verifier contract...');
         const startTime = Date.now();
 
         const isValid = await verifierContract.verify(
-          parsedProof.proofHex,
-          parsedProof.publicInputsHex,
+          useParsedProof.proofHex,
+          useParsedProof.publicInputsHex,
         );
 
         const elapsed = Date.now() - startTime;
+        addLog(`[OnChain] Verification time: ${elapsed}ms`);
+        addLog(`[OnChain] Result: ${isValid ? 'VALID ✓' : 'INVALID ✗'}`);
+        addLog('[OnChain] Note: view function call (no gas spent)');
         addLog(`On-chain verification completed in ${elapsed}ms`);
         addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
 
@@ -517,6 +589,18 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
     [parsedProof],
   );
 
+  const resetProofCache = useCallback(() => {
+    _cachedVk = null;
+    _cachedFullProof = null;
+    _cachedParsedProof = null;
+    setVk(null);
+    setFullProof(null);
+    setParsedProof(null);
+    setProof(null);
+    setSignalHash(null);
+    resetSteps();
+  }, [resetSteps]);
+
   return {
     status,
     isLoading,
@@ -531,5 +615,6 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
     verifyProofOnChain,
     validateTransaction,
     resetSteps,
+    resetProofCache,
   };
 };

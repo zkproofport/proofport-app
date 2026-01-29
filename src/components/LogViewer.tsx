@@ -1,5 +1,6 @@
 import React from 'react';
-import {View, Text, ScrollView, StyleSheet, Platform, TouchableOpacity, Clipboard, Alert} from 'react-native';
+import {View, Text, ScrollView, StyleSheet, Platform, TouchableOpacity, Alert} from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 interface LogViewerProps {
   logs: string[];
