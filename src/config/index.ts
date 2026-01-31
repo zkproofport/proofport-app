@@ -5,3 +5,16 @@ export {
   WALLETCONNECT_PROJECT_ID,
   appMetadata,
 } from './PrivyConfig';
+export {VERIFIER_ABI, AUTHORIZED_SIGNERS} from './contracts';
+export type {Environment, CircuitName} from './contracts';
+export {
+  getEnvironment,
+  setEnvironmentOverride,
+  getNetworkConfig,
+  getAttestationConfig,
+  getVerifierAbi,
+  getBaseRpcUrls,
+  getVerifierAddress,
+  getVerifierAddressSync,
+  initDeployments,
+} from './environment';
