@@ -18,6 +18,7 @@ import {colors} from '../../theme';
 import type {ProofStackParamList} from '../../navigation/types';
 import {useCoinbaseKyc, useLogs} from '../../hooks';
 import {proofHistoryStore} from '../../stores';
+import {getVerifierAddressSync, getNetworkConfig} from '../../config';
 
 type ProofCompleteRouteProp = RouteProp<ProofStackParamList, 'ProofComplete'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofComplete'>;
@@ -39,9 +40,9 @@ export const ProofCompleteScreen: React.FC = () => {
   const verification = params.verification || {
     offChain: null,
     onChain: null,
-    verifierContract: '0x121632902482B658e0F2D055126dBe977deb9FC1',
-    chainName: 'Sepolia',
-    explorerUrl: 'https://sepolia.etherscan.io',
+    verifierContract: getVerifierAddressSync('coinbase_attestation'),
+    chainName: getNetworkConfig().name,
+    explorerUrl: getNetworkConfig().explorerUrl,
   };
   const walletAddress = params.walletAddress;
   const historyIdFromParams = params.historyId || null;

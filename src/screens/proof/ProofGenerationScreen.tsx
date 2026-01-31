@@ -20,6 +20,7 @@ import {findAttestationTransaction} from '../../utils';
 import {colors} from '../../theme';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore} from '../../stores';
+import {getVerifierAddressSync, getNetworkConfig, type CircuitName} from '../../config';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -155,7 +156,6 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const userSteps = mapHookStepsToUserSteps(proofSteps, isWalletConnected);
 
-
   const handleGenerateProof = useCallback(async () => {
     if (!account) {
       addLog('Please connect wallet first');
@@ -173,7 +173,12 @@ export const ProofGenerationScreen: React.FC = () => {
       'age-verifier': 'Age Verifier',
       'location-proof': 'Location Proof',
     };
+    const CIRCUIT_CONFIG_NAMES: Record<string, string> = {
+      'coinbase-kyc': 'coinbase_attestation',
+      'age-verifier': 'age_verifier',
+    };
     const circuitName = CIRCUIT_DISPLAY_NAMES[circuitId] || circuitId;
+    const configCircuitName = (CIRCUIT_CONFIG_NAMES[circuitId] || circuitId) as CircuitName;
 
     const historyItem = await proofHistoryStore.add({
       circuitId,
@@ -185,6 +190,7 @@ export const ProofGenerationScreen: React.FC = () => {
       timestamp: new Date().toISOString(),
       network: 'Sepolia',
       walletAddress: account || '',
+      verifierAddress: getVerifierAddressSync(configCircuitName),
     });
     historyIdRef.current = historyItem.id;
     addLog(`[History] Proof record created: ${historyItem.id}`);
@@ -194,7 +200,7 @@ export const ProofGenerationScreen: React.FC = () => {
       const result = await findAttestationTransaction(account, addLog);
 
       if (!result) {
-        setErrorMessage('No valid attestation found for this wallet');
+        setErrorMessage(`No valid attestation found for this wallet (${account})`);
         addLog('No valid attestation found for this wallet');
         return;
       }
@@ -270,9 +276,9 @@ export const ProofGenerationScreen: React.FC = () => {
         verification: {
           offChain: null,
           onChain: null,
-          verifierContract: '0x121632902482B658e0F2D055126dBe977deb9FC1',
-          chainName: 'Sepolia',
-          explorerUrl: 'https://sepolia.etherscan.io',
+          verifierContract: getVerifierAddressSync('coinbase_attestation'),
+          chainName: getNetworkConfig().name,
+          explorerUrl: getNetworkConfig().explorerUrl,
         },
         walletAddress: account || undefined,
         historyId: historyIdRef.current || undefined,
