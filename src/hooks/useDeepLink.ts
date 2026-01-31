@@ -1,9 +1,4 @@
-/**
- * Deep Link utilities for screens that handle proof requests
- * Note: Main deep link handling is done in App.tsx
- * This hook provides utilities for screens to work with proof requests
- */
-
+// Main deep link handling is in App.tsx; this hook provides response utilities
 import {useCallback} from 'react';
 import {
   sendProofResponse,
@@ -12,7 +7,6 @@ import {
   type VerificationType,
 } from '../utils/deeplink';
 
-/** Options for sending proof response */
 export interface SendProofOptions {
   proof: string;
   publicInputs: string[];
@@ -21,17 +15,16 @@ export interface SendProofOptions {
   verificationResult: boolean;
   startedAt: number;
   completedAt: number;
+  verifierAddress?: string;
+  chainId?: number;
 }
 
 interface UseDeepLinkUtilsResult {
-  /** Send completed proof back to dapp */
   sendProof: (
     request: ProofRequest,
     options: SendProofOptions,
   ) => Promise<boolean>;
-  /** Send error response to dapp */
   sendError: (request: ProofRequest, error: string) => Promise<boolean>;
-  /** Send cancelled response to dapp */
   sendCancelled: (request: ProofRequest, reason?: string) => Promise<boolean>;
 }
 
@@ -47,26 +40,20 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
         requestId: request.requestId,
         circuit: request.circuit,
         status: 'completed',
-
-        // Verification details
         verificationType: options.verificationType,
         verificationResult: options.verificationResult,
-
-        // Timing information
         startedAt: options.startedAt,
         completedAt: options.completedAt,
         expiresAt: request.expiresAt,
-
-        // Proof data
         proof: options.proof,
         publicInputs: options.publicInputs,
         numPublicInputs: options.numPublicInputs,
-
-        // Original inputs (for verification)
+        verifierAddress: options.verifierAddress,
+        chainId: options.chainId,
         inputs: request.inputs,
       };
 
-      return await sendProofResponse(response, request.callbackUrl);
+      return sendProofResponse(response, request.callbackUrl);
     },
     [],
   );
@@ -75,7 +62,7 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
     async (request: ProofRequest, error: string): Promise<boolean> => {
       console.log('[DeepLink] Sending error for request:', request.requestId);
 
-      return await sendProofResponse(
+      return sendProofResponse(
         {
           requestId: request.requestId,
           circuit: request.circuit,
@@ -92,7 +79,7 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
     async (request: ProofRequest, reason?: string): Promise<boolean> => {
       console.log('[DeepLink] Sending cancelled for request:', request.requestId);
 
-      return await sendProofResponse(
+      return sendProofResponse(
         {
           requestId: request.requestId,
           circuit: request.circuit,
@@ -111,5 +98,3 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
     sendCancelled,
   };
 }
-
-export default useDeepLink;
