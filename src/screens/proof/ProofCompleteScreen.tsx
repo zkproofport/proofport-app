@@ -53,8 +53,8 @@ export const ProofCompleteScreen: React.FC = () => {
   const formattedDate = new Date(parseInt(timestamp)).toLocaleString();
   const circuitName = CIRCUIT_DISPLAY_NAMES[circuitId] || circuitId;
 
-  const [offChainStatus, setOffChainStatus] = useState<'pending' | 'loading' | 'verified' | 'failed'>('pending');
-  const [onChainStatus, setOnChainStatus] = useState<'pending' | 'loading' | 'verified' | 'failed'>('pending');
+  const [offChainStatus, setOffChainStatus] = useState<'generated' | 'loading' | 'verified' | 'failed'>('generated');
+  const [onChainStatus, setOnChainStatus] = useState<'generated' | 'loading' | 'verified' | 'failed'>('generated');
 
   const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = useCoinbaseKyc();
   const {logs, addLog} = useLogs();
@@ -157,7 +157,7 @@ export const ProofCompleteScreen: React.FC = () => {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Off-Chain</Text>
-            {offChainStatus === 'pending' ? (
+            {offChainStatus === 'generated' ? (
               <TouchableOpacity onPress={handleVerifyOffChain} style={styles.verifyButton}>
                 <Text style={styles.verifyButtonText}>Verify</Text>
               </TouchableOpacity>
@@ -175,7 +175,7 @@ export const ProofCompleteScreen: React.FC = () => {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>On-Chain</Text>
-            {onChainStatus === 'pending' ? (
+            {onChainStatus === 'generated' ? (
               <TouchableOpacity onPress={handleVerifyOnChain} style={styles.verifyButton}>
                 <Text style={styles.verifyButtonText}>Verify</Text>
               </TouchableOpacity>

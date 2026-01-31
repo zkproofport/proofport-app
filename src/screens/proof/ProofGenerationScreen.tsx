@@ -191,6 +191,9 @@ export const ProofGenerationScreen: React.FC = () => {
       network: 'Sepolia',
       walletAddress: account || '',
       verifierAddress: getVerifierAddressSync(configCircuitName),
+      source: proofRequest ? 'deeplink' : 'manual',
+      dappName: proofRequest?.dappName,
+      requestId: proofRequest?.requestId,
     });
     historyIdRef.current = historyItem.id;
     addLog(`[History] Proof record created: ${historyItem.id}`);
@@ -247,11 +250,19 @@ export const ProofGenerationScreen: React.FC = () => {
   useEffect(() => {
     if (parsedProof && proofStartedAt.current) {
       const generatedAt = Date.now();
+      const circuitId = route.params?.circuitId || 'coinbase-kyc';
+      const configNames: Record<string, string> = {
+        'coinbase-kyc': 'coinbase_attestation',
+        'age-verifier': 'age_verifier',
+      };
+      const resolvedCircuit = (configNames[circuitId] || circuitId) as CircuitName;
 
       if (historyIdRef.current) {
         proofHistoryStore.update(historyIdRef.current, {
           proofHash: parsedProof.proofHex,
-          overallStatus: 'pending',
+          offChainStatus: 'generated',
+          onChainStatus: 'generated',
+          overallStatus: 'generated',
         }).catch(console.error);
       }
 
@@ -264,6 +275,8 @@ export const ProofGenerationScreen: React.FC = () => {
           verificationResult: false,
           startedAt: proofStartedAt.current,
           completedAt: generatedAt,
+          verifierAddress: getVerifierAddressSync(resolvedCircuit),
+          chainId: getNetworkConfig().chainId,
         }).catch(console.error);
       }
 
@@ -271,12 +284,12 @@ export const ProofGenerationScreen: React.FC = () => {
         proofHex: parsedProof.proofHex,
         publicInputsHex: parsedProof.publicInputsHex,
         numPublicInputs: parsedProof.numPublicInputs,
-        circuitId: route.params?.circuitId || 'coinbase-kyc',
+        circuitId,
         timestamp: generatedAt.toString(),
         verification: {
           offChain: null,
           onChain: null,
-          verifierContract: getVerifierAddressSync('coinbase_attestation'),
+          verifierContract: getVerifierAddressSync(resolvedCircuit),
           chainName: getNetworkConfig().name,
           explorerUrl: getNetworkConfig().explorerUrl,
         },
