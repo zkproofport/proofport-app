@@ -3,9 +3,9 @@ import {View, Text, StyleSheet, Image, Animated} from 'react-native';
 
 import {
   downloadCircuitFiles,
-  allCircuitFilesExist,
   type DownloadProgress,
 } from '../utils/circuitDownload';
+import {getEnvironment} from '../config';
 
 const CIRCUITS = ['age_verifier', 'coinbase_attestation'];
 const SPLASH_DURATION = 3000;
@@ -47,27 +47,18 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
 
   const checkAndDownloadCircuits = useCallback(async () => {
     try {
+      const env = getEnvironment();
       let completedCircuits = 0;
 
       for (const circuitName of CIRCUITS) {
         setStatus(`Checking ${circuitName}...`);
 
-        const exists = await allCircuitFilesExist(circuitName);
+        await downloadCircuitFiles(circuitName, env, handleProgress, (msg) => {
+          console.log(msg);
+        });
 
-        if (exists) {
-          setStatus(`${circuitName} ready`);
-          completedCircuits++;
-          setOverallProgress((completedCircuits / CIRCUITS.length) * 100);
-        } else {
-          setStatus(`Downloading ${circuitName}...`);
-
-          await downloadCircuitFiles(circuitName, handleProgress, (msg) => {
-            console.log(msg);
-          });
-
-          completedCircuits++;
-          setOverallProgress((completedCircuits / CIRCUITS.length) * 100);
-        }
+        completedCircuits++;
+        setOverallProgress((completedCircuits / CIRCUITS.length) * 100);
       }
 
       setStatus('Ready!');
