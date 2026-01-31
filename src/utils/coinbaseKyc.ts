@@ -1,13 +1,9 @@
 import {ethers} from 'ethers';
+import {getAttestationConfig} from '../config';
 
-export const AUTHORIZED_SIGNERS = [
-  '0x952f32128AF084422539C4Ff96df5C525322E564',
-  '0x8844591D47F17bcA6F5dF8f6B64F4a739F1C0080',
-  '0x88fe64ea2e121f49bb77abea6c0a45e93638c3c5',
-  '0x44ace9abb148e8412ac4492e9a1ae6bd88226803',
-];
-
-export const COINBASE_ATTESTER_CONTRACT = '0x357458739F90461b99789350868CD7CF330Dd7EE';
+const attestationConfig = getAttestationConfig();
+export const AUTHORIZED_SIGNERS = attestationConfig.authorizedSigners;
+export const COINBASE_ATTESTER_CONTRACT = attestationConfig.coinbaseAttester;
 
 export function extractPubkeyCoordinates(pubkey: string): {x: string; y: string} {
   // Remove 0x04 prefix if present (uncompressed pubkey format)

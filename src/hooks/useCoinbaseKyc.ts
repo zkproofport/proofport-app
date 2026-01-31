@@ -19,27 +19,17 @@ import {
   ensureStorageAvailable,
   loadVkFromAssets,
 } from '../utils';
+import {getVerifierAddress, getVerifierAbi, getNetworkConfig} from '../config';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
 // Circuit file names
 const CIRCUIT_NAME = 'coinbase_attestation';
 
-// On-chain Verifier contract on Sepolia Testnet
-const VERIFIER_CONTRACT_ADDRESS = '0x121632902482B658e0F2D055126dBe977deb9FC1';
-
 // Module-level proof cache — persists across hook instances (screen navigations)
 let _cachedVk: ArrayBuffer | null = null;
 let _cachedFullProof: ArrayBuffer | null = null;
 let _cachedParsedProof: ParsedProofData | null = null;
-
-// Minimal ABI for HonkVerifier contract (Noir generated)
-const VERIFIER_ABI = [
-  'function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool)',
-];
-
-// Sepolia RPC for read-only calls (using Infura for reliability)
-const SEPOLIA_RPC_URL = 'https://sepolia.infura.io/v3/2fe2d28467784ababcae918bb18b4bf6';
 
 export interface CoinbaseKycInputs {
   userAddress: string;
@@ -502,7 +492,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
   );
 
   /**
-   * Verify proof on-chain using the deployed Verifier contract on Sepolia
+   * Verify proof on-chain using the deployed Verifier contract
    */
   const verifyProofOnChain = useCallback(
     async (addLog: (msg: string) => void): Promise<boolean> => {
@@ -516,21 +506,26 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
       setIsLoading(true);
       setStatus('Verifying proof on-chain...');
       addLog('=== Starting On-Chain Verification ===');
-      addLog('[OnChain] Starting on-chain verification...');
-      addLog(`[OnChain] Contract: ${VERIFIER_CONTRACT_ADDRESS}`);
-      addLog('[OnChain] Chain: Sepolia (11155111)');
-      addLog(`Verifier contract: ${VERIFIER_CONTRACT_ADDRESS}`);
-      addLog(`Chain: Sepolia Testnet (11155111)`);
 
       try {
-        addLog('[OnChain] Connecting to Sepolia RPC...');
-        const provider = new ethers.providers.JsonRpcProvider(SEPOLIA_RPC_URL);
-        addLog('Connected to Sepolia RPC');
+        addLog('[OnChain] Loading network configuration...');
+        const verifierAddress = await getVerifierAddress('coinbase_attestation');
+        const network = getNetworkConfig();
+
+        addLog('[OnChain] Starting on-chain verification...');
+        addLog(`[OnChain] Contract: ${verifierAddress}`);
+        addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);
+        addLog(`Verifier contract: ${verifierAddress}`);
+        addLog(`Chain: ${network.name} (${network.chainId})`);
+
+        addLog(`[OnChain] Connecting to ${network.name} RPC...`);
+        const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
+        addLog(`Connected to ${network.name} RPC`);
 
         addLog('[OnChain] Creating contract instance...');
         const verifierContract = new ethers.Contract(
-          VERIFIER_CONTRACT_ADDRESS,
-          VERIFIER_ABI,
+          verifierAddress,
+          getVerifierAbi(),
           provider,
         );
 
@@ -557,12 +552,12 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
         // Log transaction info
         addLog('--- Transaction Info ---');
-        addLog(`Contract: ${VERIFIER_CONTRACT_ADDRESS}`);
+        addLog(`Contract: ${verifierAddress}`);
         addLog(`Method: verify(bytes, bytes32[])`);
         addLog(`Note: This is a view function call (no gas spent)`);
 
         if (isValid) {
-          addLog('Proof verified on Sepolia blockchain!');
+          addLog(`Proof verified on ${network.name} blockchain!`);
           setStatus('Proof verified on-chain!');
         } else {
           addLog('Proof rejected by on-chain verifier');

@@ -1,15 +1,14 @@
 import {ethers} from 'ethers';
+import {STATIC_CONFIGS} from '../config/contracts';
 
-const EAS_GRAPHQL_ENDPOINT = 'https://base.easscan.org/graphql';
+// Coinbase attestations are issued on Base Mainnet regardless of app environment.
+// Always use production config for attestation search.
+const PRODUCTION_CONFIG = STATIC_CONFIGS.production;
+const EAS_GRAPHQL_ENDPOINT = PRODUCTION_CONFIG.attestation.easGraphqlEndpoint;
 const COINBASE_SCHEMA_ID = '0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9';
-const COINBASE_ATTESTER_CONTRACT = '0x357458739F90461b99789350868CD7CF330Dd7EE';
+const COINBASE_ATTESTER_CONTRACT = PRODUCTION_CONFIG.attestation.coinbaseAttester;
 
-const BASE_RPC_URLS = [
-  'https://base.llamarpc.com',
-  'https://base-rpc.publicnode.com',
-  'https://base.drpc.org',
-  'https://mainnet.base.org',
-];
+const BASE_RPC_URLS = PRODUCTION_CONFIG.rpcUrls.base;
 
 export interface AttestationInfo {
   id: string;
@@ -27,7 +26,9 @@ export async function searchAttestations(
   const log = addLog || console.log;
 
   log('Searching for Coinbase attestations...');
-  log(`Wallet: ${walletAddress}`);
+  log(`[EAS] Endpoint: ${EAS_GRAPHQL_ENDPOINT}`);
+  log(`[EAS] Attester: ${COINBASE_ATTESTER_CONTRACT}`);
+  log(`[EAS] Wallet: ${walletAddress}`);
 
   const query = `
     query GetAttestations($recipient: String!, $schemaId: String!) {

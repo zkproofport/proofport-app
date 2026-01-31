@@ -10,20 +10,10 @@ import {
 import {getAssetPath, arrayBufferToHex, validateInputs, loadVkFromAssets} from '../utils';
 import type {ProofStatus, AgeVerifierInputs} from '../types';
 import type {Step} from '../components';
+import {getVerifierAddress, getVerifierAbi, getNetworkConfig} from '../config';
 
 // Circuit name for assets
 const CIRCUIT_NAME = 'age_verifier';
-
-// On-chain Verifier contract on Sepolia (with public inputs support)
-const VERIFIER_CONTRACT_ADDRESS = '0x33316f0A1F6638AbC8D5a6aCce5a1cF13427A0c9';
-
-// Minimal ABI for HonkVerifier contract (Noir generated)
-const VERIFIER_ABI = [
-  'function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool)',
-];
-
-// Sepolia RPC for read-only calls (using Infura for reliability)
-const SEPOLIA_RPC_URL = 'https://sepolia.infura.io/v3/2fe2d28467784ababcae918bb18b4bf6';
 
 export interface ParsedProofData {
   proofHex: string;
@@ -246,7 +236,7 @@ export const useAgeVerifier = (): UseAgeVerifierReturn => {
   );
 
   /**
-   * Verify proof on-chain using the deployed Verifier contract on Sepolia
+   * Verify proof on-chain using the deployed Verifier contract
    */
   const verifyProofOnChain = useCallback(
     async (addLog: (msg: string) => void): Promise<boolean> => {
@@ -258,18 +248,22 @@ export const useAgeVerifier = (): UseAgeVerifierReturn => {
       setIsLoading(true);
       setStatus('Verifying proof on-chain...');
       addLog('=== Starting On-Chain Verification ===');
-      addLog(`Verifier contract: ${VERIFIER_CONTRACT_ADDRESS}`);
-      addLog(`Chain: Sepolia Testnet (11155111)`);
+
+      const verifierAddress = await getVerifierAddress('age_verifier');
+      const network = getNetworkConfig();
+
+      addLog(`Verifier contract: ${verifierAddress}`);
+      addLog(`Chain: ${network.name} (${network.chainId})`);
 
       try {
-        // Create provider for Sepolia chain
-        const provider = new ethers.providers.JsonRpcProvider(SEPOLIA_RPC_URL);
-        addLog('Connected to Sepolia RPC');
+        // Create provider
+        const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
+        addLog(`Connected to ${network.name} RPC`);
 
         // Create contract instance
         const verifierContract = new ethers.Contract(
-          VERIFIER_CONTRACT_ADDRESS,
-          VERIFIER_ABI,
+          verifierAddress,
+          getVerifierAbi(),
           provider,
         );
 
@@ -294,12 +288,12 @@ export const useAgeVerifier = (): UseAgeVerifierReturn => {
 
         // Log transaction info (for view function, we can show the call info)
         addLog('--- Transaction Info ---');
-        addLog(`Contract: ${VERIFIER_CONTRACT_ADDRESS}`);
+        addLog(`Contract: ${verifierAddress}`);
         addLog(`Method: verify(bytes, bytes32[])`);
         addLog(`Note: This is a view function call (no gas spent)`);
 
         if (isValid) {
-          addLog('Proof verified on Sepolia blockchain!');
+          addLog(`Proof verified on ${network.name} blockchain!`);
           setStatus('Proof verified on-chain!');
         } else {
           addLog('Proof rejected by on-chain verifier');
