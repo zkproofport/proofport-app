@@ -50,6 +50,10 @@ export interface ProofResponse {
   publicInputs?: string[];
   numPublicInputs?: number;
 
+  // Verifier contract info (for SDK on-chain verification)
+  verifierAddress?: string;
+  chainId?: number;
+
   // Original inputs (for verification)
   inputs?: CircuitInputs;
 

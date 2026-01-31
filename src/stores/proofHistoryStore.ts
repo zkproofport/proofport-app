@@ -7,13 +7,16 @@ export interface ProofHistoryItem {
   circuitId: string;
   circuitName: string;
   proofHash: string;
-  offChainStatus: 'verified' | 'pending' | 'failed';
-  onChainStatus: 'verified' | 'pending' | 'failed';
-  overallStatus: 'started' | 'generating' | 'failed' | 'pending' | 'verified' | 'verified_failed';
+  offChainStatus: 'verified' | 'pending' | 'failed' | 'generated';
+  onChainStatus: 'verified' | 'pending' | 'failed' | 'generated';
+  overallStatus: 'started' | 'generating' | 'failed' | 'pending' | 'generated' | 'verified' | 'verified_failed';
   timestamp: string;
   network: string;
   walletAddress: string;
   verifierAddress?: string;
+  source?: 'manual' | 'deeplink';
+  dappName?: string;
+  requestId?: string;
 }
 
 export const proofHistoryStore = {
@@ -27,19 +30,34 @@ export const proofHistoryStore = {
       return items.map((item: any) => {
         if (!item.offChainStatus && !item.onChainStatus) {
           const oldStatus = item.status || 'pending';
-          return {
+          const legacy = {
             ...item,
             offChainStatus: oldStatus,
             onChainStatus: oldStatus,
             overallStatus: item.overallStatus || (item.status === 'verified' ? 'verified' : item.status === 'failed' ? 'failed' : 'pending'),
           };
+          if (legacy.proofHash && legacy.proofHash.length > 0) {
+            if (legacy.offChainStatus === 'pending') legacy.offChainStatus = 'generated';
+            if (legacy.onChainStatus === 'pending') legacy.onChainStatus = 'generated';
+            if (legacy.overallStatus === 'pending') legacy.overallStatus = 'generated';
+          }
+          if (!legacy.source) legacy.source = 'manual';
+          return legacy;
         }
-        return {
+        const migrated = {
           ...item,
           offChainStatus: item.offChainStatus || 'pending',
           onChainStatus: item.onChainStatus || 'pending',
           overallStatus: item.overallStatus || (item.status === 'verified' ? 'verified' : item.status === 'failed' ? 'failed' : 'pending'),
         };
+        // Migrate: pending with proof -> generated
+        if (migrated.proofHash && migrated.proofHash.length > 0) {
+          if (migrated.offChainStatus === 'pending') migrated.offChainStatus = 'generated';
+          if (migrated.onChainStatus === 'pending') migrated.onChainStatus = 'generated';
+          if (migrated.overallStatus === 'pending') migrated.overallStatus = 'generated';
+        }
+        if (!migrated.source) migrated.source = 'manual';
+        return migrated;
       });
     } catch (error) {
       console.error('Failed to load proof history:', error);
