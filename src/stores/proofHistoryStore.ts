@@ -13,6 +13,7 @@ export interface ProofHistoryItem {
   timestamp: string;
   network: string;
   walletAddress: string;
+  verifierAddress?: string;
 }
 
 export const proofHistoryStore = {

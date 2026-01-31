@@ -88,13 +88,25 @@ const HistoryDetailScreen: React.FC = () => {
     proofItem.walletAddress.length > 18
       ? `${proofItem.walletAddress.slice(0, 10)}...${proofItem.walletAddress.slice(-8)}`
       : proofItem.walletAddress;
+  const truncatedVerifier = proofItem.verifierAddress && proofItem.verifierAddress.length > 18
+    ? `${proofItem.verifierAddress.slice(0, 10)}...${proofItem.verifierAddress.slice(-8)}`
+    : proofItem.verifierAddress || '';
 
   const handleCopyProofHash = () => {
     Clipboard.setString(proofItem.proofHash);
+    Alert.alert('Copied', 'Proof hash copied to clipboard');
   };
 
   const handleCopyWallet = () => {
     Clipboard.setString(proofItem.walletAddress);
+    Alert.alert('Copied', 'Wallet address copied to clipboard');
+  };
+
+  const handleCopyVerifier = () => {
+    if (proofItem.verifierAddress) {
+      Clipboard.setString(proofItem.verifierAddress);
+      Alert.alert('Copied', 'Verifier address copied to clipboard');
+    }
   };
 
   const handleDelete = () => {
@@ -187,6 +199,23 @@ const HistoryDetailScreen: React.FC = () => {
           </View>
 
           <View style={styles.divider} />
+
+          {proofItem.verifierAddress && (
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Verifier Contract</Text>
+                <TouchableOpacity
+                  onPress={handleCopyVerifier}
+                  style={styles.copyableValue}
+                  activeOpacity={0.7}>
+                  <Text style={styles.verifierValue}>{truncatedVerifier}</Text>
+                  <Icon name="copy" size="sm" color={colors.text.secondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.divider} />
+            </>
+          )}
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Proof Hash</Text>
@@ -353,6 +382,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: colors.text.primary,
+    fontFamily: 'monospace',
+  },
+  verifierValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.info[400],
     fontFamily: 'monospace',
   },
   deleteRow: {
