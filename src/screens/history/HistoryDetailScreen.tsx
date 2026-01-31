@@ -47,10 +47,10 @@ const HistoryDetailScreen: React.FC = () => {
 
   const [proofItem, setProofItem] = useState<ProofHistoryItem | null>(null);
   const [offChainStatus, setOffChainStatus] = useState<
-    'pending' | 'loading' | 'verified' | 'failed'
+    'pending' | 'loading' | 'verified' | 'failed' | 'generated'
   >('pending');
   const [onChainStatus, setOnChainStatus] = useState<
-    'pending' | 'loading' | 'verified' | 'failed'
+    'pending' | 'loading' | 'verified' | 'failed' | 'generated'
   >('pending');
 
   // Reload proof status on focus (status can change from ProofComplete screen)
@@ -68,6 +68,8 @@ const HistoryDetailScreen: React.FC = () => {
       loadProof();
     }, [proofId])
   );
+
+  const bothGenerated = offChainStatus === 'generated' && onChainStatus === 'generated';
 
   if (!proofItem) {
     return (
@@ -141,51 +143,88 @@ const HistoryDetailScreen: React.FC = () => {
           <Text style={styles.timestamp}>{formattedDate}</Text>
         </View>
 
-        <Card style={styles.statusCard}>
-          <Text style={styles.cardTitle}>Verification Status</Text>
+        {proofItem.source === 'deeplink' && (proofItem.dappName || proofItem.requestId) && (
+          <Card style={styles.statusCard}>
+            <Text style={styles.cardTitle}>dApp Request</Text>
+            {proofItem.dappName && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>dApp</Text>
+                <Text style={styles.dappValue}>{proofItem.dappName}</Text>
+              </View>
+            )}
+            {proofItem.dappName && proofItem.requestId && <View style={styles.divider} />}
+            {proofItem.requestId && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Request ID</Text>
+                <Text style={[styles.hashValue, {fontSize: 13}]}>
+                  {proofItem.requestId.length > 20
+                    ? `${proofItem.requestId.slice(0, 12)}...${proofItem.requestId.slice(-8)}`
+                    : proofItem.requestId}
+                </Text>
+              </View>
+            )}
+          </Card>
+        )}
 
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Off-Chain Verification</Text>
-            <View style={styles.statusRight}>
-              {offChainStatus === 'loading' ? (
-                <ActivityIndicator size="small" color={colors.info[400]} />
-              ) : (
-                <Badge
-                  variant={
-                    offChainStatus === 'verified' ? 'success' :
-                    offChainStatus === 'failed' ? 'error' : 'warning'
-                  }
-                  text={
-                    offChainStatus === 'verified' ? 'Verified' :
-                    offChainStatus === 'failed' ? 'Failed' : 'Pending'
-                  }
-                />
-              )}
+        {bothGenerated ? (
+          <Card style={styles.statusCard}>
+            <Text style={styles.cardTitle}>Proof Status</Text>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Status</Text>
+              <Badge variant="info" text="Generated" />
             </View>
-          </View>
+          </Card>
+        ) : (
+          <Card style={styles.statusCard}>
+            <Text style={styles.cardTitle}>Verification Status</Text>
 
-          <View style={styles.divider} />
-
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>On-Chain Verification</Text>
-            <View style={styles.statusRight}>
-              {onChainStatus === 'loading' ? (
-                <ActivityIndicator size="small" color={colors.info[400]} />
-              ) : (
-                <Badge
-                  variant={
-                    onChainStatus === 'verified' ? 'success' :
-                    onChainStatus === 'failed' ? 'error' : 'warning'
-                  }
-                  text={
-                    onChainStatus === 'verified' ? 'Verified' :
-                    onChainStatus === 'failed' ? 'Failed' : 'Pending'
-                  }
-                />
-              )}
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Off-Chain Verification</Text>
+              <View style={styles.statusRight}>
+                {offChainStatus === 'loading' ? (
+                  <ActivityIndicator size="small" color={colors.info[400]} />
+                ) : (
+                  <Badge
+                    variant={
+                      offChainStatus === 'verified' ? 'success' :
+                      offChainStatus === 'failed' ? 'error' :
+                      offChainStatus === 'generated' ? 'info' : 'warning'
+                    }
+                    text={
+                      offChainStatus === 'verified' ? 'Verified' :
+                      offChainStatus === 'failed' ? 'Failed' :
+                      offChainStatus === 'generated' ? 'Generated' : 'Pending'
+                    }
+                  />
+                )}
+              </View>
             </View>
-          </View>
-        </Card>
+
+            <View style={styles.divider} />
+
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>On-Chain Verification</Text>
+              <View style={styles.statusRight}>
+                {onChainStatus === 'loading' ? (
+                  <ActivityIndicator size="small" color={colors.info[400]} />
+                ) : (
+                  <Badge
+                    variant={
+                      onChainStatus === 'verified' ? 'success' :
+                      onChainStatus === 'failed' ? 'error' :
+                      onChainStatus === 'generated' ? 'info' : 'warning'
+                    }
+                    text={
+                      onChainStatus === 'verified' ? 'Verified' :
+                      onChainStatus === 'failed' ? 'Failed' :
+                      onChainStatus === 'generated' ? 'Generated' : 'Pending'
+                    }
+                  />
+                )}
+              </View>
+            </View>
+          </Card>
+        )}
 
         <Card style={styles.detailsCard}>
           <Text style={styles.cardTitle}>Details</Text>
@@ -389,6 +428,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.info[400],
     fontFamily: 'monospace',
+  },
+  dappValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.info[400],
   },
   deleteRow: {
     flexDirection: 'row',

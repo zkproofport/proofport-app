@@ -3,7 +3,7 @@ import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Icon} from '../atoms/Icon';
 import {Badge} from '../atoms/Badge';
 
-type ProofStatus = 'verified' | 'pending' | 'failed';
+type ProofStatus = 'verified' | 'pending' | 'failed' | 'generated';
 
 interface ProofHistoryCardProps {
   circuitIcon: string;
@@ -13,6 +13,7 @@ interface ProofHistoryCardProps {
   date: string;
   network: string;
   proofHash: string;
+  dappName?: string;
   onPress?: () => void;
   onDelete?: () => void;
 }
@@ -26,6 +27,8 @@ const getStatusBadge = (status: ProofStatus) => {
   switch (status) {
     case 'verified':
       return <Badge variant="success" text="Verified" />;
+    case 'generated':
+      return <Badge variant="info" text="Generated" />;
     case 'pending':
       return <Badge variant="warning" text="Pending" />;
     case 'failed':
@@ -41,6 +44,7 @@ export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
   date,
   network,
   proofHash,
+  dappName,
   onPress,
   onDelete,
 }) => {
@@ -56,7 +60,10 @@ export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
           <View style={styles.iconContainer}>
             <Icon name={circuitIcon as any} size="md" color="#3B82F6" />
           </View>
-          <Text style={styles.circuitName}>{circuitName}</Text>
+          <View style={styles.nameContainer}>
+            <Text style={styles.circuitName}>{circuitName}</Text>
+            {dappName && <Text style={styles.dappName}>via {dappName}</Text>}
+          </View>
         </View>
         <View style={styles.headerRight}>
           {onPress && <Icon name="chevron-right" size="sm" color="#6B7280" />}
@@ -138,11 +145,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  nameContainer: {
+    flex: 1,
+  },
   circuitName: {
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
-    flex: 1,
+  },
+  dappName: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
   },
   divider: {
     height: 1,

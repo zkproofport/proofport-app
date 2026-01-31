@@ -64,6 +64,7 @@ const ProofHistoryScreen: React.FC = () => {
   const totalProofs = proofs.length;
   const offChainVerifiedCount = proofs.filter(p => p.offChainStatus === 'verified').length;
   const onChainVerifiedCount = proofs.filter(p => p.onChainStatus === 'verified').length;
+  const generatedCount = proofs.filter(p => p.overallStatus === 'generated').length;
 
   const handleDeleteItem = (id: string, circuitName: string) => {
     Alert.alert(
@@ -149,6 +150,7 @@ const ProofHistoryScreen: React.FC = () => {
                 date={formatDate(proof.timestamp)}
                 network={proof.network}
                 proofHash={proof.proofHash}
+                dappName={proof.dappName}
                 onPress={() => navigation.navigate('HistoryDetail', { proofId: proof.id })}
                 onDelete={() => handleDeleteItem(proof.id, proof.circuitName)}
               />
@@ -168,6 +170,10 @@ const ProofHistoryScreen: React.FC = () => {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>On-Chain Verified</Text>
             <Text style={styles.summaryValue}>{onChainVerifiedCount}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Generated</Text>
+            <Text style={styles.summaryValue}>{generatedCount}</Text>
           </View>
         </View>
 
