@@ -153,8 +153,8 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
  */
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
-    coinbase_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
-    coinbase_country_attestation: '0xD0F3eE648386B59B484157332E736388Fcc41F47',
+    coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
+    coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
   },
   production: {
     coinbase_attestation: '',

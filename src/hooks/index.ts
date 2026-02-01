@@ -1,7 +1,7 @@
 export {useLogs} from './useLogs';
 export type {UseLogsReturn} from './useLogs';
 export {useCoinbaseKyc} from './useCoinbaseKyc';
-export type {UseCoinbaseKycReturn, CoinbaseKycInputs} from './useCoinbaseKyc';
+export type {UseCoinbaseKycReturn, CoinbaseKycProofInputs} from './useCoinbaseKyc';
 export {useCoinbaseCountry} from './useCoinbaseCountry';
 export type {UseCoinbaseCountryReturn, CoinbaseCountryInputs} from './useCoinbaseCountry';
 export {AUTHORIZED_SIGNERS} from '../utils/coinbaseKyc';

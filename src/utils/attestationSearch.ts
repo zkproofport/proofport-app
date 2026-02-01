@@ -11,6 +11,10 @@ const COINBASE_ATTESTER_CONTRACT = PRODUCTION_CONFIG.attestation.coinbaseAtteste
 
 const BASE_RPC_URLS = PRODUCTION_CONFIG.rpcUrls.base;
 
+// In-memory session cache for attestation results
+const attestationCache = new Map<string, {result: {attestation: AttestationInfo; rawTransaction: string}; timestamp: number}>();
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
 export interface AttestationInfo {
   id: string;
   txHash: string;
@@ -54,50 +58,112 @@ export async function searchAttestations(
 
   try {
     log('[EAS] Connecting to EAS GraphQL endpoint...');
-    const response = await fetch(EAS_GRAPHQL_ENDPOINT, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(EAS_GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables: {
+            recipient: walletAddress.toLowerCase(),
+            schemaId: targetSchema,
+          },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      log('[EAS] Query sent, awaiting response...');
+
+      if (!response.ok) {
+        throw new Error(`GraphQL request failed: ${response.status}`);
+      }
+      log(`[EAS] Response received (HTTP ${response.status})`);
+
+      const data = await response.json();
+      log('[EAS] Response parsed successfully');
+
+      if (data.errors) {
+        throw new Error(data.errors[0].message);
+      }
+
+      const attestations = data.data?.attestations || [];
+      log(`Found ${attestations.length} attestation(s)`);
+      attestations.forEach((a: any, i: number) => {
+        log(`[EAS] Attestation #${i + 1}: ID=${a.id.slice(0, 16)}..., attester=${a.attester.slice(0, 10)}...`);
+      });
+
+      return attestations.map((a: any) => ({
+        id: a.id,
+        txHash: a.txid,
+        attester: a.attester,
+        recipient: a.recipient,
+        time: a.time,
+      }));
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log(`Error searching attestations: ${errorMessage}`);
+    throw error;
+  }
+}
+
+async function fetchFromSingleRpc(txHash: string, rpcUrl: string, addLog?: (msg: string) => void): Promise<string> {
+  const log = addLog || console.log;
+
+  log(`[TX] Connecting to ${rpcUrl.split('/')[2]}...`);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(rpcUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        query,
-        variables: {
-          recipient: walletAddress.toLowerCase(),
-          schemaId: targetSchema,
-        },
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionByHash',
+        params: [txHash],
+        id: 1,
       }),
+      signal: controller.signal,
     });
-    log('[EAS] Query sent, awaiting response...');
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`GraphQL request failed: ${response.status}`);
+      throw new Error(`RPC request failed: ${response.status}`);
     }
-    log(`[EAS] Response received (HTTP ${response.status})`);
 
     const data = await response.json();
-    log('[EAS] Response parsed successfully');
+    log('[TX] Transaction data received');
 
-    if (data.errors) {
-      throw new Error(data.errors[0].message);
+    if (data.error) {
+      throw new Error(data.error.message);
     }
 
-    const attestations = data.data?.attestations || [];
-    log(`Found ${attestations.length} attestation(s)`);
-    attestations.forEach((a: any, i: number) => {
-      log(`[EAS] Attestation #${i + 1}: ID=${a.id.slice(0, 16)}..., attester=${a.attester.slice(0, 10)}...`);
-    });
+    const tx = data.result;
+    if (!tx) {
+      throw new Error('Transaction not found');
+    }
 
-    return attestations.map((a: any) => ({
-      id: a.id,
-      txHash: a.txid,
-      attester: a.attester,
-      recipient: a.recipient,
-      time: a.time,
-    }));
+    log(`[TX] Type: ${tx.type === '0x2' ? 'EIP-1559 (Type 2)' : 'Legacy'}`);
+    log(`[TX] To: ${tx.to}`);
+    log(`[TX] Chain: ${parseInt(tx.chainId, 16)} (${parseInt(tx.chainId, 16) === 8453 ? 'Base' : 'Unknown'})`);
+
+    const rawTx = reconstructRawTransaction(tx);
+    log(`[TX] Raw transaction reconstructed: ${rawTx.length} chars`);
+    return rawTx;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    log(`Error searching attestations: ${errorMessage}`);
-    throw error;
+    clearTimeout(timeoutId);
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
 
@@ -110,82 +176,14 @@ export async function fetchRawTransaction(
   log('[TX] Fetching raw transaction data...');
   log(`[TX] TX Hash: ${txHash}`);
 
-  let lastError: Error | null = null;
-
-  for (const rpcUrl of BASE_RPC_URLS) {
-    try {
-      log(`[TX] Connecting to ${rpcUrl.split('/')[2]}...`);
-      log('[TX] Trying eth_getRawTransactionByHash...');
-
-      // First try eth_getRawTransactionByHash (some nodes support it)
-      let response = await fetch(rpcUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_getRawTransactionByHash',
-          params: [txHash],
-          id: 1,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.result && !data.error) {
-          log(`[TX] Direct fetch successful! Length: ${data.result.length} chars`);
-          return data.result;
-        }
-      }
-
-      log('[TX] Direct method not supported, trying eth_getTransactionByHash...');
-      // Fallback: fetch transaction and reconstruct
-      response = await fetch(rpcUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_getTransactionByHash',
-          params: [txHash],
-          id: 1,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`RPC request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      log('[TX] Transaction data received');
-
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      const tx = data.result;
-      if (!tx) {
-        throw new Error('Transaction not found');
-      }
-
-      log(`[TX] Type: ${tx.type === '0x2' ? 'EIP-1559 (Type 2)' : 'Legacy'}`);
-      log(`[TX] To: ${tx.to}`);
-      log(`[TX] Chain: ${parseInt(tx.chainId, 16)} (${parseInt(tx.chainId, 16) === 8453 ? 'Base' : 'Unknown'})`);
-
-      // Reconstruct raw transaction from transaction data
-      const rawTx = reconstructRawTransaction(tx);
-      log(`[TX] Raw transaction reconstructed: ${rawTx.length} chars`);
-      return rawTx;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      log(`RPC ${rpcUrl.split('/')[2]} failed: ${lastError.message}`);
-      continue;
-    }
+  try {
+    const result = await Promise.any(
+      BASE_RPC_URLS.map(rpcUrl => fetchFromSingleRpc(txHash, rpcUrl, log))
+    );
+    return result;
+  } catch (aggregateError) {
+    throw new Error(`Failed to fetch raw transaction from all RPCs: ${txHash}`);
   }
-
-  throw lastError || new Error('All RPC endpoints failed');
 }
 
 function reconstructRawTransaction(tx: any): string {
@@ -300,6 +298,14 @@ export async function findAttestationTransaction(
   const isCountry = expectedSelector === SELECTOR_ATTEST_COUNTRY;
   const schemaId = isCountry ? COINBASE_COUNTRY_SCHEMA_ID : COINBASE_KYC_SCHEMA_ID;
 
+  // Check cache first
+  const cacheKey = `${walletAddress}:${schemaId}`;
+  const cached = attestationCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    log('[Cache] Returning cached attestation result');
+    return cached.result;
+  }
+
   log('[Search] Starting attestation search for wallet...');
   log(`[Search] Wallet: ${walletAddress}`);
   log(`[Search] Type: ${isCountry ? 'Verified Country' : 'Verified Account'}`);
@@ -343,6 +349,10 @@ export async function findAttestationTransaction(
       }),
     );
     log('[Search] Validation passed! Transaction is authentic.');
+
+    // Cache the result
+    attestationCache.set(cacheKey, {result, timestamp: Date.now()});
+
     return result;
   } catch {
     // Promise.any rejects only when ALL promises reject (AggregateError)

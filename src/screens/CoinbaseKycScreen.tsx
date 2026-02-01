@@ -99,6 +99,7 @@ export const CoinbaseKycScreen: React.FC = () => {
           userAddress: account,
           rawTransaction: result.rawTransaction,
           signerIndex: 0,
+          scopeString: 'proofport:default',
         },
         ethereumProvider,
         addLog,

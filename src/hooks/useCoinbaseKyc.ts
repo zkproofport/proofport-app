@@ -19,7 +19,7 @@ import {
   ensureStorageAvailable,
   loadVkFromAssets,
 } from '../utils';
-import {getVerifierAddress, getVerifierAbi, getNetworkConfig} from '../config';
+import {getVerifierAddress, getVerifierAbi, getNetworkConfig, getEnvironment} from '../config';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -518,6 +518,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
       try {
         addLog('[OnChain] Loading network configuration...');
         const verifierAddress = await getVerifierAddress('coinbase_attestation');
+
+        if (!verifierAddress) {
+          addLog('[OnChain] ERROR: Verifier address is empty - check environment config');
+          addLog('[OnChain] Environment: ' + getEnvironment());
+          setStatus('Verification unavailable');
+          return false;
+        }
+
         const network = getNetworkConfig();
 
         addLog('[OnChain] Starting on-chain verification...');
@@ -578,9 +586,13 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         addLog(`On-chain verification error: ${errorMessage}`);
 
         if (errorMessage.includes('call revert')) {
-          addLog('Contract call reverted - proof may be invalid or wrong format');
+          addLog('[OnChain] Contract call reverted');
+          addLog('[OnChain] This may indicate a circuit/verifier mismatch');
+          addLog('[OnChain] Try clearing app cache and restarting');
         } else if (errorMessage.includes('network')) {
-          addLog('Network error - check internet connection');
+          addLog('[OnChain] Network error - check internet connection');
+        } else if (errorMessage.includes('could not detect network')) {
+          addLog('[OnChain] RPC endpoint unreachable');
         }
 
         setStatus('Error: on-chain verification failed');
