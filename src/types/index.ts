@@ -43,4 +43,5 @@ export type ProofStatus =
   | 'Error generating test proof'
   | 'Error verifying proof'
   | 'Error: on-chain verification failed'
+  | 'Verification unavailable'
   | 'Invalid input';
