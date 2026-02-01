@@ -5,7 +5,8 @@ import {STATIC_CONFIGS} from '../config/contracts';
 // Always use production config for attestation search.
 const PRODUCTION_CONFIG = STATIC_CONFIGS.production;
 const EAS_GRAPHQL_ENDPOINT = PRODUCTION_CONFIG.attestation.easGraphqlEndpoint;
-const COINBASE_SCHEMA_ID = '0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9';
+const COINBASE_KYC_SCHEMA_ID = '0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9';
+const COINBASE_COUNTRY_SCHEMA_ID = '0x1801901fabd0e6189356b4fb52bb0ab855276d84f7ec140839fbd1f6801ca065';
 const COINBASE_ATTESTER_CONTRACT = PRODUCTION_CONFIG.attestation.coinbaseAttester;
 
 const BASE_RPC_URLS = PRODUCTION_CONFIG.rpcUrls.base;
@@ -22,12 +23,14 @@ export interface AttestationInfo {
 export async function searchAttestations(
   walletAddress: string,
   addLog?: (msg: string) => void,
+  schemaId?: string,
 ): Promise<AttestationInfo[]> {
   const log = addLog || console.log;
+  const targetSchema = schemaId || COINBASE_KYC_SCHEMA_ID;
 
   log('Searching for Coinbase attestations...');
   log(`[EAS] Endpoint: ${EAS_GRAPHQL_ENDPOINT}`);
-  log(`[EAS] Attester: ${COINBASE_ATTESTER_CONTRACT}`);
+  log(`[EAS] Schema: ${targetSchema.slice(0, 20)}...`);
   log(`[EAS] Wallet: ${walletAddress}`);
 
   const query = `
@@ -60,7 +63,7 @@ export async function searchAttestations(
         query,
         variables: {
           recipient: walletAddress.toLowerCase(),
-          schemaId: COINBASE_SCHEMA_ID,
+          schemaId: targetSchema,
         },
       }),
     });
@@ -79,7 +82,6 @@ export async function searchAttestations(
     }
 
     const attestations = data.data?.attestations || [];
-    log(`[EAS] Schema: ${COINBASE_SCHEMA_ID.slice(0, 20)}...`);
     log(`Found ${attestations.length} attestation(s)`);
     attestations.forEach((a: any, i: number) => {
       log(`[EAS] Attestation #${i + 1}: ID=${a.id.slice(0, 16)}..., attester=${a.attester.slice(0, 10)}...`);
@@ -231,10 +233,15 @@ function reconstructRawTransaction(tx: any): string {
   return ethers.utils.serializeTransaction(txData, signature);
 }
 
+export const SELECTOR_ATTEST_ACCOUNT = '0x56feed5e';
+export const SELECTOR_ATTEST_COUNTRY = '0x0a225248';
+const ALL_VALID_SELECTORS = [SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY];
+
 export function validateAttestationTransaction(
   rawTx: string,
   expectedRecipient: string,
   addLog?: (msg: string) => void,
+  expectedSelector?: string,
 ): {valid: boolean; error?: string} {
   const log = addLog || console.log;
 
@@ -248,12 +255,19 @@ export function validateAttestationTransaction(
       return {valid: false, error: 'Transaction not sent to Coinbase Attester Contract'};
     }
 
-    // Check function selector (attestAccount)
     const selector = tx.data.slice(0, 10);
     log(`[Validate] Function selector: ${selector}`);
-    log('[Validate] Expected selector: 0x56feed5e (attestAccount)');
-    if (selector !== '0x56feed5e') {
-      return {valid: false, error: 'Invalid function selector'};
+
+    if (expectedSelector) {
+      log(`[Validate] Expected selector: ${expectedSelector}`);
+      if (selector !== expectedSelector) {
+        return {valid: false, error: `Selector mismatch: got ${selector}, expected ${expectedSelector}`};
+      }
+    } else {
+      log('[Validate] Expected selectors: 0x56feed5e (attestAccount) or 0x0a225248 (attestCountry)');
+      if (!ALL_VALID_SELECTORS.includes(selector)) {
+        return {valid: false, error: 'Invalid function selector'};
+      }
     }
 
     const calldataAddress = '0x' + tx.data.slice(34, 74);
@@ -279,39 +293,60 @@ export function validateAttestationTransaction(
 export async function findAttestationTransaction(
   walletAddress: string,
   addLog?: (msg: string) => void,
+  expectedSelector?: string,
 ): Promise<{attestation: AttestationInfo; rawTransaction: string} | null> {
   const log = addLog || console.log;
 
+  const isCountry = expectedSelector === SELECTOR_ATTEST_COUNTRY;
+  const schemaId = isCountry ? COINBASE_COUNTRY_SCHEMA_ID : COINBASE_KYC_SCHEMA_ID;
+
   log('[Search] Starting attestation search for wallet...');
   log(`[Search] Wallet: ${walletAddress}`);
-  const attestations = await searchAttestations(walletAddress, log);
+  log(`[Search] Type: ${isCountry ? 'Verified Country' : 'Verified Account'}`);
+  if (expectedSelector) {
+    log(`[Search] Expected selector: ${expectedSelector}`);
+  }
+  const attestations = await searchAttestations(walletAddress, log, schemaId);
 
   if (attestations.length === 0) {
     log('No attestations found for this wallet');
     return null;
   }
 
-  log(`[Search] Found ${attestations.length} attestation(s)`);
-  const attestation = attestations[0];
-  log('[Search] Using most recent attestation');
-  log(`[Search] Attestation date: ${new Date(attestation.time * 1000).toLocaleString()}`);
-  log(`[Search] Attestation ID: ${attestation.id.slice(0, 20)}...`);
-  log(`TX Hash: ${attestation.txHash}`);
+  // Deduplicate attestations by txHash to avoid fetching the same transaction multiple times
+  const uniqueTxHashes = new Set<string>();
+  const uniqueAttestations = attestations.filter(a => {
+    if (uniqueTxHashes.has(a.txHash)) {
+      return false;
+    }
+    uniqueTxHashes.add(a.txHash);
+    return true;
+  });
 
-  log('[Search] Fetching raw transaction from Base network...');
-  const rawTransaction = await fetchRawTransaction(attestation.txHash, log);
-  log('[Search] Raw transaction retrieved successfully');
+  log(`[Search] Found ${attestations.length} attestation(s) (${uniqueAttestations.length} unique tx), checking in parallel...`);
 
-  log('[Search] Validating transaction against wallet...');
-  const validation = validateAttestationTransaction(rawTransaction, walletAddress, log);
-  if (!validation.valid) {
-    log(`Validation failed: ${validation.error}`);
+  // Check all attestations in parallel — first valid one wins
+  try {
+    const result = await Promise.any(
+      uniqueAttestations.map(async (attestation, i) => {
+        log(`[Search] [#${i + 1}] Fetching tx ${attestation.txHash.slice(0, 16)}...`);
+        const rawTransaction = await fetchRawTransaction(attestation.txHash);
+        const validation = validateAttestationTransaction(rawTransaction, walletAddress, undefined, expectedSelector);
+        if (!validation.valid) {
+          throw new Error(validation.error || 'Validation failed');
+        }
+        log(`[Search] [#${i + 1}] Valid attestation found!`);
+        return {
+          attestation: {...attestation, rawTransaction},
+          rawTransaction,
+        };
+      }),
+    );
+    log('[Search] Validation passed! Transaction is authentic.');
+    return result;
+  } catch {
+    // Promise.any rejects only when ALL promises reject (AggregateError)
+    log('No matching attestation found after checking all candidates');
     return null;
   }
-  log('[Search] Validation passed! Transaction is authentic.');
-
-  return {
-    attestation: {...attestation, rawTransaction},
-    rawTransaction,
-  };
 }
