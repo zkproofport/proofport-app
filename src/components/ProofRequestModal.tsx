@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import type {
   ProofRequest,
-  AgeVerifierInputs,
   CoinbaseKycInputs,
 } from '../utils/deeplink';
 
@@ -22,15 +21,15 @@ interface ProofRequestModalProps {
 }
 
 const CIRCUIT_INFO = {
-  age_verifier: {
-    name: 'Age Verification',
-    icon: '🎂',
-    description: 'Prove your age without revealing your birth year',
-  },
   coinbase_attestation: {
     name: 'Coinbase KYC',
     icon: '🏦',
     description: 'Prove Coinbase identity verification',
+  },
+  coinbase_country_attestation: {
+    name: 'Coinbase Country Verification',
+    icon: '🌍',
+    description: 'Verify your country through Coinbase',
   },
 };
 
@@ -43,8 +42,7 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
   if (!request) return null;
 
   const circuitInfo = CIRCUIT_INFO[request.circuit];
-  const isAgeVerifier = request.circuit === 'age_verifier';
-  const inputs = request.inputs as AgeVerifierInputs | CoinbaseKycInputs;
+  const inputs = request.inputs as CoinbaseKycInputs;
 
   function formatTime(timestamp?: number): string {
     if (!timestamp) return 'No expiry';
@@ -111,40 +109,16 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Request Details</Text>
 
-              {isAgeVerifier ? (
-                <View style={styles.inputsList}>
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>Birth Year</Text>
-                    <Text style={styles.inputValue}>
-                      {(inputs as AgeVerifierInputs).birthYear}
-                      <Text style={styles.privateTag}> (private)</Text>
-                    </Text>
-                  </View>
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>Current Year</Text>
-                    <Text style={styles.inputValue}>
-                      {(inputs as AgeVerifierInputs).currentYear}
-                    </Text>
-                  </View>
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>Minimum Age</Text>
-                    <Text style={styles.inputValue}>
-                      {(inputs as AgeVerifierInputs).minAge}
-                    </Text>
-                  </View>
+              <View style={styles.inputsList}>
+                <View style={styles.inputRow}>
+                  <Text style={styles.inputLabel}>Wallet Address</Text>
+                  <Text style={styles.inputValue} numberOfLines={1}>
+                    {inputs.userAddress
+                      ? `${inputs.userAddress.slice(0, 10)}...${inputs.userAddress.slice(-8)}`
+                      : 'Will connect wallet'}
+                  </Text>
                 </View>
-              ) : (
-                <View style={styles.inputsList}>
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>Wallet Address</Text>
-                    <Text style={styles.inputValue} numberOfLines={1}>
-                      {(inputs as CoinbaseKycInputs).userAddress
-                        ? `${(inputs as CoinbaseKycInputs).userAddress!.slice(0, 10)}...${(inputs as CoinbaseKycInputs).userAddress!.slice(-8)}`
-                        : 'Will connect wallet'}
-                    </Text>
-                  </View>
-                </View>
-              )}
+              </View>
             </View>
 
             {/* Expiry Info */}

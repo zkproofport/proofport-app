@@ -11,12 +11,6 @@ const CIRCUIT_EXTENSIONS = ['json', 'srs', 'vk'] as const;
 const BUNDLED_CIRCUITS: string[] = [];
 
 const LEGACY_CONFIGS: Record<string, CircuitFilePaths & {repoBase: string}> = {
-  age_verifier: {
-    repoBase: GITHUB_MOPRO101,
-    basePath: '',
-    vkPath: '',
-    vkFileName: 'age_verifier.vk',
-  },
 };
 
 interface CircuitVersionMetadata {

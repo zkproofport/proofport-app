@@ -22,15 +22,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({navigation}) => {
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.button, styles.ageVerifierButton]}
-            onPress={() => navigation.navigate('AgeVerifier')}>
-            <Text style={styles.buttonText}>Age Verifier</Text>
-            <Text style={styles.buttonDescription}>
-              Zero-knowledge age proof
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[styles.button, styles.coinbaseKycButton]}
             onPress={() => navigation.navigate('CoinbaseKyc')}>
             <Text style={styles.buttonText}>Coinbase KYC</Text>
@@ -88,9 +79,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  ageVerifierButton: {
-    backgroundColor: '#007AFF',
   },
   coinbaseKycButton: {
     backgroundColor: '#0052FF', // Coinbase blue

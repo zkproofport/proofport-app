@@ -190,7 +190,7 @@ const App: React.FC = () => {
           ],
         }),
       );
-    } else if (pendingRequest.circuit === 'age_verifier') {
+    } else if (pendingRequest.circuit === 'coinbase_country_attestation') {
       navigationRef.current?.dispatch(
         CommonActions.reset({
           index: 0,
@@ -203,7 +203,7 @@ const App: React.FC = () => {
                   {
                     name: 'ProofGeneration',
                     params: {
-                      circuitId: 'age-verifier',
+                      circuitId: 'coinbase-country',
                       proofRequest: pendingRequest,
                     },
                   },

@@ -7,7 +7,7 @@ import {
 } from '../utils/circuitDownload';
 import {getEnvironment} from '../config';
 
-const CIRCUITS = ['age_verifier', 'coinbase_attestation'];
+const CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation'];
 const SPLASH_DURATION = 3000;
 
 interface LoadingScreenProps {
