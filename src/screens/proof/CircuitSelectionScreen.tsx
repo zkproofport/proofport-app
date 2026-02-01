@@ -36,11 +36,10 @@ export const CircuitSelectionScreen: React.FC = () => {
           />
 
           <CircuitCard
-            icon="calendar"
-            title="Age Verification"
-            description="Prove your age without revealing birthdate"
-            onPress={() => {}}
-            comingSoon
+            icon="globe"
+            title="Coinbase Country Verification"
+            description="Verify your country through Coinbase"
+            onPress={() => navigation.navigate('CountryInput')}
           />
 
           <CircuitCard

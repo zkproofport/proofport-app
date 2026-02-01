@@ -15,8 +15,8 @@ import {
   StepIndicator,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, usePrivyWallet, useLogs, useDeepLink} from '../../hooks';
-import {findAttestationTransaction} from '../../utils';
+import {useCoinbaseKyc, useCoinbaseCountry, usePrivyWallet, useLogs, useDeepLink} from '../../hooks';
+import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY} from '../../utils';
 import {colors} from '../../theme';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore} from '../../stores';
@@ -35,6 +35,7 @@ interface UserFacingStep {
 const mapHookStepsToUserSteps = (
   hookSteps: Array<{id: string; label: string; status: string}>,
   isWalletConnected: boolean,
+  isSearching: boolean,
 ): StepData[] => {
   const userSteps: UserFacingStep[] = [
     {
@@ -45,8 +46,8 @@ const mapHookStepsToUserSteps = (
     },
     {
       id: 'attestation',
-      label: 'Fetching KYC attestation',
-      status: 'pending',
+      label: 'Fetching attestation',
+      status: isSearching ? 'active' : 'pending',
       icon: 'search',
     },
     {
@@ -81,6 +82,7 @@ const mapHookStepsToUserSteps = (
     inputs: 'transaction',
     signal: 'signer',
     pubkey: 'signer',
+    country: 'signer',
     sign: 'signing',
     storage: 'proof',
     proof: 'proof',
@@ -136,13 +138,18 @@ export const ProofGenerationScreen: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const {addLog, clearLogs} = useLogs();
 
+  const circuitId = route.params?.circuitId || 'coinbase-kyc';
+  const isCountryCircuit = circuitId === 'coinbase-country';
+
+  const kycHook = useCoinbaseKyc();
+  const countryHook = useCoinbaseCountry();
+
   const {
     status,
     isLoading,
     parsedProof,
     proofSteps,
-    generateProofWithSteps,
-  } = useCoinbaseKyc();
+  } = isCountryCircuit ? countryHook : kycHook;
 
   const {
     account,
@@ -154,7 +161,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const {sendProof} = useDeepLink();
 
-  const userSteps = mapHookStepsToUserSteps(proofSteps, isWalletConnected);
+  const userSteps = mapHookStepsToUserSteps(proofSteps, isWalletConnected, isSearching);
 
   const handleGenerateProof = useCallback(async () => {
     if (!account) {
@@ -167,15 +174,13 @@ export const ProofGenerationScreen: React.FC = () => {
     setErrorMessage(null);
     proofStartedAt.current = Date.now();
 
-    const circuitId = route.params?.circuitId || 'coinbase-kyc';
     const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
       'coinbase-kyc': 'Coinbase KYC',
-      'age-verifier': 'Age Verifier',
-      'location-proof': 'Location Proof',
+      'coinbase-country': 'Coinbase Country',
     };
     const CIRCUIT_CONFIG_NAMES: Record<string, string> = {
       'coinbase-kyc': 'coinbase_attestation',
-      'age-verifier': 'age_verifier',
+      'coinbase-country': 'coinbase_country_attestation',
     };
     const circuitName = CIRCUIT_DISPLAY_NAMES[circuitId] || circuitId;
     const configCircuitName = (CIRCUIT_CONFIG_NAMES[circuitId] || circuitId) as CircuitName;
@@ -199,12 +204,17 @@ export const ProofGenerationScreen: React.FC = () => {
     addLog(`[History] Proof record created: ${historyItem.id}`);
 
     try {
-      addLog('=== Searching for Coinbase Attestation ===');
-      const result = await findAttestationTransaction(account, addLog);
+      const expectedSelector = isCountryCircuit ? SELECTOR_ATTEST_COUNTRY : SELECTOR_ATTEST_ACCOUNT;
+      addLog(isCountryCircuit
+        ? '=== Searching for Coinbase Country Attestation ==='
+        : '=== Searching for Coinbase Attestation ===');
+      const result = await findAttestationTransaction(account, addLog, expectedSelector);
 
       if (!result) {
-        setErrorMessage(`No valid attestation found for this wallet (${account})`);
-        addLog('No valid attestation found for this wallet');
+        setErrorMessage(isCountryCircuit
+          ? `No country attestation found for this wallet (${account})`
+          : `No valid attestation found for this wallet (${account})`);
+        addLog('No matching attestation found for this wallet');
         return;
       }
 
@@ -224,15 +234,34 @@ export const ProofGenerationScreen: React.FC = () => {
         },
       };
 
-      await generateProofWithSteps(
-        {
-          userAddress: account,
-          rawTransaction: result.rawTransaction,
-          signerIndex: 0,
-        },
-        ethereumProvider,
-        addLog,
-      );
+      if (isCountryCircuit) {
+        const manualInputs = route.params?.countryInputs;
+        const deepLinkInputs = proofRequest?.inputs as any;
+        const countryList = manualInputs?.countryList || deepLinkInputs?.countryList || ['US'];
+        const isIncluded = manualInputs?.isIncluded ?? deepLinkInputs?.isIncluded ?? true;
+        await countryHook.generateProofWithSteps(
+          {
+            userAddress: account,
+            rawTransaction: result.rawTransaction,
+            signerIndex: 0,
+            countryList,
+            countryListLength: countryList.length,
+            isIncluded,
+          },
+          ethereumProvider,
+          addLog,
+        );
+      } else {
+        await kycHook.generateProofWithSteps(
+          {
+            userAddress: account,
+            rawTransaction: result.rawTransaction,
+            signerIndex: 0,
+          },
+          ethereumProvider,
+          addLog,
+        );
+      }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       setErrorMessage(errMsg);
@@ -245,15 +274,14 @@ export const ProofGenerationScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [account, addLog, clearLogs, getProvider, generateProofWithSteps]);
+  }, [account, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, isCountryCircuit, proofRequest, route.params?.circuitId]);
 
   useEffect(() => {
     if (parsedProof && proofStartedAt.current) {
       const generatedAt = Date.now();
-      const circuitId = route.params?.circuitId || 'coinbase-kyc';
       const configNames: Record<string, string> = {
         'coinbase-kyc': 'coinbase_attestation',
-        'age-verifier': 'age_verifier',
+        'coinbase-country': 'coinbase_country_attestation',
       };
       const resolvedCircuit = (configNames[circuitId] || circuitId) as CircuitName;
 
@@ -375,10 +403,13 @@ export const ProofGenerationScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}>
         <Card style={styles.heroCard}>
           <Text style={styles.heroLabel}>PROOF PORTAL</Text>
-          <Text style={styles.heroTitle}>Coinbase KYC Verification</Text>
+          <Text style={styles.heroTitle}>
+            {isCountryCircuit ? 'Coinbase Country Verification' : 'Coinbase KYC Verification'}
+          </Text>
           <Text style={styles.heroDescription}>
-            Generate a zero-knowledge proof of your Coinbase identity verification
-            without revealing any personal information.
+            {isCountryCircuit
+              ? 'Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.'
+              : 'Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.'}
           </Text>
         </Card>
 

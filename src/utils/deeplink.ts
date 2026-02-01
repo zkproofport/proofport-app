@@ -1,11 +1,5 @@
 
-export type CircuitType = 'age_verifier' | 'coinbase_attestation';
-
-export interface AgeVerifierInputs {
-  birthYear: number;
-  currentYear: number;
-  minAge: number;
-}
+export type CircuitType = 'coinbase_attestation' | 'coinbase_country_attestation';
 
 export interface CoinbaseKycInputs {
   userAddress?: string; // Optional - app will connect wallet if not provided
@@ -15,7 +9,7 @@ export interface CoinbaseKycInputs {
 // Empty inputs for circuits that get data from app
 export interface EmptyInputs {}
 
-export type CircuitInputs = AgeVerifierInputs | CoinbaseKycInputs | EmptyInputs;
+export type CircuitInputs = CoinbaseKycInputs | EmptyInputs;
 
 export interface ProofRequest {
   requestId: string;
@@ -154,7 +148,7 @@ export function validateProofRequest(
     return {valid: false, error: 'Missing circuit type'};
   }
 
-  if (!['age_verifier', 'coinbase_attestation'].includes(request.circuit)) {
+  if (!['coinbase_attestation', 'coinbase_country_attestation'].includes(request.circuit)) {
     return {valid: false, error: `Invalid circuit type: ${request.circuit}`};
   }
 
@@ -163,30 +157,7 @@ export function validateProofRequest(
   }
 
   // Validate circuit-specific inputs
-  if (request.circuit === 'age_verifier') {
-    const inputs = request.inputs as AgeVerifierInputs;
-    if (
-      typeof inputs.birthYear !== 'number' ||
-      inputs.birthYear < 1900 ||
-      inputs.birthYear > 2100
-    ) {
-      return {valid: false, error: 'Invalid birthYear'};
-    }
-    if (
-      typeof inputs.currentYear !== 'number' ||
-      inputs.currentYear < 2000 ||
-      inputs.currentYear > 2100
-    ) {
-      return {valid: false, error: 'Invalid currentYear'};
-    }
-    if (
-      typeof inputs.minAge !== 'number' ||
-      inputs.minAge < 0 ||
-      inputs.minAge > 150
-    ) {
-      return {valid: false, error: 'Invalid minAge'};
-    }
-  } else if (request.circuit === 'coinbase_attestation') {
+  if (request.circuit === 'coinbase_attestation' || request.circuit === 'coinbase_country_attestation') {
     // Coinbase KYC: userAddress is optional - app will connect wallet if not provided
     const inputs = request.inputs as CoinbaseKycInputs;
     if (inputs.userAddress && !/^0x[a-fA-F0-9]{40}$/.test(inputs.userAddress)) {

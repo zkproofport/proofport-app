@@ -177,9 +177,10 @@ export function verifyAttestationTx(
       return {valid: false, error: 'Transaction not sent to Coinbase Attester Contract'};
     }
 
-    // Check function selector (attestAccount)
+    // Check function selector (attestAccount or verifyCountry)
+    const VALID_SELECTORS = ['0x56feed5e', '0x0a225248'];
     const selector = tx.data.slice(0, 10);
-    if (selector !== '0x56feed5e') {
+    if (!VALID_SELECTORS.includes(selector)) {
       return {valid: false, error: 'Invalid function selector'};
     }
 

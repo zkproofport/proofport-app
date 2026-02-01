@@ -16,7 +16,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Icon, Badge, Button, Card} from '../../components/ui';
 import {colors} from '../../theme';
 import type {ProofStackParamList} from '../../navigation/types';
-import {useCoinbaseKyc, useLogs} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useLogs} from '../../hooks';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig} from '../../config';
 
@@ -25,7 +25,7 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofCompl
 
 const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
   'coinbase-kyc': 'Coinbase KYC',
-  'age-verifier': 'Age Verifier',
+  'coinbase-country': 'Coinbase Country',
   'location-proof': 'Location Proof',
 };
 
@@ -56,7 +56,10 @@ export const ProofCompleteScreen: React.FC = () => {
   const [offChainStatus, setOffChainStatus] = useState<'generated' | 'loading' | 'verified' | 'failed'>('generated');
   const [onChainStatus, setOnChainStatus] = useState<'generated' | 'loading' | 'verified' | 'failed'>('generated');
 
-  const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = useCoinbaseKyc();
+  const isCountryCircuit = circuitId === 'coinbase-country';
+  const kycHook = useCoinbaseKyc();
+  const countryHook = useCoinbaseCountry();
+  const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = isCountryCircuit ? countryHook : kycHook;
   const {logs, addLog} = useLogs();
 
   const handleCopyProof = () => {

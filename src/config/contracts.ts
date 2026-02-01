@@ -13,7 +13,7 @@
 
 export type Environment = 'development' | 'production';
 
-export type CircuitName = 'coinbase_attestation' | 'coinbase_country_attestation' | 'age_verifier';
+export type CircuitName = 'coinbase_attestation' | 'coinbase_country_attestation';
 
 export interface NetworkConfig {
   chainId: number;
@@ -121,7 +121,6 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployCoinbaseAttestation.s.sol/${chainId}/run-latest.json`,
   coinbase_country_attestation: (chainId) =>
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
-  age_verifier: null, // No broadcast JSON yet
 };
 
 export interface CircuitFilePaths {
@@ -141,8 +140,11 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
     vkPath: 'coinbase-attestation/target/vk',
     vkFileName: 'vk',
   },
-  coinbase_country_attestation: null,
-  age_verifier: null,
+  coinbase_country_attestation: {
+    basePath: 'coinbase-country-attestation/target',
+    vkPath: 'coinbase-country-attestation/target/vk',
+    vkFileName: 'vk',
+  },
 };
 
 /**
@@ -153,11 +155,9 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   development: {
     coinbase_attestation: '0x07121eb50b2Ebe1675E7Cb96c84B580A3fF6589e',
     coinbase_country_attestation: '0xaaC5F16CD40D8AF76508ae7dbD6A8FbE60f780B4',
-    age_verifier: '',
   },
   production: {
     coinbase_attestation: '',
     coinbase_country_attestation: '',
-    age_verifier: '',
   },
 };
