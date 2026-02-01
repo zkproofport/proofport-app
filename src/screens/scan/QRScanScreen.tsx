@@ -51,7 +51,9 @@ const QRScanScreen: React.FC = () => {
                 params: {
                   screen: 'ProofGeneration',
                   params: {
-                    circuitId: request.circuit === 'coinbase_attestation' ? 'coinbase-kyc' : request.circuit,
+                    circuitId: request.circuit === 'coinbase_attestation' ? 'coinbase-kyc'
+                      : request.circuit === 'coinbase_country_attestation' ? 'coinbase-country'
+                      : request.circuit,
                     proofRequest: request,
                   },
                 },

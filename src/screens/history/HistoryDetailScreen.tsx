@@ -25,7 +25,7 @@ type DetailNavigationProp = NativeStackNavigationProp<
 
 const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
   'coinbase-kyc': 'Coinbase KYC',
-  'age-verifier': 'Age Verifier',
+  'coinbase-country': 'Coinbase Country',
   'location-proof': 'Location Proof',
 };
 
@@ -33,8 +33,8 @@ const getCircuitIcon = (circuitId: string): string => {
   switch (circuitId) {
     case 'coinbase-kyc':
       return 'shield';
-    case 'age-verifier':
-      return 'calendar';
+    case 'coinbase-country':
+      return 'globe';
     default:
       return 'shield';
   }

@@ -12,8 +12,8 @@ const getCircuitIcon = (circuitId: string): string => {
   switch (circuitId) {
     case 'coinbase-kyc':
       return 'shield';
-    case 'age-verifier':
-      return 'calendar';
+    case 'coinbase-country':
+      return 'globe';
     default:
       return 'shield';
   }
