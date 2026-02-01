@@ -5,7 +5,7 @@ import {
   downloadCircuitFiles,
   type DownloadProgress,
 } from '../utils/circuitDownload';
-import {getEnvironment} from '../config';
+import {getEnvironment, initDeployments} from '../config';
 
 const CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation'];
 const SPLASH_DURATION = 3000;
@@ -48,6 +48,19 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
   const checkAndDownloadCircuits = useCallback(async () => {
     try {
       const env = getEnvironment();
+
+      setStatus('Syncing deployments...');
+      try {
+        const updated = await initDeployments();
+        console.log(
+          updated
+            ? 'Deployment sync: addresses updated'
+            : 'Deployment sync: using cached addresses',
+        );
+      } catch (deployError) {
+        console.warn('Deployment sync failed, using fallback addresses:', deployError);
+      }
+
       let completedCircuits = 0;
 
       for (const circuitName of CIRCUITS) {

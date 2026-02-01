@@ -16,11 +16,13 @@ import {
   type StepData,
 } from '../../components/ui';
 import {useCoinbaseKyc, useCoinbaseCountry, usePrivyWallet, useLogs, useDeepLink} from '../../hooks';
-import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY} from '../../utils';
+import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
 import {colors} from '../../theme';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig, type CircuitName} from '../../config';
+import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
+import {ethers} from 'ethers';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -149,6 +151,7 @@ export const ProofGenerationScreen: React.FC = () => {
     isLoading,
     parsedProof,
     proofSteps,
+    signalHash,
   } = isCountryCircuit ? countryHook : kycHook;
 
   const {
@@ -236,7 +239,8 @@ export const ProofGenerationScreen: React.FC = () => {
 
       if (isCountryCircuit) {
         const manualInputs = route.params?.countryInputs;
-        const deepLinkInputs = proofRequest?.inputs as any;
+        const deepLinkInputs = proofRequest?.inputs as CoinbaseCountryInputs | undefined;
+        const scopeString = deepLinkInputs?.scope || 'proofport:default';
         const countryList = manualInputs?.countryList || deepLinkInputs?.countryList || ['US'];
         const isIncluded = manualInputs?.isIncluded ?? deepLinkInputs?.isIncluded ?? true;
         await countryHook.generateProofWithSteps(
@@ -247,16 +251,21 @@ export const ProofGenerationScreen: React.FC = () => {
             countryList,
             countryListLength: countryList.length,
             isIncluded,
+            scopeString,
           },
           ethereumProvider,
           addLog,
         );
       } else {
+        const deepLinkInputs = proofRequest?.inputs as CoinbaseKycInputs | undefined;
+        const scopeString = deepLinkInputs?.scope || 'proofport:default';
+
         await kycHook.generateProofWithSteps(
           {
             userAddress: account,
             rawTransaction: result.rawTransaction,
             signerIndex: 0,
+            scopeString,
           },
           ethereumProvider,
           addLog,
@@ -295,10 +304,20 @@ export const ProofGenerationScreen: React.FC = () => {
       }
 
       if (proofRequest) {
+        const deepLinkInputs = proofRequest.inputs as CoinbaseKycInputs | undefined;
+        const scopeString = deepLinkInputs?.scope || 'proofport:default';
+
+        const scopeBytes = computeScope(scopeString);
+        const nullifierBytes = signalHash
+          ? computeNullifier(account || '', signalHash, scopeBytes)
+          : new Uint8Array(32);
+        const nullifierHex = ethers.utils.hexlify(nullifierBytes);
+
         sendProof(proofRequest, {
           proof: parsedProof.proofHex,
           publicInputs: parsedProof.publicInputsHex,
           numPublicInputs: parsedProof.numPublicInputs,
+          nullifier: nullifierHex,
           verificationType: 'off-chain',
           verificationResult: false,
           startedAt: proofStartedAt.current,

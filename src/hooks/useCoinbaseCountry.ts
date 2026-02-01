@@ -35,6 +35,7 @@ export interface CoinbaseCountryInputs {
   countryList: string[];
   countryListLength: number;
   isIncluded: boolean;
+  scopeString: string;
 }
 
 export interface EthereumProvider {
@@ -81,6 +82,7 @@ const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'signal', label: 'Generate signal hash', status: 'pending'},
   {id: 'sign', label: 'Sign with wallet', status: 'pending'},
   {id: 'pubkey', label: 'Recover public key', status: 'pending'},
+  {id: 'scope', label: 'Compute scope and nullifier', status: 'pending'},
   {id: 'inputs', label: 'Prepare circuit inputs', status: 'pending'},
   {id: 'storage', label: 'Check storage availability', status: 'pending'},
   {id: 'proof', label: 'Generate ZK proof', status: 'pending'},
@@ -314,8 +316,16 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         });
         addLog(`Public key recovered: ${userPubkey.slice(0, 20)}...`);
 
+        updateStep('scope', {status: 'in_progress'});
+        addLog('Step 7: Computing scope and nullifier...');
+        addLog('[Scope] Scope string: ' + inputs.scopeString);
+        updateStep('scope', {
+          status: 'completed',
+          detail: `scope: ${inputs.scopeString.slice(0, 20)}`,
+        });
+
         updateStep('inputs', {status: 'in_progress'});
-        addLog('Step 7: Preparing circuit inputs...');
+        addLog('Step 8: Preparing circuit inputs...');
         addLog('[Inputs] Preparing Noir circuit inputs...');
 
         const baseInputs = prepareCircuitInputs(
@@ -325,7 +335,14 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
           userPubkey,
           inputs.rawTransaction,
           signerIndex,
+          inputs.scopeString,
         );
+
+        const scopeHex = baseInputs.scope;
+        const nullifierHex = baseInputs.nullifier;
+
+        addLog(`[Scope] Scope bytes: ${scopeHex.slice(0, 4).join(',')}...`);
+        addLog(`[Scope] Nullifier: ${nullifierHex.slice(0, 4).join(',')}...`);
 
         const signalHashArray = Array.from(currentSignalHash).map(b => '0x' + b.toString(16).padStart(2, '0'));
         const signerListRoot = baseInputs.signer_list_merkle_root;
@@ -336,6 +353,8 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
           ...encodedCountries,
           inputs.countryListLength.toString(),
           inputs.isIncluded ? '1' : '0',
+          ...baseInputs.scope,
+          ...baseInputs.nullifier,
           ...baseInputs.user_address,
           ...baseInputs.user_signature,
           ...baseInputs.user_pubkey_x,
@@ -365,7 +384,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         addLog(`Total circuit inputs: ${flatInputs.length}`);
 
         updateStep('storage', {status: 'in_progress'});
-        addLog('Step 8: Checking storage availability...');
+        addLog('Step 9: Checking storage availability...');
 
         const hasSpace = await ensureStorageAvailable(500, addLog);
         if (!hasSpace) {
@@ -378,7 +397,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         });
 
         updateStep('proof', {status: 'in_progress'});
-        addLog('Step 9: Generating ZK proof...');
+        addLog('Step 10: Generating ZK proof...');
         addLog(`[Proof] Loading circuit file: ${CIRCUIT_NAME}.json`);
         addLog(`[Proof] Loading SRS file: ${CIRCUIT_NAME}.srs`);
 
@@ -409,7 +428,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         addLog(`Proof generated: ${currentProof!.byteLength} bytes (${proofElapsed}ms)`);
 
         updateStep('parse', {status: 'in_progress'});
-        addLog('Step 10: Parsing proof...');
+        addLog('Step 11: Parsing proof...');
         addLog('[Parse] Extracting public inputs from proof...');
 
         const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
@@ -447,7 +466,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         addLog(`Number of public inputs: ${numPublicInputs}`);
 
         updateStep('cleanup', {status: 'in_progress'});
-        addLog('Step 11: Cleaning up cache...');
+        addLog('Step 12: Cleaning up cache...');
 
         await clearProofCache(addLog);
 

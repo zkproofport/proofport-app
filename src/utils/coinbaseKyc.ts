@@ -216,10 +216,33 @@ export function verifyAttestationTx(
   }
 }
 
+export function computeScope(scopeString: string): Uint8Array {
+  const scopeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(scopeString));
+  return ethers.utils.arrayify(scopeHash);
+}
+
+function computeUserSecret(userAddressBytes: Uint8Array, signalHashBytes: Uint8Array): Uint8Array {
+  const preimage = ethers.utils.concat([userAddressBytes, signalHashBytes]);
+  return ethers.utils.arrayify(ethers.utils.keccak256(preimage));
+}
+
+export function computeNullifier(
+  userAddress: string,
+  signalHash: Uint8Array,
+  scopeBytes: Uint8Array,
+): Uint8Array {
+  const userAddressBytes = ethers.utils.arrayify(userAddress);
+  const userSecret = computeUserSecret(userAddressBytes, signalHash);
+  const preimage = ethers.utils.concat([userSecret, scopeBytes]);
+  return ethers.utils.arrayify(ethers.utils.keccak256(preimage));
+}
+
 export interface CoinbaseKycCircuitInputs {
   // Public inputs
   signal_hash: string[];
   signer_list_merkle_root: string[];
+  scope: string[];
+  nullifier: string[];
 
   // Private inputs
   user_address: string[];
@@ -242,6 +265,7 @@ export function prepareCircuitInputs(
   userPubkey: string,
   rawTransaction: string,
   coinbaseSignerIndex: number,
+  scopeString: string,
 ): CoinbaseKycCircuitInputs {
   const merkleTree = new SimpleMerkleTree(AUTHORIZED_SIGNERS);
   const merkleRoot = merkleTree.getRoot();
@@ -270,9 +294,14 @@ export function prepareCircuitInputs(
     }
   }
 
+  const scopeBytes = computeScope(scopeString);
+  const nullifierBytes = computeNullifier(userAddress, signalHash, scopeBytes);
+
   return {
     signal_hash: bytesToNoirInput(Array.from(signalHash)),
     signer_list_merkle_root: bytesToNoirInput(hexToByteArray(merkleRoot)),
+    scope: bytesToNoirInput(Array.from(scopeBytes)),
+    nullifier: bytesToNoirInput(Array.from(nullifierBytes)),
     user_address: bytesToNoirInput(hexToByteArray(userAddress)),
     user_signature: bytesToNoirInput(userSigBytes),
     user_pubkey_x: bytesToNoirInput(hexToByteArray(userPubkeyCoords.x)),
@@ -291,6 +320,8 @@ export function flattenCircuitInputs(inputs: CoinbaseKycCircuitInputs): string[]
   return [
     ...inputs.signal_hash,
     ...inputs.signer_list_merkle_root,
+    ...inputs.scope,
+    ...inputs.nullifier,
     ...inputs.user_address,
     ...inputs.user_signature,
     ...inputs.user_pubkey_x,

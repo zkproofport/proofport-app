@@ -4,12 +4,21 @@ export type CircuitType = 'coinbase_attestation' | 'coinbase_country_attestation
 export interface CoinbaseKycInputs {
   userAddress?: string; // Optional - app will connect wallet if not provided
   rawTransaction?: string;
+  scope: string;
+}
+
+export interface CoinbaseCountryInputs {
+  userAddress?: string;
+  rawTransaction?: string;
+  scope?: string;
+  countryList?: string[];
+  isIncluded?: boolean;
 }
 
 // Empty inputs for circuits that get data from app
 export interface EmptyInputs {}
 
-export type CircuitInputs = CoinbaseKycInputs | EmptyInputs;
+export type CircuitInputs = CoinbaseKycInputs | CoinbaseCountryInputs | EmptyInputs;
 
 export interface ProofRequest {
   requestId: string;
@@ -43,6 +52,7 @@ export interface ProofResponse {
   proof?: string;
   publicInputs?: string[];
   numPublicInputs?: number;
+  nullifier?: string;
 
   // Verifier contract info (for SDK on-chain verification)
   verifierAddress?: string;
@@ -163,6 +173,10 @@ export function validateProofRequest(
     if (inputs.userAddress && !/^0x[a-fA-F0-9]{40}$/.test(inputs.userAddress)) {
       return {valid: false, error: 'Invalid userAddress format'};
     }
+    // Scope is required for coinbase_attestation
+    if (request.circuit === 'coinbase_attestation' && !inputs.scope) {
+      return {valid: false, error: 'Missing required scope parameter'};
+    }
     // If userAddress is not provided, app will prompt wallet connection
   }
 
@@ -190,6 +204,9 @@ export function buildCallbackUrl(
     }
     if (response.numPublicInputs !== undefined) {
       url.searchParams.set('numPublicInputs', response.numPublicInputs.toString());
+    }
+    if (response.nullifier !== undefined) {
+      url.searchParams.set('nullifier', response.nullifier);
     }
     if (response.completedAt) {
       url.searchParams.set('completedAt', response.completedAt.toString());

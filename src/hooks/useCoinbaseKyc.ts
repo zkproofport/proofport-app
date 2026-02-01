@@ -31,10 +31,11 @@ let _cachedVk: ArrayBuffer | null = null;
 let _cachedFullProof: ArrayBuffer | null = null;
 let _cachedParsedProof: ParsedProofData | null = null;
 
-export interface CoinbaseKycInputs {
+export interface CoinbaseKycProofInputs {
   userAddress: string;
   rawTransaction: string;
   signerIndex: number;
+  scopeString: string;  // dApp scope identifier (REQUIRED)
 }
 
 export interface EthereumProvider {
@@ -59,7 +60,7 @@ export interface UseCoinbaseKycReturn {
   signalHash: Uint8Array | null;
   proofSteps: Step[];
   generateProofWithSteps: (
-    inputs: CoinbaseKycInputs,
+    inputs: CoinbaseKycProofInputs,
     ethereum: EthereumProvider | null,
     addLog: (msg: string) => void,
   ) => Promise<void>;
@@ -80,6 +81,7 @@ const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'signal', label: 'Generate signal hash', status: 'pending'},
   {id: 'sign', label: 'Sign with wallet', status: 'pending'},
   {id: 'pubkey', label: 'Recover public key', status: 'pending'},
+  {id: 'scope', label: 'Compute scope and nullifier', status: 'pending'},
   {id: 'inputs', label: 'Prepare circuit inputs', status: 'pending'},
   {id: 'storage', label: 'Check storage availability', status: 'pending'},
   {id: 'proof', label: 'Generate ZK proof', status: 'pending'},
@@ -142,7 +144,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    */
   const generateProofWithSteps = useCallback(
     async (
-      inputs: CoinbaseKycInputs,
+      inputs: CoinbaseKycProofInputs,
       ethereum: EthereumProvider | null,
       addLog: (msg: string) => void,
     ) => {
@@ -295,9 +297,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         });
         addLog(`Public key recovered: ${userPubkey.slice(0, 20)}...`);
 
-        // Step 6: Prepare circuit inputs
+        // Step 6: Compute scope and nullifier
+        updateStep('scope', {status: 'in_progress'});
+        addLog('Step 6: Computing scope and nullifier...');
+        updateStep('scope', {status: 'completed'});
+
+        // Step 7: Prepare circuit inputs
         updateStep('inputs', {status: 'in_progress'});
-        addLog('Step 6: Preparing circuit inputs...');
+        addLog('Step 7: Preparing circuit inputs...');
         addLog('[Inputs] Preparing Noir circuit inputs...');
 
         const circuitInputs = prepareCircuitInputs(
@@ -307,6 +314,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           userPubkey,
           inputs.rawTransaction,
           signerIndex,
+          inputs.scopeString,  // NEW: scope string for nullifier
         );
         const flatInputs = flattenCircuitInputs(circuitInputs);
 
@@ -323,9 +331,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         });
         addLog(`Total circuit inputs: ${flatInputs.length}`);
 
-        // Step 7: Check storage
+        // Step 8: Check storage
         updateStep('storage', {status: 'in_progress'});
-        addLog('Step 7: Checking storage availability...');
+        addLog('Step 8: Checking storage availability...');
 
         const hasSpace = await ensureStorageAvailable(500, addLog);
         if (!hasSpace) {
@@ -337,9 +345,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           detail: 'Sufficient storage available',
         });
 
-        // Step 8: Generate proof
+        // Step 9: Generate proof
         updateStep('proof', {status: 'in_progress'});
-        addLog('Step 8: Generating ZK proof...');
+        addLog('Step 9: Generating ZK proof...');
         addLog(`[Proof] Loading circuit file: ${CIRCUIT_NAME}.json`);
         addLog(`[Proof] Loading SRS file: ${CIRCUIT_NAME}.srs`);
 
@@ -369,9 +377,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         });
         addLog(`Proof generated: ${currentProof!.byteLength} bytes (${proofElapsed}ms)`);
 
-        // Step 9: Parse proof
+        // Step 10: Parse proof
         updateStep('parse', {status: 'in_progress'});
-        addLog('Step 9: Parsing proof...');
+        addLog('Step 10: Parsing proof...');
         addLog('[Parse] Extracting public inputs from proof...');
 
         const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
@@ -408,9 +416,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         addLog(`Parsed proof size: ${parsed.proof.byteLength} bytes`);
         addLog(`Number of public inputs: ${numPublicInputs}`);
 
-        // Step 10: Cleanup
+        // Step 11: Cleanup
         updateStep('cleanup', {status: 'in_progress'});
-        addLog('Step 10: Cleaning up cache...');
+        addLog('Step 11: Cleaning up cache...');
 
         await clearProofCache(addLog);
 

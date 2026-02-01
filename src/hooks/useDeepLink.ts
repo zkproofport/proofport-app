@@ -17,6 +17,7 @@ export interface SendProofOptions {
   completedAt: number;
   verifierAddress?: string;
   chainId?: number;
+  nullifier?: string;
 }
 
 interface UseDeepLinkUtilsResult {
@@ -48,6 +49,7 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
         proof: options.proof,
         publicInputs: options.publicInputs,
         numPublicInputs: options.numPublicInputs,
+        nullifier: options.nullifier,
         verifierAddress: options.verifierAddress,
         chainId: options.chainId,
         inputs: request.inputs,
