@@ -148,6 +148,12 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
 };
 
 /**
+ * Circuit data version — bump when circuits are recompiled.
+ * Forces re-download of cached circuit files on devices.
+ */
+export const CIRCUIT_DATA_VERSION = 2;
+
+/**
  * Fallback verifier addresses (used when runtime fetch fails).
  * Updated by scripts/sync-deployments.sh or manually.
  */

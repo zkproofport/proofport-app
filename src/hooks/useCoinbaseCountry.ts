@@ -22,6 +22,10 @@ import {getVerifierAddress, getVerifierAbi, getNetworkConfig, getEnvironment} fr
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
+// CRITICAL: CIRCUIT_NAME is used in deterministic signal_hash generation for nullifier computation.
+// Changing this value will produce different nullifiers for the same wallet+scope,
+// breaking on-chain duplicate detection in ZKProofPortNullifierRegistry.
+// DO NOT modify this value without coordinating with the contract and relay teams.
 const CIRCUIT_NAME = 'coinbase_country_attestation';
 
 let _cachedVk: ArrayBuffer | null = null;
@@ -79,7 +83,7 @@ const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'vk', label: 'Load Verification Key', status: 'pending'},
   {id: 'validate', label: 'Validate attestation transaction', status: 'pending'},
   {id: 'country', label: 'Encode country list', status: 'pending'},
-  {id: 'signal', label: 'Generate signal hash', status: 'pending'},
+  {id: 'signal', label: 'Compute deterministic signal hash', status: 'pending'},
   {id: 'sign', label: 'Sign with wallet', status: 'pending'},
   {id: 'pubkey', label: 'Recover public key', status: 'pending'},
   {id: 'scope', label: 'Compute scope and nullifier', status: 'pending'},
@@ -239,14 +243,21 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         addLog(`Country list encoded: ${inputs.countryList.length} countries`);
 
         updateStep('signal', {status: 'in_progress'});
-        addLog('Step 4: Generating signal hash...');
-        addLog('[Signal] Generating random 32-byte challenge...');
+        addLog('Step 4: Computing deterministic signal hash...');
+        addLog('[Signal] Computing deterministic signal hash...');
 
-        currentSignalHash = ethers.utils.randomBytes(32);
+        // Deterministic signal_hash = keccak256(userAddress + scopeString + circuitName)
+        // This ensures the same wallet + scope + circuit always produces the same nullifier,
+        // enabling on-chain duplicate detection in ZKProofPortNullifierRegistry.
+        const signalPreimage = ethers.utils.solidityPack(
+          ['address', 'string', 'string'],
+          [inputs.userAddress, inputs.scopeString, CIRCUIT_NAME]
+        );
+        currentSignalHash = ethers.utils.arrayify(ethers.utils.keccak256(signalPreimage));
         setSignalHash(currentSignalHash);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
 
-        addLog(`[Signal] Challenge hash: 0x${signalHashHex.slice(0, 32)}...`);
+        addLog(`[Signal] Signal hash: 0x${signalHashHex.slice(0, 32)}...`);
         updateStep('signal', {
           status: 'completed',
           detail: `0x${signalHashHex.slice(0, 16)}...`,
