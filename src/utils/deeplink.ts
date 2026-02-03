@@ -99,7 +99,23 @@ export function parseProofRequestUrl(url: string): ProofRequest | null {
     // Format 1: Full request encoded in 'data' parameter
     const dataParam = params.get('data');
     if (dataParam) {
-      const request = decodeData<ProofRequest>(dataParam);
+      const request = decodeData<ProofRequest & { circuitId?: string }>(dataParam);
+      // Handle field name mismatch: relay sends 'circuitId', app uses 'circuit'
+      if (!request.circuit && (request as any).circuitId) {
+        request.circuit = (request as any).circuitId as CircuitType;
+        delete (request as any).circuitId;
+      }
+      // Handle scope field: relay sends 'scope' at top level, app expects it in inputs
+      const decoded = request as any;
+      if (decoded.scope && (!request.inputs || !(request.inputs as any).scope)) {
+        if (!request.inputs) request.inputs = {};
+        (request.inputs as any).scope = decoded.scope;
+      }
+      // Handle clientId field: relay sends 'clientId' at top level, app expects it in inputs
+      if (decoded.clientId && (!request.inputs || !(request.inputs as any).clientId)) {
+        if (!request.inputs) request.inputs = {};
+        (request.inputs as any).clientId = decoded.clientId;
+      }
       console.log('[DeepLink] Parsed request (format 1):', request.requestId);
       return request;
     }
@@ -219,9 +235,13 @@ export function buildCallbackUrl(
 }
 
 export async function sendProofResponse(response: ProofResponse, callbackUrl: string): Promise<boolean> {
+  if (!callbackUrl) {
+    console.error('[DeepLink] callbackUrl is undefined, cannot send response');
+    return false;
+  }
+
   try {
-    console.log('[DeepLink] Sending response via HTTP POST to:', callbackUrl);
-    console.log('[DeepLink] Response:', JSON.stringify(response, null, 2));
+    console.log('[DeepLink] Sending response to:', callbackUrl);
 
     const fetchResponse = await fetch(callbackUrl, {
       method: 'POST',
@@ -239,7 +259,7 @@ export async function sendProofResponse(response: ProofResponse, callbackUrl: st
     console.log('[DeepLink] Response sent successfully');
     return true;
   } catch (error) {
-    console.error('[DeepLink] Failed to send response:', error);
+    console.error(`[DeepLink] Failed to send response to ${callbackUrl}:`, error);
     return false;
   }
 }

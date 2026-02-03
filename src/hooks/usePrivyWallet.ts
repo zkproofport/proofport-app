@@ -19,6 +19,7 @@ interface UsePrivyWalletReturn {
   error: string | null;
   isReady: boolean;
   isWalletConnected: boolean;
+  isProviderReady: boolean;
   isAuthenticated: boolean;
 
   // Formatted display
@@ -268,6 +269,7 @@ export const usePrivyWallet = (
     error,
     isReady,
     isWalletConnected: isConnected && !!address,
+    isProviderReady: isConnected && !!address && !!walletProvider,
     isAuthenticated,
     formattedAddress: formatAddress(account || undefined),
     connect,

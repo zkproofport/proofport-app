@@ -35,8 +35,6 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
       request: ProofRequest,
       options: SendProofOptions,
     ): Promise<boolean> => {
-      console.log('[DeepLink] Sending proof for request:', request.requestId);
-
       const response: ProofResponse = {
         requestId: request.requestId,
         circuit: request.circuit,

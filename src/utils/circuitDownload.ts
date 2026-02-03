@@ -1,7 +1,7 @@
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
-import {CIRCUIT_FILE_PATHS} from '../config/contracts';
+import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSION} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofPortApp/assets/circuits';
@@ -16,6 +16,7 @@ const LEGACY_CONFIGS: Record<string, CircuitFilePaths & {repoBase: string}> = {
 interface CircuitVersionMetadata {
   baseUrl: string;
   downloadedAt: number;
+  dataVersion?: number;
 }
 
 function getCircuitFilePaths(circuitName: string): CircuitFilePaths | null {
@@ -258,6 +259,7 @@ async function storeCircuitVersion(circuitName: string, baseUrl: string): Promis
     const metadata: CircuitVersionMetadata = {
       baseUrl,
       downloadedAt: Date.now(),
+      dataVersion: CIRCUIT_DATA_VERSION,
     };
     await AsyncStorage.setItem(key, JSON.stringify(metadata));
   } catch {}
@@ -270,11 +272,12 @@ async function shouldInvalidateCache(
   const configPath = getCircuitFilePaths(circuitName);
   if (!configPath) return false;
 
-  const currentBaseUrl = await resolveCircuitBaseUrl(env);
   const stored = await getStoredCircuitVersion(circuitName);
-
   if (!stored) return false;
 
+  if ((stored.dataVersion ?? 0) !== CIRCUIT_DATA_VERSION) return true;
+
+  const currentBaseUrl = await resolveCircuitBaseUrl(env);
   return stored.baseUrl !== currentBaseUrl;
 }
 
