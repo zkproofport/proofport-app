@@ -10,8 +10,13 @@ import '@ethersproject/shims'; // ethers.js polyfills
 // WalletConnect polyfills - after crypto polyfills
 import '@walletconnect/react-native-compat';
 
-import {AppRegistry} from 'react-native';
+import {AppRegistry, LogBox} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';
+
+LogBox.ignoreLogs([
+  /Unable to open URL: metamask/,
+  /^\{"time":\d+,"level":\d+/,
+]);
 
 AppRegistry.registerComponent(appName, () => App);

@@ -14,8 +14,8 @@ import {
   useCameraPermission,
   useCodeScanner,
 } from 'react-native-vision-camera';
-import {useNavigation, useFocusEffect, CommonActions} from '@react-navigation/native';
-import {parseProofRequestUrl} from '../../utils/deeplink';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {triggerDeepLink} from '../../utils/deepLinkBridge';
 
 const QRScanScreen: React.FC = () => {
   const {hasPermission, requestPermission} = useCameraPermission();
@@ -43,34 +43,14 @@ const QRScanScreen: React.FC = () => {
         setIsActive(false);
 
         if (value.startsWith('zkproofport://')) {
-          const request = parseProofRequestUrl(value);
-          if (request) {
-            navigation.dispatch(
-              CommonActions.navigate({
-                name: 'ProofTab',
-                params: {
-                  screen: 'ProofGeneration',
-                  params: {
-                    circuitId: request.circuit === 'coinbase_attestation' ? 'coinbase-kyc'
-                      : request.circuit === 'coinbase_country_attestation' ? 'coinbase-country'
-                      : request.circuit,
-                    proofRequest: request,
-                  },
-                },
-              })
-            );
-          } else {
-            Alert.alert(
-              'Invalid QR Code',
-              'Failed to parse proof request URL',
-              [
-                {
-                  text: 'OK',
-                  onPress: resetScanner,
-                },
-              ],
-            );
+          // Pass URL directly to App.tsx's handleDeepLink via bridge (no URL mangling)
+          // This shows the confirmation modal, same flow as mobile deep link
+          if (navigation.canGoBack()) {
+            navigation.goBack();
           }
+          setTimeout(() => {
+            triggerDeepLink(value);
+          }, 300);
         } else if (value.startsWith('http://') || value.startsWith('https://')) {
           Alert.alert(
             'Link Scanned',

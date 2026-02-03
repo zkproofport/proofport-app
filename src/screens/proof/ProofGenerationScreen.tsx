@@ -23,6 +23,7 @@ import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig, type CircuitName} from '../../config';
 import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
 import {ethers} from 'ethers';
+import {getActiveProofRequest, setActiveProofRequest} from '../../stores/activeProofRequestStore';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -130,7 +131,8 @@ const mapHookStepsToUserSteps = (
 export const ProofGenerationScreen: React.FC = () => {
   const route = useRoute<ProofGenerationRouteProp>();
   const navigation = useNavigation<NavigationProp>();
-  const proofRequest = route.params?.proofRequest;
+  // Prefer module-level store (set by App.tsx before navigation) over route params
+  const proofRequest = getActiveProofRequest() ?? route.params?.proofRequest;
 
   const hasAutoStarted = useRef(false);
   const proofStartedAt = useRef<number | null>(null);
@@ -324,6 +326,8 @@ export const ProofGenerationScreen: React.FC = () => {
           completedAt: generatedAt,
           verifierAddress: getVerifierAddressSync(resolvedCircuit),
           chainId: getNetworkConfig().chainId,
+        }).then(() => {
+          setActiveProofRequest(null);
         }).catch(console.error);
       }
 

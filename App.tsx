@@ -73,6 +73,8 @@ import {
   isProofPortDeepLink,
 } from './src/utils/deeplink';
 import type {ProofRequest} from './src/types';
+import {setActiveProofRequest} from './src/stores/activeProofRequestStore';
+import {registerDeepLinkHandler} from './src/utils/deepLinkBridge';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -137,6 +139,9 @@ const App: React.FC = () => {
 
   // Listen for deep links
   useEffect(() => {
+    // Register bridge so QRScanScreen can trigger handleDeepLink directly
+    registerDeepLinkHandler(handleDeepLink);
+
     // Handle initial URL
     const getInitialURL = async () => {
       const url = await Linking.getInitialURL();
@@ -163,62 +168,36 @@ const App: React.FC = () => {
     if (!pendingRequest) return;
 
     console.log('[App] Accepting request:', pendingRequest.requestId);
+    console.log('[App] Request callbackUrl:', pendingRequest.callbackUrl);
     setShowRequestModal(false);
 
-    // Use CommonActions.reset for nested tab navigation
-    if (pendingRequest.circuit === 'coinbase_attestation') {
-      navigationRef.current?.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'ProofTab',
-              state: {
-                routes: [
-                  {name: 'CircuitSelection'},
-                  {
-                    name: 'ProofGeneration',
-                    params: {
-                      circuitId: 'coinbase-kyc',
-                      proofRequest: pendingRequest,
-                    },
-                  },
-                ],
-                index: 1,
-              },
-            },
-          ],
-        }),
-      );
-    } else if (pendingRequest.circuit === 'coinbase_country_attestation') {
-      navigationRef.current?.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'ProofTab',
-              state: {
-                routes: [
-                  {name: 'CircuitSelection'},
-                  {
-                    name: 'ProofGeneration',
-                    params: {
-                      circuitId: 'coinbase-country',
-                      proofRequest: pendingRequest,
-                    },
-                  },
-                ],
-                index: 1,
-              },
-            },
-          ],
-        }),
-      );
-    }
+    // Set active request in store before navigation
+    setActiveProofRequest(pendingRequest);
+
+    // Navigate to proof generation (CommonActions.navigate preserves params reliably)
+    const circuitId = pendingRequest.circuit === 'coinbase_attestation'
+      ? 'coinbase-kyc'
+      : pendingRequest.circuit === 'coinbase_country_attestation'
+        ? 'coinbase-country'
+        : pendingRequest.circuit;
+
+    navigationRef.current?.dispatch(
+      CommonActions.navigate({
+        name: 'ProofTab',
+        params: {
+          screen: 'ProofGeneration',
+          params: {
+            circuitId,
+            proofRequest: pendingRequest,
+          },
+        },
+      }),
+    );
 
     // Clear active request after navigation
     activeRequestId.current = null;
     setPendingRequest(null);
+    // Note: activeProofRequest is cleared by ProofGenerationScreen after proof is sent
   }, [pendingRequest]);
 
   const handleRejectRequest = useCallback(async () => {
