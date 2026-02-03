@@ -105,9 +105,6 @@ mopro_bindings/package-lock.json
 # Circuit Files (downloaded at runtime)
 # ====================
 android/app/src/main/assets/custom/
-ios/ProofPortApp/AgeVerifierApp/*.srs
-ios/ProofPortApp/AgeVerifierApp/*.json
-ios/ProofPortApp/AgeVerifierApp/*.vk
 
 # ====================
 # Expo

@@ -41,14 +41,6 @@ export const CircuitSelectionScreen: React.FC = () => {
             description="Verify your country through Coinbase"
             onPress={() => navigation.navigate('CountryInput')}
           />
-
-          <CircuitCard
-            icon="map-pin"
-            title="Location Proof"
-            description="Prove location without revealing exact coordinates"
-            onPress={() => {}}
-            comingSoon
-          />
         </View>
       </ScrollView>
     </SafeAreaView>

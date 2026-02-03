@@ -16,13 +16,14 @@ import {LogViewer, StepProgress} from '../components';
 import {useLogs, useCoinbaseKyc, usePrivyWallet, useDeepLink} from '../hooks';
 import {findAttestationTransaction} from '../utils';
 import type {RootStackParamList} from '../types';
+import {getActiveProofRequest, setActiveProofRequest} from '../stores/activeProofRequestStore';
 
 type CoinbaseKycRouteProp = RouteProp<RootStackParamList, 'CoinbaseKyc'>;
 
 export const CoinbaseKycScreen: React.FC = () => {
   const route = useRoute<CoinbaseKycRouteProp>();
   const navigation = useNavigation();
-  const proofRequest = route.params?.proofRequest;
+  const proofRequest = route.params?.proofRequest ?? getActiveProofRequest();
   const {sendProof, sendError} = useDeepLink();
 
   // Track if we've already processed this request
@@ -144,6 +145,8 @@ export const CoinbaseKycScreen: React.FC = () => {
 
         if (success) {
           addLog('[DeepLink] Callback sent successfully!');
+          // Clear the active request after sending
+          setActiveProofRequest(null);
           Alert.alert(
             isValid ? 'Verification Complete' : 'Verification Failed',
             isValid

@@ -15,16 +15,6 @@
           "title": "Coinbase KYC Verification",
           "subtitle": "Prove identity without revealing wallet",
           "status": "active"
-        },
-        {
-          "title": "Age Verification",
-          "subtitle": "Coming Soon",
-          "status": "disabled"
-        },
-        {
-          "title": "Location Proof",
-          "subtitle": "Coming Soon",
-          "status": "disabled"
         }
       ],
       "tabs": ["Proof", "Wallet", "MyInfo"]
@@ -154,8 +144,6 @@
     "sectionTitle_connectedWallets": "Connected Wallets",
     "card_coinbaseKyc_title": "Coinbase KYC Verification",
     "card_coinbaseKyc_subtitle": "Prove identity without revealing wallet",
-    "card_ageVerification_title": "Age Verification",
-    "card_locationProof_title": "Location Proof",
     "badge_comingSoon": "Coming Soon",
     "badge_active": "Active",
     "badge_verified": "Verified",

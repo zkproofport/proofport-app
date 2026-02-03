@@ -4,10 +4,6 @@
     "#Section Title": "Select Proof Type",
     "#Card 1 Title": "Coinbase KYC Verification",
     "#Card 1 Subtitle": "Prove identity without revealing wallet",
-    "#Card 2 Title": "Age Verification",
-    "#Card 2 Badge": "Coming Soon",
-    "#Card 3 Title": "Location Proof",
-    "#Card 3 Badge": "Coming Soon",
     "#Tab Proof": "Proof",
     "#Tab Wallet": "Wallet",
     "#Tab MyInfo": "MyInfo"

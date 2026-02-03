@@ -83,64 +83,6 @@
                 ]
               },
               {
-                "id": "1:7",
-                "name": "Card 2 - Age Verification",
-                "type": "FRAME",
-                "absoluteBoundingBox": { "x": 16, "y": 256, "width": 361, "height": 88 },
-                "cornerRadius": 16,
-                "opacity": 0.5,
-                "fills": [{ "type": "SOLID", "color": { "r": 0.102, "g": 0.137, "b": 0.196, "a": 1 } }],
-                "strokes": [{ "type": "SOLID", "color": { "r": 0.176, "g": 0.216, "b": 0.282, "a": 1 } }],
-                "strokeWeight": 1,
-                "children": [
-                  {
-                    "id": "1:8",
-                    "name": "Title",
-                    "type": "TEXT",
-                    "characters": "Age Verification",
-                    "style": { "fontFamily": "SF Pro Display", "fontSize": 17, "fontWeight": 700 },
-                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
-                  },
-                  {
-                    "id": "1:9",
-                    "name": "Badge",
-                    "type": "TEXT",
-                    "characters": "Coming Soon",
-                    "style": { "fontFamily": "SF Pro Text", "fontSize": 11, "fontWeight": 400 },
-                    "fills": [{ "type": "SOLID", "color": { "r": 0.612, "g": 0.639, "b": 0.686, "a": 1 } }]
-                  }
-                ]
-              },
-              {
-                "id": "1:10",
-                "name": "Card 3 - Location Proof",
-                "type": "FRAME",
-                "absoluteBoundingBox": { "x": 16, "y": 360, "width": 361, "height": 88 },
-                "cornerRadius": 16,
-                "opacity": 0.5,
-                "fills": [{ "type": "SOLID", "color": { "r": 0.102, "g": 0.137, "b": 0.196, "a": 1 } }],
-                "strokes": [{ "type": "SOLID", "color": { "r": 0.176, "g": 0.216, "b": 0.282, "a": 1 } }],
-                "strokeWeight": 1,
-                "children": [
-                  {
-                    "id": "1:11",
-                    "name": "Title",
-                    "type": "TEXT",
-                    "characters": "Location Proof",
-                    "style": { "fontFamily": "SF Pro Display", "fontSize": 17, "fontWeight": 700 },
-                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
-                  },
-                  {
-                    "id": "1:12",
-                    "name": "Badge",
-                    "type": "TEXT",
-                    "characters": "Coming Soon",
-                    "style": { "fontFamily": "SF Pro Text", "fontSize": 11, "fontWeight": 400 },
-                    "fills": [{ "type": "SOLID", "color": { "r": 0.612, "g": 0.639, "b": 0.686, "a": 1 } }]
-                  }
-                ]
-              },
-              {
                 "id": "1:13",
                 "name": "Tab Bar",
                 "type": "FRAME",

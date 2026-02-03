@@ -25,9 +25,6 @@ if command -v adb &> /dev/null; then
         echo "Uninstalling app..."
         adb uninstall com.zkproofport.app 2>/dev/null && echo "App uninstalled" || echo "App not installed"
 
-        # Remove old app versions
-        adb uninstall com.ageverifierapp 2>/dev/null || true
-
         # Clear download provider cache
         adb shell pm clear com.android.providers.downloads 2>/dev/null || true
 

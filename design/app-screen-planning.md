@@ -124,16 +124,6 @@ Generated diagrams visualizing the app screen planning:
 |  | wallet or personal data          [->] |  |
 |  +---------------------------------------+  |
 |                                             |
-|  +---------------------------------------+  |
-|  | Age Verification (Coming)             |  |
-|  | Prove you're over 18/21          [->] |  |
-|  +---------------------------------------+  |
-|                                             |
-|  +---------------------------------------+  |
-|  | Location Proof (Coming)               |  |
-|  | Prove region eligibility         [->] |  |
-|  +---------------------------------------+  |
-|                                             |
 +---------------------------------------------+
 ```
 
@@ -1257,16 +1247,6 @@ Safe Area Content: 673pt height
 |                                             |
 |  y: 256 (16pt gap)                          |
 |                                             |
-|  +---------------------------------------+  | <- y: 256
-|  | Age Verification Card [Coming Soon]   |  | Card Height: 88pt
-|  | (disabled state)                      |  |
-|  +---------------------------------------+  | <- y: 344
-|                                             |
-|  +---------------------------------------+  | <- y: 360
-|  | Location Proof Card [Coming Soon]     |  | Card Height: 88pt
-|  | (disabled state)                      |  |
-|  +---------------------------------------+  | <- y: 448
-|                                             |
 |         (remaining space: 321pt)            |
 |                                             |
 +---------------------------------------------+ <- y: 769
@@ -1284,8 +1264,6 @@ Safe Area Content: 673pt height
 | Navigation Title | 16 | 44 | 361 | 52 | "Proof" heading-2 |
 | Section Title | 16 | 112 | 361 | 24 | "Select Proof Type" heading-3, center |
 | Circuit Card 1 | 16 | 152 | 361 | 88 | Active, tap navigates |
-| Circuit Card 2 | 16 | 256 | 361 | 88 | Disabled, "Coming Soon" badge |
-| Circuit Card 3 | 16 | 360 | 361 | 88 | Disabled, "Coming Soon" badge |
 | Tab Bar | 0 | 769 | 393 | 83 | Proof tab active |
 
 ### 4.2.2 Proof - Generation View

@@ -26,7 +26,6 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofCompl
 const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
   'coinbase-kyc': 'Coinbase KYC',
   'coinbase-country': 'Coinbase Country',
-  'location-proof': 'Location Proof',
 };
 
 export const ProofCompleteScreen: React.FC = () => {

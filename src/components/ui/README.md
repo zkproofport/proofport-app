@@ -156,13 +156,6 @@ import {CircuitCard} from '@/components/ui';
   onPress={handleSelect}
 />
 
-<CircuitCard
-  icon="calendar"
-  title="Age Verifier"
-  description="Prove age without revealing birth date"
-  onPress={handleSelect}
-  comingSoon={true}
-/>
 ```
 
 #### WalletCard
