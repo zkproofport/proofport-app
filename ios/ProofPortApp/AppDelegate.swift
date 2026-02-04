@@ -62,6 +62,28 @@ class AppDelegate: ExpoAppDelegate {
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
+  /// Get the host machine's local IP address for physical device debugging
+  static func getHostIPAddress() -> String? {
+    var address: String?
+    var ifaddr: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
+    defer { freeifaddrs(ifaddr) }
+
+    for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+      let sa = ptr.pointee.ifa_addr.pointee
+      guard sa.sa_family == UInt8(AF_INET) else { continue }
+      let name = String(cString: ptr.pointee.ifa_name)
+      guard name == "en0" || name == "en1" else { continue }
+      var addr = ptr.pointee.ifa_addr.pointee
+      var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+      if getnameinfo(&addr, socklen_t(sa.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0 {
+        address = String(cString: hostname)
+        break
+      }
+    }
+    return address
+  }
+
   // TODO: Disable Bridgeless mode for MetaMask SDK compatibility
   // Temporarily commented out to test if this is causing the crash
   // override func bridgelessEnabled() -> Bool {
@@ -82,11 +104,13 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     // Try RCTBundleURLProvider first
     var url = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
 
-    // If nil, create URL directly with Mac's IP (for physical device debugging)
+    // If nil, auto-detect Mac's IP for physical device debugging
     if url == nil {
-      print("🔵 ReactNativeDelegate: RCTBundleURLProvider returned nil, using IP fallback")
-      // Use Mac's IP address for physical device - update this if IP changes
-      url = URL(string: "http://10.78.14.37:8081/index.bundle?platform=ios&dev=true&minify=false")
+      print("🔵 ReactNativeDelegate: RCTBundleURLProvider returned nil, detecting host IP")
+      if let hostIP = Self.getHostIPAddress() {
+        print("🔵 ReactNativeDelegate: Detected host IP: \(hostIP)")
+        url = URL(string: "http://\(hostIP):8081/index.bundle?platform=ios&dev=true&minify=false")
+      }
     }
 
     print("🔵 ReactNativeDelegate: DEBUG bundle URL = \(url?.absoluteString ?? "nil")")
