@@ -164,7 +164,7 @@ export const ProofGenerationScreen: React.FC = () => {
     getProvider,
   } = usePrivyWallet(addLog);
 
-  const {sendProof} = useDeepLink();
+  const {sendProof, sendError} = useDeepLink();
 
   const userSteps = mapHookStepsToUserSteps(proofSteps, isWalletConnected, isSearching);
 
@@ -243,8 +243,22 @@ export const ProofGenerationScreen: React.FC = () => {
         const manualInputs = route.params?.countryInputs;
         const deepLinkInputs = proofRequest?.inputs as CoinbaseCountryInputs | undefined;
         const scopeString = deepLinkInputs?.scope || 'proofport:default';
-        const countryList = manualInputs?.countryList || deepLinkInputs?.countryList || ['US'];
-        const isIncluded = manualInputs?.isIncluded ?? deepLinkInputs?.isIncluded ?? true;
+
+        // Resolve countryList and isIncluded — no fallback defaults
+        const countryList = manualInputs?.countryList || deepLinkInputs?.countryList;
+        const isIncluded = manualInputs?.isIncluded ?? deepLinkInputs?.isIncluded;
+
+        if (!countryList || countryList.length === 0 || typeof isIncluded !== 'boolean') {
+          const errMsg = 'Missing required inputs: countryList and isIncluded are required for country attestation';
+          addLog(`[Error] ${errMsg}`);
+          setErrorMessage(errMsg);
+          if (proofRequest) {
+            sendError(proofRequest, errMsg).catch(console.error);
+            setActiveProofRequest(null);
+          }
+          return;
+        }
+
         await countryHook.generateProofWithSteps(
           {
             userAddress: account,
@@ -285,7 +299,7 @@ export const ProofGenerationScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [account, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, isCountryCircuit, proofRequest, route.params?.circuitId]);
+  }, [account, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, isCountryCircuit, proofRequest, route.params?.circuitId, sendError]);
 
   useEffect(() => {
     if (parsedProof && proofStartedAt.current) {

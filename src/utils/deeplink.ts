@@ -193,6 +193,16 @@ export function validateProofRequest(
     if (request.circuit === 'coinbase_attestation' && !inputs.scope) {
       return {valid: false, error: 'Missing required scope parameter'};
     }
+    // countryList and isIncluded are required for coinbase_country_attestation
+    if (request.circuit === 'coinbase_country_attestation') {
+      const countryInputs = request.inputs as CoinbaseCountryInputs;
+      if (!countryInputs.countryList || !Array.isArray(countryInputs.countryList) || countryInputs.countryList.length === 0) {
+        return {valid: false, error: 'countryList is required for coinbase_country_attestation'};
+      }
+      if (typeof countryInputs.isIncluded !== 'boolean') {
+        return {valid: false, error: 'isIncluded is required for coinbase_country_attestation'};
+      }
+    }
     // If userAddress is not provided, app will prompt wallet connection
   }
 
