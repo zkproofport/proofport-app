@@ -2,7 +2,7 @@
 import './src/config/AppKitConfig';
 
 import React, {useState, useEffect, useCallback, useRef} from 'react';
-import {Linking} from 'react-native';
+import {Linking, Alert} from 'react-native';
 import {
   NavigationContainer,
   NavigationContainerRef,
@@ -73,8 +73,9 @@ import {
   isProofPortDeepLink,
 } from './src/utils/deeplink';
 import type {ProofRequest} from './src/types';
-import {setActiveProofRequest} from './src/stores/activeProofRequestStore';
+import {setActiveProofRequest, clearActiveProofRequest} from './src/stores/activeProofRequestStore';
 import {registerDeepLinkHandler} from './src/utils/deepLinkBridge';
+import {useAppStateReset} from './src/hooks';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -85,6 +86,27 @@ const App: React.FC = () => {
   const navigationRef = useRef<NavigationContainerRef<TabParamList>>(null);
   // Track currently active request to prevent processing while modal is open
   const activeRequestId = useRef<string | null>(null);
+
+  // Reset handler for when app returns from background after timeout
+  const handleAppReset = useCallback(() => {
+    console.log('[App] Resetting app state due to background timeout...');
+
+    // Clear any pending proof request
+    setPendingRequest(null);
+    setShowRequestModal(false);
+    activeRequestId.current = null;
+    clearActiveProofRequest();
+
+    // Show alert to user
+    Alert.alert(
+      'Session Reset',
+      'The app was inactive for a while. Any pending proof requests have been cleared for security.',
+      [{text: 'OK'}],
+    );
+  }, []);
+
+  // Auto-reset when app returns from background after 5 minutes
+  useAppStateReset({onReset: handleAppReset});
 
   const handleDeepLink = useCallback((url: string | null) => {
     if (!url) {

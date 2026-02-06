@@ -9,3 +9,7 @@ export function setActiveProofRequest(request: ProofRequest | null): void {
 export function getActiveProofRequest(): ProofRequest | null {
   return _activeRequest;
 }
+
+export function clearActiveProofRequest(): void {
+  _activeRequest = null;
+}

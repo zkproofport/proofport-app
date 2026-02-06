@@ -9,5 +9,6 @@ export {usePrivyWallet} from './usePrivyWallet';
 export type {PrivyConnectionStatus} from './usePrivyWallet';
 export {useDeepLink} from './useDeepLink';
 export type {SendProofOptions} from './useDeepLink';
+export {useAppStateReset} from './useAppStateReset';
 // Deprecated: use usePrivyWallet instead
 export {useWalletConnect} from './useWalletConnect';
