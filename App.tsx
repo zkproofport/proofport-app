@@ -64,8 +64,9 @@ const privyStorage: Storage = {
 import {LoadingScreen} from './src/screens';
 import {TabNavigator} from './src/navigation';
 import type {TabParamList} from './src/navigation/types';
-import {ProofRequestModal} from './src/components';
-import {DeepLinkProvider} from './src/context';
+import {ProofRequestModal, ErrorModal} from './src/components';
+import {DeepLinkProvider, ErrorProvider} from './src/context';
+import {showGlobalError} from './src/utils/errorBridge';
 import {
   parseProofRequestUrl,
   validateProofRequest,
@@ -114,7 +115,7 @@ const App: React.FC = () => {
       return;
     }
 
-    console.log('[App] Received deep link:', url.substring(0, 100) + '...');
+    console.log('[App] Received deep link:', url);
     console.log('[App] Current active requestId:', activeRequestId.current);
 
     if (!isProofPortDeepLink(url)) {
@@ -124,7 +125,7 @@ const App: React.FC = () => {
 
     const request = parseProofRequestUrl(url);
     if (!request) {
-      console.error('[App] Failed to parse proof request');
+      showGlobalError('E1001', 'Failed to parse deep link URL');
       return;
     }
 
@@ -138,7 +139,7 @@ const App: React.FC = () => {
 
     const validation = validateProofRequest(request);
     if (!validation.valid) {
-      console.error('[App] Invalid request:', validation.error);
+      showGlobalError('E1002', validation.error);
       sendProofResponse(
         {
           requestId: request.requestId,
@@ -168,7 +169,7 @@ const App: React.FC = () => {
     const getInitialURL = async () => {
       const url = await Linking.getInitialURL();
       if (url) {
-        console.log('[App] Initial URL:', url.substring(0, 50) + '...');
+        console.log('[App] Initial URL:', url);
         // Delay to ensure navigation is ready
         setTimeout(() => handleDeepLink(url), 500);
       }
@@ -253,26 +254,29 @@ const App: React.FC = () => {
 
   return (
     <SafeAreaProvider>
-      <DeepLinkProvider>
-        <PrivyProvider
-          appId={PRIVY_APP_ID}
-          clientId={PRIVY_CLIENT_ID}
-          storage={privyStorage}
-        >
-          <AppKitProvider instance={appKit}>
-            <NavigationContainer ref={navigationRef}>
-              <TabNavigator />
-            </NavigationContainer>
-            <AppKit />
-            <ProofRequestModal
-              visible={showRequestModal}
-              request={pendingRequest}
-              onAccept={handleAcceptRequest}
-              onReject={handleRejectRequest}
-            />
-          </AppKitProvider>
-        </PrivyProvider>
-      </DeepLinkProvider>
+      <ErrorProvider>
+        <DeepLinkProvider>
+          <PrivyProvider
+            appId={PRIVY_APP_ID}
+            clientId={PRIVY_CLIENT_ID}
+            storage={privyStorage}
+          >
+            <AppKitProvider instance={appKit}>
+              <NavigationContainer ref={navigationRef}>
+                <TabNavigator />
+              </NavigationContainer>
+              <AppKit />
+              <ProofRequestModal
+                visible={showRequestModal}
+                request={pendingRequest}
+                onAccept={handleAcceptRequest}
+                onReject={handleRejectRequest}
+              />
+            </AppKitProvider>
+          </PrivyProvider>
+        </DeepLinkProvider>
+        <ErrorModal />
+      </ErrorProvider>
     </SafeAreaProvider>
   );
 };
