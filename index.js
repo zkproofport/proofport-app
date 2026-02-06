@@ -14,9 +14,6 @@ import {AppRegistry, LogBox} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';
 
-LogBox.ignoreLogs([
-  /Unable to open URL: metamask/,
-  /^\{"time":\d+,"level":\d+/,
-]);
+LogBox.ignoreAllLogs(true);
 
 AppRegistry.registerComponent(appName, () => App);

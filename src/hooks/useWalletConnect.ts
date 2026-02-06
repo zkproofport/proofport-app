@@ -149,13 +149,13 @@ export const useWalletConnect = (addLog?: (msg: string) => void): UseWalletConne
       throw new Error('Wallet not connected');
     }
 
-    log(`Signing message: ${message.slice(0, 30)}...`);
+    log(`Signing message: ${message}`);
 
     const provider = new ethers.providers.Web3Provider(walletProvider as ethers.providers.ExternalProvider);
     const signer = provider.getSigner(address);
     const signature = await signer.signMessage(message);
 
-    log(`Signature received: ${signature.slice(0, 20)}...`);
+    log(`Signature received: ${signature}`);
     return signature;
   }, [isConnected, walletProvider, address, log]);
 

@@ -34,7 +34,7 @@ export async function searchAttestations(
 
   log('Searching for Coinbase attestations...');
   log(`[EAS] Endpoint: ${EAS_GRAPHQL_ENDPOINT}`);
-  log(`[EAS] Schema: ${targetSchema.slice(0, 20)}...`);
+  log(`[EAS] Schema: ${targetSchema}`);
   log(`[EAS] Wallet: ${walletAddress}`);
 
   const query = `
@@ -93,7 +93,7 @@ export async function searchAttestations(
       const attestations = data.data?.attestations || [];
       log(`Found ${attestations.length} attestation(s)`);
       attestations.forEach((a: any, i: number) => {
-        log(`[EAS] Attestation #${i + 1}: ID=${a.id.slice(0, 16)}..., attester=${a.attester.slice(0, 10)}...`);
+        log(`[EAS] Attestation #${i + 1}: ID=${a.id}, attester=${a.attester}`);
       });
 
       return attestations.map((a: any) => ({
@@ -335,7 +335,7 @@ export async function findAttestationTransaction(
   try {
     const result = await Promise.any(
       uniqueAttestations.map(async (attestation, i) => {
-        log(`[Search] [#${i + 1}] Fetching tx ${attestation.txHash.slice(0, 16)}...`);
+        log(`[Search] [#${i + 1}] Fetching tx ${attestation.txHash}`);
         const rawTransaction = await fetchRawTransaction(attestation.txHash);
         const validation = validateAttestationTransaction(rawTransaction, walletAddress, undefined, expectedSelector);
         if (!validation.valid) {
