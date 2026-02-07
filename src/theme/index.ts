@@ -1,12 +1,12 @@
-export const colors = {
+export const darkColors = {
   background: {
     primary: '#0F1419',
     secondary: '#1A2332',
     tertiary: '#232D3F',
   },
   border: {
-    primary: '#2D3748',
-    secondary: '#3D4A5C',
+    primary: '#1A2332',
+    secondary: '#232D3F',
   },
   text: {
     primary: '#FFFFFF',
@@ -44,7 +44,64 @@ export const colors = {
     trust: '#0500FF',
     walletconnect: '#3B99FC',
   },
-} as const;
+};
+
+export type ThemeMode = 'dark' | 'light';
+export type ThemeColors = typeof darkColors;
+
+export const lightColors: ThemeColors = {
+  background: {
+    primary: '#F4F5F7',
+    secondary: '#FFFFFF',
+    tertiary: '#F0F1F3',
+  },
+  border: {
+    primary: '#F4F5F7',
+    secondary: '#F0F1F3',
+  },
+  text: {
+    primary: '#111827',
+    secondary: '#6B7280',
+    tertiary: '#9CA3AF',
+    disabled: '#D1D5DB',
+  },
+  success: {
+    400: '#34D399',
+    500: '#10B981',
+    600: '#059669',
+    background: 'rgba(16, 185, 129, 0.13)',
+  },
+  warning: {
+    400: '#FBBF24',
+    500: '#F59E0B',
+    600: '#D97706',
+    background: 'rgba(245, 158, 11, 0.13)',
+  },
+  info: {
+    400: '#60A5FA',
+    500: '#3B82F6',
+    600: '#2563EB',
+    background: 'rgba(59, 130, 246, 0.13)',
+  },
+  error: {
+    400: '#F87171',
+    500: '#EF4444',
+    600: '#DC2626',
+    background: 'rgba(239, 68, 68, 0.13)',
+  },
+  wallets: {
+    metamask: '#E2761B',
+    coinbase: '#0052FF',
+    trust: '#0500FF',
+    walletconnect: '#3B99FC',
+  },
+};
+
+export const colors = darkColors;
+
+export function getColors(mode: ThemeMode): ThemeColors {
+  return mode === 'light' ? lightColors : darkColors;
+}
 
 export const typography = {
   display: {
