@@ -7,17 +7,18 @@ import {
   ProofGenerationScreen,
   ProofCompleteScreen,
 } from '../../screens/proof';
-import {stackScreenOptions} from '../shared';
+import {useStackScreenOptions} from '../shared';
 
 const Stack = createNativeStackNavigator<ProofStackParamList>();
 
 const ProofStackNavigator: React.FC = () => {
+  const stackScreenOptions = useStackScreenOptions();
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
       <Stack.Screen
         name="CircuitSelection"
         component={CircuitSelectionScreen}
-        options={{ title: 'Select Circuit' }}
+        options={{ title: 'Verify' }}
       />
       <Stack.Screen
         name="CountryInput"

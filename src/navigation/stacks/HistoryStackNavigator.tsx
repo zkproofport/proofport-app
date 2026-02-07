@@ -2,11 +2,12 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { HistoryStackParamList } from '../types';
 import {ProofHistoryScreen, HistoryDetailScreen} from '../../screens/history';
-import {stackScreenOptions} from '../shared';
+import {useStackScreenOptions} from '../shared';
 
 const Stack = createNativeStackNavigator<HistoryStackParamList>();
 
 const HistoryStackNavigator: React.FC = () => {
+  const stackScreenOptions = useStackScreenOptions();
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
       <Stack.Screen

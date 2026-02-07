@@ -7,11 +7,12 @@ import {
   LegalScreen,
   PlaceholderScreen,
 } from '../../screens/myinfo';
-import { stackScreenOptions } from '../shared';
+import {useStackScreenOptions} from '../shared';
 
 const Stack = createNativeStackNavigator<MyInfoStackParamList>();
 
 const MyInfoStackNavigator: React.FC = () => {
+  const stackScreenOptions = useStackScreenOptions();
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
       <Stack.Screen
