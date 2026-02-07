@@ -2,6 +2,7 @@ import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Icon} from '../atoms/Icon';
 import {Badge} from '../atoms/Badge';
+import {useThemeColors} from '../../../context';
 
 interface WalletCardProps {
   walletIcon: string;
@@ -27,8 +28,19 @@ export const WalletCard: React.FC<WalletCardProps> = ({
   isActive = false,
   onDisconnect,
 }) => {
+  const {colors: themeColors} = useThemeColors();
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: themeColors.background.secondary,
+          borderColor: themeColors.border.primary,
+          borderWidth: 1,
+          borderRadius: 16,
+        },
+      ]}>
       <View style={styles.content}>
         <View
           style={[styles.iconContainer, {backgroundColor: `${brandColor}15`}]}>
@@ -36,11 +48,11 @@ export const WalletCard: React.FC<WalletCardProps> = ({
         </View>
         <View style={styles.info}>
           <View style={styles.headerRow}>
-            <Text style={styles.walletName}>{walletName}</Text>
+            <Text style={[styles.walletName, {color: themeColors.text.primary}]}>{walletName}</Text>
             {isActive && <Badge variant="success" text="Active" />}
           </View>
-          <Text style={styles.address}>{truncateAddress(address)}</Text>
-          <Text style={styles.network}>{network}</Text>
+          <Text style={[styles.address, {color: themeColors.text.secondary}]}>{truncateAddress(address)}</Text>
+          <Text style={[styles.network, {color: themeColors.text.tertiary}]}>{network}</Text>
         </View>
       </View>
       {onDisconnect && (
@@ -48,7 +60,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
           onPress={onDisconnect}
           style={styles.disconnectButton}
           activeOpacity={0.7}>
-          <Text style={styles.disconnectText}>Disconnect</Text>
+          <Text style={[styles.disconnectText, {color: themeColors.error[500]}]}>Disconnect</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -57,10 +69,6 @@ export const WalletCard: React.FC<WalletCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1A2332',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#2D3748',
     padding: 16,
   },
   content: {
@@ -88,17 +96,14 @@ const styles = StyleSheet.create({
   walletName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   address: {
     fontSize: 14,
     fontFamily: 'monospace',
-    color: '#9CA3AF',
     marginBottom: 2,
   },
   network: {
     fontSize: 12,
-    color: '#6B7280',
     textTransform: 'capitalize',
   },
   disconnectButton: {
@@ -111,6 +116,5 @@ const styles = StyleSheet.create({
   disconnectText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#EF4444',
   },
 });

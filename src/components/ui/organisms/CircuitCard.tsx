@@ -2,6 +2,7 @@ import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Icon} from '../atoms/Icon';
 import {Badge} from '../atoms/Badge';
+import {useThemeColors} from '../../../context';
 
 interface CircuitCardProps {
   icon: string;
@@ -21,24 +22,44 @@ export const CircuitCard: React.FC<CircuitCardProps> = ({
   comingSoon = false,
 }) => {
   const isDisabled = disabled || comingSoon;
+  const {colors: themeColors} = useThemeColors();
 
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.7}
-      style={[styles.container, isDisabled && styles.containerDisabled]}>
+      style={[
+        styles.touchWrapper,
+        styles.container,
+        {
+          backgroundColor: themeColors.background.secondary,
+          borderColor: themeColors.border.primary,
+          borderWidth: 1,
+          borderRadius: 16,
+        },
+        isDisabled && styles.containerDisabled,
+      ]}>
       <View style={styles.content}>
         <View
           style={[
             styles.iconContainer,
             isDisabled && styles.iconContainerDisabled,
           ]}>
-          <Icon name={icon as any} size="xl" color="#3B82F6" />
+          <Icon
+            name={icon as any}
+            size="xl"
+            color={themeColors.info[500]}
+          />
         </View>
         <View style={styles.textContainer}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, isDisabled && styles.titleDisabled]}>
+            <Text
+              style={[
+                styles.title,
+                {color: themeColors.text.primary},
+                isDisabled && {color: themeColors.text.tertiary},
+              ]}>
               {title}
             </Text>
             {comingSoon && <Badge variant="neutral" text="Coming Soon" />}
@@ -46,30 +67,33 @@ export const CircuitCard: React.FC<CircuitCardProps> = ({
           <Text
             style={[
               styles.description,
-              isDisabled && styles.descriptionDisabled,
+              {color: themeColors.text.secondary},
+              isDisabled && {color: themeColors.text.tertiary},
             ]}>
             {description}
           </Text>
         </View>
       </View>
       {!isDisabled && (
-        <Icon name="chevron-right" size="md" color="#6B7280" />
+        <Icon
+          name="chevron-right"
+          size="md"
+          color={themeColors.text.tertiary}
+        />
       )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
+  touchWrapper: {
+    marginBottom: 12,
+  },
   container: {
-    backgroundColor: '#1A2332',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#2D3748',
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
   },
   containerDisabled: {
     opacity: 0.5,
@@ -83,7 +107,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -103,17 +127,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  titleDisabled: {
-    color: '#6B7280',
   },
   description: {
     fontSize: 13,
-    color: '#9CA3AF',
     lineHeight: 18,
-  },
-  descriptionDisabled: {
-    color: '#6B7280',
   },
 });

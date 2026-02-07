@@ -1,5 +1,6 @@
 import React from 'react';
 import {Switch, View, Text, StyleSheet} from 'react-native';
+import {useThemeColors} from '../../../context';
 
 interface ToggleProps {
   value: boolean;
@@ -12,15 +13,21 @@ export const Toggle: React.FC<ToggleProps> = ({
   onValueChange,
   label,
 }) => {
+  const {colors: themeColors} = useThemeColors();
+
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, {color: themeColors.text.primary}]}>
+          {label}
+        </Text>
+      )}
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{false: '#4B5563', true: '#3B82F6'}}
+        trackColor={{false: themeColors.text.disabled, true: '#3B82F6'}}
         thumbColor="#FFFFFF"
-        ios_backgroundColor="#4B5563"
+        ios_backgroundColor={themeColors.text.disabled}
       />
     </View>
   );
@@ -35,7 +42,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#FFFFFF',
     flex: 1,
     marginRight: 12,
   },

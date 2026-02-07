@@ -6,6 +6,7 @@ import {
   ViewStyle,
   GestureResponderEvent,
 } from 'react-native';
+import {useThemeColors} from '../../../context';
 
 interface CardProps {
   children: React.ReactNode;
@@ -14,26 +15,35 @@ interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({children, onPress, style}) => {
+  const {colors: themeColors} = useThemeColors();
+
+  const dynamicStyles = {
+    backgroundColor: themeColors.background.secondary,
+    borderColor: themeColors.border.primary,
+    borderWidth: 1,
+    borderRadius: 16,
+  };
+
   if (onPress) {
     return (
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.85}
-        style={[styles.card, styles.touchable, style]}>
+        style={[styles.card, dynamicStyles, styles.touchable, style]}>
         {children}
       </TouchableOpacity>
     );
   }
 
-  return <View style={[styles.card, style]}>{children}</View>;
+  return (
+    <View style={[styles.card, dynamicStyles, style]}>
+      {children}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1A2332',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#2D3748',
     padding: 16,
   },
   touchable: {

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Icon} from '../atoms/Icon';
+import {useThemeColors} from '../../../context';
 
 interface LiveLogsPanelProps {
   logs: string[];
@@ -21,23 +22,6 @@ const stripTimestamp = (log: string): string => {
   return log.replace(/^\[\d{2}:\d{2}:\d{2}\]\s*/, '');
 };
 
-// Determine line color based on content
-const getLineStyle = (line: string): { color: string; fontWeight?: string } => {
-  if (line.includes('✓')) {
-    return { color: '#10B981', fontWeight: '600' };
-  }
-  if (line.includes('✗') || line.startsWith('Error') || line.includes('INVALID')) {
-    return { color: '#EF4444' };
-  }
-  if (line.startsWith('#') || line.includes('===')) {
-    return { color: '#F59E0B' };
-  }
-  if (line.startsWith('[')) {
-    return { color: '#60A5FA' };
-  }
-  return { color: '#D1D5DB' };
-};
-
 export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
   logs,
   autoScroll = true,
@@ -45,6 +29,24 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
 }) => {
   const scrollRef = useRef<ScrollView>(null);
   const [copied, setCopied] = useState(false);
+  const {colors: themeColors} = useThemeColors();
+
+  // Determine line color based on content
+  const getLineStyle = (line: string): { color: string; fontWeight?: string } => {
+    if (line.includes('✓')) {
+      return { color: themeColors.success[500], fontWeight: '600' };
+    }
+    if (line.includes('✗') || line.startsWith('Error') || line.includes('INVALID')) {
+      return { color: themeColors.error[500] };
+    }
+    if (line.startsWith('#') || line.includes('===')) {
+      return { color: themeColors.warning[500] };
+    }
+    if (line.startsWith('[')) {
+      return { color: themeColors.info[400] };
+    }
+    return { color: themeColors.text.secondary };
+  };
 
   const filteredLogs = logs.filter(log => {
     const clean = stripTimestamp(log).trim();
@@ -69,15 +71,25 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
   }
 
   return (
-    <View style={[styles.container, {maxHeight}]}>
+    <View
+      style={[
+        styles.container,
+        {
+          maxHeight,
+          backgroundColor: themeColors.background.primary,
+          borderColor: themeColors.border.primary,
+        },
+      ]}>
       <TouchableOpacity
         onPress={handleCopyLogs}
-        style={styles.copyButton}
+        style={[styles.copyButton, {backgroundColor: 'rgba(15, 20, 25, 0.8)'}]}
         activeOpacity={0.7}>
         {copied ? (
-          <Text style={styles.copiedText}>✓</Text>
+          <Text style={[styles.copiedText, {color: themeColors.success[500]}]}>
+            ✓
+          </Text>
         ) : (
-          <Icon name="copy" size="sm" color="#6B7280" />
+          <Icon name="copy" size="sm" color={themeColors.text.tertiary} />
         )}
       </TouchableOpacity>
       <ScrollView
@@ -92,8 +104,8 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
               key={index}
               style={[
                 styles.logText,
-                { color: lineStyle.color },
-                lineStyle.fontWeight ? { fontWeight: lineStyle.fontWeight as any } : null,
+                {color: lineStyle.color},
+                lineStyle.fontWeight ? ({fontWeight: lineStyle.fontWeight as any}) : null,
               ]}>
               {cleanLine}
             </Text>
@@ -106,10 +118,8 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0F1419',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1F2937',
     overflow: 'hidden',
     position: 'relative',
   },
@@ -119,7 +129,6 @@ const styles = StyleSheet.create({
     right: 8,
     zIndex: 10,
     padding: 6,
-    backgroundColor: 'rgba(15, 20, 25, 0.8)',
     borderRadius: 6,
   },
   scrollView: {
@@ -132,11 +141,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     lineHeight: 20,
-    color: '#D1D5DB',
   },
   copiedText: {
     fontSize: 14,
-    color: '#10B981',
     fontWeight: '600',
   },
 });

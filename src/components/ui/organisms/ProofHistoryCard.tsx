@@ -2,6 +2,7 @@ import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Icon} from '../atoms/Icon';
 import {Badge} from '../atoms/Badge';
+import {useThemeColors} from '../../../context';
 
 type ProofStatus = 'verified' | 'pending' | 'failed' | 'generated';
 
@@ -48,77 +49,88 @@ export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
   onPress,
   onDelete,
 }) => {
-  const Container = onPress ? TouchableOpacity : View;
-  const containerProps = onPress
-    ? {onPress, activeOpacity: 0.7}
-    : {};
+  const {colors: themeColors} = useThemeColors();
 
-  return (
-    <Container style={styles.container} {...containerProps}>
+  const cardStyle = {
+    backgroundColor: themeColors.background.secondary,
+    borderColor: themeColors.border.primary,
+    borderWidth: 1,
+    borderRadius: 16,
+  };
+
+  const content = (
+    <View style={[styles.container, cardStyle]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.iconContainer}>
-            <Icon name={circuitIcon as any} size="md" color="#3B82F6" />
+            <Icon name={circuitIcon as any} size="md" color={themeColors.info[500]} />
           </View>
           <View style={styles.nameContainer}>
-            <Text style={styles.circuitName}>{circuitName}</Text>
-            {dappName && <Text style={styles.dappName}>via {dappName}</Text>}
+            <Text style={[styles.circuitName, {color: themeColors.text.primary}]}>{circuitName}</Text>
+            {dappName && <Text style={[styles.dappName, {color: themeColors.text.tertiary}]}>via {dappName}</Text>}
           </View>
         </View>
         <View style={styles.headerRight}>
-          {onPress && <Icon name="chevron-right" size="sm" color="#6B7280" />}
+          {onPress && <Icon name="chevron-right" size="sm" color={themeColors.text.tertiary} />}
         </View>
       </View>
-      <View style={styles.divider} />
+      <View style={[styles.divider, {backgroundColor: themeColors.border.primary}]} />
       <View style={styles.details}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Off-Chain</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Off-Chain</Text>
           {getStatusBadge(offChainStatus)}
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>On-Chain</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>On-Chain</Text>
           {getStatusBadge(onChainStatus)}
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Date</Text>
-          <Text style={styles.detailValue}>{date}</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Date</Text>
+          <Text style={[styles.detailValue, {color: themeColors.text.secondary}]}>{date}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Network</Text>
-          <Text style={styles.detailValue}>{network}</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Network</Text>
+          <Text style={[styles.detailValue, {color: themeColors.text.secondary}]}>{network}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Proof Hash</Text>
-          <Text style={[styles.detailValue, styles.hash]}>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Proof Hash</Text>
+          <Text style={[styles.detailValue, styles.hash, {color: themeColors.text.secondary}]}>
             {truncateHash(proofHash)}
           </Text>
         </View>
       </View>
       {onDelete && (
         <>
-          <View style={styles.divider} />
+          <View style={[styles.divider, {backgroundColor: themeColors.border.primary}]} />
           <TouchableOpacity
             onPress={onDelete}
             style={styles.deleteRow}
             activeOpacity={0.7}
             hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-            <Icon name="trash-2" size="xs" color="#EF4444" />
-            <Text style={styles.deleteText}>Delete</Text>
+            <Icon name="trash-2" size="xs" color={themeColors.error[500]} />
+            <Text style={[styles.deleteText, {color: themeColors.error[500]}]}>Delete</Text>
           </TouchableOpacity>
         </>
       )}
-    </Container>
+    </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.touchWrapper}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+  return <View style={styles.touchWrapper}>{content}</View>;
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#1A2332',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#2D3748',
-    padding: 16,
+  touchWrapper: {
     marginBottom: 12,
+  },
+  container: {
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
@@ -135,7 +147,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -151,16 +163,13 @@ const styles = StyleSheet.create({
   circuitName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   dappName: {
     fontSize: 11,
-    color: '#6B7280',
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: '#2D3748',
     marginBottom: 12,
   },
   details: {
@@ -173,12 +182,10 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 13,
-    color: '#6B7280',
   },
   detailValue: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#9CA3AF',
   },
   hash: {
     fontFamily: 'monospace',
@@ -192,7 +199,6 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     fontSize: 12,
-    color: '#EF4444',
     fontWeight: '500',
   },
 });
