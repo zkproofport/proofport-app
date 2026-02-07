@@ -8,16 +8,19 @@ import {
   Alert,
   Share,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import {Toggle} from '../../components/ui/molecules/Toggle';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
+import {useThemeColors} from '../../context';
 import type {MyInfoTabScreenProps} from '../../navigation/types';
 
 const SettingsScreen: React.FC<MyInfoTabScreenProps<'Settings'>> = () => {
   const {settings, loading, updateSettings} = useSettings();
   const {exportToJSON, clearAll} = useProofHistory();
+  const {mode, colors: themeColors, setThemeMode} = useThemeColors();
 
   const handleExportHistory = async () => {
     Alert.alert(
@@ -67,53 +70,78 @@ const SettingsScreen: React.FC<MyInfoTabScreenProps<'Settings'>> = () => {
 
   if (loading || !settings) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>Loading settings...</Text>
+          <Text style={[styles.loadingText, {color: themeColors.text.secondary}]}>Loading settings...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>GENERAL</Text>
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Language</Text>
-            <Text style={styles.settingValue}>English</Text>
+          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>GENERAL</Text>
+          <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>Language</Text>
+            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>English</Text>
           </View>
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Theme</Text>
-            <Text style={styles.settingValue}>Dark</Text>
+          <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>Theme</Text>
+            <View style={styles.themeOptions}>
+              <Pressable
+                style={[
+                  styles.themeOption,
+                  {borderColor: mode === 'dark' ? '#3B82F6' : themeColors.border.primary},
+                  mode === 'dark' && styles.themeOptionActive,
+                ]}
+                onPress={() => setThemeMode('dark')}>
+                <Text style={[
+                  styles.themeOptionText,
+                  {color: mode === 'dark' ? '#3B82F6' : themeColors.text.secondary},
+                ]}>Dark</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.themeOption,
+                  {borderColor: mode === 'light' ? '#3B82F6' : themeColors.border.primary},
+                  mode === 'light' && styles.themeOptionActive,
+                ]}
+                onPress={() => setThemeMode('light')}>
+                <Text style={[
+                  styles.themeOptionText,
+                  {color: mode === 'light' ? '#3B82F6' : themeColors.text.secondary},
+                ]}>Light</Text>
+              </Pressable>
+            </View>
           </View>
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Default Network</Text>
-            <Text style={styles.settingValue}>Base</Text>
+          <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>Default Network</Text>
+            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>Base</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PROOF SETTINGS</Text>
-          <View style={styles.toggleItem}>
+          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>PROOF SETTINGS</Text>
+          <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
             <Toggle
               value={settings.autoSaveProofs}
               onValueChange={(value) => updateSettings({autoSaveProofs: value})}
               label="Auto-save proofs"
             />
           </View>
-          <View style={styles.toggleItem}>
+          <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
             <Toggle
               value={settings.showLiveLogs}
               onValueChange={(value) => updateSettings({showLiveLogs: value})}
               label="Show live logs"
             />
           </View>
-          <View style={styles.toggleItem}>
+          <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
             <Toggle
               value={settings.confirmBeforeGenerate}
               onValueChange={(value) => updateSettings({confirmBeforeGenerate: value})}
@@ -123,7 +151,7 @@ const SettingsScreen: React.FC<MyInfoTabScreenProps<'Settings'>> = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DATA</Text>
+          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>DATA</Text>
           <MenuItem
             icon="download"
             title="Export Proof History"
@@ -143,7 +171,6 @@ const SettingsScreen: React.FC<MyInfoTabScreenProps<'Settings'>> = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419',
   },
   scrollView: {
     flex: 1,
@@ -156,7 +183,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    color: '#9CA3AF',
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -166,28 +192,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#1A2332',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2D3748',
     marginBottom: 8,
   },
   settingLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#FFFFFF',
   },
   settingValue: {
     fontSize: 15,
-    color: '#9CA3AF',
   },
   toggleItem: {
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#1A2332',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2D3748',
     marginBottom: 8,
   },
   loadingContainer: {
@@ -198,7 +218,23 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 15,
-    color: '#9CA3AF',
+  },
+  themeOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  themeOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  themeOptionActive: {
+    backgroundColor: 'rgba(99, 102, 241, 0.16)',
+  },
+  themeOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

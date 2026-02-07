@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import type {MyInfoTabScreenProps} from '../../navigation/types';
+import {useThemeColors} from '../../context';
 
 const LEGAL_URLS = {
   terms: 'https://zkproofport.io/terms',
@@ -19,6 +20,8 @@ const LEGAL_URLS = {
 };
 
 const LegalScreen: React.FC<MyInfoTabScreenProps<'Legal'>> = () => {
+  const { colors: themeColors } = useThemeColors();
+
   const openURL = async (url: string, title: string) => {
     try {
       const supported = await Linking.canOpenURL(url);
@@ -33,7 +36,7 @@ const LegalScreen: React.FC<MyInfoTabScreenProps<'Legal'>> = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}>
@@ -79,7 +82,6 @@ const LegalScreen: React.FC<MyInfoTabScreenProps<'Legal'>> = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419',
   },
   scrollView: {
     flex: 1,

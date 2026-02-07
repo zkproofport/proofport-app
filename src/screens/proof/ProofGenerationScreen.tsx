@@ -17,7 +17,7 @@ import {
 } from '../../components/ui';
 import {useCoinbaseKyc, useCoinbaseCountry, usePrivyWallet, useLogs, useDeepLink} from '../../hooks';
 import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
-import {colors} from '../../theme';
+import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig, type CircuitName} from '../../config';
@@ -129,6 +129,7 @@ const mapHookStepsToUserSteps = (
 };
 
 export const ProofGenerationScreen: React.FC = () => {
+  const { colors: themeColors } = useThemeColors();
   const route = useRoute<ProofGenerationRouteProp>();
   const navigation = useNavigation<NavigationProp>();
   // Prefer module-level store (set by App.tsx before navigation) over route params
@@ -433,17 +434,17 @@ export const ProofGenerationScreen: React.FC = () => {
   const buttonState = getButtonState();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
         <Card style={styles.heroCard}>
-          <Text style={styles.heroLabel}>PROOF PORTAL</Text>
-          <Text style={styles.heroTitle}>
+          <Text style={{fontSize: 11, fontWeight: '700', color: themeColors.info[400], letterSpacing: 1.5, marginBottom: 8}}>PROOF PORTAL</Text>
+          <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 12}}>
             {isCountryCircuit ? 'Coinbase Country Verification' : 'Coinbase KYC Verification'}
           </Text>
-          <Text style={styles.heroDescription}>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
             {isCountryCircuit
               ? 'Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.'
               : 'Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.'}
@@ -457,8 +458,8 @@ export const ProofGenerationScreen: React.FC = () => {
         )}
 
         {errorMessage && (
-          <Card style={styles.errorCard}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+          <Card style={{marginBottom: 20, backgroundColor: themeColors.error.background, borderColor: themeColors.error[500]}}>
+            <Text style={{color: themeColors.error[400], fontSize: 14, textAlign: 'center'}}>{errorMessage}</Text>
           </Card>
         )}
 
@@ -474,7 +475,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
         {isProcessing && (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color={colors.info[500]} />
+            <ActivityIndicator size="large" color={themeColors.info[500]} />
           </View>
         )}
       </ScrollView>
@@ -483,10 +484,6 @@ export const ProofGenerationScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
   scrollView: {
     flex: 1,
   },
@@ -499,38 +496,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 24,
   },
-  heroLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.info[400],
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text.primary,
-    marginBottom: 12,
-  },
-  heroDescription: {
-    fontSize: 15,
-    color: colors.text.secondary,
-    lineHeight: 22,
-  },
   stepsCard: {
     marginBottom: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
-  },
-  errorCard: {
-    marginBottom: 20,
-    backgroundColor: colors.error.background,
-    borderColor: colors.error[500],
-  },
-  errorText: {
-    color: colors.error[400],
-    fontSize: 14,
-    textAlign: 'center',
   },
   buttonContainer: {
     marginBottom: 20,

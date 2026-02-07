@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Icon, Badge, Card} from '../../components/ui';
-import {colors} from '../../theme';
+import {useThemeColors} from '../../context';
 
 interface WalletConnectedScreenProps {
   walletIcon: string;
@@ -23,6 +23,7 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
   isActive,
   onDisconnect,
 }) => {
+  const { colors: themeColors } = useThemeColors();
   const [addressCopied, setAddressCopied] = useState(false);
 
   const truncatedAddress =
@@ -38,49 +39,49 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
 
   return (
     <ScrollView
-      style={styles.container}
+      style={{flex: 1, backgroundColor: themeColors.background.primary}}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}>
       <View style={styles.headerSection}>
         <View style={[styles.iconCircle, {backgroundColor: `${brandColor}33`}]}>
           <Icon name={walletIcon} size="xl" color={brandColor} />
         </View>
-        <Text style={styles.walletName}>{walletName}</Text>
+        <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 8}}>{walletName}</Text>
         {isActive && (
           <Badge variant="success" text="Active" />
         )}
       </View>
 
       <Card style={styles.detailsCard}>
-        <Text style={styles.cardTitle}>Wallet Details</Text>
+        <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Wallet Details</Text>
 
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Address</Text>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Address</Text>
           <TouchableOpacity
             onPress={handleCopyAddress}
             style={styles.copyableValue}
             activeOpacity={0.7}>
-            <Text style={styles.addressValue}>
+            <Text style={{fontSize: 14, fontWeight: '500', color: themeColors.text.primary, fontFamily: 'monospace'}}>
               {addressCopied ? 'Copied!' : truncatedAddress}
             </Text>
-            <Icon name="copy" size="sm" color={colors.text.secondary} />
+            <Icon name="copy" size="sm" color={themeColors.text.secondary} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.divider} />
+        <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Network</Text>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Network</Text>
           <View style={styles.networkBadge}>
-            <View style={styles.networkDot} />
-            <Text style={styles.networkText}>{network}</Text>
+            <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: themeColors.info[500], marginRight: 6}} />
+            <Text style={{fontSize: 13, fontWeight: '600', color: themeColors.info[400]}}>{network}</Text>
           </View>
         </View>
 
-        <View style={styles.divider} />
+        <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Status</Text>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Status</Text>
           <Badge
             variant={isActive ? 'success' : 'neutral'}
             text={isActive ? 'Active' : 'Inactive'}
@@ -100,10 +101,6 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
   contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 24,
@@ -121,47 +118,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  walletName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text.primary,
-    marginBottom: 8,
-  },
   detailsCard: {
     marginBottom: 24,
-  },
-  cardTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  detailLabel: {
-    fontSize: 15,
-    color: colors.text.secondary,
   },
   copyableValue: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  addressValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text.primary,
-    fontFamily: 'monospace',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border.primary,
   },
   networkBadge: {
     flexDirection: 'row',
@@ -170,18 +133,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-  },
-  networkDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.info[500],
-    marginRight: 6,
-  },
-  networkText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.info[400],
   },
   disconnectRow: {
     flexDirection: 'row',

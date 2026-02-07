@@ -2,7 +2,7 @@ import React from 'react';
 import {usePrivyWallet} from '../../hooks/usePrivyWallet';
 import {WalletNoConnectionScreen} from './WalletNoConnectionScreen';
 import {WalletConnectedScreen} from './WalletConnectedScreen';
-import {colors} from '../../theme';
+import {useThemeColors} from '../../context';
 
 const NETWORK_NAMES: Record<number, string> = {
   1: 'Ethereum Mainnet',
@@ -14,33 +14,34 @@ const NETWORK_NAMES: Record<number, string> = {
   84531: 'Base Goerli',
 };
 
-const WALLET_METADATA: Record<
+const getWalletMetadata = (themeColors: any): Record<
   string,
   {icon: string; name: string; color: string}
-> = {
+> => ({
   metamask: {
     icon: 'activity',
     name: 'MetaMask',
-    color: colors.wallets.metamask,
+    color: themeColors.wallets.metamask,
   },
   coinbase: {
     icon: 'circle',
     name: 'Coinbase Wallet',
-    color: colors.wallets.coinbase,
+    color: themeColors.wallets.coinbase,
   },
   trust: {
     icon: 'shield',
     name: 'Trust Wallet',
-    color: colors.wallets.trust,
+    color: themeColors.wallets.trust,
   },
   walletconnect: {
     icon: 'link-2',
     name: 'WalletConnect',
-    color: colors.wallets.walletconnect,
+    color: themeColors.wallets.walletconnect,
   },
-};
+});
 
 export const WalletMainScreen: React.FC = () => {
+  const { colors: themeColors } = useThemeColors();
   const {isWalletConnected, account, chainId, connect, disconnect} =
     usePrivyWallet();
 
@@ -64,7 +65,7 @@ export const WalletMainScreen: React.FC = () => {
     return <WalletNoConnectionScreen onConnectPress={handleConnect} />;
   }
 
-  const walletMetadata = WALLET_METADATA.walletconnect;
+  const walletMetadata = getWalletMetadata(themeColors).walletconnect;
 
   return (
     <WalletConnectedScreen

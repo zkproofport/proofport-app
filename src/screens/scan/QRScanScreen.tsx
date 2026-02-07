@@ -16,8 +16,10 @@ import {
 } from 'react-native-vision-camera';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {triggerDeepLink} from '../../utils/deepLinkBridge';
+import {useThemeColors} from '../../context';
 
 const QRScanScreen: React.FC = () => {
+  const {colors: themeColors} = useThemeColors();
   const {hasPermission, requestPermission} = useCameraPermission();
   const device = useCameraDevice('back');
   const [isActive, setIsActive] = useState(true);
@@ -107,18 +109,18 @@ const QRScanScreen: React.FC = () => {
 
   if (!hasPermission) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.permissionContainer}>
           <Text style={styles.permissionIcon}>📷</Text>
-          <Text style={styles.permissionTitle}>Camera Access Required</Text>
-          <Text style={styles.permissionText}>
+          <Text style={[styles.permissionTitle, {color: themeColors.text.primary}]}>Camera Access Required</Text>
+          <Text style={[styles.permissionText, {color: themeColors.text.secondary}]}>
             Allow camera access to scan QR codes for proof requests
           </Text>
           <TouchableOpacity
-            style={styles.permissionButton}
+            style={[styles.permissionButton, {backgroundColor: themeColors.info[500]}]}
             onPress={handleRequestPermission}
             activeOpacity={0.8}>
-            <Text style={styles.permissionButtonText}>Allow Camera</Text>
+            <Text style={[styles.permissionButtonText, {color: themeColors.text.primary}]}>Allow Camera</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -127,10 +129,10 @@ const QRScanScreen: React.FC = () => {
 
   if (!device) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.permissionContainer}>
-          <Text style={styles.permissionTitle}>No Camera Available</Text>
-          <Text style={styles.permissionText}>
+          <Text style={[styles.permissionTitle, {color: themeColors.text.primary}]}>No Camera Available</Text>
+          <Text style={[styles.permissionText, {color: themeColors.text.secondary}]}>
             This device does not have a camera
           </Text>
         </View>
@@ -147,12 +149,12 @@ const QRScanScreen: React.FC = () => {
         codeScanner={codeScanner}
       />
       <SafeAreaView style={styles.overlay}>
-        <Text style={styles.overlayTitle}>Scan QR Code</Text>
+        <Text style={[styles.overlayTitle, {color: themeColors.text.primary}]}>Scan QR Code</Text>
         <View style={styles.scanFrame}>
-          <View style={[styles.corner, styles.cornerTL]} />
-          <View style={[styles.corner, styles.cornerTR]} />
-          <View style={[styles.corner, styles.cornerBL]} />
-          <View style={[styles.corner, styles.cornerBR]} />
+          <View style={[styles.corner, styles.cornerTL, {borderColor: themeColors.info[500]}]} />
+          <View style={[styles.corner, styles.cornerTR, {borderColor: themeColors.info[500]}]} />
+          <View style={[styles.corner, styles.cornerBL, {borderColor: themeColors.info[500]}]} />
+          <View style={[styles.corner, styles.cornerBR, {borderColor: themeColors.info[500]}]} />
         </View>
         <Text style={styles.overlayHint}>
           Point your camera at a QR code{'\n'}to scan a proof request
@@ -169,7 +171,6 @@ const CORNER_WIDTH = 4;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419',
   },
   cameraContainer: {
     flex: 1,
@@ -183,7 +184,6 @@ const styles = StyleSheet.create({
   overlayTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FFFFFF',
     marginBottom: 32,
   },
   scanFrame: {
@@ -201,7 +201,6 @@ const styles = StyleSheet.create({
     left: 0,
     borderTopWidth: CORNER_WIDTH,
     borderLeftWidth: CORNER_WIDTH,
-    borderColor: '#3B82F6',
     borderTopLeftRadius: 8,
   },
   cornerTR: {
@@ -209,7 +208,6 @@ const styles = StyleSheet.create({
     right: 0,
     borderTopWidth: CORNER_WIDTH,
     borderRightWidth: CORNER_WIDTH,
-    borderColor: '#3B82F6',
     borderTopRightRadius: 8,
   },
   cornerBL: {
@@ -217,7 +215,6 @@ const styles = StyleSheet.create({
     left: 0,
     borderBottomWidth: CORNER_WIDTH,
     borderLeftWidth: CORNER_WIDTH,
-    borderColor: '#3B82F6',
     borderBottomLeftRadius: 8,
   },
   cornerBR: {
@@ -225,7 +222,6 @@ const styles = StyleSheet.create({
     right: 0,
     borderBottomWidth: CORNER_WIDTH,
     borderRightWidth: CORNER_WIDTH,
-    borderColor: '#3B82F6',
     borderBottomRightRadius: 8,
   },
   overlayHint: {
@@ -248,24 +244,20 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FFFFFF',
     marginBottom: 8,
   },
   permissionText: {
     fontSize: 15,
-    color: '#9CA3AF',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
   },
   permissionButton: {
-    backgroundColor: '#3B82F6',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
   },
   permissionButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },

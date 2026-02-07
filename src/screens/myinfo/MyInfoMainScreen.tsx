@@ -2,16 +2,19 @@ import React from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView} from 'react-native';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import type {MyInfoTabScreenProps} from '../../navigation/types';
+import {useThemeColors} from '../../context';
 
 const MyInfoMainScreen: React.FC<MyInfoTabScreenProps<'MyInfoMain'>> = ({
   navigation,
 }) => {
+  const { colors: themeColors } = useThemeColors();
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}>
-        <Text style={styles.header}>MyInfo</Text>
+        <Text style={[styles.header, {color: themeColors.text.primary}]}>MyInfo</Text>
 
         <MenuItem
           icon="settings"
@@ -50,7 +53,7 @@ const MyInfoMainScreen: React.FC<MyInfoTabScreenProps<'MyInfoMain'>> = ({
           onPress={() => navigation.navigate('About', {type: 'about'})}
         />
 
-        <Text style={styles.version}>Version 1.0.0</Text>
+        <Text style={[styles.version, {color: themeColors.text.tertiary}]}>Version 1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -59,7 +62,6 @@ const MyInfoMainScreen: React.FC<MyInfoTabScreenProps<'MyInfoMain'>> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419',
   },
   scrollView: {
     flex: 1,
@@ -70,12 +72,10 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 24,
   },
   version: {
     fontSize: 14,
-    color: '#6B7280',
     textAlign: 'center',
     marginTop: 32,
     marginBottom: 16,
