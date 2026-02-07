@@ -1,6 +1,7 @@
 import React, {useEffect, useRef} from 'react';
 import {View, Text, StyleSheet, Animated} from 'react-native';
 import {Icon} from '../atoms/Icon';
+import {useThemeColors} from '../../../context';
 
 export type StepStatus = 'pending' | 'active' | 'complete' | 'error';
 
@@ -46,6 +47,8 @@ const StepItem: React.FC<{step: StepData; isLast: boolean}> = ({
   step,
   isLast,
 }) => {
+  const {mode, colors: themeColors} = useThemeColors();
+  const isDark = mode === 'dark';
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -72,9 +75,9 @@ const StepItem: React.FC<{step: StepData; isLast: boolean}> = ({
   const getStatusColor = () => {
     switch (step.status) {
       case 'pending':
-        return '#6B7280';
+        return isDark ? '#6B7280' : '#9CA3AF';
       case 'active':
-        return '#FFFFFF';
+        return isDark ? '#FFFFFF' : themeColors.info[500];
       case 'complete':
         return '#10B981';
       case 'error':
@@ -85,7 +88,7 @@ const StepItem: React.FC<{step: StepData; isLast: boolean}> = ({
   const getIconColor = () => {
     switch (step.status) {
       case 'pending':
-        return '#6B7280';
+        return isDark ? '#6B7280' : '#9CA3AF';
       case 'active':
         return '#3B82F6';
       case 'complete':
@@ -115,7 +118,7 @@ const StepItem: React.FC<{step: StepData; isLast: boolean}> = ({
               styles.connector,
               {
                 backgroundColor:
-                  step.status === 'complete' ? '#10B981' : '#374151',
+                  step.status === 'complete' ? '#10B981' : isDark ? '#374151' : '#E5E7EB',
               },
             ]}
           />
