@@ -65,7 +65,7 @@ import {LoadingScreen} from './src/screens';
 import {TabNavigator} from './src/navigation';
 import type {TabParamList} from './src/navigation/types';
 import {ProofRequestModal, ErrorModal} from './src/components';
-import {DeepLinkProvider, ErrorProvider} from './src/context';
+import {DeepLinkProvider, ErrorProvider, ThemeProvider} from './src/context';
 import {showGlobalError} from './src/utils/errorBridge';
 import {
   parseProofRequestUrl,
@@ -247,36 +247,40 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
       <SafeAreaProvider>
-        <LoadingScreen onReady={() => setIsLoading(false)} />
+        <ThemeProvider>
+          <LoadingScreen onReady={() => setIsLoading(false)} />
+        </ThemeProvider>
       </SafeAreaProvider>
     );
   }
 
   return (
     <SafeAreaProvider>
-      <ErrorProvider>
-        <DeepLinkProvider>
-          <PrivyProvider
-            appId={PRIVY_APP_ID}
-            clientId={PRIVY_CLIENT_ID}
-            storage={privyStorage}
-          >
-            <AppKitProvider instance={appKit}>
-              <NavigationContainer ref={navigationRef}>
-                <TabNavigator />
-              </NavigationContainer>
-              <AppKit />
-              <ProofRequestModal
-                visible={showRequestModal}
-                request={pendingRequest}
-                onAccept={handleAcceptRequest}
-                onReject={handleRejectRequest}
-              />
-            </AppKitProvider>
-          </PrivyProvider>
-        </DeepLinkProvider>
-        <ErrorModal />
-      </ErrorProvider>
+      <ThemeProvider>
+        <ErrorProvider>
+          <DeepLinkProvider>
+            <PrivyProvider
+              appId={PRIVY_APP_ID}
+              clientId={PRIVY_CLIENT_ID}
+              storage={privyStorage}
+            >
+              <AppKitProvider instance={appKit}>
+                <NavigationContainer ref={navigationRef}>
+                  <TabNavigator />
+                </NavigationContainer>
+                <AppKit />
+                <ProofRequestModal
+                  visible={showRequestModal}
+                  request={pendingRequest}
+                  onAccept={handleAcceptRequest}
+                  onReject={handleRejectRequest}
+                />
+              </AppKitProvider>
+            </PrivyProvider>
+          </DeepLinkProvider>
+          <ErrorModal />
+        </ErrorProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 };

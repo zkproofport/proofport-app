@@ -6,6 +6,7 @@ import {
   type DownloadProgress,
 } from '../utils/circuitDownload';
 import {getEnvironment, initDeployments} from '../config';
+import {useThemeColors} from '../context';
 
 const CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation'];
 const SPLASH_DURATION = 3000;
@@ -15,6 +16,8 @@ interface LoadingScreenProps {
 }
 
 export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement {
+  const {mode, colors: themeColors} = useThemeColors();
+  const isDark = mode === 'dark';
   const [showSplash, setShowSplash] = useState(true);
   const [status, setStatus] = useState('Initializing...');
   const [currentFile, setCurrentFile] = useState('');
@@ -101,8 +104,12 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
 
   if (showSplash) {
     return (
-      <View style={styles.splashContainer}>
-        <Animated.View style={[styles.splashLogoContainer, {transform: [{scale: pulseAnim}]}]}>
+      <View style={[styles.splashContainer, {backgroundColor: themeColors.background.secondary}]}>
+        <Animated.View style={[styles.splashLogoContainer, {
+          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
+          transform: [{scale: pulseAnim}],
+        }]}>
           <Image
             source={require('../../assets/logo.png')}
             style={styles.splashLogo}
@@ -114,8 +121,11 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
   }
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.logoContainer, {transform: [{scale: pulseAnim}]}]}>
+    <View style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
+      <Animated.View style={[styles.logoContainer, {
+        backgroundColor: themeColors.background.secondary,
+        transform: [{scale: pulseAnim}],
+      }]}>
         <Image
           source={require('../../assets/logo.png')}
           style={styles.logo}
@@ -123,31 +133,31 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
         />
       </Animated.View>
 
-      <Text style={styles.appName}>ZKProofPort</Text>
-      <Text style={styles.tagline}>Privacy-Preserving Identity Proofs</Text>
+      <Text style={[styles.appName, {color: themeColors.text.primary}]}>ZKProofPort</Text>
+      <Text style={[styles.tagline, {color: themeColors.text.secondary}]}>Privacy-Preserving Identity Proofs</Text>
 
       <View style={styles.progressSection}>
-        <Text style={styles.status}>{status}</Text>
-        {currentFile ? <Text style={styles.currentFile}>{currentFile}</Text> : null}
+        <Text style={[styles.status, {color: themeColors.text.primary}]}>{status}</Text>
+        {currentFile ? <Text style={[styles.currentFile, {color: themeColors.text.tertiary}]}>{currentFile}</Text> : null}
 
         <View style={styles.progressBarContainer}>
-          <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarBackground, {backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}]}>
             <View style={[styles.progressBarFill, {width: `${overallProgress}%`}]} />
           </View>
-          <Text style={styles.progressText}>{Math.round(overallProgress)}%</Text>
+          <Text style={[styles.progressText, {color: themeColors.text.secondary}]}>{Math.round(overallProgress)}%</Text>
         </View>
 
         {progress > 0 && progress < 100 && currentFile && (
           <View style={styles.fileProgressContainer}>
-            <View style={styles.fileProgressBarBackground}>
+            <View style={[styles.fileProgressBarBackground, {backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}]}>
               <View style={[styles.fileProgressBarFill, {width: `${progress}%`}]} />
             </View>
-            <Text style={styles.fileProgressText}>{progress}%</Text>
+            <Text style={[styles.fileProgressText, {color: themeColors.text.tertiary}]}>{progress}%</Text>
           </View>
         )}
       </View>
 
-      <Text style={styles.footer}>Powered by mopro & Noir</Text>
+      <Text style={[styles.footer, {color: themeColors.text.tertiary}]}>Powered by mopro & Noir</Text>
     </View>
   );
 }
@@ -155,7 +165,6 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: '#1A2332',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -163,11 +172,9 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   splashLogo: {
     width: 100,
@@ -175,7 +182,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
@@ -184,7 +190,6 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -202,12 +207,10 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#25292E',
     marginBottom: 8,
   },
   tagline: {
     fontSize: 14,
-    color: '#6B7280',
     marginBottom: 48,
   },
   progressSection: {
@@ -216,12 +219,10 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 16,
-    color: '#25292E',
     marginBottom: 8,
   },
   currentFile: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginBottom: 16,
     fontFamily: 'Menlo',
   },
@@ -234,7 +235,6 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     flex: 1,
     height: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -245,7 +245,6 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 14,
-    color: '#6B7280',
     width: 40,
     textAlign: 'right',
   },
@@ -259,7 +258,6 @@ const styles = StyleSheet.create({
   fileProgressBarBackground: {
     flex: 1,
     height: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -270,7 +268,6 @@ const styles = StyleSheet.create({
   },
   fileProgressText: {
     fontSize: 11,
-    color: '#9CA3AF',
     width: 32,
     textAlign: 'right',
   },
@@ -278,6 +275,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 48,
     fontSize: 12,
-    color: '#9CA3AF',
   },
 });
