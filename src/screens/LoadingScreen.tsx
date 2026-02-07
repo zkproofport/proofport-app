@@ -104,7 +104,7 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
 
   if (showSplash) {
     return (
-      <View style={[styles.splashContainer, {backgroundColor: themeColors.background.secondary}]}>
+      <View style={[styles.splashContainer, {backgroundColor: themeColors.background.primary}]}>
         <Animated.View style={[styles.splashLogoContainer, {
           backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
           borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)',
