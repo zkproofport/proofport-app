@@ -8,6 +8,7 @@ import {
   TextStyle,
   View,
 } from 'react-native';
+import {useThemeColors} from '../../../context';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 type ButtonSize = 'large' | 'medium' | 'small';
@@ -37,31 +38,35 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   style,
 }) => {
+  const {mode, colors: themeColors} = useThemeColors();
+  const isDark = mode === 'dark';
   const sizeStyle = SIZE_STYLES[size];
   const isDisabled = disabled || loading;
 
   const renderContent = () => {
-    const textStyle: (TextStyle | false)[] = [
-      styles.text,
-      {fontSize: sizeStyle.fontSize},
-      variant === 'secondary' && styles.textSecondary,
-      variant === 'ghost' && styles.textGhost,
-      isDisabled && styles.textDisabled,
-    ].filter(Boolean) as TextStyle[];
+    const textColor = isDisabled
+      ? (isDark ? '#6B7280' : '#FFFFFF')
+      : variant === 'secondary'
+        ? themeColors.info[500]
+        : variant === 'ghost'
+          ? themeColors.text.secondary
+          : '#FFFFFF';
 
     return (
       <>
         {loading && (
           <ActivityIndicator
             size="small"
-            color={variant === 'secondary' ? '#3B82F6' : '#FFFFFF'}
+            color={variant === 'secondary' ? themeColors.info[500] : '#FFFFFF'}
             style={styles.loader}
           />
         )}
-        <Text style={textStyle}>{title}</Text>
+        <Text style={[styles.text, {fontSize: sizeStyle.fontSize, color: textColor}]}>{title}</Text>
       </>
     );
   };
+
+  const disabledBg = isDark ? '#374151' : '#9CA3AF';
 
   if (variant === 'primary') {
     return (
@@ -73,7 +78,7 @@ export const Button: React.FC<ButtonProps> = ({
           styles.container,
           {height: sizeStyle.height},
           styles.primary,
-          isDisabled && styles.primaryDisabled,
+          isDisabled && {backgroundColor: disabledBg, ...(isDark && {opacity: 0.7})},
           style,
         ]}>
         <View style={styles.primaryInner}>
@@ -91,9 +96,9 @@ export const Button: React.FC<ButtonProps> = ({
       style={[
         styles.container,
         {height: sizeStyle.height},
-        variant === 'secondary' && styles.secondary,
+        variant === 'secondary' && {borderWidth: 2, borderColor: themeColors.info[500]},
         variant === 'ghost' && styles.ghost,
-        isDisabled && styles.containerDisabled,
+        isDisabled && (isDark ? styles.containerDisabled : {opacity: 0.85}),
         style,
       ]}>
       {renderContent()}
