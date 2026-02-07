@@ -13,7 +13,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import {useRoute, useNavigation, useFocusEffect, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Icon, Badge, Card} from '../../components/ui';
-import {colors} from '../../theme';
+import {useThemeColors} from '../../context';
 import type {HistoryStackParamList} from '../../navigation/types';
 import {proofHistoryStore, type ProofHistoryItem} from '../../stores';
 
@@ -23,23 +23,10 @@ type DetailNavigationProp = NativeStackNavigationProp<
   'HistoryDetail'
 >;
 
-const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
-  'coinbase-kyc': 'Coinbase KYC',
-  'coinbase-country': 'Coinbase Country',
-};
-
-const getCircuitIcon = (circuitId: string): string => {
-  switch (circuitId) {
-    case 'coinbase-kyc':
-      return 'shield';
-    case 'coinbase-country':
-      return 'globe';
-    default:
-      return 'shield';
-  }
-};
+import {getCircuitIcon, getCircuitDisplayName} from '../../utils';
 
 const HistoryDetailScreen: React.FC = () => {
+  const { colors: themeColors } = useThemeColors();
   const route = useRoute<DetailRouteProp>();
   const navigation = useNavigation<DetailNavigationProp>();
   const {proofId} = route.params;
@@ -72,17 +59,17 @@ const HistoryDetailScreen: React.FC = () => {
 
   if (!proofItem) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
         <View style={styles.emptyState}>
-          <ActivityIndicator size="large" color={colors.info[400]} />
-          <Text style={styles.emptyText}>Loading proof details...</Text>
+          <ActivityIndicator size="large" color={themeColors.info[400]} />
+          <Text style={{fontSize: 15, color: themeColors.text.secondary, marginTop: 16}}>Loading proof details...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   const circuitName =
-    CIRCUIT_DISPLAY_NAMES[proofItem.circuitId] || proofItem.circuitId;
+    getCircuitDisplayName(proofItem.circuitId);
   const circuitIcon = getCircuitIcon(proofItem.circuitId);
   const formattedDate = new Date(proofItem.timestamp).toLocaleString();
   const truncatedWallet =
@@ -129,33 +116,33 @@ const HistoryDetailScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
         <View style={styles.headerSection}>
-          <View style={styles.iconCircle}>
-            <Icon name={circuitIcon} size="xl" color={colors.info[400]} />
+          <View style={{width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(99, 102, 241, 0.18)', justifyContent: 'center', alignItems: 'center', marginBottom: 16}}>
+            <Icon name={circuitIcon} size="xl" color={themeColors.info[400]} />
           </View>
-          <Text style={styles.circuitName}>{circuitName}</Text>
-          <Text style={styles.timestamp}>{formattedDate}</Text>
+          <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 8}}>{circuitName}</Text>
+          <Text style={{fontSize: 14, color: themeColors.text.secondary}}>{formattedDate}</Text>
         </View>
 
         {proofItem.source === 'deeplink' && (proofItem.dappName || proofItem.requestId) && (
           <Card style={styles.statusCard}>
-            <Text style={styles.cardTitle}>dApp Request</Text>
+            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>dApp Request</Text>
             {proofItem.dappName && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>dApp</Text>
-                <Text style={styles.dappValue}>{proofItem.dappName}</Text>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>dApp</Text>
+                <Text style={{fontSize: 15, fontWeight: '600', color: themeColors.info[400]}}>{proofItem.dappName}</Text>
               </View>
             )}
-            {proofItem.dappName && proofItem.requestId && <View style={styles.divider} />}
+            {proofItem.dappName && proofItem.requestId && <View style={{height: 1, backgroundColor: themeColors.border.primary}} />}
             {proofItem.requestId && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Request ID</Text>
-                <Text style={[styles.hashValue, {fontSize: 13}]}>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Request ID</Text>
+                <Text style={{fontSize: 13, fontWeight: '500', color: themeColors.info[400], fontFamily: 'monospace'}}>
                   {proofItem.requestId.length > 20
                     ? `${proofItem.requestId.slice(0, 12)}...${proofItem.requestId.slice(-8)}`
                     : proofItem.requestId}
@@ -167,21 +154,21 @@ const HistoryDetailScreen: React.FC = () => {
 
         {bothGenerated ? (
           <Card style={styles.statusCard}>
-            <Text style={styles.cardTitle}>Proof Status</Text>
-            <View style={styles.statusRow}>
-              <Text style={styles.statusLabel}>Status</Text>
+            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Proof Status</Text>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Status</Text>
               <Badge variant="info" text="Generated" />
             </View>
           </Card>
         ) : (
           <Card style={styles.statusCard}>
-            <Text style={styles.cardTitle}>Verification Status</Text>
+            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Verification Status</Text>
 
-            <View style={styles.statusRow}>
-              <Text style={styles.statusLabel}>Off-Chain Verification</Text>
-              <View style={styles.statusRight}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Off-Chain Verification</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 {offChainStatus === 'loading' ? (
-                  <ActivityIndicator size="small" color={colors.info[400]} />
+                  <ActivityIndicator size="small" color={themeColors.info[400]} />
                 ) : (
                   <Badge
                     variant={
@@ -199,13 +186,13 @@ const HistoryDetailScreen: React.FC = () => {
               </View>
             </View>
 
-            <View style={styles.divider} />
+            <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
-            <View style={styles.statusRow}>
-              <Text style={styles.statusLabel}>On-Chain Verification</Text>
-              <View style={styles.statusRight}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>On-Chain Verification</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 {onChainStatus === 'loading' ? (
-                  <ActivityIndicator size="small" color={colors.info[400]} />
+                  <ActivityIndicator size="small" color={themeColors.info[400]} />
                 ) : (
                   <Badge
                     variant={
@@ -226,60 +213,60 @@ const HistoryDetailScreen: React.FC = () => {
         )}
 
         <Card style={styles.detailsCard}>
-          <Text style={styles.cardTitle}>Details</Text>
+          <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Details</Text>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Network</Text>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Network</Text>
             <View style={styles.chainBadge}>
-              <View style={styles.chainDot} />
-              <Text style={styles.chainText}>{proofItem.network}</Text>
+              <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: themeColors.info[500], marginRight: 6}} />
+              <Text style={{fontSize: 13, fontWeight: '600', color: themeColors.info[400]}}>{proofItem.network}</Text>
             </View>
           </View>
 
-          <View style={styles.divider} />
+          <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
           {proofItem.verifierAddress && (
             <>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Verifier Contract</Text>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Verifier Contract</Text>
                 <TouchableOpacity
                   onPress={handleCopyVerifier}
                   style={styles.copyableValue}
                   activeOpacity={0.7}>
-                  <Text style={styles.verifierValue}>{truncatedVerifier}</Text>
-                  <Icon name="copy" size="sm" color={colors.text.secondary} />
+                  <Text style={{fontSize: 14, fontWeight: '500', color: themeColors.info[400], fontFamily: 'monospace'}}>{truncatedVerifier}</Text>
+                  <Icon name="copy" size="sm" color={themeColors.text.secondary} />
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.divider} />
+              <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
             </>
           )}
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Proof Hash</Text>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Proof Hash</Text>
             <TouchableOpacity
               onPress={handleCopyProofHash}
               style={styles.copyableValue}
               activeOpacity={0.7}>
-              <Text style={styles.hashValue}>
+              <Text style={{fontSize: 14, fontWeight: '500', color: themeColors.info[400], fontFamily: 'monospace'}}>
                 {proofItem.proofHash.length > 20
                   ? `${proofItem.proofHash.slice(0, 12)}...${proofItem.proofHash.slice(-8)}`
                   : proofItem.proofHash}
               </Text>
-              <Icon name="copy" size="sm" color={colors.text.secondary} />
+              <Icon name="copy" size="sm" color={themeColors.text.secondary} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.divider} />
+          <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Wallet Address</Text>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Wallet Address</Text>
             <TouchableOpacity
               onPress={handleCopyWallet}
               style={styles.copyableValue}
               activeOpacity={0.7}>
-              <Text style={styles.walletValue}>{truncatedWallet}</Text>
-              <Icon name="copy" size="sm" color={colors.text.secondary} />
+              <Text style={{fontSize: 14, fontWeight: '500', color: themeColors.text.primary, fontFamily: 'monospace'}}>{truncatedWallet}</Text>
+              <Icon name="copy" size="sm" color={themeColors.text.secondary} />
             </TouchableOpacity>
           </View>
         </Card>
@@ -297,10 +284,6 @@ const HistoryDetailScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
   scrollView: {
     flex: 1,
   },
@@ -315,123 +298,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  emptyText: {
-    fontSize: 15,
-    color: colors.text.secondary,
-    marginTop: 16,
-  },
   headerSection: {
     alignItems: 'center',
     marginBottom: 24,
   },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  circuitName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text.primary,
-    marginBottom: 8,
-  },
-  timestamp: {
-    fontSize: 14,
-    color: colors.text.secondary,
-  },
   statusCard: {
     marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 16,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  statusLabel: {
-    fontSize: 15,
-    color: colors.text.secondary,
-  },
-  statusRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border.primary,
   },
   detailsCard: {
     marginBottom: 24,
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  detailLabel: {
-    fontSize: 15,
-    color: colors.text.secondary,
-  },
   chainBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'rgba(99, 102, 241, 0.18)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-  },
-  chainDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.info[500],
-    marginRight: 6,
-  },
-  chainText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.info[400],
   },
   copyableValue: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  hashValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.info[400],
-    fontFamily: 'monospace',
-  },
-  walletValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text.primary,
-    fontFamily: 'monospace',
-  },
-  verifierValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.info[400],
-    fontFamily: 'monospace',
-  },
-  dappValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.info[400],
   },
   deleteRow: {
     flexDirection: 'row',

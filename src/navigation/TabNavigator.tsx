@@ -7,6 +7,7 @@ import WalletStackNavigator from './stacks/WalletStackNavigator';
 import HistoryStackNavigator from './stacks/HistoryStackNavigator';
 import ScanStackNavigator from './stacks/ScanStackNavigator';
 import MyInfoStackNavigator from './stacks/MyInfoStackNavigator';
+import { useThemeColors } from '../context';
 
 const ICON_MAP: Record<string, string> = {
   'shield': '🛡',
@@ -20,27 +21,42 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 const ScanTabButton: React.FC<any> = ({ onPress, accessibilityState }) => {
   const focused = accessibilityState?.selected;
+  const { mode, colors: themeColors } = useThemeColors();
+  const inactiveTintColor = mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
+
   return (
     <TouchableOpacity
       style={styles.scanButtonContainer}
       onPress={onPress}
       activeOpacity={0.8}>
-      <View style={[styles.scanButton, !focused && styles.scanButtonInactive]}>
+      <View style={[styles.scanButton, !focused && [styles.scanButtonInactive, { backgroundColor: themeColors.background.tertiary }]]}>
         <Text style={styles.scanIcon}>📷</Text>
       </View>
-      <Text style={[styles.scanLabel, !focused && styles.scanLabelInactive]}>Scan</Text>
+      <Text style={[
+        styles.scanLabel,
+        { color: focused ? themeColors.text.primary : inactiveTintColor }
+      ]}>Scan</Text>
     </TouchableOpacity>
   );
 };
 
 const TabNavigator: React.FC = () => {
+  const { mode, colors: themeColors } = useThemeColors();
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.4)',
+        tabBarStyle: {
+          backgroundColor: themeColors.background.primary,
+          borderTopWidth: 1,
+          borderTopColor: themeColors.background.secondary,
+          height: Platform.OS === 'ios' ? 83 : 60,
+          paddingBottom: Platform.OS === 'ios' ? 34 : 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: themeColors.text.primary,
+        tabBarInactiveTintColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
@@ -48,7 +64,7 @@ const TabNavigator: React.FC = () => {
         name="ProofTab"
         component={ProofStackNavigator}
         options={{
-          tabBarLabel: 'Proof',
+          tabBarLabel: 'Verify',
           tabBarIcon: ({ focused, size }) => (
             <Text style={{ fontSize: size, textAlign: 'center', opacity: focused ? 1 : 0.4 }}>
               {ICON_MAP['shield']}
@@ -111,14 +127,6 @@ const TabNavigator: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: '#0F1419',
-    borderTopWidth: 1,
-    borderTopColor: '#1A2332',
-    height: Platform.OS === 'ios' ? 83 : 60,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 8,
-    paddingTop: 8,
-  },
   tabBarLabel: {
     fontSize: 12,
     fontWeight: '500',
@@ -147,15 +155,11 @@ const styles = StyleSheet.create({
   scanLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#FFFFFF',
     marginTop: 4,
   },
   scanButtonInactive: {
     backgroundColor: '#2D3748',
     shadowOpacity: 0,
-  },
-  scanLabelInactive: {
-    color: 'rgba(255, 255, 255, 0.4)',
   },
 });
 

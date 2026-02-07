@@ -7,17 +7,8 @@ import {ProofHistoryCard} from '../../components/ui/organisms/ProofHistoryCard';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import type {ProofHistoryItem} from '../../stores';
 import {Icon} from '../../components/ui';
-
-const getCircuitIcon = (circuitId: string): string => {
-  switch (circuitId) {
-    case 'coinbase-kyc':
-      return 'shield';
-    case 'coinbase-country':
-      return 'globe';
-    default:
-      return 'shield';
-  }
-};
+import {useThemeColors} from '../../context';
+import {getCircuitIcon} from '../../utils';
 
 const formatDate = (timestamp: string): string => {
   const date = new Date(timestamp);
@@ -52,6 +43,7 @@ const groupProofsByMonth = (proofs: ProofHistoryItem[]) => {
 const ProofHistoryScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<HistoryStackParamList>>();
   const {items: proofs, loading, error, removeItem, clearAll, refresh} = useProofHistory();
+  const { colors: themeColors } = useThemeColors();
 
   // Refresh history when screen gains focus (e.g., coming back from detail or proof completion)
   useFocusEffect(
@@ -98,10 +90,10 @@ const ProofHistoryScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.emptyState}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.emptyStateText}>Loading proof history...</Text>
+          <ActivityIndicator size="large" color={themeColors.info[500]} />
+          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>Loading proof history...</Text>
         </View>
       </SafeAreaView>
     );
@@ -109,10 +101,10 @@ const ProofHistoryScreen: React.FC = () => {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateTitle}>Error</Text>
-          <Text style={styles.emptyStateText}>{error.message}</Text>
+          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>Error</Text>
+          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>{error.message}</Text>
         </View>
       </SafeAreaView>
     );
@@ -120,11 +112,11 @@ const ProofHistoryScreen: React.FC = () => {
 
   if (proofs.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateIcon}>🛡</Text>
-          <Text style={styles.emptyStateTitle}>No Proofs Yet</Text>
-          <Text style={styles.emptyStateText}>
+          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>No Proofs Yet</Text>
+          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>
             Your generated proofs will appear here
           </Text>
         </View>
@@ -133,13 +125,13 @@ const ProofHistoryScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}>
         {Object.entries(groupedProofs).map(([monthYear, monthProofs]) => (
           <View key={monthYear} style={styles.section}>
-            <Text style={styles.sectionTitle}>{monthYear}</Text>
+            <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{monthYear}</Text>
             {monthProofs.map(proof => (
               <ProofHistoryCard
                 key={proof.id}
@@ -158,30 +150,30 @@ const ProofHistoryScreen: React.FC = () => {
           </View>
         ))}
 
-        <View style={styles.summary}>
+        <View style={[styles.summary, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total Proofs</Text>
-            <Text style={styles.summaryValue}>{totalProofs}</Text>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Total Proofs</Text>
+            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{totalProofs}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Off-Chain Verified</Text>
-            <Text style={styles.summaryValue}>{offChainVerifiedCount}</Text>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Off-Chain Verified</Text>
+            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{offChainVerifiedCount}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>On-Chain Verified</Text>
-            <Text style={styles.summaryValue}>{onChainVerifiedCount}</Text>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>On-Chain Verified</Text>
+            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{onChainVerifiedCount}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Generated</Text>
-            <Text style={styles.summaryValue}>{generatedCount}</Text>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Generated</Text>
+            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{generatedCount}</Text>
           </View>
         </View>
 
         <TouchableOpacity
-          style={styles.clearAllButton}
+          style={[styles.clearAllButton, {borderColor: `rgba(239, 68, 68, 0.3)`}]}
           onPress={handleClearAll}
           activeOpacity={0.7}>
-          <Text style={styles.clearAllText}>Clear All History</Text>
+          <Text style={[styles.clearAllText, {color: themeColors.error[500]}]}>Clear All History</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -191,7 +183,6 @@ const ProofHistoryScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419',
   },
   scrollView: {
     flex: 1,
@@ -205,7 +196,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    color: '#9CA3AF',
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -222,21 +212,17 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FFFFFF',
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 15,
-    color: '#9CA3AF',
     textAlign: 'center',
   },
   summary: {
-    backgroundColor: '#1A2332',
     borderRadius: 12,
     padding: 16,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#2D3748',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -246,12 +232,10 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 15,
-    color: '#9CA3AF',
   },
   summaryValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   clearAllButton: {
     marginTop: 16,
@@ -259,10 +243,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   clearAllText: {
-    color: '#EF4444',
     fontSize: 15,
     fontWeight: '600',
   },

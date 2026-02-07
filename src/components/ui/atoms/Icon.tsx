@@ -45,6 +45,8 @@ const ICON_MAP: Record<string, string> = {
   'edit-3': '✏',
   'cpu': '⚡',
   'wallet': '💳',
+  'globe': '🌍',
+  'flag': '🏳',
 };
 
 export const Icon: React.FC<IconProps> = ({

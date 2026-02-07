@@ -3,12 +3,14 @@ import {View, Text, StyleSheet, SafeAreaView, ScrollView} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {CircuitCard} from '../../components/ui';
-import {colors} from '../../theme';
+import {useThemeColors} from '../../context';
+import {getCircuitIcon} from '../../utils';
 import type {ProofStackParamList} from '../../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'CircuitSelection'>;
 
 export const CircuitSelectionScreen: React.FC = () => {
+  const { colors: themeColors } = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
 
   const handleCoinbaseKyc = () => {
@@ -16,27 +18,27 @@ export const CircuitSelectionScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Proof</Text>
+          <Text style={{fontSize: 32, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5}}>Proofs</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Proof Type</Text>
+          <Text style={{fontSize: 14, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16}}>Select Proof Type</Text>
 
           <CircuitCard
-            icon="check-circle"
+            icon={getCircuitIcon('coinbase-kyc')}
             title="Coinbase KYC Verification"
             description="Prove identity without revealing wallet"
             onPress={handleCoinbaseKyc}
           />
 
           <CircuitCard
-            icon="globe"
+            icon={getCircuitIcon('coinbase-country')}
             title="Coinbase Country Verification"
             description="Verify your country through Coinbase"
             onPress={() => navigation.navigate('CountryInput')}
@@ -48,10 +50,6 @@ export const CircuitSelectionScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
   scrollView: {
     flex: 1,
   },
@@ -62,21 +60,7 @@ const styles = StyleSheet.create({
   header: {
     paddingVertical: 24,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.text.primary,
-    letterSpacing: -0.5,
-  },
   section: {
     marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 16,
   },
 });
