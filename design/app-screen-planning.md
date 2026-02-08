@@ -1,4 +1,4 @@
-# ZKProofPort Mobile App - Screen Planning & UI Design Specification
+# ZKProofport Mobile App - Screen Planning & UI Design Specification
 
 **Version:** 1.1.0
 **Last Updated:** 2026-01-28
@@ -79,28 +79,28 @@ The app uses a bottom tab navigation with three main sections:
 Generated diagrams visualizing the app screen planning:
 
 ### Navigation Structure
-[ZKProofPort App - Navigation Structure](https://www.figma.com/online-whiteboard/create-diagram/612db3ca-849c-4264-b050-302112b62ddc?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=75c517ae-d36e-4564-a43e-b47d44079c5f)
+[ZKProofport App - Navigation Structure](https://www.figma.com/online-whiteboard/create-diagram/612db3ca-849c-4264-b050-302112b62ddc?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=75c517ae-d36e-4564-a43e-b47d44079c5f)
 - Bottom Tab Bar overview (Proof, Wallet, MyInfo)
 - Screen navigation flow between tabs
 
 ### Proof Generation Flow
-[ZKProofPort - Proof Generation Flow](https://www.figma.com/online-whiteboard/create-diagram/b8d92167-904d-444c-8a00-7ef13b918bb5?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=90030377-52ff-4ae8-a17f-64f1068a7873)
+[ZKProofport - Proof Generation Flow](https://www.figma.com/online-whiteboard/create-diagram/b8d92167-904d-444c-8a00-7ef13b918bb5?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=90030377-52ff-4ae8-a17f-64f1068a7873)
 - State diagram showing all proof generation steps
 - Circuit selection -> 6 verification steps -> Completion
 - Error handling and retry flow
 
 ### Wallet Connection Flow
-[ZKProofPort - Wallet Connection Flow](https://www.figma.com/online-whiteboard/create-diagram/d8cfa8f1-423c-4cea-8c2e-62fa57188dd6?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=3356a5d2-078f-4e52-9731-b4a978c73d68)
+[ZKProofport - Wallet Connection Flow](https://www.figma.com/online-whiteboard/create-diagram/d8cfa8f1-423c-4cea-8c2e-62fa57188dd6?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=3356a5d2-078f-4e52-9731-b4a978c73d68)
 - Supported wallets (MetaMask, Coinbase, Rainbow, Trust, WalletConnect)
 - Connection states and multi-wallet support
 
 ### MyInfo Screen Structure
-[ZKProofPort - MyInfo Screen Structure](https://www.figma.com/online-whiteboard/create-diagram/a92ff5df-4fd1-4fbc-b130-82c8585cd06b?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=53578d03-450d-4406-a544-a4efedd64229)
+[ZKProofport - MyInfo Screen Structure](https://www.figma.com/online-whiteboard/create-diagram/a92ff5df-4fd1-4fbc-b130-82c8585cd06b?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=53578d03-450d-4406-a544-a4efedd64229)
 - Hierarchical menu structure
 - All submenus and settings options
 
 ### Complete User Journey
-[ZKProofPort - Complete User Journey](https://www.figma.com/online-whiteboard/create-diagram/1acd6835-ea76-4e13-8613-4964c0495e2d?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=d84fdfe0-cb19-4117-b5f9-ec4d62151c45)
+[ZKProofport - Complete User Journey](https://www.figma.com/online-whiteboard/create-diagram/1acd6835-ea76-4e13-8613-4964c0495e2d?utm_source=other&utm_content=edit_in_figjam&oai_id=&request_id=d84fdfe0-cb19-4117-b5f9-ec4d62151c45)
 - Sequence diagram from app open to proof verification
 - User <-> App <-> Wallet <-> Blockchain <-> ZK Engine interactions
 
@@ -2074,7 +2074,7 @@ Fill: Hug contents (height), Fill container (width)
 Organize your Figma file with these pages:
 
 ```
-ZKProofPort Design System
+ZKProofport Design System
 |- Cover
 |- Design Tokens
 |  |- Colors
@@ -2260,6 +2260,6 @@ Error:          #EF4444
 ---
 
 **Document Version:** 1.1.0
-**Created for:** ZKProofPort Mobile App
+**Created for:** ZKProofport Mobile App
 **Design System:** Dark-first, iOS/Android native
-**Maintained by:** ZKProofPort Design Team
+**Maintained by:** ZKProofport Design Team

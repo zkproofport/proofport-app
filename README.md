@@ -1,4 +1,4 @@
-# ProofPort App
+# Proofport App
 
 React Native mobile app for generating zero-knowledge proofs on mobile devices using [mopro](https://github.com/zkmopro/mopro) Rust library with UniFFI bindings.
 

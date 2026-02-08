@@ -15,7 +15,7 @@ echo "Project directory: $PROJECT_DIR"
 # =============================================================================
 echo ""
 echo "Clearing Xcode DerivedData..."
-rm -rf ~/Library/Developer/Xcode/DerivedData/ProofPortApp-* 2>/dev/null
+rm -rf ~/Library/Developer/Xcode/DerivedData/ProofportApp-* 2>/dev/null
 echo "DerivedData cleared"
 
 # =============================================================================

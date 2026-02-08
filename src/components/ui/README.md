@@ -1,4 +1,4 @@
-# ZKProofPort UI Component Library
+# ZKProofport UI Component Library
 
 A comprehensive, production-ready UI component library following atomic design principles.
 
