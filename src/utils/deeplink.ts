@@ -279,3 +279,108 @@ export function isProofPortDeepLink(url: string): boolean {
   // Only match proof-request URLs, not wallet callbacks or other URLs
   return lowerUrl.startsWith(`${SCHEME}://proof-request`);
 }
+
+/**
+ * Check if a hostname is a private/local IP address.
+ * Matches: localhost, 127.x.x.x, 10.x.x.x, 192.168.x.x, 172.16-31.x.x
+ */
+function isPrivateHost(hostname: string): boolean {
+  return /^(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(
+    hostname,
+  );
+}
+
+/**
+ * Validates that a requestId exists in a TRUSTED relay server.
+ *
+ * Trust rules (from config/contracts.ts):
+ * - Development: private IPs (localhost, 10.x, 192.168.x, 172.16-31.x) + trustedHosts (stg-relay.zkproofport.app)
+ * - Production: trustedHosts only (relay.zkproofport.app)
+ *
+ * @param requestId - The request ID to validate
+ * @param callbackUrl - The callback URL from the deep link (used to derive relay base URL)
+ * @returns Promise resolving to { valid: boolean; error?: string }
+ */
+export async function validateRequestWithRelay(
+  requestId: string,
+  callbackUrl: string,
+): Promise<{valid: boolean; error?: string}> {
+  try {
+    // Derive relay base URL from callbackUrl
+    // callbackUrl format: {relayBase}/api/v1/proof/callback
+    const callbackPath = '/api/v1/proof/callback';
+    const callbackIndex = callbackUrl.indexOf(callbackPath);
+    if (callbackIndex === -1) {
+      console.log('[DeepLink] callbackUrl does not match relay format:', callbackUrl);
+      return {valid: false, error: 'Invalid callback URL format — not a registered relay endpoint'};
+    }
+
+    const relayBaseUrl = callbackUrl.substring(0, callbackIndex);
+
+    // Extract hostname from relay URL and check against trusted hosts
+    const {getRelayConfig} = require('../config/environment');
+    const relayConfig = getRelayConfig();
+    let relayHostname: string;
+    try {
+      const urlObj = new URL(relayBaseUrl);
+      relayHostname = urlObj.hostname;
+    } catch {
+      console.log('[DeepLink] Failed to parse relay URL:', relayBaseUrl);
+      return {valid: false, error: 'Invalid relay URL format'};
+    }
+
+    const isTrustedHost = relayConfig.trustedHosts.includes(relayHostname);
+    const isAllowedPrivateIp = relayConfig.allowPrivateIps && isPrivateHost(relayHostname);
+
+    if (!isTrustedHost && !isAllowedPrivateIp) {
+      console.log('[DeepLink] Untrusted relay host:', relayHostname, '| trustedHosts:', relayConfig.trustedHosts, '| allowPrivateIps:', relayConfig.allowPrivateIps);
+      return {
+        valid: false,
+        error: `Untrusted relay server: ${relayHostname}. Only authorized relay servers are accepted.`,
+      };
+    }
+
+    console.log('[DeepLink] Trusted relay host:', relayHostname);
+
+    // Validate requestId exists in relay
+    const validateUrl = `${relayBaseUrl}/api/v1/proof/${requestId}`;
+    console.log('[DeepLink] Validating requestId with relay:', validateUrl);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(validateUrl, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 404) {
+      console.log('[DeepLink] Relay validation failed: requestId not found');
+      return {
+        valid: false,
+        error: `Request ${requestId} is not registered with the relay server`,
+      };
+    }
+
+    if (!response.ok) {
+      console.log('[DeepLink] Relay validation error: HTTP', response.status);
+      return {
+        valid: false,
+        error: `Relay returned HTTP ${response.status}`,
+      };
+    }
+
+    const data = await response.json();
+    console.log('[DeepLink] Relay validation success: status=', data.status);
+    return {valid: true};
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.log('[DeepLink] Relay validation timed out');
+      return {valid: false, error: 'Relay validation timed out'};
+    }
+    console.log('[DeepLink] Relay validation network error:', error.message);
+    return {valid: false, error: `Cannot reach relay server: ${error.message}`};
+  }
+}

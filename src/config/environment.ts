@@ -12,6 +12,7 @@ import type {
   CircuitName,
   NetworkConfig,
   AttestationConfig,
+  RelayConfig,
 } from './contracts';
 
 const BUILD_ENV: Environment = __DEV__ ? 'development' : 'production';
@@ -32,6 +33,10 @@ export function getNetworkConfig(): NetworkConfig {
 
 export function getAttestationConfig(): AttestationConfig {
   return STATIC_CONFIGS[getEnvironment()].attestation;
+}
+
+export function getRelayConfig(): RelayConfig {
+  return STATIC_CONFIGS[getEnvironment()].relay;
 }
 
 export function getVerifierAbi(): string[] {
@@ -65,4 +70,4 @@ export async function initDeployments(): Promise<boolean> {
   return syncDeployments(getEnvironment());
 }
 
-export type {Environment, CircuitName, NetworkConfig, AttestationConfig};
+export type {Environment, CircuitName, NetworkConfig, AttestationConfig, RelayConfig};

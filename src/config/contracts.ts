@@ -28,12 +28,20 @@ export interface AttestationConfig {
   easGraphqlEndpoint: string;
 }
 
+export interface RelayConfig {
+  /** Trusted relay hostnames (e.g., ['relay.zkproofport.app']) */
+  trustedHosts: string[];
+  /** If true, private IP ranges (10.x, 192.168.x, 172.16-31.x, localhost) are also trusted */
+  allowPrivateIps: boolean;
+}
+
 export interface StaticConfig {
   network: NetworkConfig;
   attestation: AttestationConfig;
   rpcUrls: {
     base: string[];
   };
+  relay: RelayConfig;
   /**
    * How to resolve the broadcast JSON URL.
    * - development: read directly from main branch (latest deployments)
@@ -75,6 +83,10 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
     rpcUrls: {
       base: ['https://sepolia.base.org'],
     },
+    relay: {
+      trustedHosts: ['stg-relay.zkproofport.app'],
+      allowPrivateIps: true,
+    },
     broadcastSource: {
       type: 'branch',
       baseUrl: `${GITHUB_RAW('main')}/broadcast`,
@@ -99,6 +111,10 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
         'https://base.drpc.org',
         'https://mainnet.base.org',
       ],
+    },
+    relay: {
+      trustedHosts: ['relay.zkproofport.app'],
+      allowPrivateIps: false,
     },
     broadcastSource: {
       type: 'release',

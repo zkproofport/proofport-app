@@ -32,6 +32,11 @@ export const ErrorCodes = {
     title: 'Unsupported Circuit',
     description: 'This proof type is not supported.',
   },
+  E1006: {
+    code: 'E1006',
+    title: 'Unregistered Request',
+    description: 'This proof request is not registered with the relay server. Only requests from authorized applications are accepted.',
+  },
 
   // Proof generation errors
   E2001: {
