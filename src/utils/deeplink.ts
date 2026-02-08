@@ -274,7 +274,7 @@ export async function sendProofResponse(response: ProofResponse, callbackUrl: st
   }
 }
 
-export function isProofPortDeepLink(url: string): boolean {
+export function isProofportDeepLink(url: string): boolean {
   const lowerUrl = url.toLowerCase();
   // Only match proof-request URLs, not wallet callbacks or other URLs
   return lowerUrl.startsWith(`${SCHEME}://proof-request`);

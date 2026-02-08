@@ -133,7 +133,7 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
         />
       </Animated.View>
 
-      <Text style={[styles.appName, {color: themeColors.text.primary}]}>ZKProofPort</Text>
+      <Text style={[styles.appName, {color: themeColors.text.primary}]}>ZKProofport</Text>
       <Text style={[styles.tagline, {color: themeColors.text.secondary}]}>Privacy-Preserving Identity Proofs</Text>
 
       <View style={styles.progressSection}>

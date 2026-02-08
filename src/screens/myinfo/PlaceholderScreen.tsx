@@ -29,7 +29,7 @@ const SCREEN_INFO: Record<
   about: {
     title: 'About',
     description:
-      'Learn more about ZKProofPort, check app version, access support resources, and provide feedback to help us improve.',
+      'Learn more about ZKProofport, check app version, access support resources, and provide feedback to help us improve.',
     icon: 'info',
   },
 };

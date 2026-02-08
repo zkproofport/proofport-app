@@ -4,7 +4,7 @@ import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSION} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 
-const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofPortApp/assets/circuits';
+const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
 
 const CIRCUIT_EXTENSIONS = ['json', 'srs', 'vk'] as const;
 

@@ -9,7 +9,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({status}) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>ZKProofPort</Text>
+      <Text style={styles.title}>ZKProofport</Text>
       <Text style={styles.subtitle}>Zero-Knowledge Proof Generation</Text>
       <Text style={styles.status}>{status}</Text>
     </View>

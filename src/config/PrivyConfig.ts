@@ -3,7 +3,7 @@ export const PRIVY_CLIENT_ID = 'client-WY6UE4SYMmFDFvfzadHwmSFf3z2qMHD9hgmtLLf2D
 export const WALLETCONNECT_PROJECT_ID = '9a54a0419fc6c86a2bde3d44c4f1615c';
 
 export const appMetadata = {
-  name: 'ZKProofPort',
+  name: 'ZKProofport',
   description: 'ZK Proof Mobile App',
   url: 'https://zkproofport.com',
   icons: ['https://avatars.githubusercontent.com/u/37784886'],

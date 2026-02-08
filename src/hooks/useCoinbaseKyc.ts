@@ -26,7 +26,7 @@ import type {Step} from '../components';
 // Circuit file names
 // CRITICAL: CIRCUIT_NAME is used in deterministic signal_hash generation for nullifier computation.
 // Changing this value will produce different nullifiers for the same wallet+scope,
-// breaking on-chain duplicate detection in ZKProofPortNullifierRegistry.
+// breaking on-chain duplicate detection in ZKProofportNullifierRegistry.
 // DO NOT modify this value without coordinating with the contract and relay teams.
 const CIRCUIT_NAME = 'coinbase_attestation';
 
@@ -227,7 +227,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
         // Deterministic signal_hash = keccak256(userAddress + scopeString + circuitName)
         // This ensures the same wallet + scope + circuit always produces the same nullifier,
-        // enabling on-chain duplicate detection in ZKProofPortNullifierRegistry.
+        // enabling on-chain duplicate detection in ZKProofportNullifierRegistry.
         const signalPreimage = ethers.utils.solidityPack(
           ['address', 'string', 'string'],
           [inputs.userAddress, inputs.scopeString, CIRCUIT_NAME]

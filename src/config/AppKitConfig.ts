@@ -11,7 +11,7 @@ import {mainnet as viemMainnet, base as viemBase} from 'viem/chains';
 const projectId = '9a54a0419fc6c86a2bde3d44c4f1615c';
 
 const metadata = {
-  name: 'ZKProofPort',
+  name: 'ZKProofport',
   description: 'ZK Proof Mobile App',
   url: 'https://zkproofport.com',
   icons: ['https://avatars.githubusercontent.com/u/37784886'],
