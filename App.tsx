@@ -70,6 +70,7 @@ import {showGlobalError} from './src/utils/errorBridge';
 import {
   parseProofRequestUrl,
   validateProofRequest,
+  validateRequestWithRelay,
   sendProofResponse,
   isProofPortDeepLink,
 } from './src/utils/deeplink';
@@ -109,7 +110,7 @@ const App: React.FC = () => {
   // Auto-reset when app returns from background after 5 minutes
   useAppStateReset({onReset: handleAppReset});
 
-  const handleDeepLink = useCallback((url: string | null) => {
+  const handleDeepLink = useCallback(async (url: string | null) => {
     if (!url) {
       console.log('[App] handleDeepLink called with null URL');
       return;
@@ -146,6 +147,22 @@ const App: React.FC = () => {
           circuit: request.circuit,
           status: 'error',
           error: validation.error,
+        },
+        request.callbackUrl,
+      );
+      return;
+    }
+
+    // Validate requestId with relay server — reject unregistered requests
+    const relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl);
+    if (!relayValidation.valid) {
+      showGlobalError('E1006', relayValidation.error);
+      sendProofResponse(
+        {
+          requestId: request.requestId,
+          circuit: request.circuit,
+          status: 'error',
+          error: 'Unregistered proof request: ' + (relayValidation.error || 'requestId not found in relay'),
         },
         request.callbackUrl,
       );
