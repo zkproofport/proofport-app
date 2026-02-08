@@ -1,21 +1,14 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Platform, StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
 import type { TabParamList } from './types';
 import ProofStackNavigator from './stacks/ProofStackNavigator';
 import WalletStackNavigator from './stacks/WalletStackNavigator';
 import HistoryStackNavigator from './stacks/HistoryStackNavigator';
 import ScanStackNavigator from './stacks/ScanStackNavigator';
-import MyInfoStackNavigator from './stacks/MyInfoStackNavigator';
+import MoreStackNavigator from './stacks/MoreStackNavigator';
 import { useThemeColors } from '../context';
-
-const ICON_MAP: Record<string, string> = {
-  'shield': '🛡',
-  'credit-card': '💳',
-  'clock': '🕐',
-  'scan': '📷',
-  'user': '👤',
-};
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -30,7 +23,7 @@ const ScanTabButton: React.FC<any> = ({ onPress, accessibilityState }) => {
       onPress={onPress}
       activeOpacity={0.8}>
       <View style={[styles.scanButton, !focused && [styles.scanButtonInactive, { backgroundColor: themeColors.background.tertiary }]]}>
-        <Text style={styles.scanIcon}>📷</Text>
+        <Feather name="camera" size={24} color={focused ? '#FFFFFF' : themeColors.text.secondary} />
       </View>
       <Text style={[
         styles.scanLabel,
@@ -51,9 +44,7 @@ const TabNavigator: React.FC = () => {
           backgroundColor: themeColors.background.primary,
           borderTopWidth: 1,
           borderTopColor: themeColors.background.secondary,
-          height: Platform.OS === 'ios' ? 83 : 60,
-          paddingBottom: Platform.OS === 'ios' ? 34 : 8,
-          paddingTop: 8,
+          paddingTop: 6,
         },
         tabBarActiveTintColor: themeColors.text.primary,
         tabBarInactiveTintColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
@@ -63,24 +54,28 @@ const TabNavigator: React.FC = () => {
       <Tab.Screen
         name="ProofTab"
         component={ProofStackNavigator}
-        options={{
+        options={({ navigation }) => ({
           tabBarLabel: 'Verify',
-          tabBarIcon: ({ focused, size }) => (
-            <Text style={{ fontSize: size, textAlign: 'center', opacity: focused ? 1 : 0.4 }}>
-              {ICON_MAP['shield']}
-            </Text>
+          tabBarIcon: ({ focused, size, color }) => (
+            <Feather
+              name="shield"
+              size={size}
+              color={color}
+            />
           ),
-        }}
+        })}
       />
       <Tab.Screen
         name="WalletTab"
         component={WalletStackNavigator}
         options={{
           tabBarLabel: 'Wallet',
-          tabBarIcon: ({ focused, size }) => (
-            <Text style={{ fontSize: size, textAlign: 'center', opacity: focused ? 1 : 0.4 }}>
-              {ICON_MAP['credit-card']}
-            </Text>
+          tabBarIcon: ({ focused, size, color }) => (
+            <Feather
+              name="credit-card"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
@@ -98,10 +93,12 @@ const TabNavigator: React.FC = () => {
         component={HistoryStackNavigator}
         options={{
           tabBarLabel: 'History',
-          tabBarIcon: ({ focused, size }) => (
-            <Text style={{ fontSize: size, textAlign: 'center', opacity: focused ? 1 : 0.4 }}>
-              {ICON_MAP['clock']}
-            </Text>
+          tabBarIcon: ({ focused, size, color }) => (
+            <Feather
+              name="clock"
+              size={size}
+              color={color}
+            />
           ),
         }}
         listeners={({ navigation }) => ({
@@ -111,14 +108,16 @@ const TabNavigator: React.FC = () => {
         })}
       />
       <Tab.Screen
-        name="MyInfoTab"
-        component={MyInfoStackNavigator}
+        name="MoreTab"
+        component={MoreStackNavigator}
         options={{
-          tabBarLabel: 'MyInfo',
-          tabBarIcon: ({ focused, size }) => (
-            <Text style={{ fontSize: size, textAlign: 'center', opacity: focused ? 1 : 0.4 }}>
-              {ICON_MAP['user']}
-            </Text>
+          tabBarLabel: 'More',
+          tabBarIcon: ({ focused, size, color }) => (
+            <Feather
+              name="more-horizontal"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
@@ -148,9 +147,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-  },
-  scanIcon: {
-    fontSize: 24,
   },
   scanLabel: {
     fontSize: 12,

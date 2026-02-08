@@ -116,5 +116,9 @@
 	<string>ZKProofport needs camera access to scan QR codes for proof requests</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Feather.ttf</string>
+	</array>
 </dict>
 </plist>

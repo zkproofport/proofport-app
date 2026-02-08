@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
 
 type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -17,47 +17,12 @@ const SIZE_MAP: Record<IconSize, number> = {
   xl: 32,
 };
 
-const ICON_MAP: Record<string, string> = {
-  'shield': '🛡',
-  'credit-card': '💳',
-  'user': '👤',
-  'check-circle': '✓',
-  'calendar': '📅',
-  'map-pin': '📍',
-  'chevron-right': '›',
-  'arrow-left': '←',
-  'check': '✓',
-  'x': '✕',
-  'copy': '📋',
-  'external-link': '↗',
-  'settings': '⚙',
-  'clock': '🕐',
-  'file-text': '📄',
-  'link': '🔗',
-  'link-2': '🔗',
-  'bell': '🔔',
-  'lock': '🔒',
-  'info': 'ℹ',
-  'alert-circle': '⚠',
-  'trash-2': '🗑',
-  'search': '🔍',
-  'download': '⬇',
-  'edit-3': '✏',
-  'cpu': '⚡',
-  'wallet': '💳',
-  'globe': '🌍',
-  'flag': '🏳',
-};
-
 export const Icon: React.FC<IconProps> = ({
   name,
   size = 'md',
   color = '#FFFFFF',
 }) => {
-  const icon = ICON_MAP[name] || '•';
   return (
-    <Text style={{ fontSize: SIZE_MAP[size], color, textAlign: 'center' }}>
-      {icon}
-    </Text>
+    <Feather name={name} size={SIZE_MAP[size]} color={color} />
   );
 };
