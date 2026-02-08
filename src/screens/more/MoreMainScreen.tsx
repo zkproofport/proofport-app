@@ -15,9 +15,11 @@ import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import {useThemeColors} from '../../context';
-import type {MyInfoTabScreenProps} from '../../navigation/types';
+import type {MoreTabScreenProps} from '../../navigation/types';
 
-const SettingsScreen: React.FC<MyInfoTabScreenProps<'Settings'>> = () => {
+const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
+  navigation,
+}) => {
   const {settings, loading, updateSettings} = useSettings();
   const {exportToJSON, clearAll} = useProofHistory();
   const {mode, colors: themeColors, setThemeMode} = useThemeColors();
@@ -84,6 +86,8 @@ const SettingsScreen: React.FC<MyInfoTabScreenProps<'Settings'>> = () => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}>
+        <Text style={[styles.header, {color: themeColors.text.primary}]}>More</Text>
+
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>GENERAL</Text>
           <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
@@ -163,6 +167,17 @@ const SettingsScreen: React.FC<MyInfoTabScreenProps<'Settings'>> = () => {
             onPress={handleClearData}
           />
         </View>
+
+        <View style={[styles.separator, {backgroundColor: themeColors.border.primary}]} />
+
+        <MenuItem
+          icon="info"
+          title="About"
+          subtitle="Version, Support"
+          onPress={() => navigation.navigate('About')}
+        />
+
+        <Text style={[styles.version, {color: themeColors.text.tertiary}]}>Version 0.0.1</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -177,6 +192,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+  },
+  header: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 24,
   },
   section: {
     marginBottom: 32,
@@ -210,6 +230,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
   },
+  separator: {
+    height: 1,
+    marginBottom: 16,
+  },
+  version: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 32,
+    marginBottom: 16,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -238,4 +268,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SettingsScreen;
+export default MoreMainScreen;
