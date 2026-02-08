@@ -1,6 +1,6 @@
 //
-//  ProofPortApp-Bridging-Header.h
-//  ProofPortApp
+//  ProofportApp-Bridging-Header.h
+//  ProofportApp
 //
 
 #import <React/RCTLinkingManager.h>

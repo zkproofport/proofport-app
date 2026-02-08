@@ -29,12 +29,12 @@ class AppDelegate: ExpoAppDelegate {
     print("🔵 AppDelegate: Window created with frame: \(UIScreen.main.bounds)")
 
     factory.startReactNative(
-      withModuleName: "zkProofPort",
+      withModuleName: "ZKProofport",
       in: window,
       launchOptions: launchOptions
     )
 
-    print("🔵 AppDelegate: React Native started with module: zkProofPort")
+    print("🔵 AppDelegate: React Native started with module: ZKProofport")
     print("🔵 AppDelegate: Window visible: \(window?.isHidden == false)")
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)

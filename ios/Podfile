@@ -6,7 +6,7 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-project 'ProofPortApp.xcodeproj'
+project 'ProofportApp.xcodeproj'
 
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
@@ -17,7 +17,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'ProofPortApp' do
+target 'ProofportApp' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'

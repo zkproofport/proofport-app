@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		3ACB6F6CC9AF691568D423FB /* libPods-ProofPortApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 78523E2192C1DA8B734DDB35 /* libPods-ProofPortApp.a */; };
+		3ACB6F6CC9AF691568D423FB /* libPods-ProofportApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 78523E2192C1DA8B734DDB35 /* libPods-ProofportApp.a */; };
 		6319A64F98E2F6BD86C5F3E8 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F33809F85DF055B7544A983B /* ExpoModulesProvider.swift */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
@@ -16,17 +16,17 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* ProofPortApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProofPortApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ProofPortApp/Images.xcassets; sourceTree = "<group>"; };
-		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ProofPortApp/Info.plist; sourceTree = "<group>"; };
-		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = ProofPortApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		5E89F36D9CA160358622E402 /* Pods-ProofPortApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ProofPortApp.debug.xcconfig"; path = "Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp.debug.xcconfig"; sourceTree = "<group>"; };
-		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ProofPortApp/AppDelegate.swift; sourceTree = "<group>"; };
-		78523E2192C1DA8B734DDB35 /* libPods-ProofPortApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ProofPortApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ProofPortApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		13B07F961A680F5B00A75B9A /* ProofportApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProofportApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ProofportApp/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ProofportApp/Info.plist; sourceTree = "<group>"; };
+		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = ProofportApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		5E89F36D9CA160358622E402 /* Pods-ProofportApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ProofportApp.debug.xcconfig"; path = "Target Support Files/Pods-ProofportApp/Pods-ProofportApp.debug.xcconfig"; sourceTree = "<group>"; };
+		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ProofportApp/AppDelegate.swift; sourceTree = "<group>"; };
+		78523E2192C1DA8B734DDB35 /* libPods-ProofportApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ProofportApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ProofportApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		EEA58DF4D7675AA875171AFC /* Pods-ProofPortApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ProofPortApp.release.xcconfig"; path = "Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp.release.xcconfig"; sourceTree = "<group>"; };
-		F33809F85DF055B7544A983B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-ProofPortApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		EEA58DF4D7675AA875171AFC /* Pods-ProofportApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ProofportApp.release.xcconfig"; path = "Target Support Files/Pods-ProofportApp/Pods-ProofportApp.release.xcconfig"; sourceTree = "<group>"; };
+		F33809F85DF055B7544A983B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-ProofportApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,14 +34,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3ACB6F6CC9AF691568D423FB /* libPods-ProofPortApp.a in Frameworks */,
+				3ACB6F6CC9AF691568D423FB /* libPods-ProofportApp.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		13B07FAE1A68108700A75B9A /* ProofPortApp */ = {
+		13B07FAE1A68108700A75B9A /* ProofportApp */ = {
 			isa = PBXGroup;
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -50,14 +50,14 @@
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
 			);
-			name = ProofPortApp;
+			name = ProofportApp;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				78523E2192C1DA8B734DDB35 /* libPods-ProofPortApp.a */,
+				78523E2192C1DA8B734DDB35 /* libPods-ProofportApp.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -65,7 +65,7 @@
 		35398FBBC33F1B1E68067BFD /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				CC43C6A6C32AC3CBD449AC98 /* ProofPortApp */,
+				CC43C6A6C32AC3CBD449AC98 /* ProofportApp */,
 			);
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
@@ -80,7 +80,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
-				13B07FAE1A68108700A75B9A /* ProofPortApp */,
+				13B07FAE1A68108700A75B9A /* ProofportApp */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
@@ -96,7 +96,7 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* ProofPortApp.app */,
+				13B07F961A680F5B00A75B9A /* ProofportApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -111,26 +111,26 @@
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				5E89F36D9CA160358622E402 /* Pods-ProofPortApp.debug.xcconfig */,
-				EEA58DF4D7675AA875171AFC /* Pods-ProofPortApp.release.xcconfig */,
+				5E89F36D9CA160358622E402 /* Pods-ProofportApp.debug.xcconfig */,
+				EEA58DF4D7675AA875171AFC /* Pods-ProofportApp.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
 		};
-		CC43C6A6C32AC3CBD449AC98 /* ProofPortApp */ = {
+		CC43C6A6C32AC3CBD449AC98 /* ProofportApp */ = {
 			isa = PBXGroup;
 			children = (
 				F33809F85DF055B7544A983B /* ExpoModulesProvider.swift */,
 			);
-			name = ProofPortApp;
+			name = ProofportApp;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		13B07F861A680F5B00A75B9A /* ProofPortApp */ = {
+		13B07F861A680F5B00A75B9A /* ProofportApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "ProofPortApp" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "ProofportApp" */;
 			buildPhases = (
 				B1325321F6A9042A925B4253 /* [CP] Check Pods Manifest.lock */,
 				50C0127975BCA0111B7E4E0F /* [Expo] Configure project */,
@@ -145,9 +145,9 @@
 			);
 			dependencies = (
 			);
-			name = ProofPortApp;
-			productName = ProofPortApp;
-			productReference = 13B07F961A680F5B00A75B9A /* ProofPortApp.app */;
+			name = ProofportApp;
+			productName = ProofportApp;
+			productReference = 13B07F961A680F5B00A75B9A /* ProofportApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -163,7 +163,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "ProofPortApp" */;
+			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "ProofportApp" */;
 			compatibilityVersion = "Xcode 12.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -176,7 +176,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				13B07F861A680F5B00A75B9A /* ProofPortApp */,
+				13B07F861A680F5B00A75B9A /* ProofportApp */,
 			);
 		};
 /* End PBXProject section */
@@ -222,18 +222,18 @@
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/ProofPortApp/ProofPortApp.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-ProofPortApp/expo-configure-project.sh",
+				"$(SRCROOT)/ProofportApp/ProofportApp.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-ProofportApp/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-ProofPortApp/ExpoModulesProvider.swift",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-ProofportApp/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-ProofPortApp/expo-configure-project.sh\"\n";
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-ProofportApp/expo-configure-project.sh\"\n";
 		};
 		A13F5B7E829313DE88CBD582 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -241,15 +241,15 @@
 			files = (
 			);
 			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp-resources-${CONFIGURATION}-input-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-ProofportApp/Pods-ProofportApp-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp-resources-${CONFIGURATION}-output-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-ProofportApp/Pods-ProofportApp-resources-${CONFIGURATION}-output-files.xcfilelist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ProofportApp/Pods-ProofportApp-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		B1325321F6A9042A925B4253 /* [CP] Check Pods Manifest.lock */ = {
@@ -267,7 +267,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-ProofPortApp-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-ProofportApp-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -280,15 +280,15 @@
 			files = (
 			);
 			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-ProofportApp/Pods-ProofportApp-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+				"${PODS_ROOT}/Target Support Files/Pods-ProofportApp/Pods-ProofportApp-frameworks-${CONFIGURATION}-output-files.xcfilelist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ProofPortApp/Pods-ProofPortApp-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ProofportApp/Pods-ProofportApp-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -308,15 +308,15 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5E89F36D9CA160358622E402 /* Pods-ProofPortApp.debug.xcconfig */;
+			baseConfigurationReference = 5E89F36D9CA160358622E402 /* Pods-ProofportApp.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = ProofPortApp/ProofPortApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Y9847K5587;
 				ENABLE_BITCODE = NO;
-				INFOPLIST_FILE = ProofPortApp/Info.plist;
+				INFOPLIST_FILE = ProofportApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -330,8 +330,8 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG -D DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.zkproofport.app;
-				PRODUCT_NAME = ProofPortApp;
-				SWIFT_OBJC_BRIDGING_HEADER = "ProofPortApp/ProofPortApp-Bridging-Header.h";
+				PRODUCT_NAME = ProofportApp;
+				SWIFT_OBJC_BRIDGING_HEADER = "ProofportApp/ProofportApp-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -340,14 +340,14 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EEA58DF4D7675AA875171AFC /* Pods-ProofPortApp.release.xcconfig */;
+			baseConfigurationReference = EEA58DF4D7675AA875171AFC /* Pods-ProofportApp.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = ProofPortApp/ProofPortApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Y9847K5587;
-				INFOPLIST_FILE = ProofPortApp/Info.plist;
+				INFOPLIST_FILE = ProofportApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -361,8 +361,8 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.zkproofport.app;
-				PRODUCT_NAME = ProofPortApp;
-				SWIFT_OBJC_BRIDGING_HEADER = "ProofPortApp/ProofPortApp-Bridging-Header.h";
+				PRODUCT_NAME = ProofportApp;
+				SWIFT_OBJC_BRIDGING_HEADER = "ProofportApp/ProofportApp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -519,7 +519,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "ProofPortApp" */ = {
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "ProofportApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
@@ -528,7 +528,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "ProofPortApp" */ = {
+		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "ProofportApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,

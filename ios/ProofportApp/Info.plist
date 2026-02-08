@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>ZKProofPort</string>
+	<string>ZKProofport</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -107,13 +107,13 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>ZKProofPort needs local network access to communicate with the proof relay server</string>
+	<string>ZKProofport needs local network access to communicate with the proof relay server</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_http._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>ZKProofPort needs camera access to scan QR codes for proof requests</string>
+	<string>ZKProofport needs camera access to scan QR codes for proof requests</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 </dict>
