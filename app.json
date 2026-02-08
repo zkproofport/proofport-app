@@ -1,8 +1,8 @@
 {
-  "name": "zkProofPort",
-  "displayName": "ZKProofPort",
+  "name": "ZKProofport",
+  "displayName": "ZKProofport",
   "expo": {
-    "name": "ZKProofPort",
+    "name": "ZKProofport",
     "splash": {
       "backgroundColor": "#FFFFFF"
     },

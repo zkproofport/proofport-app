@@ -72,7 +72,7 @@ import {
   validateProofRequest,
   validateRequestWithRelay,
   sendProofResponse,
-  isProofPortDeepLink,
+  isProofportDeepLink,
 } from './src/utils/deeplink';
 import type {ProofRequest} from './src/types';
 import {setActiveProofRequest, clearActiveProofRequest} from './src/stores/activeProofRequestStore';
@@ -119,8 +119,8 @@ const App: React.FC = () => {
     console.log('[App] Received deep link:', url);
     console.log('[App] Current active requestId:', activeRequestId.current);
 
-    if (!isProofPortDeepLink(url)) {
-      console.log('[App] Not a ProofPort deep link');
+    if (!isProofportDeepLink(url)) {
+      console.log('[App] Not a Proofport deep link');
       return;
     }
 

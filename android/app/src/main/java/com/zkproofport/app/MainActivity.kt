@@ -10,7 +10,7 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
-  override fun getMainComponentName(): String = "zkProofPort"
+  override fun getMainComponentName(): String = "ZKProofport"
 
   override fun onCreate(savedInstanceState: Bundle?) {
     installSplashScreen()
