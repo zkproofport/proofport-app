@@ -8,7 +8,7 @@ export type TabParamList = {
   WalletTab: NavigatorScreenParams<WalletStackParamList>;
   ScanTab: NavigatorScreenParams<ScanStackParamList>;
   HistoryTab: NavigatorScreenParams<HistoryStackParamList>;
-  MyInfoTab: NavigatorScreenParams<MyInfoStackParamList>;
+  MoreTab: NavigatorScreenParams<MoreStackParamList>;
 };
 
 export type ProofStackParamList = {
@@ -46,13 +46,9 @@ export type HistoryStackParamList = {
   HistoryDetail: { proofId: string };
 };
 
-export type MyInfoStackParamList = {
-  MyInfoMain: undefined;
-  Settings: undefined;
-  Notifications: {type: string};
-  Security: {type: string};
-  Legal: undefined;
-  About: {type: string};
+export type MoreStackParamList = {
+  MoreMain: undefined;
+  About: undefined;
 };
 
 export type ProofTabScreenProps<T extends keyof ProofStackParamList> = CompositeScreenProps<
@@ -75,8 +71,8 @@ export type HistoryTabScreenProps<T extends keyof HistoryStackParamList> = Compo
   BottomTabScreenProps<TabParamList>
 >;
 
-export type MyInfoTabScreenProps<T extends keyof MyInfoStackParamList> = CompositeScreenProps<
-  NativeStackScreenProps<MyInfoStackParamList, T>,
+export type MoreTabScreenProps<T extends keyof MoreStackParamList> = CompositeScreenProps<
+  NativeStackScreenProps<MoreStackParamList, T>,
   BottomTabScreenProps<TabParamList>
 >;
 

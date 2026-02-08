@@ -3,7 +3,7 @@ export { default as ProofStackNavigator } from './stacks/ProofStackNavigator';
 export { default as WalletStackNavigator } from './stacks/WalletStackNavigator';
 export { default as ScanStackNavigator } from './stacks/ScanStackNavigator';
 export { default as HistoryStackNavigator } from './stacks/HistoryStackNavigator';
-export { default as MyInfoStackNavigator } from './stacks/MyInfoStackNavigator';
+export { default as MoreStackNavigator } from './stacks/MoreStackNavigator';
 
 export type {
   TabParamList,
@@ -11,11 +11,11 @@ export type {
   WalletStackParamList,
   ScanStackParamList,
   HistoryStackParamList,
-  MyInfoStackParamList,
+  MoreStackParamList,
   ProofTabScreenProps,
   WalletTabScreenProps,
   ScanTabScreenProps,
   HistoryTabScreenProps,
-  MyInfoTabScreenProps,
+  MoreTabScreenProps,
   TabScreenProps,
 } from './types';
