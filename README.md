@@ -70,7 +70,7 @@ proofport-app/
 │   │   ├── wallet/            # Wallet connection: Privy and WalletConnect flows
 │   │   ├── history/           # Proof history viewing and details
 │   │   ├── scan/              # QR code scanning for deep link requests
-│   │   ├── myinfo/            # Settings, legal, and user information
+│   │   ├── more/              # Settings, legal, and user information
 │   │   ├── MainScreen.tsx     # Legacy landing screen
 │   │   ├── LoadingScreen.tsx  # Startup initialization
 │   │   └── CoinbaseKycScreen.tsx # Legacy Coinbase flow
@@ -146,7 +146,7 @@ The app uses a bottom tab navigation with 5 main sections:
    - Proof history list
    - Proof detail view with verifier
 
-5. **MyInfo** (MyInfoStackNavigator)
+5. **More** (MoreStackNavigator)
    - Settings
    - Legal information
    - Placeholder screens
@@ -306,7 +306,7 @@ npm run android
 
 ### Circuit Download Fails
 
-Ensure the app can reach GitHub and has network permission. Check logs in MyInfo debug section.
+Ensure the app can reach GitHub and has network permission. Check logs in More debug section.
 
 ## License
 
