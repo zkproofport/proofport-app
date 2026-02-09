@@ -14,8 +14,21 @@ import type {
   AttestationConfig,
   RelayConfig,
 } from './contracts';
+import {NativeModules} from 'react-native';
 
-const BUILD_ENV: Environment = __DEV__ ? 'development' : 'production';
+const BUILD_ENV: Environment = (() => {
+  // Debug builds always use development
+  if (__DEV__) return 'development';
+
+  // Release builds: read environment from native module (Android productFlavor / iOS Info.plist)
+  const nativeEnv = NativeModules.AppEnv?.APP_ENV;
+  if (nativeEnv === 'development' || nativeEnv === 'production') {
+    return nativeEnv;
+  }
+
+  // Fallback if native module missing
+  return 'production';
+})();
 
 let _runtimeOverride: Environment | null = null;
 

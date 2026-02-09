@@ -36,6 +36,7 @@ local.properties
 *.hprof
 *.keystore
 !debug.keystore
+.env.keystore
 
 # ====================
 # Node.js

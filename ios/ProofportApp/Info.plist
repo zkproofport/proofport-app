@@ -114,6 +114,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>ZKProofport needs camera access to scan QR codes for proof requests</string>
+	<key>AppEnv</key>
+	<string>$(APP_ENV)</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<key>UIAppFonts</key>

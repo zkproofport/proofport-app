@@ -7,6 +7,8 @@ apply plugin: "com.facebook.react"
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
+    debuggableVariants = ["stagingDebug", "productionDebug"]
+
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
@@ -98,6 +100,20 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 100
         versionName "0.1.0"
+    }
+    flavorDimensions = ["environment"]
+    productFlavors {
+        staging {
+            dimension "environment"
+            applicationIdSuffix ".staging"
+            resValue "string", "app_name", "ZKProofport STG"
+            resValue "string", "app_env", "development"
+        }
+        production {
+            dimension "environment"
+            resValue "string", "app_name", "ZKProofport"
+            resValue "string", "app_env", "production"
+        }
     }
     signingConfigs {
         debug {

@@ -2,10 +2,11 @@ default_platform(:android)
 
 platform :android do
   desc "Build release AAB"
-  lane :beta do
+  lane :beta do |options|
+    flavor = options[:flavor] || "production"
     gradle(
-      project_dir: "..",
       task: "bundle",
+      flavor: flavor,
       build_type: "Release",
       properties: {
         "android.injected.signing.store.file" => ENV['ANDROID_KEYSTORE_FILE'],
@@ -17,10 +18,11 @@ platform :android do
   end
 
   desc "Build release APK"
-  lane :build_apk do
+  lane :build_apk do |options|
+    flavor = options[:flavor] || "production"
     gradle(
-      project_dir: "..",
       task: "assemble",
+      flavor: flavor,
       build_type: "Release",
       properties: {
         "android.injected.signing.store.file" => ENV['ANDROID_KEYSTORE_FILE'],
