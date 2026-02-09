@@ -132,7 +132,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   scrollView: {
-    flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
     paddingRight: 40,  // space for copy button
