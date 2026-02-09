@@ -4,6 +4,7 @@ import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {HistoryStackParamList} from '../../navigation/types';
 import {ProofHistoryCard} from '../../components/ui/organisms/ProofHistoryCard';
+import {Icon} from '../../components/ui/atoms/Icon';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import type {ProofHistoryItem} from '../../stores';
 import {useThemeColors} from '../../context';
@@ -122,7 +123,9 @@ const ProofHistoryScreen: React.FC = () => {
     return (
       <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateIcon}>🛡</Text>
+          <View style={{marginBottom: 16}}>
+            <Icon name="shield" size="xl" color={themeColors.text.secondary} />
+          </View>
           <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>No Proofs Yet</Text>
           <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>
             Your generated proofs will appear here
@@ -207,10 +210,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  emptyStateIcon: {
-    fontSize: 48,
-    marginBottom: 16,
   },
   emptyStateTitle: {
     fontSize: 20,
