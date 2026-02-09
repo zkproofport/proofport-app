@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useRef} from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,14 @@ import {
   ScrollView,
   Linking,
   Alert,
+  Pressable,
 } from 'react-native';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {useThemeColors} from '../../context';
 import {getEnvironment} from '../../config/environment';
 import type {MoreTabScreenProps} from '../../navigation/types';
+import {getVersionDisplay} from '../../utils/version';
+import {useSettings} from '../../hooks/useSettings';
 
 const getWebsiteUrl = (): string => {
   const env = getEnvironment();
@@ -30,6 +33,27 @@ const AZTEC_URL = 'https://aztec.network';
 
 const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
   const {colors: themeColors} = useThemeColors();
+  const {settings, updateSettings} = useSettings();
+  const [tapCount, setTapCount] = useState(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVersionTap = () => {
+    const newCount = tapCount + 1;
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => setTapCount(0), 2000);
+
+    if (newCount >= 7) {
+      const newValue = !settings?.developerMode;
+      updateSettings({developerMode: newValue});
+      Alert.alert(
+        newValue ? 'Developer Mode Enabled' : 'Developer Mode Disabled',
+        newValue ? 'Live logs and debug options are now available in settings.' : 'Developer options have been hidden.',
+      );
+      setTapCount(0);
+    } else {
+      setTapCount(newCount);
+    }
+  };
 
   const openURL = async (url: string, title: string) => {
     try {
@@ -58,9 +82,11 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
           <Text style={[styles.appName, {color: themeColors.text.primary}]}>
             ZKProofport
           </Text>
-          <Text style={[styles.version, {color: themeColors.text.secondary}]}>
-            Version 0.0.1
-          </Text>
+          <Pressable onPress={handleVersionTap}>
+            <Text style={[styles.version, {color: themeColors.text.secondary}]}>
+              {getVersionDisplay()}
+            </Text>
+          </Pressable>
           <Text style={[styles.tagline, {color: themeColors.text.tertiary}]}>
             Privacy-first zero-knowledge proof generation
           </Text>

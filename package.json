@@ -1,6 +1,6 @@
 {
   "name": "zkproofport",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -24,7 +24,8 @@
     "start:clean": "react-native start --reset-cache",
     "test": "jest",
     "assets": "npx react-native-asset",
-    "pod-install": "cd ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install && cd .."
+    "pod-install": "cd ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install && cd ..",
+    "version:sync": "node scripts/sync-version.js"
   },
   "dependencies": {
     "@ethersproject/shims": "^5.8.0",

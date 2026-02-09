@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -13,13 +14,14 @@ import {
   Button,
   Card,
   StepIndicator,
+  LiveLogsPanel,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, useCoinbaseCountry, usePrivyWallet, useLogs, useDeepLink} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
 import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
-import {proofHistoryStore} from '../../stores';
+import {proofHistoryStore, settingsStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig, type CircuitName} from '../../config';
 import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
 import {ethers} from 'ethers';
@@ -141,7 +143,8 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const {addLog, clearLogs} = useLogs();
+  const {logs, addLog, clearLogs} = useLogs();
+  const {settings} = useSettings();
 
   const circuitId = route.params?.circuitId || 'coinbase-kyc';
   const isCountryCircuit = circuitId === 'coinbase-country';
@@ -191,23 +194,30 @@ export const ProofGenerationScreen: React.FC = () => {
     const circuitName = CIRCUIT_DISPLAY_NAMES[circuitId] || circuitId;
     const configCircuitName = (CIRCUIT_CONFIG_NAMES[circuitId] || circuitId) as CircuitName;
 
-    const historyItem = await proofHistoryStore.add({
-      circuitId,
-      circuitName,
-      proofHash: '',
-      offChainStatus: 'pending',
-      onChainStatus: 'pending',
-      overallStatus: 'started',
-      timestamp: new Date().toISOString(),
-      network: 'Sepolia',
-      walletAddress: account || '',
-      verifierAddress: getVerifierAddressSync(configCircuitName),
-      source: proofRequest ? 'deeplink' : 'manual',
-      dappName: proofRequest?.dappName,
-      requestId: proofRequest?.requestId,
-    });
-    historyIdRef.current = historyItem.id;
-    addLog(`[History] Proof record created: ${historyItem.id}`);
+    // Read settings fresh from AsyncStorage to avoid stale closure
+    const currentSettings = await settingsStore.get();
+
+    if (currentSettings.autoSaveProofs) {
+      const historyItem = await proofHistoryStore.add({
+        circuitId,
+        circuitName,
+        proofHash: '',
+        offChainStatus: 'pending',
+        onChainStatus: 'pending',
+        overallStatus: 'started',
+        timestamp: new Date().toISOString(),
+        network: 'Sepolia',
+        walletAddress: account || '',
+        verifierAddress: getVerifierAddressSync(configCircuitName),
+        source: proofRequest ? 'deeplink' : 'manual',
+        dappName: proofRequest?.dappName,
+        requestId: proofRequest?.requestId,
+      });
+      historyIdRef.current = historyItem.id;
+      addLog(`[History] Proof record created: ${historyItem.id}`);
+    } else {
+      historyIdRef.current = null;
+    }
 
     try {
       const expectedSelector = isCountryCircuit ? SELECTOR_ATTEST_COUNTRY : SELECTOR_ATTEST_ACCOUNT;
@@ -217,10 +227,14 @@ export const ProofGenerationScreen: React.FC = () => {
       const result = await findAttestationTransaction(account, addLog, expectedSelector);
 
       if (!result) {
-        setErrorMessage(isCountryCircuit
+        const errMsg = isCountryCircuit
           ? `No country attestation found for this wallet (${account})`
-          : `No valid attestation found for this wallet (${account})`);
+          : `No valid attestation found for this wallet (${account})`;
+        setErrorMessage(errMsg);
         addLog('No matching attestation found for this wallet');
+        if (historyIdRef.current) {
+          proofHistoryStore.update(historyIdRef.current, {overallStatus: 'failed', offChainStatus: 'failed', onChainStatus: 'failed'}).catch(console.error);
+        }
         return;
       }
 
@@ -231,6 +245,9 @@ export const ProofGenerationScreen: React.FC = () => {
       if (!provider) {
         setErrorMessage('No wallet provider available');
         addLog('No wallet provider available');
+        if (historyIdRef.current) {
+          proofHistoryStore.update(historyIdRef.current, {overallStatus: 'failed', offChainStatus: 'failed', onChainStatus: 'failed'}).catch(console.error);
+        }
         return;
       }
 
@@ -253,6 +270,9 @@ export const ProofGenerationScreen: React.FC = () => {
           const errMsg = 'Missing required inputs: countryList and isIncluded are required for country attestation';
           addLog(`[Error] ${errMsg}`);
           setErrorMessage(errMsg);
+          if (historyIdRef.current) {
+            proofHistoryStore.update(historyIdRef.current, {overallStatus: 'failed', offChainStatus: 'failed', onChainStatus: 'failed'}).catch(console.error);
+          }
           if (proofRequest) {
             sendError(proofRequest, errMsg).catch(console.error);
             setActiveProofRequest(null);
@@ -295,6 +315,8 @@ export const ProofGenerationScreen: React.FC = () => {
       if (historyIdRef.current) {
         proofHistoryStore.update(historyIdRef.current, {
           overallStatus: 'failed',
+          offChainStatus: 'failed',
+          onChainStatus: 'failed',
         }).catch(console.error);
       }
     } finally {
@@ -425,7 +447,18 @@ export const ProofGenerationScreen: React.FC = () => {
     }
     return {
       title: 'Generate ZK Proof',
-      onPress: handleGenerateProof,
+      onPress: settings?.confirmBeforeGenerate
+        ? () => {
+            Alert.alert(
+              'Generate ZK Proof',
+              'This will generate a zero-knowledge proof using your wallet. Proceed?',
+              [
+                {text: 'Cancel', style: 'cancel'},
+                {text: 'Generate', onPress: handleGenerateProof},
+              ],
+            );
+          }
+        : handleGenerateProof,
       disabled: false,
       loading: false,
     };
@@ -455,6 +488,12 @@ export const ProofGenerationScreen: React.FC = () => {
           <Card style={styles.stepsCard}>
             <StepIndicator steps={userSteps} />
           </Card>
+        )}
+
+        {logs.length > 0 && (
+          <View style={{marginBottom: 20}}>
+            <LiveLogsPanel logs={logs} />
+          </View>
         )}
 
         {errorMessage && (

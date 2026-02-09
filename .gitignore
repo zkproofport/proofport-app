@@ -149,3 +149,8 @@ logs/
 tmp/
 .tmp/
 *.tmp
+
+# ====================
+# semantic-release
+# ====================
+.semantic-release-temp/

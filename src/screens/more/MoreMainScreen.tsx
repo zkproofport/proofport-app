@@ -16,6 +16,7 @@ import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import {useThemeColors} from '../../context';
 import type {MoreTabScreenProps} from '../../navigation/types';
+import {getVersionDisplay} from '../../utils/version';
 
 const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
   navigation,
@@ -140,19 +141,25 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
           </View>
           <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
             <Toggle
-              value={settings.showLiveLogs}
-              onValueChange={(value) => updateSettings({showLiveLogs: value})}
-              label="Show live logs"
-            />
-          </View>
-          <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Toggle
               value={settings.confirmBeforeGenerate}
               onValueChange={(value) => updateSettings({confirmBeforeGenerate: value})}
               label="Confirm before generate"
             />
           </View>
         </View>
+
+        {settings.developerMode && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>DEVELOPER</Text>
+            <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
+              <Toggle
+                value={settings.showLiveLogs}
+                onValueChange={(value) => updateSettings({showLiveLogs: value})}
+                label="Show live logs"
+              />
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>DATA</Text>
@@ -177,7 +184,7 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
           onPress={() => navigation.navigate('About')}
         />
 
-        <Text style={[styles.version, {color: themeColors.text.tertiary}]}>Version 0.0.1</Text>
+        <Text style={[styles.version, {color: themeColors.text.tertiary}]}>{getVersionDisplay()}</Text>
       </ScrollView>
     </SafeAreaView>
   );

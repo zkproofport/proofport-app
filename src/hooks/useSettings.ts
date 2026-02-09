@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { settingsStore, AppSettings } from '../stores';
 
 export function useSettings() {
@@ -22,6 +23,13 @@ export function useSettings() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // Refresh settings whenever the screen gains focus so changes from other screens are picked up
+  useFocusEffect(
+    useCallback(() => {
+      loadSettings();
+    }, [loadSettings])
+  );
 
   const updateSettings = useCallback(async (partial: Partial<AppSettings>) => {
     try {

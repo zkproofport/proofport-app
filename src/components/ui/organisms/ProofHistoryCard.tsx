@@ -9,8 +9,7 @@ type ProofStatus = 'verified' | 'pending' | 'failed' | 'generated';
 interface ProofHistoryCardProps {
   circuitIcon: string;
   circuitName: string;
-  offChainStatus: ProofStatus;
-  onChainStatus: ProofStatus;
+  status: ProofStatus;
   date: string;
   network: string;
   proofHash: string;
@@ -40,8 +39,7 @@ const getStatusBadge = (status: ProofStatus) => {
 export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
   circuitIcon,
   circuitName,
-  offChainStatus,
-  onChainStatus,
+  status,
   date,
   network,
   proofHash,
@@ -77,12 +75,8 @@ export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
       <View style={[styles.divider, {backgroundColor: themeColors.border.primary}]} />
       <View style={styles.details}>
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Off-Chain</Text>
-          {getStatusBadge(offChainStatus)}
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>On-Chain</Text>
-          {getStatusBadge(onChainStatus)}
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Status</Text>
+          {getStatusBadge(status)}
         </View>
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Date</Text>

@@ -1,0 +1,4 @@
+app_identifier("com.zkproofport.app")
+apple_id(ENV['APPLE_ID'])
+team_id("Y9847K5587")
+itc_team_id(ENV['ITC_TEAM_ID'])

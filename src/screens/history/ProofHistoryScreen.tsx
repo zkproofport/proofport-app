@@ -6,7 +6,6 @@ import type {HistoryStackParamList} from '../../navigation/types';
 import {ProofHistoryCard} from '../../components/ui/organisms/ProofHistoryCard';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import type {ProofHistoryItem} from '../../stores';
-import {Icon} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import {getCircuitIcon} from '../../utils';
 
@@ -40,6 +39,16 @@ const groupProofsByMonth = (proofs: ProofHistoryItem[]) => {
   return groups;
 };
 
+const mapOverallToDisplayStatus = (overallStatus: string): 'pending' | 'failed' | 'generated' => {
+  switch (overallStatus) {
+    case 'verified':
+    case 'generated': return 'generated';
+    case 'failed':
+    case 'verified_failed': return 'failed';
+    default: return 'pending';
+  }
+};
+
 const ProofHistoryScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<HistoryStackParamList>>();
   const {items: proofs, loading, error, removeItem, clearAll, refresh} = useProofHistory();
@@ -54,9 +63,8 @@ const ProofHistoryScreen: React.FC = () => {
 
   const groupedProofs = groupProofsByMonth(proofs);
   const totalProofs = proofs.length;
-  const offChainVerifiedCount = proofs.filter(p => p.offChainStatus === 'verified').length;
-  const onChainVerifiedCount = proofs.filter(p => p.onChainStatus === 'verified').length;
-  const generatedCount = proofs.filter(p => p.overallStatus === 'generated').length;
+  const generatedCount = proofs.filter(p => p.overallStatus === 'generated' || p.overallStatus === 'verified').length;
+  const failedCount = proofs.filter(p => p.overallStatus === 'failed' || p.overallStatus === 'verified_failed').length;
 
   const handleDeleteItem = (id: string, circuitName: string) => {
     Alert.alert(
@@ -137,8 +145,7 @@ const ProofHistoryScreen: React.FC = () => {
                 key={proof.id}
                 circuitIcon={getCircuitIcon(proof.circuitId)}
                 circuitName={proof.circuitName}
-                offChainStatus={proof.offChainStatus}
-                onChainStatus={proof.onChainStatus}
+                status={mapOverallToDisplayStatus(proof.overallStatus)}
                 date={formatDate(proof.timestamp)}
                 network={proof.network}
                 proofHash={proof.proofHash}
@@ -156,16 +163,12 @@ const ProofHistoryScreen: React.FC = () => {
             <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{totalProofs}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Off-Chain Verified</Text>
-            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{offChainVerifiedCount}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>On-Chain Verified</Text>
-            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{onChainVerifiedCount}</Text>
-          </View>
-          <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Generated</Text>
             <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{generatedCount}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Failed</Text>
+            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{failedCount}</Text>
           </View>
         </View>
 

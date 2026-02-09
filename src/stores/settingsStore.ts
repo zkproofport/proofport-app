@@ -6,6 +6,7 @@ export interface AppSettings {
   autoSaveProofs: boolean;
   showLiveLogs: boolean;
   confirmBeforeGenerate: boolean;
+  developerMode: boolean;
   theme: 'dark' | 'light';
   language: string;
   defaultNetwork: string;
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSaveProofs: true,
   showLiveLogs: true,
   confirmBeforeGenerate: true,
+  developerMode: false,
   theme: 'dark',
   language: 'en',
   defaultNetwork: 'base',
