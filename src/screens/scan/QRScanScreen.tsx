@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import {
   Camera,
@@ -147,6 +148,7 @@ const QRScanScreen: React.FC = () => {
         device={device}
         isActive={isActive}
         codeScanner={codeScanner}
+        {...(Platform.OS === 'android' && {photo: true})}
       />
       <SafeAreaView style={styles.overlay}>
         <Text style={[styles.overlayTitle, {color: themeColors.text.primary}]}>Scan QR Code</Text>
