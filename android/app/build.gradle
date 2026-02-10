@@ -57,7 +57,7 @@ react {
     //
     // Added by install-expo-modules
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", rootDir.getAbsoluteFile().getParentFile().getAbsolutePath(), "android", "absolute"].execute(null, rootDir).text.trim())
-    cliFile = new File(["node", "--print", "require.resolve('@expo/cli')"].execute(null, rootDir).text.trim())
+    cliFile = new File(["node", "--print", "require.resolve('@expo/cli', {paths: [require.resolve('expo/package.json')]})"].execute(null, rootDir).text.trim())
     bundleCommand = "export:embed"
 }
 
@@ -156,5 +156,36 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+// Fix Gradle 9 implicit task dependency validation for React Native + product flavors.
+// RN's createBundle*JsAndAssets tasks use outputs from other tasks without declaring dependencies.
+afterEvaluate {
+    tasks.matching { it.name.matches(/createBundle.*JsAndAssets/) }.configureEach { bundleTask ->
+        def globalDeps = ["generateReactNativeEntryPoint", "generateAutolinkingPackageList", "generateAutolinkingNewArchitectureFiles"]
+        globalDeps.each { name ->
+            def t = tasks.findByName(name)
+            if (t != null) bundleTask.dependsOn(t)
+        }
+
+        def matcher = (bundleTask.name =~ /createBundle(.+)JsAndAssets/)
+        if (matcher.matches()) {
+            def variant = matcher.group(1)
+            def variantDeps = [
+                "generate${variant}BuildConfig", "check${variant}AarMetadata",
+                "check${variant}DuplicateClasses", "merge${variant}JniLibFolders",
+                "merge${variant}NativeLibs", "extract${variant}NativeSymbolTables",
+                "strip${variant}DebugSymbols", "merge${variant}NativeDebugMetadata",
+                "buildKotlinToolingMetadata"
+            ]
+            variantDeps.each { name ->
+                def t = tasks.findByName(name)
+                if (t != null) bundleTask.dependsOn(t)
+            }
+            tasks.matching { it.name.matches(/configureCMake.*/) || it.name.matches(/buildCMake.*/) }.each { t ->
+                bundleTask.dependsOn(t)
+            }
+        }
     }
 }
