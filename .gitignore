@@ -137,6 +137,7 @@ mopro_bindings.bak/
 .env
 .env.*
 !.env.example
+!.env.ios.example
 
 # ====================
 # Logs
