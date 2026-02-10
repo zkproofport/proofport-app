@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform, StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TabParamList } from './types';
 import ProofStackNavigator from './stacks/ProofStackNavigator';
 import WalletStackNavigator from './stacks/WalletStackNavigator';
@@ -35,6 +36,7 @@ const ScanTabButton: React.FC<any> = ({ onPress, accessibilityState }) => {
 
 const TabNavigator: React.FC = () => {
   const { mode, colors: themeColors } = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -44,7 +46,9 @@ const TabNavigator: React.FC = () => {
           backgroundColor: themeColors.background.primary,
           borderTopWidth: 1,
           borderTopColor: themeColors.background.secondary,
-          paddingTop: 6,
+          paddingTop: 8,
+          paddingBottom: Math.max(insets.bottom, 16),
+          height: 60 + Math.max(insets.bottom, 16),
         },
         tabBarActiveTintColor: themeColors.text.primary,
         tabBarInactiveTintColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
