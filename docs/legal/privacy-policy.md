@@ -14,18 +14,19 @@ We are committed to protecting your privacy. Our App is designed with privacy as
 
 ### 1.1 Wallet Address
 
-When you authenticate using wallet connection (via Privy or WalletConnect), we receive and store your wallet address. This information is used solely for:
+When you authenticate using wallet connection (via Privy or WalletConnect), your wallet address is used for:
 - Authenticating your identity within the App
-- On-chain verification of proof submissions
-- Correlating your proof requests and completions
+- On-chain verification of proof submissions (when applicable)
+- Correlating proof requests and completions
 
-**Your wallet address is never shared with third parties beyond the blockchain verification itself.**
+**Your wallet address is stored only locally on your device. We do not store wallet addresses on our servers.**
 
 ### 1.2 Proof Request Data
 
 When you receive a proof request via QR code scan or deep link, we temporarily process the request metadata (circuit type, input fields, callback URL) to display the proof request to you. This data:
 - Remains on your device during processing
 - Is sent to the relay server only after you explicitly approve the proof generation
+- Is cached temporarily on the relay server (up to 5 minutes) to enable reconnection in case of network interruption, then automatically deleted
 - Is deleted from your device after the proof is generated or the request is rejected
 
 ### 1.3 Proof Generation & Cryptographic Data
@@ -48,18 +49,22 @@ When you submit a completed proof, we communicate with our relay server to:
 - Receive acknowledgment of successful submission
 - Handle callback notifications to the requesting application
 
+The relay server temporarily caches proof results (proof data, public inputs, nullifier) for up to 5 minutes to enable reconnection in case of network interruption, then automatically deletes this cached data.
+
 **No personal data about your identity or proof inputs is transmitted in this process.**
 
 ### 1.6 Information We Do NOT Collect
 
-We explicitly do NOT collect or transmit:
-- Your personal identity information (name, email, phone number)
+We explicitly do NOT collect or transmit to our servers:
+- Wallet addresses (stored only on your device)
+- Proof inputs (country lists, attestation data, signatures)
+- Full proof data (only cached temporarily for 5 minutes in relay, then deleted)
+- Your personal identity information (name, email, phone number) for mobile app users
 - Location data or device identifiers
 - Device IMEI, IMSI, MAC address, or hardware serial numbers
-- Biometric data beyond your wallet's cryptographic keys
+- Biometric data
 - Browser/app usage analytics or behavioral tracking
 - Advertising identifiers or cross-app tracking data
-- Your proof input data at any time
 
 ## 2. How We Use Information
 
@@ -89,31 +94,34 @@ We may analyze aggregate, anonymized data (e.g., total proofs generated, circuit
 ### 3.1 Local Device Storage
 
 The App stores the following data locally on your device:
-- Proof request history (metadata only, not input data)
+- Wallet address
+- Proof history (proof hash, circuit type, status, timestamps)
 - Proof generation logs (for your reference)
+- App settings (theme, language)
 - Wallet connection status
-- App configuration and preferences
 
 **You can export or clear this data at any time using the App's built-in export/clear functions.**
 
 ### 3.2 Server-Side Storage
 
 ZKProofport servers store:
-- Your wallet address (associated with your account)
-- Relay transaction logs (proof submissions, timestamps, circuit types)
-- Proof completion status and callbacks
+- Usage metadata (circuit type, request ID, credits used, status, timestamp) for billing purposes
+- Nullifier hashes (for Plan 2 duplicate detection only)
+- Transaction hashes (for Plan 2 on-chain registration only)
+- Dashboard account data (email, name, password hash) for users who register for the dashboard (not mobile app users)
 
-**We retain this data for 90 days for dispute resolution and security auditing, then delete it permanently.** Your wallet address is retained for account continuity unless you request account deletion.
+The relay server temporarily caches proof results (proof data, public inputs, nullifier) in Redis for up to 5 minutes to enable reconnection, then automatically deletes this cached data. Request status and nonce replay prevention data are cached for up to 10 minutes, then automatically deleted.
+
+**We do not store wallet addresses, proof inputs, or full proof data permanently on our servers.** Usage metadata is retained for billing purposes. Dashboard account data is retained until account deletion is requested.
 
 ### 3.3 Your Control Over Data
 
 You can:
 - Clear all local proof history from the App at any time
 - Export your proof history in portable format
-- Request deletion of your account and associated server records (90-day deletion window)
 - Disconnect your wallet, which removes you from future proof requests
 
-Account deletion requests will be honored within 30 days, after which all your server-side data is permanently deleted.
+If you have a dashboard account, you can request deletion of your account and associated server records. Account deletion requests will be honored within 30 days, after which all your server-side data is permanently deleted.
 
 ## 4. Third-Party Services
 
@@ -122,7 +130,7 @@ Account deletion requests will be honored within 30 days, after which all your s
 We use **Privy** (privy.io) as a third-party authentication provider. Privy:
 - Handles secure wallet connection and authentication
 - Never accesses your seed phrase or private keys
-- May collect analytics on authentication events (see Privy's Privacy Policy: https://privy.io/privacy)
+- May collect analytics on authentication events (see Privy's Privacy Policy: https://www.privy.io/privacy-policy)
 
 **Your private keys remain on your device and under your control at all times.**
 
@@ -152,7 +160,7 @@ When you approve a proof request, the completed proof is transmitted to a callba
 
 - **Encryption**: Locally stored data is encrypted using iOS/Android built-in encryption (iOS Keychain, Android Keystore)
 - **No Root Access**: We do not request or require device root access or jailbreak
-- **Local Processing**: All proof computations use your device's secure processor when available (SecureEnclave on iOS)
+- **Local Processing**: All proof computations are performed locally on your device using the mopro library
 
 ### 5.2 Server-Side Security
 
