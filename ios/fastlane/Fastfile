@@ -38,6 +38,7 @@ platform :ios do
       output_name: "ProofportApp.ipa",
       clean: true,
       xcargs: "APP_ENV=#{app_env}",
+      export_xcargs: "-allowProvisioningUpdates",
     )
 
     if api_key
@@ -73,6 +74,7 @@ platform :ios do
       output_name: "ProofportApp.ipa",
       clean: true,
       xcargs: "APP_ENV=production",
+      export_xcargs: "-allowProvisioningUpdates",
     )
 
     upload_to_app_store(
@@ -95,6 +97,7 @@ platform :ios do
       output_name: "ProofportApp.ipa",
       clean: true,
       xcargs: "APP_ENV=#{app_env}",
+      export_xcargs: "-allowProvisioningUpdates",
     )
   end
 end
