@@ -7,6 +7,7 @@ import {
   NavigationContainer,
   NavigationContainerRef,
   CommonActions,
+  StackActions,
 } from '@react-navigation/native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppKitProvider, AppKit} from '@reown/appkit-react-native';
@@ -214,23 +215,23 @@ const App: React.FC = () => {
     // Set active request in store before navigation
     setActiveProofRequest(pendingRequest);
 
-    // Navigate to proof generation (CommonActions.navigate preserves params reliably)
+    // Navigate to proof generation with stack reset to avoid stacking on ProofComplete
     const circuitId = pendingRequest.circuit === 'coinbase_attestation'
       ? 'coinbase-kyc'
       : pendingRequest.circuit === 'coinbase_country_attestation'
         ? 'coinbase-country'
         : pendingRequest.circuit;
 
+    // First navigate to ProofTab and pop stack to root
     navigationRef.current?.dispatch(
-      CommonActions.navigate({
-        name: 'ProofTab',
-        params: {
-          screen: 'ProofGeneration',
-          params: {
-            circuitId,
-            proofRequest: pendingRequest,
-          },
-        },
+      CommonActions.navigate({name: 'ProofTab'}),
+    );
+    navigationRef.current?.dispatch(StackActions.popToTop());
+    // Then push ProofGeneration fresh
+    navigationRef.current?.dispatch(
+      StackActions.push('ProofGeneration', {
+        circuitId,
+        proofRequest: pendingRequest,
       }),
     );
 

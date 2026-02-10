@@ -9,6 +9,7 @@ const StackHeader = ({navigation, options, back}: NativeStackHeaderProps) => {
   const { colors: themeColors } = useThemeColors();
   const title = options.title || '';
   const showBack = !!back && options.headerBackVisible !== false;
+  const HeaderRight = options.headerRight;
 
   return (
     <View style={[styles.headerContainer, {paddingTop: insets.top, backgroundColor: themeColors.background.primary}]}>
@@ -26,7 +27,13 @@ const StackHeader = ({navigation, options, back}: NativeStackHeaderProps) => {
         <Text style={[styles.headerTitle, {color: themeColors.text.primary}]} numberOfLines={1}>
           {title}
         </Text>
-        <View style={styles.headerSpacer} />
+        {HeaderRight ? (
+          <View style={styles.headerRight}>
+            {HeaderRight({canGoBack: !!back})}
+          </View>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
     </View>
   );
@@ -74,5 +81,11 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 32,
+  },
+  headerRight: {
+    minWidth: 32,
+    alignItems: 'flex-end' as const,
+    justifyContent: 'center' as const,
+    height: HEADER_HEIGHT,
   },
 });

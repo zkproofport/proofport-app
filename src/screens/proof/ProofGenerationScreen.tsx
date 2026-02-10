@@ -377,7 +377,11 @@ export const ProofGenerationScreen: React.FC = () => {
           </Card>
         )}
 
-        {settings?.developerMode && settings.showLiveLogs !== false && <LiveLogsPanel logs={logs} />}
+        {settings?.developerMode && settings.showLiveLogs !== false && (
+          <View style={styles.logsWrap}>
+            <LiveLogsPanel logs={logs} />
+          </View>
+        )}
 
         {errorMessage && (
           <Card style={{marginTop: 12, marginBottom: 20, backgroundColor: themeColors.error.background, borderColor: themeColors.error[500]}}>
@@ -404,6 +408,7 @@ const styles = StyleSheet.create({
   content: {paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32},
   hero: {marginBottom: 20, padding: 24},
   steps: {marginBottom: 20, paddingHorizontal: 16, paddingVertical: 8},
+  logsWrap: {marginBottom: 16},
   btnWrap: {marginBottom: 20},
   loader: {alignItems: 'center', marginBottom: 20},
 });
