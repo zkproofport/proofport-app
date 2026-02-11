@@ -30,6 +30,15 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Download mopro binaries
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh release download mopro-binaries-v0.3.2 \
+            --pattern 'MoproFfiFramework.xcframework.tar.gz' \
+            --dir /tmp
+          tar xzf /tmp/MoproFfiFramework.xcframework.tar.gz -C mopro_bindings/
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 

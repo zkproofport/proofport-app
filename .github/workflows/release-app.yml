@@ -94,6 +94,15 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
+      - name: Download mopro binaries
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh release download mopro-binaries-v0.3.2 \
+            --pattern 'MoproFfiFramework.xcframework.tar.gz' \
+            --dir /tmp
+          tar xzf /tmp/MoproFfiFramework.xcframework.tar.gz -C mopro_bindings/
+
       - name: Install dependencies
         run: |
           npm install --legacy-peer-deps
@@ -175,6 +184,17 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+
+      - name: Download mopro binaries
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh release download mopro-binaries-v0.3.2 \
+            --pattern 'android-jniLibs-*.tar.gz' \
+            --dir /tmp
+          mkdir -p mopro_bindings/android/src/main/jniLibs
+          tar xzf /tmp/android-jniLibs-arm64-v8a.tar.gz -C mopro_bindings/android/src/main/jniLibs/
+          tar xzf /tmp/android-jniLibs-x86_64.tar.gz -C mopro_bindings/android/src/main/jniLibs/
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
