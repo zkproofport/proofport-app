@@ -8,12 +8,20 @@ platform :ios do
 
     setup_ci if ENV['CI']
 
-    api_key = app_store_connect_api_key(
-      key_id: ENV['ASC_KEY_ID'],
-      issuer_id: ENV['ASC_ISSUER_ID'],
-      key_content: ENV['ASC_API_KEY'],
-      is_key_content_base64: true,
-    ) if ENV['ASC_KEY_ID']
+    if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+      api_key = app_store_connect_api_key(
+        key_id: ENV['ASC_KEY_ID'],
+        issuer_id: ENV['ASC_ISSUER_ID'],
+        key_filepath: ENV['ASC_API_KEY_PATH'],
+      )
+    elsif ENV['ASC_KEY_ID']
+      api_key = app_store_connect_api_key(
+        key_id: ENV['ASC_KEY_ID'],
+        issuer_id: ENV['ASC_ISSUER_ID'],
+        key_content: ENV['ASC_API_KEY'],
+        is_key_content_base64: true,
+      )
+    end
 
     if ENV['CI'] && api_key
       match(
@@ -53,12 +61,20 @@ platform :ios do
   lane :release do
     setup_ci if ENV['CI']
 
-    api_key = app_store_connect_api_key(
-      key_id: ENV['ASC_KEY_ID'],
-      issuer_id: ENV['ASC_ISSUER_ID'],
-      key_content: ENV['ASC_API_KEY'],
-      is_key_content_base64: true,
-    )
+    if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+      api_key = app_store_connect_api_key(
+        key_id: ENV['ASC_KEY_ID'],
+        issuer_id: ENV['ASC_ISSUER_ID'],
+        key_filepath: ENV['ASC_API_KEY_PATH'],
+      )
+    else
+      api_key = app_store_connect_api_key(
+        key_id: ENV['ASC_KEY_ID'],
+        issuer_id: ENV['ASC_ISSUER_ID'],
+        key_content: ENV['ASC_API_KEY'],
+        is_key_content_base64: true,
+      )
+    end
 
     match(
       type: "appstore",
