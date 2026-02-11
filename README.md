@@ -308,6 +308,10 @@ npm run android
 
 Ensure the app can reach GitHub and has network permission. Check logs in More debug section.
 
+## Deployment
+
+For CI/CD workflows, beta testing setup, and production release instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ## License
 
 MIT

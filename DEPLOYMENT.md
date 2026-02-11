@@ -6,8 +6,9 @@
 - [2. Prerequisites](#2-prerequisites)
 - [3. Manual Deployment (from Local Machine)](#3-manual-deployment-from-local-machine)
 - [4. CI/CD Deployment (GitHub Actions)](#4-cicd-deployment-github-actions)
-- [5. Production Release Checklist](#5-production-release-checklist)
-- [6. Troubleshooting](#6-troubleshooting)
+- [5. Beta Testing](#5-beta-testing)
+- [6. Production Release Checklist](#6-production-release-checklist)
+- [7. Troubleshooting](#7-troubleshooting)
 
 ---
 
@@ -16,7 +17,7 @@
 ### Versioning Scheme
 
 - **Semantic Versioning (semver)**: `MAJOR.MINOR.PATCH`
-- **Beta phase**: `0.x.x` (current: `0.1.0`)
+- **Beta phase**: `0.x.x` (current: `0.1.1`)
 - **Production release**: starts at `1.0.0`
 
 **Version bump rules:**
@@ -182,7 +183,11 @@ export MATCH_GIT_URL="https://github.com/your-org/match-certs.git"
 export MATCH_PASSWORD="your-match-password"
 
 # Build + upload to TestFlight
-bundle exec fastlane ios beta
+# For staging environment (APP_ENV=development)
+bundle exec fastlane ios beta env:staging
+
+# For production environment (APP_ENV=production)
+bundle exec fastlane ios beta env:production
 ```
 
 ### iOS → App Store (Production)
@@ -204,21 +209,65 @@ export ANDROID_KEY_ALIAS="zkproofport"
 export ANDROID_KEY_PASSWORD="your-password"
 
 # Build AAB
-bundle exec fastlane android beta
+# For staging environment (APP_ENV=development)
+bundle exec fastlane android beta flavor:staging
+
+# For production environment (APP_ENV=production)
+bundle exec fastlane android beta flavor:production
 ```
 
 ### Android → APK (Direct Install)
 
 ```bash
 cd android
-bundle exec fastlane android build_apk
+
+# For staging environment
+bundle exec fastlane android build_apk flavor:staging
+
+# For production environment
+bundle exec fastlane android build_apk flavor:production
 ```
 
-Output APK location: `android/app/build/outputs/apk/release/app-release.apk`
+Output APK locations:
+- Staging: `android/app/build/outputs/apk/staging/release/`
+- Production: `android/app/build/outputs/apk/production/release/`
 
 ---
 
 ## 4. CI/CD Deployment (GitHub Actions)
+
+### Available Workflows
+
+The project has three GitHub Actions workflows for deployment:
+
+#### 1. iOS Beta (TestFlight) - `build-ios.yml`
+
+- **Trigger**: Manual (`workflow_dispatch`)
+- **Purpose**: Build and upload iOS app to TestFlight
+- **Options**:
+  - `environment`: staging / production (determines APP_ENV)
+- **Output**: IPA file uploaded to TestFlight
+
+#### 2. Android Beta (Play Console) - `build-android.yml`
+
+- **Trigger**: Manual (`workflow_dispatch`)
+- **Purpose**: Build Android AAB for Play Console
+- **Options**:
+  - `flavor`: staging / production (determines APP_ENV)
+- **Output**: AAB file available as GitHub Actions artifact (manual upload to Play Console required)
+
+#### 3. Release App - `release-app.yml`
+
+- **Trigger**: Manual (`workflow_dispatch`)
+- **Purpose**: Full release workflow with automatic versioning
+- **Options**:
+  - `environment`: staging / production
+  - `dry_run`: true (test only) / false (actual deployment)
+  - `platform`: both / ios / android
+- **Features**:
+  - Uses `semantic-release` to determine version from commit history
+  - Builds for selected platform(s)
+  - Creates git tag and GitHub release
 
 ### GitHub Secrets Configuration
 
@@ -247,30 +296,78 @@ base64 -i AuthKey_XXXXX.p8 | pbcopy
 base64 -i release.keystore | pbcopy
 ```
 
-### Running the Workflow
+### How to Trigger Workflows
 
-1. Go to GitHub → Actions → "Release App" → "Run workflow"
-2. Select options:
-   - `dry_run`: true (test only) / false (actual deployment)
-   - `platform`: both / ios / android
+1. Go to GitHub → Actions tab
+2. Select the desired workflow from the left sidebar:
+   - "Build iOS App (TestFlight)"
+   - "Build Android App (Play Console)"
+   - "Release App"
+3. Click "Run workflow" button (top right)
+4. Select branch (usually `main`)
+5. Choose environment/flavor and other options
+6. Click "Run workflow" to start
 
 ### Pipeline Flow
 
 ```
-workflow_dispatch
-    │
-    ▼
-[version] Determine version via semantic-release
-    │
-    ├──────────────────┐
-    ▼                  ▼
-[build-ios]      [build-android]
-TestFlight        AAB build
+┌─────────────────────────────────────────────┐
+│         GitHub Actions Workflows            │
+├─────────────────────────────────────────────┤
+│                                             │
+│  iOS Beta (build-ios.yml)                  │
+│  └─> [build] → TestFlight                  │
+│                                             │
+│  Android Beta (build-android.yml)          │
+│  └─> [build] → AAB artifact                │
+│                                             │
+│  Release App (release-app.yml)             │
+│  └─> [version] semantic-release            │
+│       ├──────────────────┐                 │
+│       ▼                  ▼                 │
+│   [build-ios]      [build-android]         │
+│   TestFlight        AAB artifact           │
+│                                             │
+└─────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Production Release Checklist
+## 5. Beta Testing
+
+### iOS TestFlight
+
+**Public Link**: [https://testflight.apple.com/join/kCYK5xgC](https://testflight.apple.com/join/kCYK5xgC)
+
+- **Access**: Anyone with the link can install the beta app
+- **Capacity**: Up to 10,000 external testers
+- **Build Expiration**: 90 days from upload
+- **Installation**: Requires TestFlight app on iOS device
+- **Environment**:
+  - Staging builds connect to `stg-relay.zkproofport.app`
+  - Production builds connect to `relay.zkproofport.app`
+
+### Google Play Closed Testing (Alpha)
+
+- **Access**: Requires tester email registration in Play Console
+- **Setup**: Internal testing track configured
+- **Requirements**:
+  - Minimum 20 testers enrolled
+  - 14-day testing period required before open testing or production release
+- **Environment**:
+  - Staging flavor connects to `stg-relay.zkproofport.app`
+  - Production flavor connects to `relay.zkproofport.app`
+
+### Environment Configuration
+
+| Build Type | Relay URL | Use Case |
+|------------|-----------|----------|
+| **Staging** | `stg-relay.zkproofport.app` | Development testing, pre-release validation |
+| **Production** | `relay.zkproofport.app` | Production releases, real user traffic |
+
+---
+
+## 6. Production Release Checklist
 
 ### Pre-Release Preparation
 
@@ -359,7 +456,7 @@ git push origin app-v1.0.0
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 ### iOS Build Failure
 
@@ -473,9 +570,14 @@ emulator -list-avds
 # Check build artifacts
 # iOS
 ls -lh ios/build/ProofportApp.ipa
-# Android
-ls -lh android/app/build/outputs/bundle/release/app-release.aab
-ls -lh android/app/build/outputs/apk/release/app-release.apk
+
+# Android AAB
+ls -lh android/app/build/outputs/bundle/stagingRelease/app-staging-release.aab
+ls -lh android/app/build/outputs/bundle/productionRelease/app-production-release.aab
+
+# Android APK
+ls -lh android/app/build/outputs/apk/staging/release/
+ls -lh android/app/build/outputs/apk/production/release/
 ```
 
 ### References
