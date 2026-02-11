@@ -3,6 +3,14 @@ name: Release App
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Build environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
       dry_run:
         description: 'Dry run (skip upload)'
         type: boolean
@@ -101,17 +109,20 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
-        run: bundle exec fastlane ios beta
+        run: bundle exec fastlane ios beta env:${{ inputs.environment }}
 
       - name: Build only (dry run)
         if: inputs.dry_run == true
         working-directory: ios
+        env:
+          APP_ENV: ${{ inputs.environment == 'staging' && 'development' || 'production' }}
         run: |
           xcodebuild -workspace ProofportApp.xcworkspace \
             -scheme ProofportApp \
             -configuration Release \
             -sdk iphoneos \
             -arch arm64 \
+            APP_ENV=$APP_ENV \
             CODE_SIGNING_ALLOWED=NO \
             build
 
@@ -167,23 +178,23 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: bundle exec fastlane android beta
+        run: bundle exec fastlane android beta flavor:${{ inputs.environment }}
 
       - name: Build APK (dry run)
         if: inputs.dry_run == true
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: ./gradlew assemble${{ inputs.environment == 'staging' && 'Staging' || 'Production' }}Release
 
       - name: Upload AAB artifact
         if: inputs.dry_run == false
         uses: actions/upload-artifact@v4
         with:
-          name: app-release.aab
-          path: android/app/build/outputs/bundle/release/app-release.aab
+          name: app-${{ inputs.environment }}-release.aab
+          path: android/app/build/outputs/bundle/${{ inputs.environment }}Release/*.aab
 
       - name: Upload APK artifact
         if: inputs.dry_run == true
         uses: actions/upload-artifact@v4
         with:
-          name: app-release.apk
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          name: app-${{ inputs.environment }}-release.apk
+          path: android/app/build/outputs/apk/${{ inputs.environment }}/release/*.apk
