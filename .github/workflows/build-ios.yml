@@ -34,7 +34,7 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Install CocoaPods
-        run: cd ios && pod install
+        run: cd ios && pod install --repo-update
 
       - name: Build and upload to TestFlight
         env:

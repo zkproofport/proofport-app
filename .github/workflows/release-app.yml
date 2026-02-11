@@ -97,7 +97,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm install --legacy-peer-deps
-          cd ios && pod install
+          cd ios && pod install --repo-update
 
       - name: Build and upload to TestFlight
         if: inputs.dry_run == false
