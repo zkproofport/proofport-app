@@ -40,12 +40,9 @@ jobs:
         env:
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
         run: |
-          echo "$ASC_API_KEY" | base64 -d > /tmp/asc_api_key.p8
-          echo "Key file size: $(wc -c < /tmp/asc_api_key.p8) bytes"
-          echo "Key header: $(head -1 /tmp/asc_api_key.p8)"
-          openssl ec -in /tmp/asc_api_key.p8 -noout 2>&1 && echo "Key valid" || echo "Key invalid, trying pkey..."
-          openssl pkey -in /tmp/asc_api_key.p8 -noout 2>&1 && echo "pkey valid" || echo "pkey also invalid"
-          openssl version
+          echo "$ASC_API_KEY" | base64 -d > /tmp/asc_api_key_pkcs8.p8
+          openssl ec -in /tmp/asc_api_key_pkcs8.p8 -out /tmp/asc_api_key.p8 2>/dev/null
+          rm /tmp/asc_api_key_pkcs8.p8
 
       - name: Build and upload to TestFlight
         env:

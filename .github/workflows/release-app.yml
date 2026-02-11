@@ -103,7 +103,10 @@ jobs:
         if: inputs.dry_run == false
         env:
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
-        run: echo "$ASC_API_KEY" | base64 -d > /tmp/asc_api_key.p8
+        run: |
+          echo "$ASC_API_KEY" | base64 -d > /tmp/asc_api_key_pkcs8.p8
+          openssl ec -in /tmp/asc_api_key_pkcs8.p8 -out /tmp/asc_api_key.p8 2>/dev/null
+          rm /tmp/asc_api_key_pkcs8.p8
 
       - name: Build and upload to TestFlight
         if: inputs.dry_run == false
