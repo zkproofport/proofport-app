@@ -71,7 +71,7 @@ We explicitly do NOT collect or transmit to our servers:
 ### 2.1 Wallet Address Usage
 
 - **Authentication**: Verifying your identity each time you use the App
-- **On-Chain Verification**: Enabling smart contracts to verify proof submissions linked to your wallet
+- **Proof Verification**: Enabling requesting applications to verify your proof submissions
 - **Service Delivery**: Routing proof requests to you and receiving completed proofs
 
 ### 2.2 Proof & Request Data Usage
@@ -143,9 +143,9 @@ We integrate **WalletConnect** (walletconnect.com) for optional wallet connectio
 
 **Your wallet never exposes private keys to ZKProofport; all signing happens within your wallet application.**
 
-### 4.3 Blockchain Networks
+### 4.3 Third-Party Verification Services
 
-When you submit proofs for on-chain verification, your wallet address and proof data become part of the public blockchain ledger. This is irreversible and not controlled by ZKProofport.
+When you approve a proof request, the requesting application (dApp) may independently submit your proof for verification. Any on-chain verification is performed by the requesting application, not by ZKProofport. ZKProofport does not initiate, process, or facilitate any blockchain transactions or cryptocurrency transfers.
 
 ### 4.4 Callback Services
 
@@ -227,7 +227,7 @@ ZKProofport leverages zero-knowledge proof technology to provide mathematical pr
 1. **Proof inputs are never transmitted** - Your proof inputs remain private to you
 2. **Only proof outputs are shared** - The completed proof is a cryptographic statement verifiable without revealing inputs
 3. **Input privacy is mathematically enforced** - It is computationally infeasible to derive your inputs from a zero-knowledge proof
-4. **Wallet address is the only identifier** - We correlate proofs only to your wallet address, not to your identity
+4. **Wallet connection is for authentication only** - We use your wallet address solely for identity verification (signing), not for any financial transactions
 
 This privacy model is fundamentally different from traditional apps that collect and process personal data. ZKProofport's architecture ensures your data remains under your control on your device.
 
