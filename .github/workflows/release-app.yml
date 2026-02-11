@@ -115,7 +115,6 @@ jobs:
         run: |
           echo "$ASC_API_KEY" | base64 -d > /tmp/asc_api_key_pkcs8.p8
           openssl ec -in /tmp/asc_api_key_pkcs8.p8 -out /tmp/asc_api_key.p8 2>/dev/null
-          rm /tmp/asc_api_key_pkcs8.p8
 
       - name: Build and upload to TestFlight
         if: inputs.dry_run == false
@@ -124,6 +123,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY_PATH: /tmp/asc_api_key.p8
+          ASC_API_KEY_PKCS8_PATH: /tmp/asc_api_key_pkcs8.p8
           MATCH_GIT_URL: https://${{ secrets.GH_PAT }}@github.com/zkproofport/ios-certificates.git
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}

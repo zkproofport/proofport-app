@@ -59,8 +59,15 @@ platform :ios do
     )
 
     if api_key
+      # altool needs PKCS8 format key, but Ruby OpenSSL 3.x needs EC PEM.
+      # Use the original PKCS8 key content for upload if available.
+      upload_key = api_key
+      if ENV['ASC_API_KEY_PKCS8_PATH'] && File.exist?(ENV['ASC_API_KEY_PKCS8_PATH'])
+        upload_key = api_key.dup
+        upload_key[:key] = File.read(ENV['ASC_API_KEY_PKCS8_PATH'])
+      end
       upload_to_testflight(
-        api_key: api_key,
+        api_key: upload_key,
         skip_waiting_for_build_processing: true,
       )
     end
@@ -102,8 +109,14 @@ platform :ios do
       export_xcargs: "-allowProvisioningUpdates",
     )
 
+    # altool needs PKCS8 format key, but Ruby OpenSSL 3.x needs EC PEM.
+    upload_key = api_key
+    if ENV['ASC_API_KEY_PKCS8_PATH'] && File.exist?(ENV['ASC_API_KEY_PKCS8_PATH'])
+      upload_key = api_key.dup
+      upload_key[:key] = File.read(ENV['ASC_API_KEY_PKCS8_PATH'])
+    end
     upload_to_app_store(
-      api_key: api_key,
+      api_key: upload_key,
       submit_for_review: false,
       force: true,
     )
