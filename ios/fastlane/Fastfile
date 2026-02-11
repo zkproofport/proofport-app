@@ -29,6 +29,15 @@ platform :ios do
         app_identifier: "com.zkproofport.app",
         readonly: true,
       )
+
+      update_code_signing_settings(
+        use_automatic_signing: false,
+        path: "ProofportApp.xcodeproj",
+        team_id: "Y9847K5587",
+        bundle_identifier: "com.zkproofport.app",
+        profile_name: "match AppStore com.zkproofport.app",
+        code_sign_identity: "iPhone Distribution",
+      )
     end
 
     if api_key
