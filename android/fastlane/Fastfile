@@ -1,7 +1,7 @@
 default_platform(:android)
 
 platform :android do
-  desc "Build release AAB"
+  desc "Build release AAB and upload to Play Console internal track"
   lane :beta do |options|
     flavor = options[:flavor] || "production"
     gradle(
@@ -15,6 +15,17 @@ platform :android do
         "android.injected.signing.key.password" => ENV['ANDROID_KEY_PASSWORD'],
       },
     )
+
+    if ENV['GOOGLE_APPLICATION_CREDENTIALS'] || ENV['SUPPLY_JSON_KEY']
+      supply(
+        track: "internal",
+        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+        skip_upload_metadata: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true,
+        skip_upload_changelogs: true,
+      )
+    end
   end
 
   desc "Build release APK"

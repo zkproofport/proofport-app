@@ -12,12 +12,22 @@ on:
           - staging
           - production
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/995938448974/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions@zkproofport.iam.gserviceaccount.com'
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
