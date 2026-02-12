@@ -2,15 +2,6 @@ name: iOS Beta (TestFlight)
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Build environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - production
 
 jobs:
   build:
@@ -62,10 +53,10 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: |
           cd ios
-          bundle exec fastlane beta env:${{ inputs.environment }}
+          bundle exec fastlane beta env:staging
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ProofportApp-${{ inputs.environment }}.ipa
+          name: ProofportApp-staging.ipa
           path: ios/build/ProofportApp.ipa

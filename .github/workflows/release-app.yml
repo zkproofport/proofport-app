@@ -3,14 +3,6 @@ name: Release App
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Build environment'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - staging
-          - production
       dry_run:
         description: 'Dry run (skip upload)'
         type: boolean
@@ -26,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   version:
@@ -127,13 +120,13 @@ jobs:
           MATCH_GIT_URL: https://${{ secrets.GH_PAT }}@github.com/zkproofport/ios-certificates.git
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
-        run: bundle exec fastlane ios beta env:${{ inputs.environment }}
+        run: bundle exec fastlane ios beta env:production
 
       - name: Build only (dry run)
         if: inputs.dry_run == true
         working-directory: ios
         env:
-          APP_ENV: ${{ inputs.environment == 'staging' && 'development' || 'production' }}
+          APP_ENV: production
         run: |
           xcodebuild -workspace ProofportApp.xcworkspace \
             -scheme ProofportApp \
@@ -163,6 +156,13 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
+
+      - name: Authenticate to Google Cloud
+        if: inputs.dry_run == false
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/995938448974/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-actions@zkproofport.iam.gserviceaccount.com'
 
       - uses: actions/setup-node@v4
         with:
@@ -213,25 +213,25 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
-        run: bundle exec fastlane android beta flavor:${{ inputs.environment }}
+        run: bundle exec fastlane android beta flavor:production
 
       - name: Build APK (dry run)
         if: inputs.dry_run == true
         working-directory: android
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
-        run: ./gradlew assemble${{ inputs.environment == 'staging' && 'Staging' || 'Production' }}Release
+        run: ./gradlew assembleProductionRelease
 
       - name: Upload AAB artifact
         if: inputs.dry_run == false
         uses: actions/upload-artifact@v4
         with:
-          name: app-${{ inputs.environment }}-release.aab
-          path: android/app/build/outputs/bundle/${{ inputs.environment }}Release/*.aab
+          name: app-production-release.aab
+          path: android/app/build/outputs/bundle/productionRelease/*.aab
 
       - name: Upload APK artifact
         if: inputs.dry_run == true
         uses: actions/upload-artifact@v4
         with:
-          name: app-${{ inputs.environment }}-release.apk
-          path: android/app/build/outputs/apk/${{ inputs.environment }}/release/*.apk
+          name: app-production-release.apk
+          path: android/app/build/outputs/apk/production/release/*.apk
