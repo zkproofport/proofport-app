@@ -16,7 +16,17 @@ platform :android do
       },
     )
 
-    if ENV['GOOGLE_APPLICATION_CREDENTIALS'] || ENV['SUPPLY_JSON_KEY']
+    if ENV['GOOGLE_APPLICATION_CREDENTIALS']
+      supply(
+        track: "internal",
+        json_key: ENV['GOOGLE_APPLICATION_CREDENTIALS'],
+        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+        skip_upload_metadata: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true,
+        skip_upload_changelogs: true,
+      )
+    elsif ENV['SUPPLY_JSON_KEY']
       supply(
         track: "internal",
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
