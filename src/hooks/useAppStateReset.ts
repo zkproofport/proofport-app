@@ -10,8 +10,8 @@ import {useEffect, useRef, useCallback} from 'react';
 import {AppState, AppStateStatus} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 5 minutes in milliseconds - requests older than this are considered stale
-const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+// 10 minutes in milliseconds - requests older than this are considered stale
+const STALE_THRESHOLD_MS = 10 * 60 * 1000;
 
 // AsyncStorage key for tracking background timestamp
 const BACKGROUND_TIMESTAMP_KEY = '@zkproofport:app:backgroundTimestamp';

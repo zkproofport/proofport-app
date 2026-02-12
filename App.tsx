@@ -2,7 +2,7 @@
 import './src/config/AppKitConfig';
 
 import React, {useState, useEffect, useCallback, useRef} from 'react';
-import {Linking, Alert} from 'react-native';
+import {Linking} from 'react-native';
 import {
   NavigationContainer,
   NavigationContainerRef,
@@ -99,16 +99,9 @@ const App: React.FC = () => {
     setShowRequestModal(false);
     activeRequestId.current = null;
     clearActiveProofRequest();
-
-    // Show alert to user
-    Alert.alert(
-      'Session Reset',
-      'The app was inactive for a while. Any pending proof requests have been cleared for security.',
-      [{text: 'OK'}],
-    );
   }, []);
 
-  // Auto-reset when app returns from background after 5 minutes
+  // Auto-reset when app returns from background after 10 minutes
   useAppStateReset({onReset: handleAppReset});
 
   const handleDeepLink = useCallback(async (url: string | null) => {
