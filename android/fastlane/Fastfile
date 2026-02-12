@@ -16,10 +16,13 @@ platform :android do
       },
     )
 
+    pkg = flavor == "staging" ? "com.zkproofport.app.staging" : "com.zkproofport.app"
+
     if ENV['GOOGLE_APPLICATION_CREDENTIALS']
       supply(
         track: "internal",
         json_key: ENV['GOOGLE_APPLICATION_CREDENTIALS'],
+        package_name: pkg,
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
         skip_upload_metadata: true,
         skip_upload_images: true,
@@ -29,6 +32,7 @@ platform :android do
     elsif ENV['SUPPLY_JSON_KEY']
       supply(
         track: "internal",
+        package_name: pkg,
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
         skip_upload_metadata: true,
         skip_upload_images: true,
