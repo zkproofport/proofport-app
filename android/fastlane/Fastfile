@@ -10,8 +10,6 @@ platform :android do
       "android.injected.signing.key.alias" => ENV['ANDROID_KEY_ALIAS'],
       "android.injected.signing.key.password" => ENV['ANDROID_KEY_PASSWORD'],
     }
-    props["android.injected.version.code"] = ENV['BUILD_NUMBER'] if ENV['BUILD_NUMBER']
-
     gradle(
       task: "bundle",
       flavor: flavor,

@@ -1865,7 +1865,7 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - SocketRocket
-  - react-native-compat (2.23.4):
+  - react-native-compat (2.23.5):
     - boost
     - DoubleConversion
     - fast_float
@@ -1893,7 +1893,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-    - YttriumWrapper (= 0.10.15)
+    - YttriumWrapper (= 0.10.37)
   - react-native-get-random-values (2.0.0):
     - boost
     - DoubleConversion
@@ -2758,7 +2758,7 @@ PODS:
   - VisionCamera/React (4.7.3):
     - React-Core
   - Yoga (0.0.0)
-  - YttriumWrapper (0.10.15)
+  - YttriumWrapper (0.10.37)
 
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
@@ -3136,7 +3136,7 @@ SPEC CHECKSUMS:
   React-logger: a3cb5b29c32b8e447b5a96919340e89334062b48
   React-Mapbuffer: 9d2434a42701d6144ca18f0ca1c4507808ca7696
   React-microtasksnativemodule: 75b6604b667d297292345302cc5bfb6b6aeccc1b
-  react-native-compat: 1d99f40b51a8c8efcd57a921d5ab3b1ab5608736
+  react-native-compat: 33720a178be8c565138dfdaa5d9d931f59786d2f
   react-native-get-random-values: e2acf4070fe4b7325705a05af047449637a27a21
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-safe-area-context: c00143b4823773bba23f2f19f85663ae89ceb460
@@ -3182,7 +3182,7 @@ SPEC CHECKSUMS:
   uniffi-bindgen-react-native: 076bf125ee96728ccca853fadd7f93bb31b7cf26
   VisionCamera: 7187b3dac1ff3071234ead959ce311875748e14f
   Yoga: a3ed390a19db0459bd6839823a6ac6d9c6db198d
-  YttriumWrapper: cbddb60c835ebc4232d9f57064084ab30686a18e
+  YttriumWrapper: 2ae3722e8f07fde214725edd499679d03e7e86c9
 
 PODFILE CHECKSUM: d6c84ca13973b0c8a1bfc3c167313be6afe7e981
 
