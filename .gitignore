@@ -91,7 +91,6 @@ coverage/
 # Mopro Bindings
 # ====================
 mopro_bindings/node_modules/
-mopro_bindings/lib/
 mopro_bindings/package-lock.json
 
 # ====================
