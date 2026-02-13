@@ -4,16 +4,19 @@ platform :android do
   desc "Build release AAB and upload to Play Console internal track"
   lane :beta do |options|
     flavor = options[:flavor] || "production"
+    props = {
+      "android.injected.signing.store.file" => ENV['ANDROID_KEYSTORE_FILE'],
+      "android.injected.signing.store.password" => ENV['ANDROID_KEYSTORE_PASSWORD'],
+      "android.injected.signing.key.alias" => ENV['ANDROID_KEY_ALIAS'],
+      "android.injected.signing.key.password" => ENV['ANDROID_KEY_PASSWORD'],
+    }
+    props["android.injected.version.code"] = ENV['BUILD_NUMBER'] if ENV['BUILD_NUMBER']
+
     gradle(
       task: "bundle",
       flavor: flavor,
       build_type: "Release",
-      properties: {
-        "android.injected.signing.store.file" => ENV['ANDROID_KEYSTORE_FILE'],
-        "android.injected.signing.store.password" => ENV['ANDROID_KEYSTORE_PASSWORD'],
-        "android.injected.signing.key.alias" => ENV['ANDROID_KEY_ALIAS'],
-        "android.injected.signing.key.password" => ENV['ANDROID_KEY_PASSWORD'],
-      },
+      properties: props,
     )
 
     pkg = flavor == "staging" ? "com.zkproofport.app.staging" : "com.zkproofport.app"
