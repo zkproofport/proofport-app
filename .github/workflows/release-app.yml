@@ -135,7 +135,7 @@ jobs:
           ASC_API_KEY_PKCS8_PATH: /tmp/asc_api_key_pkcs8.p8
           MATCH_GIT_URL: https://${{ secrets.GH_PAT }}@github.com/zkproofport/ios-certificates.git
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          BUILD_NUMBER: ${{ github.run_number + 100 }}
+          BUILD_NUMBER: ${{ github.run_number }}
         run: bundle exec fastlane ios beta env:production
 
       - name: Build only (dry run)
@@ -246,7 +246,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          BUILD_NUMBER: ${{ github.run_number + 100 }}
+          BUILD_NUMBER: ${{ github.run_number }}
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
         run: bundle exec fastlane android beta flavor:production
 
