@@ -87,6 +87,20 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
+      - name: Cache node_modules
+        id: cache-node-ios
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-${{ hashFiles('package-lock.json') }}
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-
+
       - name: Download mopro binaries
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -97,9 +111,11 @@ jobs:
           tar xzf /tmp/MoproFfiFramework.xcframework.tar.gz -C mopro_bindings/
 
       - name: Install dependencies
-        run: |
-          npm install --legacy-peer-deps
-          cd ios && rm -f Podfile.lock && pod install --repo-update
+        if: steps.cache-node-ios.outputs.cache-hit != 'true'
+        run: npm install --legacy-peer-deps
+
+      - name: Install CocoaPods
+        run: cd ios && pod install --repo-update
 
       - name: Decode App Store Connect API key
         if: inputs.dry_run == false
@@ -178,6 +194,23 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: true
 
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/app/build.gradle', 'android/build.gradle') }}
+          restore-keys: gradle-
+
+      - name: Cache node_modules
+        id: cache-node-android
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-${{ hashFiles('package-lock.json') }}
+
       - name: Decode keystore
         if: inputs.dry_run == false
         env:
@@ -202,6 +235,7 @@ jobs:
           rm /tmp/android-jniLibs-arm64-v8a.tar.gz
 
       - name: Install dependencies
+        if: steps.cache-node-android.outputs.cache-hit != 'true'
         run: npm install --legacy-peer-deps
 
       - name: Build AAB
