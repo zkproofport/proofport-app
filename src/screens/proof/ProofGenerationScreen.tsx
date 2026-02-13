@@ -7,7 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {
@@ -40,6 +42,94 @@ const CIRCUIT_CONFIG: Record<string, string> = {
   'coinbase-country': 'coinbase_country_attestation',
 };
 
+const ProgressButton: React.FC<{
+  progress: number; // 0 to 1
+  label: string;
+  height?: number;
+}> = ({progress, label, height = 52}) => {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      }),
+    ).start();
+  }, [shimmerAnim]);
+
+  const shimmerTranslateX = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-200, 400],
+  });
+
+  return (
+    <View style={[progressStyles.container, {height}]}>
+      {/* Background (unfilled) */}
+      <View style={progressStyles.unfilled} />
+      {/* Filled portion */}
+      <View style={[progressStyles.filled, {width: `${Math.max(progress * 100, 5)}%`}]}>
+        {/* Shimmer overlay */}
+        <Animated.View
+          style={[
+            progressStyles.shimmer,
+            {transform: [{translateX: shimmerTranslateX}]},
+          ]}>
+          <LinearGradient
+            colors={['transparent', 'rgba(255,255,255,0.3)', 'transparent']}
+            start={{x: 0, y: 0.5}}
+            end={{x: 1, y: 0.5}}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+      </View>
+      {/* Text label on top */}
+      <View style={progressStyles.labelContainer}>
+        <Text style={progressStyles.label}>{label}</Text>
+      </View>
+    </View>
+  );
+};
+
+const progressStyles = StyleSheet.create({
+  container: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  unfilled: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#94A3B8',
+  },
+  filled: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#3B82F6',
+    borderRadius: 0,
+  },
+  shimmer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 200,
+  },
+  labelContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  label: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+});
+
 const toUserSteps = (
   hookSteps: Array<{id: string; label: string; status: string}>,
   walletConnected: boolean,
@@ -70,9 +160,21 @@ const toUserSteps = (
     else if (hs.status === 'error') us.status = 'error';
   }
 
-  const activeIdx = steps.findIndex(s => s.status === 'active');
-  if (activeIdx > 0) {
-    for (let i = 0; i < activeIdx; i++) {
+  // Find the last active step — earlier active steps become complete
+  let lastActiveIdx = -1;
+  for (let i = steps.length - 1; i >= 0; i--) {
+    if (steps[i].status === 'active') {
+      if (lastActiveIdx === -1) {
+        lastActiveIdx = i;
+      } else {
+        steps[i].status = 'complete';
+      }
+    }
+  }
+
+  // Mark all pending steps before the active one as complete
+  if (lastActiveIdx > 0) {
+    for (let i = 0; i < lastActiveIdx; i++) {
       if (steps[i].status === 'pending') steps[i].status = 'complete';
     }
   }
@@ -90,6 +192,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const proofStartedAt = useRef<number | null>(null);
   const historyIdRef = useRef<string | null>(null);
   const failedMarkedRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -330,13 +433,27 @@ export const ProofGenerationScreen: React.FC = () => {
   const isProcessing = hook.isLoading || isSearching;
   const hasStepsStarted = hook.proofSteps.some(s => s.status !== 'pending');
 
+  useEffect(() => {
+    if (isProcessing && scrollViewRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({animated: true});
+      }, 300);
+    }
+  }, [hook.proofSteps, isProcessing]);
+
   const getButtonState = () => {
     if (!isWalletConnected)
       return {title: 'Connect Wallet', onPress: connectWallet, disabled: !isPrivyReady, loading: false};
-    if (isSearching)
-      return {title: 'Searching Attestation...', onPress: () => {}, disabled: true, loading: true};
-    if (hook.isLoading)
-      return {title: 'Generating Proof...', onPress: () => {}, disabled: true, loading: true};
+    if (isProcessing) {
+      const activeIdx = userSteps.findIndex(s => s.status === 'active');
+      const activeStep = activeIdx >= 0 ? userSteps[activeIdx] : null;
+      const stepNum = activeIdx >= 0 ? activeIdx + 1 : userSteps.length;
+      const title = activeStep
+        ? `${stepNum}/${userSteps.length}  ${activeStep.label}`
+        : 'Processing';
+      const progress = stepNum / userSteps.length;
+      return {title, onPress: () => {}, disabled: true, loading: false, progress};
+    }
     if (errorMessage)
       return {title: 'Retry', onPress: handleGenerateProof, disabled: false, loading: false};
     return {
@@ -356,7 +473,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.hero}>
           <Text style={{fontSize: 11, fontWeight: '700', color: themeColors.info[400], letterSpacing: 1.5, marginBottom: 8}}>
             PROOF PORTAL
@@ -390,15 +507,18 @@ export const ProofGenerationScreen: React.FC = () => {
         )}
 
         <View style={styles.btnWrap}>
-          <Button title={btn.title} onPress={btn.onPress} disabled={btn.disabled} loading={btn.loading} size="large" />
+          {isProcessing && (btn as any).progress != null ? (
+            <ProgressButton progress={(btn as any).progress} label={btn.title} />
+          ) : (
+            <Button title={btn.title} onPress={btn.onPress} disabled={btn.disabled} loading={btn.loading} size="large" />
+          )}
         </View>
-
-        {isProcessing && (
-          <View style={styles.loader}>
-            <ActivityIndicator size="large" color={themeColors.info[500]} />
-          </View>
-        )}
       </ScrollView>
+      {isProcessing && (
+        <View style={styles.loaderOverlay}>
+          <ActivityIndicator size="large" color={themeColors.info[500]} />
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -410,5 +530,10 @@ const styles = StyleSheet.create({
   steps: {marginBottom: 20, paddingHorizontal: 16, paddingVertical: 8},
   logsWrap: {marginBottom: 16},
   btnWrap: {marginBottom: 20},
-  loader: {alignItems: 'center', marginBottom: 20},
+  loaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
 });
