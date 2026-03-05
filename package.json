@@ -40,7 +40,7 @@
     "@reown/appkit-ethers-react-native": "^2.0.1",
     "@reown/appkit-react-native": "^2.0.1",
     "@types/base-64": "^1.0.2",
-    "@walletconnect/react-native-compat": "^2.23.1",
+    "@walletconnect/react-native-compat": "^2.23.7",
     "base-64": "^1.0.0",
     "eciesjs": "^0.4.16",
     "ethers": "^5.7.2",
