@@ -179,7 +179,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
   },
   production: {
-    coinbase_attestation: '',
-    coinbase_country_attestation: '',
+    coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
+    coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
   },
 };
