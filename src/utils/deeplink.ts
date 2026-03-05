@@ -111,11 +111,8 @@ export function parseProofRequestUrl(url: string): ProofRequest | null {
         if (!request.inputs) request.inputs = {};
         (request.inputs as any).scope = decoded.scope;
       }
-      // Handle clientId field: relay sends 'clientId' at top level, app expects it in inputs
-      if (decoded.clientId && (!request.inputs || !(request.inputs as any).clientId)) {
-        if (!request.inputs) request.inputs = {};
-        (request.inputs as any).clientId = decoded.clientId;
-      }
+      // clientId is the relay signer address — keep at top level, do NOT merge into inputs
+      // (merging it would break inputsHash integrity check)
       console.log('[DeepLink] Parsed request (format 1):', request.requestId);
       return request;
     }
@@ -292,21 +289,13 @@ function isPrivateHost(hostname: string): boolean {
 
 /**
  * Computes a SHA-256 hex digest of the given string.
- * Tries Node.js crypto first (available in some RN environments),
- * then falls back to Web Crypto API (available in Hermes).
+ * Uses ethers.js which is always available in React Native.
  */
 async function computeSha256(data: string): Promise<string> {
-  try {
-    const {createHash} = require('crypto');
-    return createHash('sha256').update(data).digest('hex');
-  } catch {
-    // Fallback: Web Crypto API (available in React Native Hermes)
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
+  const { sha256 } = require('@noble/hashes/sha256');
+  const { bytesToHex } = require('@noble/hashes/utils');
+  const encoder = new TextEncoder();
+  return bytesToHex(sha256(encoder.encode(data)));
 }
 
 /**
