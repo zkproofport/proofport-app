@@ -291,6 +291,25 @@ function isPrivateHost(hostname: string): boolean {
 }
 
 /**
+ * Computes a SHA-256 hex digest of the given string.
+ * Tries Node.js crypto first (available in some RN environments),
+ * then falls back to Web Crypto API (available in Hermes).
+ */
+async function computeSha256(data: string): Promise<string> {
+  try {
+    const {createHash} = require('crypto');
+    return createHash('sha256').update(data).digest('hex');
+  } catch {
+    // Fallback: Web Crypto API (available in React Native Hermes)
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+}
+
+/**
  * Validates that a requestId exists in a TRUSTED relay server.
  *
  * Trust rules (from config/contracts.ts):
@@ -299,11 +318,14 @@ function isPrivateHost(hostname: string): boolean {
  *
  * @param requestId - The request ID to validate
  * @param callbackUrl - The callback URL from the deep link (used to derive relay base URL)
+ * @param parsedInputs - Optional parsed inputs from the deep link; when provided and relay returns
+ *   an inputsHash, the local hash is compared to detect tampering
  * @returns Promise resolving to { valid: boolean; error?: string }
  */
 export async function validateRequestWithRelay(
   requestId: string,
   callbackUrl: string,
+  parsedInputs?: Record<string, unknown>,
 ): Promise<{valid: boolean; error?: string}> {
   try {
     // Derive relay base URL from callbackUrl
@@ -374,6 +396,22 @@ export async function validateRequestWithRelay(
 
     const data = await response.json();
     console.log('[DeepLink] Relay validation success: status=', data.status);
+
+    // Verify inputs hash integrity (if relay provides inputsHash and we have local inputs)
+    if (data.inputsHash && parsedInputs) {
+      const canonical = JSON.stringify(parsedInputs, Object.keys(parsedInputs).sort());
+      const localHash = await computeSha256(canonical);
+
+      if (localHash !== data.inputsHash) {
+        console.log('[DeepLink] Inputs hash mismatch! Local:', localHash, 'Relay:', data.inputsHash);
+        return {
+          valid: false,
+          error: 'Deep link integrity check failed — inputs have been tampered with',
+        };
+      }
+      console.log('[DeepLink] Inputs hash verified successfully');
+    }
+
     return {valid: true};
   } catch (error: any) {
     if (error.name === 'AbortError') {

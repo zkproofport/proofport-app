@@ -148,7 +148,7 @@ const App: React.FC = () => {
     }
 
     // Validate requestId with relay server — reject unregistered requests
-    const relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl);
+    const relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl, request.inputs as Record<string, unknown>);
     if (!relayValidation.valid) {
       showGlobalError('E1006', relayValidation.error);
       sendProofResponse(
