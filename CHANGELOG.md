@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/zkproofport/proofport-app/compare/app-v1.0.2...app-v1.1.0) (2026-03-07)
+
+
+### Bug Fixes
+
+* use production flavor with APP_ID_SUFFIX for Android release ([a3a9ccd](https://github.com/zkproofport/proofport-app/commit/a3a9ccd7293557382a6378f47d92e8aa717488f0))
+* use staging flavor with production config for Android release ([422da46](https://github.com/zkproofport/proofport-app/commit/422da46667cdaf4d8602993ecd7290cd513edb0e))
+
+
+### Features
+
+* add app_env override for staging flavor Android builds ([ef61934](https://github.com/zkproofport/proofport-app/commit/ef619346d5756c39cb9dde3f8705569197fdc939))
+
 ## [1.0.2](https://github.com/zkproofport/proofport-app/compare/app-v1.0.1...app-v1.0.2) (2026-03-07)
 
 
