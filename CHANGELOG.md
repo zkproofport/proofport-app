@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/zkproofport/proofport-app/compare/app-v1.0.0...app-v1.0.1) (2026-03-07)
+
+
+### Bug Fixes
+
+* set semantic-release output variables for non-dry-run builds ([7cf4bf5](https://github.com/zkproofport/proofport-app/commit/7cf4bf56d4a30618cb194df24935c1418ad995f7))
+
 # 1.0.0 (2026-03-07)
 
 
