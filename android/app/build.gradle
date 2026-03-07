@@ -98,7 +98,7 @@ android {
         applicationId "com.zkproofport.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() + 100 : 102
+        versionCode System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() + 1000 : 1001
         versionName "1.1.0"
     }
     flavorDimensions = ["environment"]
