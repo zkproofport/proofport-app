@@ -248,25 +248,27 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
-        run: bundle exec fastlane android beta flavor:production
+          ORG_GRADLE_PROJECT_APP_ENV_OVERRIDE: production
+        run: bundle exec fastlane android beta flavor:staging
 
       - name: Build APK (dry run)
         if: inputs.dry_run == true
         working-directory: android
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
-        run: ./gradlew assembleProductionRelease
+          ORG_GRADLE_PROJECT_APP_ENV_OVERRIDE: production
+        run: ./gradlew assembleStagingRelease
 
       - name: Upload AAB artifact
         if: inputs.dry_run == false
         uses: actions/upload-artifact@v4
         with:
-          name: app-production-release.aab
-          path: android/app/build/outputs/bundle/productionRelease/*.aab
+          name: app-staging-release.aab
+          path: android/app/build/outputs/bundle/stagingRelease/*.aab
 
       - name: Upload APK artifact
         if: inputs.dry_run == true
         uses: actions/upload-artifact@v4
         with:
-          name: app-production-release.apk
-          path: android/app/build/outputs/apk/production/release/*.apk
+          name: app-staging-release.apk
+          path: android/app/build/outputs/apk/staging/release/*.apk
