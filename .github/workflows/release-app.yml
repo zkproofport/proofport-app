@@ -51,12 +51,12 @@ jobs:
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             npx semantic-release --dry-run 2>&1 | tee sr-output.txt
-            VERSION=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' sr-output.txt || echo "")
-            echo "new_release_version=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "new_release_published=$( [ -n \"$VERSION\" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
           else
-            npx semantic-release
+            npx semantic-release 2>&1 | tee sr-output.txt
           fi
+          VERSION=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' sr-output.txt || echo "")
+          echo "new_release_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "new_release_published=$( [ -n \"$VERSION\" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
 
       - name: Version summary
         run: |
