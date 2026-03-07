@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/zkproofport/proofport-app/compare/app-v1.0.1...app-v1.0.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* use absolute path for Android keystore in release workflow ([3ac2109](https://github.com/zkproofport/proofport-app/commit/3ac210916d1752abbe366edac3951086c650b617))
+
 ## [1.0.1](https://github.com/zkproofport/proofport-app/compare/app-v1.0.0...app-v1.0.1) (2026-03-07)
 
 
