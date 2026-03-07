@@ -107,7 +107,7 @@ android {
             dimension "environment"
             applicationIdSuffix ".staging"
             resValue "string", "app_name", "ZKProofport STG"
-            resValue "string", "app_env", "development"
+            resValue "string", "app_env", project.hasProperty('APP_ENV_OVERRIDE') ? project.property('APP_ENV_OVERRIDE') : "development"
         }
         production {
             dimension "environment"
