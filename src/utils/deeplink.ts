@@ -16,8 +16,8 @@ export interface CoinbaseCountryInputs {
 }
 
 export interface OidcDomainInputs {
+  domain: string; // Target domain to prove (e.g., 'google.com')
   scope: string;
-  domain?: string; // Target domain to prove (e.g., 'google.com')
 }
 
 // Empty inputs for circuits that get data from app

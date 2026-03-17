@@ -367,8 +367,7 @@ export const ProofGenerationScreen: React.FC = () => {
     try {
       if (isOidc) {
         // OIDC: on-device proof generation — no attestation lookup needed
-        const deep = proofRequest?.inputs as {jwt?: string; scope?: string; domain?: string} | undefined;
-        let jwtToken = deep?.jwt || '';
+        const deep = proofRequest?.inputs as {scope?: string; domain?: string} | undefined;
         const scopeStr = deep?.scope || route.params?.domainInput?.scope || 'proofport:default';
         const domainStr = deep?.domain || route.params?.domainInput?.domain || '';
 
@@ -380,34 +379,31 @@ export const ProofGenerationScreen: React.FC = () => {
           return;
         }
 
-        // If no JWT from deep link, trigger Google Sign-In
-        if (!jwtToken) {
-          addLog('[OIDC] No JWT provided — starting Google Sign-In...');
+        // Trigger Google Sign-In to obtain JWT
+        addLog('[OIDC] Starting Google Sign-In...');
 
-          if (!googleAuth.isReady) {
-            const msg = 'Google Sign-In is not ready. Please try again.';
-            addLog(`[Error] ${msg}`);
-            setErrorMessage(msg);
-            markHistoryFailed();
-            return;
-          }
-
-          const token = await googleAuth.promptSignIn();
-          if (!token) {
-            const msg = googleAuth.error || 'Google Sign-In failed or was cancelled';
-            addLog(`[Error] ${msg}`);
-            setErrorMessage(msg);
-            markHistoryFailed();
-            if (proofRequest) {
-              sendError(proofRequest, msg).catch(console.error);
-              setActiveProofRequest(null);
-            }
-            return;
-          }
-
-          jwtToken = token;
-          addLog('[OIDC] Google Sign-In successful — JWT obtained');
+        if (!googleAuth.isReady) {
+          const msg = 'Google Sign-In is not ready. Please try again.';
+          addLog(`[Error] ${msg}`);
+          setErrorMessage(msg);
+          markHistoryFailed();
+          return;
         }
+
+        const jwtToken = await googleAuth.promptSignIn();
+        if (!jwtToken) {
+          const msg = googleAuth.error || 'Google Sign-In failed or was cancelled';
+          addLog(`[Error] ${msg}`);
+          setErrorMessage(msg);
+          markHistoryFailed();
+          if (proofRequest) {
+            sendError(proofRequest, msg).catch(console.error);
+            setActiveProofRequest(null);
+          }
+          return;
+        }
+
+        addLog('[OIDC] Google Sign-In successful — JWT obtained');
 
         await oidcHook.generateProofWithSteps(
           {jwtToken, scopeString: scopeStr, domain: domainStr},
@@ -510,14 +506,11 @@ export const ProofGenerationScreen: React.FC = () => {
   // Auto-start for OIDC deep link requests (no wallet needed)
   useEffect(() => {
     if (isOidc && proofRequest && !hasAutoStarted.current) {
-      const deep = proofRequest.inputs as {jwt?: string} | undefined;
-      if (deep?.jwt) {
-        hasAutoStarted.current = true;
-        addLog(`[DeepLink] OIDC from: ${proofRequest.dappName || 'Unknown'}`);
-        addLog(`[DeepLink] Auto-starting with provided JWT...`);
-        const t = setTimeout(() => handleGenerateProof(), 500);
-        return () => clearTimeout(t);
-      }
+      hasAutoStarted.current = true;
+      addLog(`[DeepLink] OIDC from: ${proofRequest.dappName || 'Unknown'}`);
+      addLog(`[DeepLink] Auto-starting...`);
+      const t = setTimeout(() => handleGenerateProof(), 500);
+      return () => clearTimeout(t);
     }
   }, [isOidc, proofRequest, handleGenerateProof, addLog]);
 
