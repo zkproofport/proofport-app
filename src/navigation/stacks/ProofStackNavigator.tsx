@@ -5,6 +5,7 @@ import type { ProofStackParamList } from '../types';
 import {
   CircuitSelectionScreen,
   CountryInputScreen,
+  DomainInputScreen,
   ProofGenerationScreen,
   ProofCompleteScreen,
 } from '../../screens/proof';
@@ -27,6 +28,11 @@ const ProofStackNavigator: React.FC = () => {
         name="CountryInput"
         component={CountryInputScreen}
         options={{ title: 'Country Verification' }}
+      />
+      <Stack.Screen
+        name="DomainInput"
+        component={DomainInputScreen}
+        options={{ title: 'Domain Verification' }}
       />
       <Stack.Screen
         name="ProofGeneration"

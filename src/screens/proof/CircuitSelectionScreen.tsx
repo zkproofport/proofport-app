@@ -43,6 +43,13 @@ export const CircuitSelectionScreen: React.FC = () => {
             description="Verify your country through Coinbase"
             onPress={() => navigation.navigate('CountryInput')}
           />
+
+          <CircuitCard
+            icon={getCircuitIcon('oidc_domain_attestation')}
+            title="OIDC Domain"
+            description="Prove your email domain affiliation"
+            onPress={() => navigation.navigate('DomainInput')}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>

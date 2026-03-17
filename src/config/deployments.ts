@@ -185,6 +185,7 @@ export async function syncDeployments(env: Environment): Promise<boolean> {
   const circuits: CircuitName[] = [
     'coinbase_attestation',
     'coinbase_country_attestation',
+    'oidc_domain_attestation',
   ];
   let updated = false;
 

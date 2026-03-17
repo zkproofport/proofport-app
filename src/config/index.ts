@@ -6,12 +6,14 @@ export {
   appMetadata,
 } from './PrivyConfig';
 export {VERIFIER_ABI, AUTHORIZED_SIGNERS} from './contracts';
+export {GOOGLE_WEB_CLIENT_ID} from './GoogleAuthConfig';
 export type {Environment, CircuitName} from './contracts';
 export {
   getEnvironment,
   setEnvironmentOverride,
   getNetworkConfig,
   getAttestationConfig,
+  getRelayConfig,
   getVerifierAbi,
   getBaseRpcUrls,
   getVerifierAddress,

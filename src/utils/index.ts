@@ -13,3 +13,5 @@ export * from './coinbaseKyc';
 export * from './attestationSearch';
 export * from './circuitDownload';
 export { getCircuitIcon, getCircuitDisplayName } from './circuit';
+export { prepareOidcInputs, flattenOidcInputs } from './oidcDomain';
+export type { OidcCircuitInputs, PrepareOidcParams } from './oidcDomain';

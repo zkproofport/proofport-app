@@ -8,7 +8,7 @@ import {
 import {getEnvironment, initDeployments} from '../config';
 import {useThemeColors} from '../context';
 
-const CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation'];
+const CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'];
 const SPLASH_DURATION = 3000;
 
 interface LoadingScreenProps {

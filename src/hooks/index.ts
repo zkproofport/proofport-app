@@ -9,6 +9,10 @@ export {usePrivyWallet} from './usePrivyWallet';
 export type {PrivyConnectionStatus} from './usePrivyWallet';
 export {useDeepLink} from './useDeepLink';
 export type {SendProofOptions} from './useDeepLink';
+export {useOidcDomain} from './useOidcDomain';
+export type {UseOidcDomainReturn, OidcDomainProofInputs} from './useOidcDomain';
+export {useGoogleAuth} from './useGoogleAuth';
+export type {UseGoogleAuthReturn} from './useGoogleAuth';
 export {useAppStateReset} from './useAppStateReset';
 export {useSettings} from './useSettings';
 // Deprecated: use usePrivyWallet instead

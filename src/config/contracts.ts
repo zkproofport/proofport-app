@@ -13,7 +13,7 @@
 
 export type Environment = 'development' | 'production';
 
-export type CircuitName = 'coinbase_attestation' | 'coinbase_country_attestation';
+export type CircuitName = 'coinbase_attestation' | 'coinbase_country_attestation' | 'oidc_domain_attestation';
 
 export interface NetworkConfig {
   chainId: number;
@@ -137,6 +137,8 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployCoinbaseAttestation.s.sol/${chainId}/run-latest.json`,
   coinbase_country_attestation: (chainId) =>
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
+  oidc_domain_attestation: (chainId) =>
+    `DeployOidcDomainAttestation.s.sol/${chainId}/run-latest.json`,
 };
 
 export interface CircuitFilePaths {
@@ -161,6 +163,11 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
     vkPath: 'coinbase-country-attestation/target/vk',
     vkFileName: 'vk',
   },
+  oidc_domain_attestation: {
+    basePath: 'oidc-domain-attestation/target',
+    vkPath: 'oidc-domain-attestation/target/vk',
+    vkFileName: 'vk',
+  },
 };
 
 /**
@@ -177,9 +184,11 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   development: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
+    oidc_domain_attestation: '0x6C309e6F804E034068A55Bca58b91652621eCB07',
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
+    oidc_domain_attestation: '0x0000000000000000000000000000000000000000',
   },
 };

@@ -14,7 +14,8 @@ export type TabParamList = {
 export type ProofStackParamList = {
   CircuitSelection: undefined;
   CountryInput: undefined;
-  ProofGeneration: { circuitId: string; proofRequest?: ProofRequest; countryInputs?: { countryList: string[]; isIncluded: boolean } };
+  DomainInput: undefined;
+  ProofGeneration: { circuitId: string; proofRequest?: ProofRequest; countryInputs?: { countryList: string[]; isIncluded: boolean }; domainInput?: { domain: string; scope: string } };
   ProofComplete: {
     proofHex: string;
     publicInputsHex: string[];

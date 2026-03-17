@@ -1,5 +1,5 @@
 
-export type CircuitType = 'coinbase_attestation' | 'coinbase_country_attestation';
+export type CircuitType = 'coinbase_attestation' | 'coinbase_country_attestation' | 'oidc_domain_attestation';
 
 export interface CoinbaseKycInputs {
   userAddress?: string; // Optional - app will connect wallet if not provided
@@ -15,10 +15,15 @@ export interface CoinbaseCountryInputs {
   isIncluded?: boolean;
 }
 
+export interface OidcDomainInputs {
+  scope: string;
+  domain?: string; // Target domain to prove (e.g., 'google.com')
+}
+
 // Empty inputs for circuits that get data from app
 export interface EmptyInputs {}
 
-export type CircuitInputs = CoinbaseKycInputs | CoinbaseCountryInputs | EmptyInputs;
+export type CircuitInputs = CoinbaseKycInputs | CoinbaseCountryInputs | OidcDomainInputs | EmptyInputs;
 
 export interface ProofRequest {
   requestId: string;
@@ -171,7 +176,7 @@ export function validateProofRequest(
     return {valid: false, error: 'Missing circuit type'};
   }
 
-  if (!['coinbase_attestation', 'coinbase_country_attestation'].includes(request.circuit)) {
+  if (!['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'].includes(request.circuit)) {
     return {valid: false, error: `Invalid circuit type: ${request.circuit}`};
   }
 
@@ -201,6 +206,14 @@ export function validateProofRequest(
       }
     }
     // If userAddress is not provided, app will prompt wallet connection
+  }
+
+  // OIDC domain attestation: scope is required
+  if (request.circuit === 'oidc_domain_attestation') {
+    const inputs = request.inputs as OidcDomainInputs;
+    if (!inputs.scope) {
+      return {valid: false, error: 'Missing required scope parameter for oidc_domain_attestation'};
+    }
   }
 
   // Check expiry

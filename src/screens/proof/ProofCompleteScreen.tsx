@@ -16,7 +16,7 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Icon, Badge, Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
-import {useCoinbaseKyc, useCoinbaseCountry, useLogs} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useLogs} from '../../hooks';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig} from '../../config';
 
@@ -26,6 +26,7 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofCompl
 const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
   'coinbase-kyc': 'Coinbase KYC',
   'coinbase-country': 'Coinbase Country',
+  'oidc_domain_attestation': 'OIDC Domain',
 };
 
 export const ProofCompleteScreen: React.FC = () => {
@@ -57,9 +58,12 @@ export const ProofCompleteScreen: React.FC = () => {
   const [onChainStatus, setOnChainStatus] = useState<'generated' | 'loading' | 'verified' | 'failed'>('generated');
 
   const isCountryCircuit = circuitId === 'coinbase-country';
+  const isOidcCircuit = circuitId === 'oidc_domain_attestation';
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
-  const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = isCountryCircuit ? countryHook : kycHook;
+  const oidcHook = useOidcDomain();
+  const activeHook = isOidcCircuit ? oidcHook : (isCountryCircuit ? countryHook : kycHook);
+  const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = activeHook;
   const {logs, addLog} = useLogs();
 
   const handleCopyProof = () => {

@@ -19,7 +19,7 @@ import {
   LiveLogsPanel,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, useCoinbaseCountry, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGoogleAuth, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
 import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -35,11 +35,13 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGener
 const CIRCUIT_DISPLAY: Record<string, string> = {
   'coinbase-kyc': 'Coinbase KYC',
   'coinbase-country': 'Coinbase Country',
+  'oidc_domain_attestation': 'OIDC Domain',
 };
 
 const CIRCUIT_CONFIG: Record<string, string> = {
   'coinbase-kyc': 'coinbase_attestation',
   'coinbase-country': 'coinbase_country_attestation',
+  'oidc_domain_attestation': 'oidc_domain_attestation',
 };
 
 const ProgressButton: React.FC<{
@@ -201,15 +203,35 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const circuitId = route.params?.circuitId || 'coinbase-kyc';
   const isCountry = circuitId === 'coinbase-country';
+  const isOidc = circuitId === 'oidc_domain_attestation';
 
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
-  const hook = isCountry ? countryHook : kycHook;
+  const oidcHook = useOidcDomain();
+  const googleAuth = useGoogleAuth();
+  const hook = isOidc ? oidcHook : (isCountry ? countryHook : kycHook);
 
   const {account, isReady: isPrivyReady, isWalletConnected, connect: connectWallet, getProvider} = usePrivyWallet(addLog);
   const {sendProof, sendError} = useDeepLink();
 
-  const userSteps = toUserSteps(hook.proofSteps, isWalletConnected, isSearching);
+  const googleStepStatus = googleAuth.idToken ? 'complete' : 'pending';
+  const googleStepLabel = 'Google Sign-In';
+  const oidcUserSteps: StepData[] = [
+    {id: 'google', label: googleStepLabel, status: googleStepStatus, icon: 'log-in'},
+    ...hook.proofSteps.map(s => {
+      const status: StepData['status'] =
+        s.status === 'in_progress' ? 'active' :
+        s.status === 'completed' ? 'complete' :
+        s.status === 'error' ? 'error' : 'pending';
+      return {
+        id: s.id,
+        label: s.label,
+        status,
+        icon: s.id === 'vk' ? 'key' : s.id === 'download' ? 'download' : s.id === 'validate' ? 'check-circle' : s.id === 'jwks' ? 'globe' : s.id === 'proof' ? 'cpu' : s.id === 'storage' ? 'hard-drive' : 'check',
+      };
+    }),
+  ];
+  const userSteps = isOidc ? oidcUserSteps : toUserSteps(hook.proofSteps, isWalletConnected, isSearching);
 
   // Mark history as failed (idempotent via ref)
   const markHistoryFailed = useCallback(() => {
@@ -251,18 +273,25 @@ export const ProofGenerationScreen: React.FC = () => {
     }
 
     if (proofRequest) {
-      const inputs = proofRequest.inputs as CoinbaseKycInputs | undefined;
-      const scope = inputs?.scope || 'proofport:default';
-      const scopeBytes = computeScope(scope);
-      const nullifierBytes = hook.signalHash
-        ? computeNullifier(account || '', hook.signalHash, scopeBytes)
-        : new Uint8Array(32);
+      let nullifierHex = '0x' + '00'.repeat(32);
+      if (isOidc) {
+        // OIDC: nullifier is embedded in public inputs (circuit computes it)
+        // No separate computation needed
+      } else {
+        const inputs = proofRequest.inputs as CoinbaseKycInputs | undefined;
+        const scope = inputs?.scope || 'proofport:default';
+        const scopeBytes = computeScope(scope);
+        const nullifierBytes = (hook as any).signalHash
+          ? computeNullifier(account || '', (hook as any).signalHash, scopeBytes)
+          : new Uint8Array(32);
+        nullifierHex = ethers.utils.hexlify(nullifierBytes);
+      }
 
       sendProof(proofRequest, {
         proof: hook.parsedProof.proofHex,
         publicInputs: hook.parsedProof.publicInputsHex,
         numPublicInputs: hook.parsedProof.numPublicInputs,
-        nullifier: ethers.utils.hexlify(nullifierBytes),
+        nullifier: nullifierHex,
         verificationType: 'off-chain',
         verificationResult: false,
         startedAt: proofStartedAt.current,
@@ -288,10 +317,10 @@ export const ProofGenerationScreen: React.FC = () => {
       walletAddress: account || undefined,
       historyId: historyIdRef.current || undefined,
     });
-  }, [hook.parsedProof, navigation, circuitId, proofRequest, sendProof, account, hook.signalHash, markHistoryFailed]);
+  }, [hook.parsedProof, navigation, circuitId, proofRequest, sendProof, account, isOidc, markHistoryFailed]);
 
   const handleGenerateProof = useCallback(async () => {
-    if (!account) {
+    if (!isOidc && !account) {
       addLog('Please connect wallet first');
       return;
     }
@@ -319,7 +348,7 @@ export const ProofGenerationScreen: React.FC = () => {
           overallStatus: 'started',
           timestamp: new Date().toISOString(),
           network: 'Sepolia',
-          walletAddress: account,
+          walletAddress: account ?? '',
           verifierAddress: getVerifierAddressSync(configName),
           source: proofRequest ? 'deeplink' : 'manual',
           dappName: proofRequest?.dappName,
@@ -336,16 +365,71 @@ export const ProofGenerationScreen: React.FC = () => {
     }
 
     try {
+      if (isOidc) {
+        // OIDC: on-device proof generation — no attestation lookup needed
+        const deep = proofRequest?.inputs as {jwt?: string; scope?: string; domain?: string} | undefined;
+        let jwtToken = deep?.jwt || '';
+        const scopeStr = deep?.scope || route.params?.domainInput?.scope || 'proofport:default';
+        const domainStr = deep?.domain || route.params?.domainInput?.domain || '';
+
+        if (!domainStr) {
+          const msg = 'Domain is required for OIDC proof (e.g., "gmail.com"). Use a deep link or provide domain input.';
+          addLog(`[Error] ${msg}`);
+          setErrorMessage(msg);
+          markHistoryFailed();
+          return;
+        }
+
+        // If no JWT from deep link, trigger Google Sign-In
+        if (!jwtToken) {
+          addLog('[OIDC] No JWT provided — starting Google Sign-In...');
+
+          if (!googleAuth.isReady) {
+            const msg = 'Google Sign-In is not ready. Please try again.';
+            addLog(`[Error] ${msg}`);
+            setErrorMessage(msg);
+            markHistoryFailed();
+            return;
+          }
+
+          const token = await googleAuth.promptSignIn();
+          if (!token) {
+            const msg = googleAuth.error || 'Google Sign-In failed or was cancelled';
+            addLog(`[Error] ${msg}`);
+            setErrorMessage(msg);
+            markHistoryFailed();
+            if (proofRequest) {
+              sendError(proofRequest, msg).catch(console.error);
+              setActiveProofRequest(null);
+            }
+            return;
+          }
+
+          jwtToken = token;
+          addLog('[OIDC] Google Sign-In successful — JWT obtained');
+        }
+
+        await oidcHook.generateProofWithSteps(
+          {jwtToken, scopeString: scopeStr, domain: domainStr},
+          addLog,
+        );
+        // Hook errors are caught internally — detected via useEffect on proofSteps
+        return;
+      }
+
+      // Non-OIDC paths require wallet — guarded by !isOidc && !account check above
+      const walletAddress = account as string;
+
       const selector = isCountry ? SELECTOR_ATTEST_COUNTRY : SELECTOR_ATTEST_ACCOUNT;
       addLog(isCountry
         ? '=== Searching for Coinbase Country Attestation ==='
         : '=== Searching for Coinbase Attestation ===');
 
-      const txResult = await findAttestationTransaction(account, addLog, selector);
+      const txResult = await findAttestationTransaction(walletAddress, addLog, selector);
       if (!txResult) {
         const msg = isCountry
-          ? `No country attestation found for wallet ${account}`
-          : `No attestation found for wallet ${account}`;
+          ? `No country attestation found for wallet ${walletAddress}`
+          : `No attestation found for wallet ${walletAddress}`;
         setErrorMessage(msg);
         addLog(msg);
         markHistoryFailed();
@@ -388,7 +472,7 @@ export const ProofGenerationScreen: React.FC = () => {
         }
 
         await countryHook.generateProofWithSteps(
-          {userAddress: account, rawTransaction: txResult.rawTransaction, signerIndex: 0, countryList, countryListLength: countryList.length, isIncluded, scopeString: scopeStr},
+          {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, countryList, countryListLength: countryList.length, isIncluded, scopeString: scopeStr},
           ethereum, addLog,
         );
       } else {
@@ -396,7 +480,7 @@ export const ProofGenerationScreen: React.FC = () => {
         const scopeStr = deep?.scope || 'proofport:default';
 
         await kycHook.generateProofWithSteps(
-          {userAddress: account, rawTransaction: txResult.rawTransaction, signerIndex: 0, scopeString: scopeStr},
+          {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, scopeString: scopeStr},
           ethereum, addLog,
         );
       }
@@ -409,7 +493,7 @@ export const ProofGenerationScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [account, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, isCountry, proofRequest, route.params, sendError, circuitId, markHistoryFailed]);
+  }, [account, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, isCountry, isOidc, proofRequest, route.params, sendError, circuitId, markHistoryFailed]);
 
   // Auto-start for deep link requests
   useEffect(() => {
@@ -423,6 +507,20 @@ export const ProofGenerationScreen: React.FC = () => {
     }
   }, [proofRequest, isWalletConnected, account, handleGenerateProof, addLog]);
 
+  // Auto-start for OIDC deep link requests (no wallet needed)
+  useEffect(() => {
+    if (isOidc && proofRequest && !hasAutoStarted.current) {
+      const deep = proofRequest.inputs as {jwt?: string} | undefined;
+      if (deep?.jwt) {
+        hasAutoStarted.current = true;
+        addLog(`[DeepLink] OIDC from: ${proofRequest.dappName || 'Unknown'}`);
+        addLog(`[DeepLink] Auto-starting with provided JWT...`);
+        const t = setTimeout(() => handleGenerateProof(), 500);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [isOidc, proofRequest, handleGenerateProof, addLog]);
+
   useEffect(() => {
     if (proofRequest && !isWalletConnected && isPrivyReady && !hasAutoStarted.current) {
       addLog(`[DeepLink] From: ${proofRequest.dappName || 'Unknown'}`);
@@ -434,15 +532,15 @@ export const ProofGenerationScreen: React.FC = () => {
   const hasStepsStarted = hook.proofSteps.some(s => s.status !== 'pending');
 
   useEffect(() => {
-    if (isProcessing && scrollViewRef.current) {
+    if (hasStepsStarted && scrollViewRef.current) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({animated: true});
       }, 300);
     }
-  }, [hook.proofSteps, isProcessing]);
+  }, [hook.proofSteps, hasStepsStarted]);
 
   const getButtonState = () => {
-    if (!isWalletConnected)
+    if (!isOidc && !isWalletConnected)
       return {title: 'Connect Wallet', onPress: connectWallet, disabled: !isPrivyReady, loading: false};
     if (isProcessing) {
       const activeIdx = userSteps.findIndex(s => s.status === 'active');
@@ -457,7 +555,7 @@ export const ProofGenerationScreen: React.FC = () => {
     if (errorMessage)
       return {title: 'Retry', onPress: handleGenerateProof, disabled: false, loading: false};
     return {
-      title: 'Generate ZK Proof',
+      title: isOidc ? 'Sign in with Google & Prove' : 'Generate ZK Proof',
       onPress: settings?.confirmBeforeGenerate
         ? () => Alert.alert('Generate ZK Proof', 'This will generate a zero-knowledge proof. Proceed?', [
             {text: 'Cancel', style: 'cancel'},
@@ -479,10 +577,16 @@ export const ProofGenerationScreen: React.FC = () => {
             PROOF PORTAL
           </Text>
           <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 12}}>
-            {isCountry ? 'Coinbase Country Verification' : 'Coinbase KYC Verification'}
+            {isOidc
+              ? 'OIDC Domain Verification'
+              : isCountry
+              ? 'Coinbase Country Verification'
+              : 'Coinbase KYC Verification'}
           </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
-            {isCountry
+            {isOidc
+              ? 'Generate a zero-knowledge proof of your email domain using an OIDC identity token. Proof is generated locally on your device.'
+              : isCountry
               ? 'Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.'
               : 'Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.'}
           </Text>

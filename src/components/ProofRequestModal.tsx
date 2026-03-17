@@ -31,6 +31,11 @@ const CIRCUIT_INFO = {
     icon: '🌍',
     description: 'Verify your country through Coinbase',
   },
+  oidc_domain_attestation: {
+    name: 'OIDC Domain Verification',
+    icon: '🔐',
+    description: 'Prove your email domain via OIDC identity token',
+  },
 };
 
 export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({

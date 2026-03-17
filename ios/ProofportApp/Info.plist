@@ -40,6 +40,14 @@
 				<string>privy-cmjdy1g1v01cbjo0c0fajqadz</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.995938448974-dk8ogv5kv5o4ck5gtt74odsbregvslkk</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>2</string>
