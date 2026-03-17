@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput} from 'react-native';
+import {View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, TouchableOpacity} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Button, Card} from '../../components/ui';
@@ -8,11 +8,17 @@ import type {ProofStackParamList} from '../../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'DomainInput'>;
 
+const PROVIDER_OPTIONS = [
+  {value: undefined, label: 'Any Email', desc: 'Verify email domain only'},
+  {value: 'google', label: 'Google Workspace', desc: 'Verify organization membership'},
+] as const;
+
 export const DomainInputScreen: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const [domain, setDomain] = useState('');
   const [scope, setScope] = useState('proofport:default');
+  const [provider, setProvider] = useState<string | undefined>(undefined);
 
   const isValid = domain.trim().length > 0 && domain.includes('.');
 
@@ -22,6 +28,7 @@ export const DomainInputScreen: React.FC = () => {
       domainInput: {
         domain: domain.trim().toLowerCase(),
         scope: scope.trim() || 'proofport:default',
+        ...(provider ? {provider} : {}),
       },
     });
   };
@@ -91,6 +98,37 @@ export const DomainInputScreen: React.FC = () => {
           </Text>
         </Card>
 
+        <Card style={styles.sectionCard}>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12}}>VERIFICATION MODE</Text>
+          {PROVIDER_OPTIONS.map(opt => {
+            const isSelected = provider === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.label}
+                style={{
+                  backgroundColor: themeColors.background.secondary,
+                  borderWidth: 1.5,
+                  borderColor: isSelected ? themeColors.info[500] : themeColors.border.primary,
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 10,
+                  ...(isSelected && {backgroundColor: themeColors.info.background}),
+                }}
+                onPress={() => setProvider(opt.value)}>
+                <Text style={{
+                  fontSize: 16, fontWeight: '600', marginBottom: 4,
+                  color: isSelected ? themeColors.info[400] : themeColors.text.primary,
+                }}>
+                  {opt.label}
+                </Text>
+                <Text style={{fontSize: 13, color: themeColors.text.tertiary, lineHeight: 18}}>
+                  {opt.desc}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </Card>
+
         <Card style={{marginBottom: 24, backgroundColor: themeColors.background.tertiary}}>
           <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>SUMMARY</Text>
           <Text style={[
@@ -98,7 +136,9 @@ export const DomainInputScreen: React.FC = () => {
             !isValid && {color: themeColors.warning[400]},
           ]}>
             {isValid
-              ? `Prove that your email domain is: ${domain.trim().toLowerCase()}`
+              ? provider
+                ? `Prove Google Workspace membership: ${domain.trim().toLowerCase()}`
+                : `Prove that your email domain is: ${domain.trim().toLowerCase()}`
               : 'Enter a valid domain to continue (e.g. gmail.com)'}
           </Text>
         </Card>

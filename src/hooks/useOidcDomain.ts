@@ -37,6 +37,7 @@ export interface OidcDomainProofInputs {
   jwtToken: string; // OIDC JWT id_token from provider (e.g., Google)
   scopeString: string; // dApp scope identifier (REQUIRED)
   domain: string; // Target domain to prove (e.g., 'google.com') — REQUIRED
+  provider?: string; // Workspace provider (e.g., 'google') — when set, verifies org membership via hd claim
 }
 
 export interface ParsedProofData {
@@ -186,11 +187,34 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           throw new Error('Invalid JWT format: expected three dot-separated parts');
         }
 
-        addLog('[JWT] Token structure validated (header.payload.signature)');
-        if (inputs.domain) {
-          addLog(`[JWT] Target domain: ${inputs.domain}`);
+        // Decode payload to check email_verified and hd
+        const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(payloadB64));
+
+        if (!payload.email_verified) {
+          throw new Error('Email is not verified. Only verified email accounts can generate proofs.');
         }
-        updateStep('validate', {status: 'completed', detail: 'JWT format valid'});
+        addLog(`[JWT] email_verified: true`);
+
+        // Provider-specific validation (e.g., Google Workspace hd claim)
+        if (inputs.provider === 'google') {
+          if (!payload.hd) {
+            throw new Error('This account is not a Google Workspace account. Organization membership verification requires a Workspace account.');
+          }
+          if (payload.hd !== inputs.domain) {
+            throw new Error(`Google Workspace domain mismatch: account belongs to "${payload.hd}" but proof is for "${inputs.domain}"`);
+          }
+          // Verify email domain matches hd
+          const emailDomain = (payload.email as string).split('@')[1];
+          if (emailDomain !== payload.hd) {
+            throw new Error(`Email domain "${emailDomain}" does not match Workspace domain "${payload.hd}"`);
+          }
+          addLog(`[JWT] Google Workspace verified: hd=${payload.hd}`);
+        }
+
+        addLog('[JWT] Token validated');
+        addLog(`[JWT] Target domain: ${inputs.domain}`);
+        updateStep('validate', {status: 'completed', detail: inputs.provider ? `Workspace: ${inputs.domain}` : 'JWT valid'});
 
         // Step 3: Fetch JWKS and prepare circuit inputs
         // prepareOidcInputs handles: JWKS fetch, RSA limb decomposition,

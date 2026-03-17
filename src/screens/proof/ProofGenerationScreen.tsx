@@ -367,9 +367,10 @@ export const ProofGenerationScreen: React.FC = () => {
     try {
       if (isOidc) {
         // OIDC: on-device proof generation — no attestation lookup needed
-        const deep = proofRequest?.inputs as {scope?: string; domain?: string} | undefined;
+        const deep = proofRequest?.inputs as {scope?: string; domain?: string; provider?: string} | undefined;
         const scopeStr = deep?.scope || route.params?.domainInput?.scope || 'proofport:default';
         const domainStr = deep?.domain || route.params?.domainInput?.domain || '';
+        const providerStr = deep?.provider || route.params?.domainInput?.provider;
 
         if (!domainStr) {
           const msg = 'Domain is required for OIDC proof (e.g., "gmail.com"). Use a deep link or provide domain input.';
@@ -406,7 +407,7 @@ export const ProofGenerationScreen: React.FC = () => {
         addLog('[OIDC] Google Sign-In successful — JWT obtained');
 
         await oidcHook.generateProofWithSteps(
-          {jwtToken, scopeString: scopeStr, domain: domainStr},
+          {jwtToken, scopeString: scopeStr, domain: domainStr, provider: providerStr},
           addLog,
         );
         // Hook errors are caught internally — detected via useEffect on proofSteps

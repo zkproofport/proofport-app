@@ -15,7 +15,7 @@ export type ProofStackParamList = {
   CircuitSelection: undefined;
   CountryInput: undefined;
   DomainInput: undefined;
-  ProofGeneration: { circuitId: string; proofRequest?: ProofRequest; countryInputs?: { countryList: string[]; isIncluded: boolean }; domainInput?: { domain: string; scope: string } };
+  ProofGeneration: { circuitId: string; proofRequest?: ProofRequest; countryInputs?: { countryList: string[]; isIncluded: boolean }; domainInput?: { domain: string; scope: string; provider?: string } };
   ProofComplete: {
     proofHex: string;
     publicInputsHex: string[];
