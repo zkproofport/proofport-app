@@ -11,6 +11,7 @@ import {
 import type {
   ProofRequest,
   CoinbaseKycInputs,
+  OidcDomainInputs,
 } from '../utils/deeplink';
 
 interface ProofRequestModalProps {
@@ -115,14 +116,23 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
               <Text style={styles.sectionTitle}>Request Details</Text>
 
               <View style={styles.inputsList}>
-                <View style={styles.inputRow}>
-                  <Text style={styles.inputLabel}>Wallet Address</Text>
-                  <Text style={styles.inputValue} numberOfLines={1}>
-                    {inputs.userAddress
-                      ? `${inputs.userAddress.slice(0, 10)}...${inputs.userAddress.slice(-8)}`
-                      : 'Will connect wallet'}
-                  </Text>
-                </View>
+                {request.circuit === 'oidc_domain_attestation' ? (
+                  <View style={styles.inputRow}>
+                    <Text style={styles.inputLabel}>Domain</Text>
+                    <Text style={styles.inputValue} numberOfLines={1}>
+                      {(request.inputs as OidcDomainInputs).domain}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.inputRow}>
+                    <Text style={styles.inputLabel}>Wallet Address</Text>
+                    <Text style={styles.inputValue} numberOfLines={1}>
+                      {(request.inputs as CoinbaseKycInputs).userAddress
+                        ? `${(request.inputs as CoinbaseKycInputs).userAddress!.slice(0, 10)}...${(request.inputs as CoinbaseKycInputs).userAddress!.slice(-8)}`
+                        : 'Will connect wallet'}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
