@@ -116,8 +116,7 @@ export function parseProofRequestUrl(url: string): ProofRequest | null {
         if (!request.inputs) request.inputs = {};
         (request.inputs as any).scope = decoded.scope;
       }
-      // clientId is the relay signer address — keep at top level, do NOT merge into inputs
-      // (merging it would break inputsHash integrity check)
+      // requestId and other relay fields stay at top level, do NOT merge into inputs
       console.log('[DeepLink] Parsed request (format 1):', request.requestId);
       return request;
     }
