@@ -18,7 +18,7 @@ import {ethers} from 'ethers';
 
 // ─── Circuit constants (must match main.nr) ─────────────────────────────
 
-export const OIDC_MAX_PARTIAL_DATA_LENGTH = 640;
+export const OIDC_MAX_PARTIAL_DATA_LENGTH = 768;
 export const OIDC_MAX_DOMAIN_LENGTH = 64;
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ export interface OidcCircuitInputs {
   domain: {storage: number[]; len: number};
   scope: number[]; // 32 bytes
   nullifier: number[]; // 32 bytes
+  provider: number; // 0 = Google (email_verified), 1 = Microsoft (xms_edov)
 
   // Private inputs
   partial_data: {storage: number[]; len: number};
@@ -48,6 +49,8 @@ export interface PrepareOidcParams {
   domain?: string;
   /** Override JWKS URL instead of using OIDC Discovery */
   jwksUrl?: string;
+  /** OIDC provider: 'google' | 'microsoft'. Determines email verification claim check. */
+  provider?: 'google' | 'microsoft';
 }
 
 // ─── Base64url helpers ──────────────────────────────────────────────────
@@ -261,8 +264,17 @@ export async function prepareOidcInputs(
   if (!payload.email) {
     throw new Error('JWT payload missing email claim');
   }
-  if (!payload.email_verified) {
-    throw new Error('JWT email_verified is not true');
+  // Provider-specific email verification check
+  if (params.provider === 'microsoft') {
+    if (!payload.xms_edov) {
+      throw new Error('Microsoft JWT xms_edov is not true. Email domain is not verified.');
+    }
+  } else if (params.provider === 'google' || !params.provider) {
+    if (!payload.email_verified) {
+      throw new Error('JWT email_verified is not true');
+    }
+  } else {
+    throw new Error(`Unsupported OIDC provider: ${params.provider}`);
   }
 
   const email = payload.email as string;
@@ -355,6 +367,7 @@ export async function prepareOidcInputs(
     domain: {storage: Array.from(domainStorage), len: domainBytes.length},
     scope: Array.from(scopeBytes),
     nullifier: Array.from(nullifierBytes),
+    provider: params.provider === 'microsoft' ? 1 : 0,
     partial_data: {
       storage: Array.from(partialDataPadded),
       len: remainingData.length,
@@ -408,7 +421,10 @@ export function flattenOidcInputs(inputs: OidcCircuitInputs): string[] {
     flat.push(b.toString());
   }
 
-  // partial_data: BoundedVec<u8, 640> — ABI order: storage[640] then len
+  // provider: u8 (0 = Google, 1 = Microsoft)
+  flat.push(inputs.provider.toString());
+
+  // partial_data: BoundedVec<u8, 768> — ABI order: storage[768] then len
   for (const b of inputs.partial_data.storage) {
     flat.push(b.toString());
   }

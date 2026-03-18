@@ -11,6 +11,7 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'DomainInpu
 const PROVIDER_OPTIONS = [
   {value: undefined, label: 'Any Email', desc: 'Verify email domain only'},
   {value: 'google', label: 'Google Workspace', desc: 'Verify organization membership'},
+  {value: 'microsoft', label: 'Microsoft 365', desc: 'Verify organization membership'},
 ] as const;
 
 export const DomainInputScreen: React.FC = () => {
@@ -44,7 +45,7 @@ export const DomainInputScreen: React.FC = () => {
           <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.info[400], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>OIDC DOMAIN VERIFICATION</Text>
           <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5, marginBottom: 8}}>Domain Verification</Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
-            Prove your email belongs to a specific domain using Google Sign-In. Your email address is never revealed.
+            Prove your email belongs to a specific domain using your OIDC provider. Your email address is never revealed.
           </Text>
         </Card>
 
@@ -70,7 +71,7 @@ export const DomainInputScreen: React.FC = () => {
             keyboardType="url"
           />
           <Text style={{fontSize: 13, color: themeColors.text.tertiary, marginTop: 8, lineHeight: 18}}>
-            Your Google account email must end with @{domain || '...'}
+            Your account email must end with @{domain || '...'}
           </Text>
         </Card>
 
@@ -137,14 +138,14 @@ export const DomainInputScreen: React.FC = () => {
           ]}>
             {isValid
               ? provider
-                ? `Prove Google Workspace membership: ${domain.trim().toLowerCase()}`
+                ? `Prove ${provider === 'microsoft' ? 'Microsoft 365' : 'Google Workspace'} membership: ${domain.trim().toLowerCase()}`
                 : `Prove that your email domain is: ${domain.trim().toLowerCase()}`
               : 'Enter a valid domain to continue (e.g. gmail.com)'}
           </Text>
         </Card>
 
         <Button
-          title="Sign in with Google & Prove"
+          title={provider === 'microsoft' ? 'Sign in with Microsoft & Prove' : 'Sign in with Google & Prove'}
           onPress={handleContinue}
           disabled={!isValid}
           size="large"

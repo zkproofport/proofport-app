@@ -184,7 +184,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   development: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
-    oidc_domain_attestation: '0x6C309e6F804E034068A55Bca58b91652621eCB07',
+    oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',

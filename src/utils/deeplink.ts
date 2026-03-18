@@ -18,6 +18,7 @@ export interface CoinbaseCountryInputs {
 export interface OidcDomainInputs {
   domain: string; // Target domain to prove (e.g., 'google.com')
   scope: string;
+  provider?: 'google' | 'microsoft'; // OIDC workspace provider for organization membership verification
 }
 
 // Empty inputs for circuits that get data from app

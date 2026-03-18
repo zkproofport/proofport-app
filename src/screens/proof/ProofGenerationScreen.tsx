@@ -19,7 +19,7 @@ import {
   LiveLogsPanel,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGoogleAuth, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGoogleAuth, useMicrosoftAuth, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
 import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -204,11 +204,13 @@ export const ProofGenerationScreen: React.FC = () => {
   const circuitId = route.params?.circuitId || 'coinbase-kyc';
   const isCountry = circuitId === 'coinbase-country';
   const isOidc = circuitId === 'oidc_domain_attestation';
+  const oidcProvider = (proofRequest?.inputs as {provider?: string} | undefined)?.provider || route.params?.domainInput?.provider;
 
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
   const googleAuth = useGoogleAuth();
+  const microsoftAuth = useMicrosoftAuth();
   const hook = isOidc ? oidcHook : (isCountry ? countryHook : kycHook);
 
   const {account, isReady: isPrivyReady, isWalletConnected, connect: connectWallet, getProvider} = usePrivyWallet(addLog);
@@ -380,20 +382,22 @@ export const ProofGenerationScreen: React.FC = () => {
           return;
         }
 
-        // Trigger Google Sign-In to obtain JWT
-        addLog('[OIDC] Starting Google Sign-In...');
+        // Trigger OIDC Sign-In based on provider
+        const providerName = providerStr === 'microsoft' ? 'Microsoft' : 'Google';
+        const authHook = providerStr === 'microsoft' ? microsoftAuth : googleAuth;
+        addLog(`[OIDC] Starting ${providerName} Sign-In...`);
 
-        if (!googleAuth.isReady) {
-          const msg = 'Google Sign-In is not ready. Please try again.';
+        if (!authHook.isReady) {
+          const msg = `${providerName} Sign-In is not ready. Please try again.`;
           addLog(`[Error] ${msg}`);
           setErrorMessage(msg);
           markHistoryFailed();
           return;
         }
 
-        const jwtToken = await googleAuth.promptSignIn();
+        const jwtToken = await authHook.promptSignIn();
         if (!jwtToken) {
-          const msg = googleAuth.error || 'Google Sign-In failed or was cancelled';
+          const msg = authHook.error || `${providerName} Sign-In failed or was cancelled`;
           addLog(`[Error] ${msg}`);
           setErrorMessage(msg);
           markHistoryFailed();
@@ -404,7 +408,7 @@ export const ProofGenerationScreen: React.FC = () => {
           return;
         }
 
-        addLog('[OIDC] Google Sign-In successful — JWT obtained');
+        addLog(`[OIDC] ${providerName} Sign-In successful — JWT obtained`);
 
         await oidcHook.generateProofWithSteps(
           {jwtToken, scopeString: scopeStr, domain: domainStr, provider: providerStr},
@@ -526,12 +530,12 @@ export const ProofGenerationScreen: React.FC = () => {
   const hasStepsStarted = hook.proofSteps.some(s => s.status !== 'pending');
 
   useEffect(() => {
-    if (hasStepsStarted && scrollViewRef.current) {
+    if ((hasStepsStarted || isProcessing) && scrollViewRef.current) {
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({animated: true});
       }, 300);
     }
-  }, [hook.proofSteps, hasStepsStarted]);
+  }, [hook.proofSteps, hasStepsStarted, isProcessing, logs]);
 
   const getButtonState = () => {
     if (!isOidc && !isWalletConnected)
@@ -549,7 +553,7 @@ export const ProofGenerationScreen: React.FC = () => {
     if (errorMessage)
       return {title: 'Retry', onPress: handleGenerateProof, disabled: false, loading: false};
     return {
-      title: isOidc ? 'Sign in with Google & Prove' : 'Generate ZK Proof',
+      title: isOidc ? (oidcProvider === 'microsoft' ? 'Sign in with Microsoft & Prove' : 'Sign in with Google & Prove') : 'Generate ZK Proof',
       onPress: settings?.confirmBeforeGenerate
         ? () => Alert.alert('Generate ZK Proof', 'This will generate a zero-knowledge proof. Proceed?', [
             {text: 'Cancel', style: 'cancel'},

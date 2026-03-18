@@ -48,6 +48,14 @@
 				<string>com.googleusercontent.apps.995938448974-dk8ogv5kv5o4ck5gtt74odsbregvslkk</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>microsoft-auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msalcd5404cc-d313-431c-8112-725e629dad28</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>2</string>

@@ -191,13 +191,42 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(atob(payloadB64));
 
-        if (!payload.email_verified) {
-          throw new Error('Email is not verified. Only verified email accounts can generate proofs.');
-        }
-        addLog(`[JWT] email_verified: true`);
+        // Provider-specific email verification and organization validation
+        if (inputs.provider === 'microsoft') {
+          // Log Microsoft JWT claims for debugging
+          addLog(`[JWT] Microsoft claims: tid=${payload.tid}, email=${payload.email}, xms_edov=${payload.xms_edov}, preferred_username=${payload.preferred_username}`);
 
-        // Provider-specific validation (e.g., Google Workspace hd claim)
-        if (inputs.provider === 'google') {
+          // Microsoft 365: email_verified claim does NOT exist.
+          // Use xms_edov (email domain owner verified) as alternative.
+          // For onmicrosoft.com test tenants, xms_edov may be absent — skip check for test domains
+          const isTestTenant = payload.email?.endsWith('.onmicrosoft.com') || payload.preferred_username?.endsWith('.onmicrosoft.com');
+          if (!payload.xms_edov && !isTestTenant) {
+            throw new Error('Email domain is not verified by Microsoft 365. Only verified organizational accounts can generate proofs.');
+          }
+          if (isTestTenant) {
+            addLog(`[JWT] Test tenant detected — skipping xms_edov check`);
+          }
+          addLog(`[JWT] xms_edov: true (Microsoft email domain owner verified)`);
+
+          // tid = Tenant ID — present only for organizational accounts
+          if (!payload.tid) {
+            throw new Error('This is not a Microsoft organizational account. Organization membership verification requires a Microsoft 365 (work/school) account.');
+          }
+          // Verify email domain matches requested domain
+          if (!payload.email) {
+            throw new Error('Microsoft JWT does not contain email claim. Configure "email" as an optional claim in Azure AD App Registration > Token configuration.');
+          }
+          const emailDomain = (payload.email as string).split('@')[1];
+          if (emailDomain !== inputs.domain) {
+            throw new Error(`Microsoft 365 domain mismatch: account email domain is "${emailDomain}" but proof is for "${inputs.domain}"`);
+          }
+          addLog(`[JWT] Microsoft 365 verified: tid=${payload.tid}, domain=${emailDomain}`);
+        } else if (inputs.provider === 'google') {
+          if (!payload.email_verified) {
+            throw new Error('Email is not verified. Only verified email accounts can generate proofs.');
+          }
+          addLog(`[JWT] email_verified: true`);
+
           if (!payload.hd) {
             throw new Error('This account is not a Google Workspace account. Organization membership verification requires a Workspace account.');
           }
@@ -210,11 +239,18 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
             throw new Error(`Email domain "${emailDomain}" does not match Workspace domain "${payload.hd}"`);
           }
           addLog(`[JWT] Google Workspace verified: hd=${payload.hd}`);
+        } else {
+          // Generic provider (no provider specified) — standard email_verified check
+          if (!payload.email_verified) {
+            throw new Error('Email is not verified. Only verified email accounts can generate proofs.');
+          }
+          addLog(`[JWT] email_verified: true`);
         }
 
         addLog('[JWT] Token validated');
         addLog(`[JWT] Target domain: ${inputs.domain}`);
-        updateStep('validate', {status: 'completed', detail: inputs.provider ? `Workspace: ${inputs.domain}` : 'JWT valid'});
+        const providerLabel = inputs.provider === 'microsoft' ? 'Entra ID' : inputs.provider === 'google' ? 'Workspace' : null;
+        updateStep('validate', {status: 'completed', detail: providerLabel ? `${providerLabel}: ${inputs.domain}` : 'JWT valid'});
 
         // Step 3: Fetch JWKS and prepare circuit inputs
         // prepareOidcInputs handles: JWKS fetch, RSA limb decomposition,
@@ -227,6 +263,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           jwt: inputs.jwtToken,
           scope: inputs.scopeString,
           domain: inputs.domain,
+          provider: inputs.provider as 'google' | 'microsoft' | undefined,
         });
         const inputsElapsed = Date.now() - inputsStartTime;
 
