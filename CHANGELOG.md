@@ -1,3 +1,24 @@
+# [1.2.0](https://github.com/zkproofport/proofport-app/compare/app-v1.1.1...app-v1.2.0) (2026-03-19)
+
+
+### Bug Fixes
+
+* bump CIRCUIT_DATA_VERSION to 3, add MS auth redirect URI logging ([51b5af3](https://github.com/zkproofport/proofport-app/commit/51b5af313344e5796624e8da0e8cb416380ade00))
+* lazy load expo-auth-session to prevent Release build crash on non-OIDC screens ([7fd4e16](https://github.com/zkproofport/proofport-app/commit/7fd4e165c2961714b4d09e75e584614c6fe79397))
+* move makeRedirectUri outside hook to prevent Release build crash ([1b43b5b](https://github.com/zkproofport/proofport-app/commit/1b43b5be9d33338b0ec0a02ea1944628eda6272f))
+* sync package.json walletconnect version to 2.23.8 ([49f3aff](https://github.com/zkproofport/proofport-app/commit/49f3aff8917ebc3063e274177542af526a8bb184))
+* update YttriumWrapper to 0.10.50 (react-native-compat 2.23.8) ([7bb9a64](https://github.com/zkproofport/proofport-app/commit/7bb9a6463c39329d06e96429b0d1faa1fc9e5a25))
+* use explicit redirect URI for Microsoft auth, add debug logging ([0258fde](https://github.com/zkproofport/proofport-app/commit/0258fde34f2563bf8bc53adb028f94405bba904d))
+
+
+### Features
+
+* add email_verified check, hd workspace verification, provider UI ([5aea9f1](https://github.com/zkproofport/proofport-app/commit/5aea9f1f97496b873c8ab32f05277baac37f5f1a))
+* add Microsoft 365 OIDC provider for organization membership verification ([0512be9](https://github.com/zkproofport/proofport-app/commit/0512be994663aa658d0bd628614316806216f1c4))
+* implement OIDC domain attestation on-device proof generation ([d8521ca](https://github.com/zkproofport/proofport-app/commit/d8521ca220fb3b89d9d75e58203b1174424a7017))
+* per-circuit data versions, Android MSAL redirect, improved error handling ([9b0cf75](https://github.com/zkproofport/proofport-app/commit/9b0cf750f7eeacf15d0bc09bda28f25c1e286415))
+* show domain instead of wallet address in OIDC proof request modal ([48126d9](https://github.com/zkproofport/proofport-app/commit/48126d98dc5ad9f5c33c48403113ae74c6875445))
+
 ## [1.1.1](https://github.com/zkproofport/proofport-app/compare/app-v1.1.0...app-v1.1.1) (2026-03-07)
 
 
