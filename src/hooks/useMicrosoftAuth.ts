@@ -1,5 +1,4 @@
 import {useState, useCallback} from 'react';
-import * as AuthSession from 'expo-auth-session';
 import {
   MICROSOFT_CLIENT_ID,
   MICROSOFT_AUTHORITY,
@@ -8,17 +7,12 @@ import {
 /**
  * Microsoft Entra ID Sign-In via expo-auth-session.
  *
- * Uses Authorization Code + PKCE flow with useAuthRequest to obtain id_token (JWT).
+ * Uses implicit flow to obtain id_token (JWT).
  * The JWT contains tid (tenant ID), email, and xms_edov claims
  * needed for organizational domain attestation.
  *
  * Returns raw id_token JWT string directly (not parsed claims).
  */
-
-const discovery: AuthSession.DiscoveryDocument = {
-  authorizationEndpoint: `${MICROSOFT_AUTHORITY}/oauth2/v2.0/authorize`,
-  tokenEndpoint: `${MICROSOFT_AUTHORITY}/oauth2/v2.0/token`,
-};
 
 export interface UseMicrosoftAuthReturn {
   idToken: string | null;
@@ -27,11 +21,6 @@ export interface UseMicrosoftAuthReturn {
   promptSignIn: () => Promise<string | null>;
   reset: () => void;
 }
-
-const redirectUri = AuthSession.makeRedirectUri({
-  scheme: `msal${MICROSOFT_CLIENT_ID}`,
-  path: 'auth',
-});
 
 export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
   const [idToken, setIdToken] = useState<string | null>(null);
@@ -42,7 +31,19 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
     setIdToken(null);
 
     try {
-      // Use implicit flow to get id_token directly (no token exchange needed)
+      // Lazy import expo-auth-session to avoid module-level crash in Release builds
+      const AuthSession = require('expo-auth-session');
+
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: `msal${MICROSOFT_CLIENT_ID}`,
+        path: 'auth',
+      });
+
+      const discovery = {
+        authorizationEndpoint: `${MICROSOFT_AUTHORITY}/oauth2/v2.0/authorize`,
+        tokenEndpoint: `${MICROSOFT_AUTHORITY}/oauth2/v2.0/token`,
+      };
+
       const authRequest = new AuthSession.AuthRequest({
         clientId: MICROSOFT_CLIENT_ID,
         scopes: ['openid', 'email', 'profile'],
@@ -80,7 +81,7 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
       setError(msg);
       return null;
     }
-  }, [redirectUri]);
+  }, []);
 
   const reset = useCallback(() => {
     setIdToken(null);
