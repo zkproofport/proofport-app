@@ -34,10 +34,8 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
       // Lazy import expo-auth-session to avoid module-level crash in Release builds
       const AuthSession = require('expo-auth-session');
 
-      const redirectUri = AuthSession.makeRedirectUri({
-        scheme: `msal${MICROSOFT_CLIENT_ID}`,
-        path: 'auth',
-      });
+      // Use explicit native redirect URI — same in Debug and Release
+      const redirectUri = `msal${MICROSOFT_CLIENT_ID}://auth`;
       console.log('[MicrosoftAuth] redirectUri:', redirectUri);
 
       const discovery = {
@@ -57,6 +55,7 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
       });
 
       const result = await authRequest.promptAsync(discovery);
+      console.log('[MicrosoftAuth] result type:', result.type, 'params:', JSON.stringify(result.params));
 
       if (result.type === 'success' && result.params?.id_token) {
         const token = result.params.id_token;
