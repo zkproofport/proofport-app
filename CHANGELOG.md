@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/zkproofport/proofport-app/compare/app-v1.3.1...app-v1.4.0) (2026-03-19)
+
+
+### Features
+
+* add staging environment, development flavor, fix release workflow ([c16be1b](https://github.com/zkproofport/proofport-app/commit/c16be1b109165f6b57f804a740325161d61cfa0f))
+
 ## [1.3.1](https://github.com/zkproofport/proofport-app/compare/app-v1.3.0...app-v1.3.1) (2026-03-19)
 
 
