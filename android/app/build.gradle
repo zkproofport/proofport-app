@@ -98,7 +98,7 @@ android {
         applicationId "com.zkproofport.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() + 1000 : 1001
+        versionCode System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() + 2000 : 2001
         versionName "1.3.0"
         manifestPlaceholders = [appAuthRedirectScheme: "msalcd5404cc-d313-431c-8112-725e629dad28"]
     }
