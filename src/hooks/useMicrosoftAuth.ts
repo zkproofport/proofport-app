@@ -28,14 +28,14 @@ export interface UseMicrosoftAuthReturn {
   reset: () => void;
 }
 
+const redirectUri = AuthSession.makeRedirectUri({
+  scheme: `msal${MICROSOFT_CLIENT_ID}`,
+  path: 'auth',
+});
+
 export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: `msal${MICROSOFT_CLIENT_ID}`,
-    path: 'auth',
-  });
 
   const promptSignIn = useCallback(async (): Promise<string | null> => {
     setError(null);
