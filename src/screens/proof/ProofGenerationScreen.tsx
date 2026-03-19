@@ -395,9 +395,23 @@ export const ProofGenerationScreen: React.FC = () => {
           return;
         }
 
-        const jwtToken = await authHook.promptSignIn();
+        let jwtToken: string | null = null;
+        try {
+          jwtToken = await authHook.promptSignIn();
+        } catch (authError: unknown) {
+          const errMsg = authError instanceof Error ? authError.message : String(authError);
+          const msg = `${providerName} Sign-In error: ${errMsg}`;
+          addLog(`[Error] ${msg}`);
+          setErrorMessage(msg);
+          markHistoryFailed();
+          if (proofRequest) {
+            sendError(proofRequest, msg).catch(console.error);
+            setActiveProofRequest(null);
+          }
+          return;
+        }
         if (!jwtToken) {
-          const msg = authHook.error || `${providerName} Sign-In failed or was cancelled`;
+          const msg = `${providerName} Sign-In was cancelled`;
           addLog(`[Error] ${msg}`);
           setErrorMessage(msg);
           markHistoryFailed();

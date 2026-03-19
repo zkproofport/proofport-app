@@ -71,15 +71,16 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
       if (result.type === 'error') {
         const msg = result.params?.error_description || result.params?.error || 'Microsoft sign-in failed';
         setError(msg);
-        return null;
+        throw new Error(msg);
       }
 
       throw new Error('Microsoft Sign-In succeeded but no id_token returned. Check Azure AD app registration.');
     } catch (e: unknown) {
       const err = e as {message?: string};
       const msg = err.message || String(e);
+      console.error('[MicrosoftAuth] Error:', msg);
       setError(msg);
-      return null;
+      throw new Error(msg);
     }
   }, []);
 

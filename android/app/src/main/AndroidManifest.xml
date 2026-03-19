@@ -59,6 +59,13 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="zkproofport" />
         </intent-filter>
+        <!-- Microsoft Entra ID OIDC redirect -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="msalcd5404cc-d313-431c-8112-725e629dad28" android:host="auth" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

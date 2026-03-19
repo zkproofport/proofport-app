@@ -171,10 +171,15 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
 };
 
 /**
- * Circuit data version — bump when circuits are recompiled.
+ * Per-circuit data versions — bump individually when a circuit is recompiled.
  * Forces re-download of cached circuit files on devices.
+ * Only bump the circuit that actually changed.
  */
-export const CIRCUIT_DATA_VERSION = 3; // Bumped: provider public input + MAX_PARTIAL_DATA_LENGTH 768
+export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
+  coinbase_attestation: 1,
+  coinbase_country_attestation: 1,
+  oidc_domain_attestation: 3, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
+};
 
 /**
  * Fallback verifier addresses (used when runtime fetch fails).
@@ -189,6 +194,6 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
-    oidc_domain_attestation: '0x0000000000000000000000000000000000000000',
+    oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
   },
 };
