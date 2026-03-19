@@ -38,6 +38,7 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
         scheme: `msal${MICROSOFT_CLIENT_ID}`,
         path: 'auth',
       });
+      console.log('[MicrosoftAuth] redirectUri:', redirectUri);
 
       const discovery = {
         authorizationEndpoint: `${MICROSOFT_AUTHORITY}/oauth2/v2.0/authorize`,

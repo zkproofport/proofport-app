@@ -174,7 +174,7 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
  * Circuit data version — bump when circuits are recompiled.
  * Forces re-download of cached circuit files on devices.
  */
-export const CIRCUIT_DATA_VERSION = 2;
+export const CIRCUIT_DATA_VERSION = 3; // Bumped: provider public input + MAX_PARTIAL_DATA_LENGTH 768
 
 /**
  * Fallback verifier addresses (used when runtime fetch fails).
