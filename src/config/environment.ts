@@ -22,7 +22,7 @@ const BUILD_ENV: Environment = (() => {
 
   // Release builds: read environment from native module (Android productFlavor / iOS Info.plist)
   const nativeEnv = NativeModules.AppEnv?.APP_ENV;
-  if (nativeEnv === 'development' || nativeEnv === 'production') {
+  if (nativeEnv === 'development' || nativeEnv === 'staging' || nativeEnv === 'production') {
     return nativeEnv;
   }
 

@@ -7,7 +7,7 @@ apply plugin: "com.facebook.react"
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
-    debuggableVariants = ["stagingDebug", "productionDebug"]
+    debuggableVariants = ["developmentDebug", "stagingDebug", "productionDebug"]
 
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
@@ -104,17 +104,20 @@ android {
     }
     flavorDimensions = ["environment"]
     productFlavors {
+        development {
+            dimension "environment"
+            applicationIdSuffix ".dev"
+            resValue "string", "app_name", "ZKProofport DEV"
+            resValue "string", "app_env", "development"
+        }
         staging {
             dimension "environment"
             applicationIdSuffix ".staging"
             resValue "string", "app_name", "ZKProofport STG"
-            resValue "string", "app_env", project.hasProperty('APP_ENV_OVERRIDE') ? project.property('APP_ENV_OVERRIDE') : "development"
+            resValue "string", "app_env", "staging"
         }
         production {
             dimension "environment"
-            if (project.hasProperty('APP_ID_SUFFIX')) {
-                applicationIdSuffix project.property('APP_ID_SUFFIX')
-            }
             resValue "string", "app_name", "ZKProofport"
             resValue "string", "app_env", "production"
         }

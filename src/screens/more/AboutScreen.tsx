@@ -19,14 +19,14 @@ import {useSettings} from '../../hooks/useSettings';
 
 const getWebsiteUrl = (): string => {
   const env = getEnvironment();
-  return env === 'development'
-    ? 'https://stg.zkproofport.app'
-    : 'https://zkproofport.app';
+  return env === 'production'
+    ? 'https://zkproofport.app'
+    : 'https://stg.zkproofport.app';
 };
 
 const getWebsiteDisplayHost = (): string => {
   const env = getEnvironment();
-  return env === 'development' ? 'stg.zkproofport.app' : 'zkproofport.app';
+  return env === 'production' ? 'zkproofport.app' : 'stg.zkproofport.app';
 };
 
 const AZTEC_URL = 'https://aztec.network';

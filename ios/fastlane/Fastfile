@@ -4,7 +4,7 @@ platform :ios do
   desc "Build IPA for local install or TestFlight"
   lane :beta do |options|
     env = options[:env] || "production"
-    app_env = env == "staging" ? "development" : "production"
+    app_env = env
 
     setup_ci if ENV['CI']
 
@@ -125,7 +125,7 @@ platform :ios do
   desc "Build IPA only (no upload)"
   lane :build_ipa do |options|
     env = options[:env] || "production"
-    app_env = env == "staging" ? "development" : "production"
+    app_env = env
 
     build_app(
       workspace: "ProofportApp.xcworkspace",

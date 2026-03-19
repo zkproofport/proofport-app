@@ -15,6 +15,13 @@ on:
           - ios
           - android
         default: both
+      environment:
+        description: 'App environment'
+        type: choice
+        options:
+          - staging
+          - production
+        required: true
 
 permissions:
   contents: write
@@ -135,7 +142,7 @@ jobs:
           ASC_API_KEY_PKCS8_PATH: /tmp/asc_api_key_pkcs8.p8
           MATCH_GIT_URL: https://${{ secrets.GH_PAT }}@github.com/zkproofport/ios-certificates.git
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-        run: bundle exec fastlane ios beta env:production
+        run: bundle exec fastlane ios beta env:${{ inputs.environment }}
 
       - name: Build only (dry run)
         if: inputs.dry_run == true
@@ -247,8 +254,8 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
-          ORG_GRADLE_PROJECT_APP_ID_SUFFIX: .staging
-        run: bundle exec fastlane android beta flavor:production
+          ORG_GRADLE_PROJECT_APP_ID_SUFFIX: ${{ inputs.environment == 'production' && '.staging' || '' }}
+        run: bundle exec fastlane android beta flavor:${{ inputs.environment }}
 
       - name: Build APK (dry run)
         if: inputs.dry_run == true

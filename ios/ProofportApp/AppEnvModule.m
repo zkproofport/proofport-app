@@ -10,7 +10,7 @@ RCT_EXPORT_MODULE(AppEnv)
 - (NSDictionary *)constantsToExport {
   NSString *env = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"AppEnv"];
   NSString *resolvedEnv;
-  if ([env isEqualToString:@"development"] || [env isEqualToString:@"production"]) {
+  if ([env isEqualToString:@"development"] || [env isEqualToString:@"staging"] || [env isEqualToString:@"production"]) {
     resolvedEnv = env;
   } else {
 #ifdef DEBUG

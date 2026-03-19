@@ -11,7 +11,7 @@
  * See deployments.ts for the fetch logic.
  */
 
-export type Environment = 'development' | 'production';
+export type Environment = 'development' | 'staging' | 'production';
 
 export type CircuitName = 'coinbase_attestation' | 'coinbase_country_attestation' | 'oidc_domain_attestation';
 
@@ -84,8 +84,32 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       base: ['https://sepolia.base.org'],
     },
     relay: {
-      trustedHosts: ['stg-relay.zkproofport.app'],
+      trustedHosts: ['localhost'],
       allowPrivateIps: true,
+    },
+    broadcastSource: {
+      type: 'branch',
+      baseUrl: `${GITHUB_RAW('main')}/broadcast`,
+    },
+  },
+  staging: {
+    network: {
+      chainId: 84532,
+      name: 'Base Sepolia',
+      rpcUrl: 'https://sepolia.base.org',
+      explorerUrl: 'https://sepolia.basescan.org',
+    },
+    attestation: {
+      coinbaseAttester: '0x357458739F90461b99789350868CD7CF330Dd7EE',
+      authorizedSigners: AUTHORIZED_SIGNERS,
+      easGraphqlEndpoint: 'https://base-sepolia.easscan.org/graphql',
+    },
+    rpcUrls: {
+      base: ['https://sepolia.base.org'],
+    },
+    relay: {
+      trustedHosts: ['stg-relay.zkproofport.app'],
+      allowPrivateIps: false,
     },
     broadcastSource: {
       type: 'branch',
@@ -187,6 +211,11 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
  */
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
+    coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
+    coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
+    oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
+  },
+  staging: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
