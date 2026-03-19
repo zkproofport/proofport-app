@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/zkproofport/proofport-app/compare/app-v1.2.0...app-v1.3.0) (2026-03-19)
+
+
+### Features
+
+* bump version to 1.2.0, fix release build number collision ([9ee3f89](https://github.com/zkproofport/proofport-app/commit/9ee3f8913975aebeb273fdf58cbc0b8899637b79))
+
 # [1.2.0](https://github.com/zkproofport/proofport-app/compare/app-v1.1.1...app-v1.2.0) (2026-03-19)
 
 
