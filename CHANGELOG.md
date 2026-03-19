@@ -1,3 +1,11 @@
+## [1.3.1](https://github.com/zkproofport/proofport-app/compare/app-v1.3.0...app-v1.3.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* bump Android versionCode offset to 2000 for release builds ([3fcbb49](https://github.com/zkproofport/proofport-app/commit/3fcbb49dc0af03ff19f11df6dcea20bb6afb26cf))
+* restore Android BUILD_NUMBER with +100 offset for release builds ([b64c52c](https://github.com/zkproofport/proofport-app/commit/b64c52c8701b804af9d7de617a5f2f6fe23b4679))
+
 # [1.3.0](https://github.com/zkproofport/proofport-app/compare/app-v1.2.0...app-v1.3.0) (2026-03-19)
 
 
