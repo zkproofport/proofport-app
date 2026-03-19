@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/zkproofport/proofport-app/compare/app-v1.4.0...app-v1.4.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* restore APP_ID_SUFFIX handling in production flavor for Play Console ([130204f](https://github.com/zkproofport/proofport-app/commit/130204f5089d50384ba3c7578b5c20ce104dd135))
+
 # [1.4.0](https://github.com/zkproofport/proofport-app/compare/app-v1.3.1...app-v1.4.0) (2026-03-19)
 
 
