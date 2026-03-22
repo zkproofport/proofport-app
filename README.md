@@ -6,6 +6,8 @@ React Native mobile app for generating zero-knowledge proofs on mobile devices u
 
 - **Coinbase KYC Attestation**: Prove Coinbase attestation without revealing identity details
 - **Country Attestation**: Verify country of residence through Coinbase attestation
+- **OIDC Domain Attestation**: Prove email domain affiliation (Google, Google Workspace, Microsoft 365) via OIDC JWT without revealing email
+- **Microsoft 365 Support**: Authenticate with Microsoft 365 organizational accounts
 - **QR-based Deep Linking**: Scan QR codes to receive proof requests from external dApps
 - **Wallet Integration**: Connect wallets via Privy (embedded) and WalletConnect (AppKit)
 - **Proof History**: Persistent storage and viewing of generated proofs
@@ -163,7 +165,7 @@ proofport://proof-request?circuit=<circuit>&signalHash=<hash>&requestId=<id>&cal
 
 ### Parameters
 
-- `circuit` (required): Circuit identifier (`coinbase_attestation` or `coinbase_country_attestation`)
+- `circuit` (required): Circuit identifier (`coinbase_attestation`, `coinbase_country_attestation`, or `oidc_domain_attestation`)
 - `signalHash` (required): Anti-replay challenge from the dApp
 - `requestId` (required): Unique request identifier for callback matching
 - `callbackUrl` (required): URL to POST proof response to
@@ -187,7 +189,7 @@ Proof responses are POST-ed to the callback URL as JSON:
 
 ## Circuit Files
 
-Circuit files are downloaded from GitHub at runtime and cached locally. The app supports two circuits:
+Circuit files are downloaded from GitHub at runtime and cached locally. The app supports three circuits:
 
 1. **coinbase_attestation**: Coinbase KYC attestation
    - Input: Coinbase attestation + signer signature
@@ -196,6 +198,10 @@ Circuit files are downloaded from GitHub at runtime and cached locally. The app 
 2. **coinbase_country_attestation**: Country attestation
    - Input: Country from Coinbase attestation
    - Output: Country-specific proof
+
+3. **oidc_domain_attestation**: OIDC domain attestation
+   - Input: OIDC JWT from Google or Microsoft
+   - Output: Proof of email domain affiliation without revealing email
 
 ### Download Locations
 
