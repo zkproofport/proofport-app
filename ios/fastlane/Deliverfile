@@ -1,0 +1,6 @@
+app_identifier "com.zkproofport.app"
+screenshots_path "./fastlane/screenshots"
+skip_metadata true
+skip_binary_upload true
+force true
+overwrite_screenshots true
