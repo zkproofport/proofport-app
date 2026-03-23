@@ -374,12 +374,9 @@ export const ProofGenerationScreen: React.FC = () => {
         const domainStr = deep?.domain || route.params?.domainInput?.domain || '';
         const providerStr = deep?.provider || route.params?.domainInput?.provider;
 
+        // Domain is optional — auto-extracted from JWT email if not provided
         if (!domainStr) {
-          const msg = 'Domain is required for OIDC proof (e.g., "gmail.com"). Use a deep link or provide domain input.';
-          addLog(`[Error] ${msg}`);
-          setErrorMessage(msg);
-          markHistoryFailed();
-          return;
+          addLog('[OIDC] No domain provided — will auto-extract from JWT email');
         }
 
         // Trigger OIDC Sign-In based on provider

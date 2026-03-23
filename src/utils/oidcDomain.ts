@@ -282,10 +282,8 @@ export async function prepareOidcInputs(
   if (atIndex === -1) {
     throw new Error(`Invalid email format: ${email}`);
   }
-  if (!params.domain) {
-    throw new Error('domain is required — it specifies which domain to prove membership of');
-  }
-  const domain = params.domain;
+  // Domain is optional — auto-extract from JWT email if not provided
+  const domain = params.domain || email.substring(atIndex + 1);
 
   // 2. Fetch JWKS and find matching key
   const jwksUrl = params.jwksUrl || (await fetchJwksUrl(payload.iss));

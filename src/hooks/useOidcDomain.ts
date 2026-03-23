@@ -36,7 +36,7 @@ let _cachedParsedProof: ParsedProofData | null = null;
 export interface OidcDomainProofInputs {
   jwtToken: string; // OIDC JWT id_token from provider (e.g., Google)
   scopeString: string; // dApp scope identifier (REQUIRED)
-  domain: string; // Target domain to prove (e.g., 'google.com') — REQUIRED
+  domain?: string; // Target domain to prove — auto-extracted from JWT email if omitted
   provider?: string; // Workspace provider (e.g., 'google') — when set, verifies org membership via hd claim
 }
 
@@ -191,6 +191,16 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(atob(payloadB64));
 
+        // Auto-extract domain from JWT email if not provided
+        let domain = inputs.domain;
+        if (!domain && payload.email) {
+          domain = (payload.email as string).split('@')[1];
+          addLog(`[JWT] Domain auto-extracted from email: ${domain}`);
+        }
+        if (!domain) {
+          throw new Error('Domain could not be determined: no domain input and no email claim in JWT');
+        }
+
         // Provider-specific email verification and organization validation
         if (inputs.provider === 'microsoft') {
           // Log Microsoft JWT claims for debugging
@@ -217,8 +227,8 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
             throw new Error('Microsoft JWT does not contain email claim. Configure "email" as an optional claim in Azure AD App Registration > Token configuration.');
           }
           const emailDomain = (payload.email as string).split('@')[1];
-          if (emailDomain !== inputs.domain) {
-            throw new Error(`Microsoft 365 domain mismatch: account email domain is "${emailDomain}" but proof is for "${inputs.domain}"`);
+          if (inputs.domain && emailDomain !== domain) {
+            throw new Error(`Microsoft 365 domain mismatch: account email domain is "${emailDomain}" but proof is for "${domain}"`);
           }
           addLog(`[JWT] Microsoft 365 verified: tid=${payload.tid}, domain=${emailDomain}`);
         } else if (inputs.provider === 'google') {
@@ -230,8 +240,8 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           if (!payload.hd) {
             throw new Error('This account is not a Google Workspace account. Organization membership verification requires a Workspace account.');
           }
-          if (payload.hd !== inputs.domain) {
-            throw new Error(`Google Workspace domain mismatch: account belongs to "${payload.hd}" but proof is for "${inputs.domain}"`);
+          if (inputs.domain && payload.hd !== domain) {
+            throw new Error(`Google Workspace domain mismatch: account belongs to "${payload.hd}" but proof is for "${domain}"`);
           }
           // Verify email domain matches hd
           const emailDomain = (payload.email as string).split('@')[1];
@@ -248,9 +258,9 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         }
 
         addLog('[JWT] Token validated');
-        addLog(`[JWT] Target domain: ${inputs.domain}`);
+        addLog(`[JWT] Target domain: ${domain}`);
         const providerLabel = inputs.provider === 'microsoft' ? 'Entra ID' : inputs.provider === 'google' ? 'Workspace' : null;
-        updateStep('validate', {status: 'completed', detail: providerLabel ? `${providerLabel}: ${inputs.domain}` : 'JWT valid'});
+        updateStep('validate', {status: 'completed', detail: providerLabel ? `${providerLabel}: ${domain}` : `JWT valid (${domain})`});
 
         // Step 3: Fetch JWKS and prepare circuit inputs
         // prepareOidcInputs handles: JWKS fetch, RSA limb decomposition,
@@ -262,7 +272,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         const circuitInputs = await prepareOidcInputs({
           jwt: inputs.jwtToken,
           scope: inputs.scopeString,
-          domain: inputs.domain,
+          domain,
           provider: inputs.provider as 'google' | 'microsoft' | undefined,
         });
         const inputsElapsed = Date.now() - inputsStartTime;
@@ -278,7 +288,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog('Step 4: Preparing circuit inputs...');
 
         const flatInputs = flattenOidcInputs(circuitInputs);
-        addLog(`[Inputs] Domain: ${inputs.domain || '(auto-extracted)'}`);
+        addLog(`[Inputs] Domain: ${domain}${!inputs.domain ? ' (auto-extracted)' : ''}`);
         addLog(`[Inputs] Scope: ${inputs.scopeString}`);
         addLog(`[Inputs] Partial data length: ${circuitInputs.partial_data.len}`);
         addLog(`[Inputs] Full data length: ${circuitInputs.full_data_length}`);

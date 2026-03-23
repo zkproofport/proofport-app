@@ -21,13 +21,14 @@ export const DomainInputScreen: React.FC = () => {
   const [scope, setScope] = useState('proofport:default');
   const [provider, setProvider] = useState<string | undefined>(undefined);
 
-  const isValid = domain.trim().length > 0 && domain.includes('.');
+  // Domain is always optional — auto-extracted from JWT email if not provided
+  const isValid = domain.trim().length === 0 || domain.includes('.');
 
   const handleContinue = () => {
     navigation.navigate('ProofGeneration', {
       circuitId: 'oidc_domain_attestation',
       domainInput: {
-        domain: domain.trim().toLowerCase(),
+        domain: domain.trim().toLowerCase() || undefined,  // undefined = auto-extract from JWT
         scope: scope.trim() || 'proofport:default',
         ...(provider ? {provider} : {}),
       },
@@ -137,10 +138,12 @@ export const DomainInputScreen: React.FC = () => {
             !isValid && {color: themeColors.warning[400]},
           ]}>
             {isValid
-              ? provider
-                ? `Prove ${provider === 'microsoft' ? 'Microsoft 365' : 'Google Workspace'} membership: ${domain.trim().toLowerCase()}`
-                : `Prove that your email domain is: ${domain.trim().toLowerCase()}`
-              : 'Enter a valid domain to continue (e.g. gmail.com)'}
+              ? domain.trim()
+                ? provider
+                  ? `Prove ${provider === 'microsoft' ? 'Microsoft 365' : 'Google Workspace'} membership: ${domain.trim().toLowerCase()}`
+                  : `Prove that your email domain is: ${domain.trim().toLowerCase()}`
+                : 'Domain will be auto-detected from your email'
+              : 'Enter a valid domain (e.g. gmail.com) or leave empty for auto-detection'}
           </Text>
         </Card>
 
