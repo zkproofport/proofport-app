@@ -12,23 +12,14 @@ import {
 } from 'react-native';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {useThemeColors} from '../../context';
-import {getEnvironment} from '../../config/environment';
+
 import type {MoreTabScreenProps} from '../../navigation/types';
 import {getVersionDisplay} from '../../utils/version';
 import {useSettings} from '../../hooks/useSettings';
 
-const getWebsiteUrl = (): string => {
-  const env = getEnvironment();
-  return env === 'production'
-    ? 'https://zkproofport.app'
-    : 'https://stg.zkproofport.app';
-};
-
-const getWebsiteDisplayHost = (): string => {
-  const env = getEnvironment();
-  return env === 'production' ? 'zkproofport.app' : 'stg.zkproofport.app';
-};
-
+const MASSE_LABS_URL = 'https://www.masselabs.com';
+const OPENSTOA_URL = 'https://www.openstoa.xyz';
+const ZKPROOFPORT_URL = 'https://www.zkproofport.com';
 const AZTEC_URL = 'https://aztec.network';
 
 const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
@@ -98,9 +89,21 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
           </Text>
           <MenuItem
             icon="globe"
-            title="Website"
-            subtitle={getWebsiteDisplayHost()}
-            onPress={() => openURL(getWebsiteUrl(), 'Website')}
+            title="Masse Labs"
+            subtitle="www.masselabs.com"
+            onPress={() => openURL(MASSE_LABS_URL, 'Masse Labs')}
+          />
+          <MenuItem
+            icon="globe"
+            title="ZKProofport"
+            subtitle="www.zkproofport.com"
+            onPress={() => openURL(ZKPROOFPORT_URL, 'ZKProofport')}
+          />
+          <MenuItem
+            icon="globe"
+            title="OpenStoa"
+            subtitle="www.openstoa.xyz"
+            onPress={() => openURL(OPENSTOA_URL, 'OpenStoa')}
           />
         </View>
 

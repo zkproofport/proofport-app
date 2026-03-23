@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useCallback, useRef} from 'react';
-import {View, Text, StyleSheet, Image, Animated} from 'react-native';
+import {View, Text, StyleSheet, Image, Animated, ActivityIndicator} from 'react-native';
 
 import {
   downloadCircuitFiles,
@@ -19,10 +19,7 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
   const {mode, colors: themeColors} = useThemeColors();
   const isDark = mode === 'dark';
   const [showSplash, setShowSplash] = useState(true);
-  const [status, setStatus] = useState('Initializing...');
-  const [currentFile, setCurrentFile] = useState('');
-  const [progress, setProgress] = useState(0);
-  const [overallProgress, setOverallProgress] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [pulseAnim] = useState(new Animated.Value(1));
   const splashTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -43,16 +40,14 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
     ).start();
   }, [pulseAnim]);
 
-  const handleProgress = useCallback((prog: DownloadProgress) => {
-    setCurrentFile(prog.fileName);
-    setProgress(prog.percent);
+  const handleProgress = useCallback((_prog: DownloadProgress) => {
+    // progress tracked internally for download logic
   }, []);
 
   const checkAndDownloadCircuits = useCallback(async () => {
     try {
       const env = getEnvironment();
 
-      setStatus('Syncing deployments...');
       try {
         const updated = await initDeployments();
         console.log(
@@ -67,25 +62,18 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       let completedCircuits = 0;
 
       for (const circuitName of CIRCUITS) {
-        setStatus(`Checking ${circuitName}...`);
-
         await downloadCircuitFiles(circuitName, env, handleProgress, (msg) => {
           console.log(msg);
         });
 
         completedCircuits++;
-        setOverallProgress((completedCircuits / CIRCUITS.length) * 100);
       }
 
-      setStatus('Ready!');
-      setProgress(100);
-      setOverallProgress(100);
-
+      setLoading(false);
       setTimeout(() => onReady(), 500);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      setStatus(`Error: ${errorMsg}`);
       console.error('Circuit download error:', error);
+      setLoading(false);
     }
   }, [handleProgress, onReady]);
 
@@ -136,28 +124,11 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       <Text style={[styles.appName, {color: themeColors.text.primary}]}>ZKProofport</Text>
       <Text style={[styles.tagline, {color: themeColors.text.secondary}]}>Privacy-Preserving Identity Proofs</Text>
 
-      <View style={styles.progressSection}>
-        <Text style={[styles.status, {color: themeColors.text.primary}]}>{status}</Text>
-        {currentFile ? <Text style={[styles.currentFile, {color: themeColors.text.tertiary}]}>{currentFile}</Text> : null}
+      {loading && (
+        <ActivityIndicator size="large" color={isDark ? '#FFFFFF' : '#999999'} style={styles.spinner} />
+      )}
 
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBarBackground, {backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}]}>
-            <View style={[styles.progressBarFill, {width: `${overallProgress}%`}]} />
-          </View>
-          <Text style={[styles.progressText, {color: themeColors.text.secondary}]}>{Math.round(overallProgress)}%</Text>
-        </View>
-
-        {progress > 0 && progress < 100 && currentFile && (
-          <View style={styles.fileProgressContainer}>
-            <View style={[styles.fileProgressBarBackground, {backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)'}]}>
-              <View style={[styles.fileProgressBarFill, {width: `${progress}%`}]} />
-            </View>
-            <Text style={[styles.fileProgressText, {color: themeColors.text.tertiary}]}>{progress}%</Text>
-          </View>
-        )}
-      </View>
-
-      <Text style={[styles.footer, {color: themeColors.text.tertiary}]}>Powered by mopro & Noir</Text>
+      <Text style={[styles.footer, {color: themeColors.text.tertiary}]}>Powered by Masse Labs</Text>
     </View>
   );
 }
@@ -213,63 +184,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 48,
   },
-  progressSection: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  status: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  currentFile: {
-    fontSize: 12,
-    marginBottom: 16,
-    fontFamily: 'Menlo',
-  },
-  progressBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    gap: 12,
-  },
-  progressBarBackground: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#0E76FD',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 14,
-    width: 40,
-    textAlign: 'right',
-  },
-  fileProgressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '80%',
-    marginTop: 12,
-    gap: 8,
-  },
-  fileProgressBarBackground: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  fileProgressBarFill: {
-    height: '100%',
-    backgroundColor: '#30E000',
-    borderRadius: 2,
-  },
-  fileProgressText: {
-    fontSize: 11,
-    width: 32,
-    textAlign: 'right',
+  spinner: {
+    marginTop: 32,
   },
   footer: {
     position: 'absolute',
