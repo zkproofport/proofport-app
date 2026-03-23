@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/zkproofport/proofport-app/compare/app-v1.4.1...app-v1.5.0) (2026-03-23)
+
+
+### Features
+
+* make OIDC domain optional — auto-extract from JWT email ([1758818](https://github.com/zkproofport/proofport-app/commit/17588185c64913dec5b6cb0ae47fcb7e240a5534))
+
 ## [1.4.1](https://github.com/zkproofport/proofport-app/compare/app-v1.4.0...app-v1.4.1) (2026-03-19)
 
 
