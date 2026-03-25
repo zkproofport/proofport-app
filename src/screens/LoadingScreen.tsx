@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useCallback, useRef} from 'react';
-import {View, Text, StyleSheet, Image, Animated, ActivityIndicator} from 'react-native';
+import {View, Text, StyleSheet, Image, Animated, ActivityIndicator, Alert} from 'react-native';
 
 import {
   downloadCircuitFiles,
@@ -10,6 +10,7 @@ import {useThemeColors} from '../context';
 
 const CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'];
 const SPLASH_DURATION = 3000;
+const MAX_LOADING_DURATION = 5000;
 
 interface LoadingScreenProps {
   onReady: () => void;
@@ -22,6 +23,14 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
   const [loading, setLoading] = useState(true);
   const [pulseAnim] = useState(new Animated.Value(1));
   const splashTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const readyCalledRef = useRef(false);
+
+  const finishLoading = useCallback(() => {
+    if (readyCalledRef.current) return;
+    readyCalledRef.current = true;
+    setLoading(false);
+    setTimeout(() => onReady(), 300);
+  }, [onReady]);
 
   useEffect(() => {
     Animated.loop(
@@ -45,42 +54,70 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
   }, []);
 
   const checkAndDownloadCircuits = useCallback(async () => {
+    const env = getEnvironment();
+
+    // Sync deployments (non-blocking for loading)
     try {
-      const env = getEnvironment();
-
-      try {
-        const updated = await initDeployments();
-        console.log(
-          updated
-            ? 'Deployment sync: addresses updated'
-            : 'Deployment sync: using cached addresses',
-        );
-      } catch (deployError) {
-        console.warn('Deployment sync failed, using fallback addresses:', deployError);
-      }
-
-      let completedCircuits = 0;
-
-      for (const circuitName of CIRCUITS) {
-        await downloadCircuitFiles(circuitName, env, handleProgress, (msg) => {
-          console.log(msg);
-        });
-
-        completedCircuits++;
-      }
-
-      setLoading(false);
-      setTimeout(() => onReady(), 500);
-    } catch (error) {
-      console.error('Circuit download error:', error);
-      setLoading(false);
+      const updated = await initDeployments();
+      console.log(
+        updated
+          ? 'Deployment sync: addresses updated'
+          : 'Deployment sync: using cached addresses',
+      );
+    } catch (deployError) {
+      console.warn('Deployment sync failed, using fallback addresses:', deployError);
     }
-  }, [handleProgress, onReady]);
+
+    // Start all circuit downloads in parallel
+    const downloadPromise = Promise.allSettled(
+      CIRCUITS.map((circuitName) =>
+        downloadCircuitFiles(circuitName, env, handleProgress, (msg) => {
+          console.log(msg);
+        }),
+      ),
+    );
+
+    // Race: all downloads complete OR max loading timeout
+    const timeoutPromise = new Promise<'timeout'>((resolve) =>
+      setTimeout(() => resolve('timeout'), MAX_LOADING_DURATION),
+    );
+
+    const result = await Promise.race([
+      downloadPromise.then(() => 'done' as const),
+      timeoutPromise,
+    ]);
+
+    if (result === 'timeout') {
+      console.log('Loading timeout reached, entering app. Downloads continue in background.');
+      finishLoading();
+
+      // Continue downloads in background, handle errors
+      downloadPromise.then((results) => {
+        const failed = results.filter((r) => r.status === 'rejected');
+        if (failed.length > 0) {
+          const reasons = failed.map((r) => (r as PromiseRejectedResult).reason?.message || 'Unknown error');
+          console.error('Background circuit download failed:', reasons);
+          Alert.alert(
+            'Download Failed',
+            'Some circuit files could not be downloaded. Please check your network connection and restart the app to retry.',
+            [{text: 'OK'}],
+          );
+        } else {
+          console.log('Background circuit downloads completed successfully.');
+        }
+      });
+    } else {
+      finishLoading();
+    }
+  }, [handleProgress, finishLoading]);
 
   useEffect(() => {
     splashTimerRef.current = setTimeout(() => {
       setShowSplash(false);
-      checkAndDownloadCircuits();
+      checkAndDownloadCircuits().catch((error) => {
+        console.error('Circuit initialization error:', error);
+        finishLoading();
+      });
     }, SPLASH_DURATION);
 
     return () => {
@@ -88,7 +125,7 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
         clearTimeout(splashTimerRef.current);
       }
     };
-  }, [checkAndDownloadCircuits]);
+  }, [checkAndDownloadCircuits, finishLoading]);
 
   if (showSplash) {
     return (

@@ -18,6 +18,8 @@ import {
   clearProofCache,
   ensureStorageAvailable,
   loadVkFromAssets,
+  downloadCircuitFiles,
+  allCircuitFilesExist,
 } from '../utils';
 import {getVerifierAddress, getVerifierAbi, getNetworkConfig, getEnvironment} from '../config';
 import type {ProofStatus} from '../types';
@@ -175,6 +177,15 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
       let signerIndex = 0;
 
       try {
+        // Step 0: Download circuit files if needed
+        const filesExist = await allCircuitFilesExist(CIRCUIT_NAME);
+        if (!filesExist) {
+          addLog('Circuit files not found, downloading...');
+          const env = getEnvironment();
+          await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
+          addLog('Circuit files downloaded');
+        }
+
         // Step 1: Load VK
         updateStep('vk', {status: 'in_progress'});
         addLog('Step 1: Loading verification key...');

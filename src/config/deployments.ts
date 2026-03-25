@@ -64,10 +64,16 @@ async function resolveReleaseTag(repo: string): Promise<string | null> {
       }
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     const response = await fetch(
       `https://api.github.com/repos/${repo}/releases/latest`,
-      {headers: {Accept: 'application/vnd.github.v3+json'}},
+      {
+        headers: {Accept: 'application/vnd.github.v3+json'},
+        signal: controller.signal,
+      },
     );
+    clearTimeout(timeoutId);
     if (!response.ok) return null;
 
     const release = await response.json();
@@ -119,7 +125,10 @@ export async function fetchDeploymentAddress(
   if (!url) return null;
 
   try {
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(url, {signal: controller.signal});
+    clearTimeout(timeoutId);
     if (!response.ok) return null;
 
     const broadcast: BroadcastJson = await response.json();

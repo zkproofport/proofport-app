@@ -192,9 +192,13 @@ async function downloadCircuitFileFromGitHub(
 
   log(`Downloading ${fileName}...`);
 
+  const DOWNLOAD_TIMEOUT_MS = 120000;
+
   const downloadResult = RNFS.downloadFile({
     fromUrl: url,
     toFile: destPath,
+    connectionTimeout: 10000,
+    readTimeout: 30000,
     progress: (res) => {
       const percent = res.contentLength > 0
         ? Math.round((res.bytesWritten / res.contentLength) * 100)
@@ -213,7 +217,14 @@ async function downloadCircuitFileFromGitHub(
     progressDivider: 5,
   });
 
-  const result = await downloadResult.promise;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    setTimeout(() => {
+      RNFS.stopDownload(downloadResult.jobId);
+      reject(new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS / 1000}s: ${fileName}`));
+    }, DOWNLOAD_TIMEOUT_MS);
+  });
+
+  const result = await Promise.race([downloadResult.promise, timeoutPromise]);
 
   if (result.statusCode !== 200) {
     throw new Error(`Failed to download ${fileName}: HTTP ${result.statusCode}`);
