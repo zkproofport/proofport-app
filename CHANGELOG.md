@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/zkproofport/proofport-app/compare/app-v1.5.0...app-v1.5.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* prevent infinite loading on fresh install (App Store review rejection) ([0b13395](https://github.com/zkproofport/proofport-app/commit/0b1339567c57491b5cc762f8c92166eaa1b9715b))
+
 # [1.5.0](https://github.com/zkproofport/proofport-app/compare/app-v1.4.1...app-v1.5.0) (2026-03-23)
 
 
