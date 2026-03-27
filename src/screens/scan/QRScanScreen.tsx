@@ -121,7 +121,7 @@ const QRScanScreen: React.FC = () => {
             style={[styles.permissionButton, {backgroundColor: themeColors.info[500]}]}
             onPress={handleRequestPermission}
             activeOpacity={0.8}>
-            <Text style={[styles.permissionButtonText, {color: themeColors.text.primary}]}>Allow Camera</Text>
+            <Text style={[styles.permissionButtonText, {color: themeColors.text.primary}]}>Continue</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
