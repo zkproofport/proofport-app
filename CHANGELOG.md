@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/zkproofport/proofport-app/compare/app-v1.5.1...app-v1.5.2) (2026-03-27)
+
+
+### Bug Fixes
+
+* change camera permission button text 'Allow Camera' → 'Continue' (App Store 5.1.1) ([de9b20b](https://github.com/zkproofport/proofport-app/commit/de9b20bbd1ae1c3573712917c5f0e6a1316bb84c))
+
 ## [1.5.1](https://github.com/zkproofport/proofport-app/compare/app-v1.5.0...app-v1.5.1) (2026-03-25)
 
 
