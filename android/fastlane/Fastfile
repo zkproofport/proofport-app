@@ -1,7 +1,7 @@
 default_platform(:android)
 
 platform :android do
-  desc "Build release AAB and upload to Play Console internal track"
+  desc "Build release AAB and upload to Play Console alpha track"
   lane :beta do |options|
     flavor = options[:flavor] || "production"
     props = {
@@ -26,7 +26,7 @@ platform :android do
 
     if ENV['GOOGLE_APPLICATION_CREDENTIALS']
       supply(
-        track: "internal",
+        track: "alpha",
         json_key: ENV['GOOGLE_APPLICATION_CREDENTIALS'],
         package_name: pkg,
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
@@ -37,7 +37,7 @@ platform :android do
       )
     elsif ENV['SUPPLY_JSON_KEY']
       supply(
-        track: "internal",
+        track: "alpha",
         package_name: pkg,
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
         skip_upload_metadata: true,
