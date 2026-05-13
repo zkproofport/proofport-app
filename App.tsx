@@ -215,16 +215,21 @@ const App: React.FC = () => {
         ? 'coinbase-country'
         : pendingRequest.circuit;
 
-    // First navigate to ProofTab and pop stack to root
+    // Use nested-navigation form so the inner ProofStack receives the screen.
+    // `StackActions.push('ProofGeneration', ...)` against the root tab navigator
+    // silently no-ops because the screen lives inside ProofStack, not the
+    // root TabNavigator — that left the user stranded on Verify home after
+    // accepting the proof request modal.
     navigationRef.current?.dispatch(
-      CommonActions.navigate({name: 'ProofTab'}),
-    );
-    navigationRef.current?.dispatch(StackActions.popToTop());
-    // Then push ProofGeneration fresh
-    navigationRef.current?.dispatch(
-      StackActions.push('ProofGeneration', {
-        circuitId,
-        proofRequest: pendingRequest,
+      CommonActions.navigate({
+        name: 'ProofTab',
+        params: {
+          screen: 'ProofGeneration',
+          params: {
+            circuitId,
+            proofRequest: pendingRequest,
+          },
+        },
       }),
     );
 
@@ -265,29 +270,57 @@ const App: React.FC = () => {
     );
   }
 
+  // In simulator/dev builds the iOS keychain entitlements that Privy's
+  // expo-secure-store backend requires aren't fully wired up, which causes
+  // PrivyProvider to crash with "A required entitlement isn't present"
+  // before children mount. Wrap the auth providers so dev builds get a
+  // pass-through and only TestFlight/production paths exercise real Privy
+  // / WalletConnect flows.
+  const inner = (
+    <NavigationContainer ref={navigationRef}>
+      <TabNavigator />
+    </NavigationContainer>
+  );
+
+  const withProofModal = (children: React.ReactNode) => (
+    <>
+      {children}
+      <ProofRequestModal
+        visible={showRequestModal}
+        request={pendingRequest}
+        onAccept={handleAcceptRequest}
+        onReject={handleRejectRequest}
+      />
+    </>
+  );
+
+  const tree = __DEV__ ? (
+    withProofModal(inner)
+  ) : (
+    <PrivyProvider
+      appId={PRIVY_APP_ID}
+      clientId={PRIVY_CLIENT_ID}
+      storage={privyStorage}
+    >
+      <AppKitProvider instance={appKit}>
+        {inner}
+        <AppKit />
+        <ProofRequestModal
+          visible={showRequestModal}
+          request={pendingRequest}
+          onAccept={handleAcceptRequest}
+          onReject={handleRejectRequest}
+        />
+      </AppKitProvider>
+    </PrivyProvider>
+  );
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>
         <ErrorProvider>
           <DeepLinkProvider>
-            <PrivyProvider
-              appId={PRIVY_APP_ID}
-              clientId={PRIVY_CLIENT_ID}
-              storage={privyStorage}
-            >
-              <AppKitProvider instance={appKit}>
-                <NavigationContainer ref={navigationRef}>
-                  <TabNavigator />
-                </NavigationContainer>
-                <AppKit />
-                <ProofRequestModal
-                  visible={showRequestModal}
-                  request={pendingRequest}
-                  onAccept={handleAcceptRequest}
-                  onReject={handleRejectRequest}
-                />
-              </AppKitProvider>
-            </PrivyProvider>
+            {tree}
           </DeepLinkProvider>
           <ErrorModal />
         </ErrorProvider>

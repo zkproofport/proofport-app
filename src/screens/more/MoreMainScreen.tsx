@@ -9,7 +9,9 @@ import {
   Share,
   ActivityIndicator,
   Pressable,
+  TouchableOpacity,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {Toggle} from '../../components/ui/molecules/Toggle';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {useSettings} from '../../hooks/useSettings';
@@ -21,27 +23,28 @@ import {getVersionDisplay} from '../../utils/version';
 const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
   navigation,
 }) => {
+  const { t } = useTranslation();
   const {settings, loading, updateSettings} = useSettings();
   const {exportToJSON, clearAll} = useProofHistory();
   const {mode, colors: themeColors, setThemeMode} = useThemeColors();
 
   const handleExportHistory = async () => {
     Alert.alert(
-      'Export Proof History',
-      'Export your proof history as JSON file?',
+      t('host.more.exportTitle'),
+      t('host.more.exportMessage'),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('common.cancel'), style: 'cancel'},
         {
-          text: 'Export',
+          text: t('host.more.export'),
           onPress: async () => {
             try {
               const json = await exportToJSON();
               await Share.share({
                 message: json,
-                title: 'Proof History Export',
+                title: t('host.more.exportTitle'),
               });
             } catch (error) {
-              Alert.alert('Error', 'Failed to export proof history');
+              Alert.alert(t('common.ok'), t('host.more.exportError'));
             }
           },
         },
@@ -51,19 +54,19 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
 
   const handleClearData = async () => {
     Alert.alert(
-      'Clear Local Data',
-      'This will delete all locally stored proofs and settings. This action cannot be undone.',
+      t('host.more.clearTitle'),
+      t('host.more.clearMessage'),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('common.cancel'), style: 'cancel'},
         {
-          text: 'Clear',
+          text: t('host.more.clear'),
           style: 'destructive',
           onPress: async () => {
             try {
               await clearAll();
-              Alert.alert('Success', 'Local data cleared');
+              Alert.alert(t('common.ok'), t('host.more.clearSuccess'));
             } catch (error) {
-              Alert.alert('Error', 'Failed to clear local data');
+              Alert.alert(t('common.ok'), t('host.more.clearError'));
             }
           },
         },
@@ -76,7 +79,7 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
       <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={[styles.loadingText, {color: themeColors.text.secondary}]}>Loading settings...</Text>
+          <Text style={[styles.loadingText, {color: themeColors.text.secondary}]}>{t('common.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -87,16 +90,28 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}>
-        <Text style={[styles.header, {color: themeColors.text.primary}]}>More</Text>
+        <Text style={[styles.header, {color: themeColors.text.primary}]}>{t('host.more.title')}</Text>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>GENERAL</Text>
+          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionGeneral')}</Text>
+          <TouchableOpacity
+            style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
+            onPress={() => navigation.navigate('SettingsLanguage')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.language')}</Text>
+            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
+            onPress={() => navigation.navigate('Wallet')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.wallet')}</Text>
+            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
+          </TouchableOpacity>
           <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>Language</Text>
-            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>English</Text>
-          </View>
-          <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>Theme</Text>
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.theme')}</Text>
             <View style={styles.themeOptions}>
               <Pressable
                 style={[
@@ -108,7 +123,7 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
                 <Text style={[
                   styles.themeOptionText,
                   {color: mode === 'dark' ? '#3B82F6' : themeColors.text.secondary},
-                ]}>Dark</Text>
+                ]}>{t('host.more.themeDark')}</Text>
               </Pressable>
               <Pressable
                 style={[
@@ -120,57 +135,57 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
                 <Text style={[
                   styles.themeOptionText,
                   {color: mode === 'light' ? '#3B82F6' : themeColors.text.secondary},
-                ]}>Light</Text>
+                ]}>{t('host.more.themeLight')}</Text>
               </Pressable>
             </View>
           </View>
           <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>Default Network</Text>
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.defaultNetwork')}</Text>
             <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>Base</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>PROOF SETTINGS</Text>
+          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionProofSettings')}</Text>
           <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
             <Toggle
               value={settings.autoSaveProofs}
               onValueChange={(value) => updateSettings({autoSaveProofs: value})}
-              label="Auto-save proofs"
+              label={t('host.more.autoSaveProofs')}
             />
           </View>
           <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
             <Toggle
               value={settings.confirmBeforeGenerate}
               onValueChange={(value) => updateSettings({confirmBeforeGenerate: value})}
-              label="Confirm before generate"
+              label={t('host.more.confirmBeforeGenerate')}
             />
           </View>
         </View>
 
         {settings.developerMode && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>DEVELOPER</Text>
+            <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionDeveloper')}</Text>
             <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
               <Toggle
                 value={settings.showLiveLogs}
                 onValueChange={(value) => updateSettings({showLiveLogs: value})}
-                label="Show live logs"
+                label={t('host.more.showLiveLogs')}
               />
             </View>
           </View>
         )}
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>DATA</Text>
+          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionData')}</Text>
           <MenuItem
             icon="download"
-            title="Export Proof History"
+            title={t('host.more.exportProofHistory')}
             onPress={handleExportHistory}
           />
           <MenuItem
             icon="trash-2"
-            title="Clear Local Data"
+            title={t('host.more.clearLocalData')}
             onPress={handleClearData}
           />
         </View>
@@ -179,8 +194,8 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
 
         <MenuItem
           icon="info"
-          title="About"
-          subtitle="Version, Support"
+          title={t('host.more.about')}
+          subtitle={t('host.more.versionSupport')}
           onPress={() => navigation.navigate('About')}
         />
 

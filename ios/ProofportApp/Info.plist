@@ -130,6 +130,10 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>ZKProofport needs camera access to scan QR codes for proof requests</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ZKProofport needs photo library access to attach images to OpenStoa chat messages</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ZKProofport needs permission to save proofs and screenshots to your photo library</string>
 	<key>AppEnv</key>
 	<string>$(APP_ENV)</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

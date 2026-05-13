@@ -6,6 +6,7 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../types';
 
@@ -14,11 +15,12 @@ type MainScreenProps = {
 };
 
 export const MainScreen: React.FC<MainScreenProps> = ({navigation}) => {
+  const {t} = useTranslation();
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>ZKProofport</Text>
-        <Text style={styles.subtitle}>Select a feature to explore</Text>
+        <Text style={styles.subtitle}>{t('host.main.subtitle')}</Text>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -26,16 +28,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({navigation}) => {
             onPress={() => navigation.navigate('CoinbaseKyc')}>
             <Text style={styles.buttonText}>Coinbase KYC</Text>
             <Text style={styles.buttonDescription}>
-              Prove identity verification
+              {t('host.main.coinbaseKycDesc')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.walletButton]}
             onPress={() => navigation.navigate('PrivyWallet')}>
-            <Text style={styles.buttonText}>Connect Wallet</Text>
+            <Text style={styles.buttonText}>{t('host.wallet.connectWallet')}</Text>
             <Text style={styles.buttonDescription}>
-              Link your external wallet
+              {t('host.main.connectWalletDesc')}
             </Text>
           </TouchableOpacity>
         </View>

@@ -2,6 +2,7 @@ import React from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTranslation} from 'react-i18next';
 import {CircuitCard} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import {getCircuitIcon} from '../../utils';
@@ -12,6 +13,7 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'CircuitSel
 export const CircuitSelectionScreen: React.FC = () => {
   const { colors: themeColors } = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
+  const { t } = useTranslation();
 
   const handleCoinbaseKyc = () => {
     navigation.navigate('ProofGeneration', {circuitId: 'coinbase-kyc'});
@@ -24,30 +26,34 @@ export const CircuitSelectionScreen: React.FC = () => {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={{fontSize: 32, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5}}>Proofs</Text>
+          <Text style={{fontSize: 32, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5}}>
+            {t('host.proof.circuitSelection.title')}
+          </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={{fontSize: 14, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16}}>Select Proof Type</Text>
+          <Text style={{fontSize: 14, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16}}>
+            {t('host.proof.circuitSelection.sectionLabel')}
+          </Text>
 
           <CircuitCard
             icon={getCircuitIcon('coinbase-kyc')}
-            title="Coinbase KYC Verification"
-            description="Prove identity without revealing wallet"
+            title={t('host.proof.circuitSelection.coinbaseKyc.title')}
+            description={t('host.proof.circuitSelection.coinbaseKyc.description')}
             onPress={handleCoinbaseKyc}
           />
 
           <CircuitCard
             icon={getCircuitIcon('coinbase-country')}
-            title="Coinbase Country Verification"
-            description="Verify your country through Coinbase"
+            title={t('host.proof.circuitSelection.coinbaseCountry.title')}
+            description={t('host.proof.circuitSelection.coinbaseCountry.description')}
             onPress={() => navigation.navigate('CountryInput')}
           />
 
           <CircuitCard
             icon={getCircuitIcon('oidc_domain_attestation')}
-            title="OIDC Domain"
-            description="Prove your email domain affiliation"
+            title={t('host.proof.circuitSelection.oidcDomain.title')}
+            description={t('host.proof.circuitSelection.oidcDomain.description')}
             onPress={() => navigation.navigate('DomainInput')}
           />
         </View>

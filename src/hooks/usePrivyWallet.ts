@@ -34,9 +34,37 @@ interface UsePrivyWalletReturn {
   getSigner: () => Promise<ethers.Signer | null>;
 }
 
+// __DEV__ stub — when PrivyProvider/AppKitProvider are bypassed in the
+// simulator, calling the Privy/AppKit hooks themselves throws inside the
+// library because they read from a null provider context. Short-circuit
+// here so the Wallet screen renders a benign placeholder instead of a
+// red-box. Production builds keep the real hooks.
+const DEV_STUB: UsePrivyWalletReturn = {
+  account: null,
+  chainId: null,
+  status: 'disconnected',
+  error: 'Wallet is unavailable in dev simulator',
+  isReady: false,
+  isWalletConnected: false,
+  isProviderReady: false,
+  isAuthenticated: false,
+  formattedAddress: '',
+  connect: async () => {},
+  signInWithWallet: async () => {},
+  disconnect: async () => {},
+  signMessage: async () => '',
+  getProvider: async () => null,
+  getSigner: async () => null,
+};
+
 export const usePrivyWallet = (
   addLog?: (msg: string) => void,
 ): UsePrivyWalletReturn => {
+  if (__DEV__) {
+    return DEV_STUB;
+  }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const log = useCallback(
     (msg: string) => {
       console.log(`🔐 ${msg}`);
@@ -45,9 +73,12 @@ export const usePrivyWallet = (
     [addLog],
   );
 
-  // Privy hooks
-  const { isReady, user, logout: privyLogout } = usePrivy();
-  const { generateSiweMessage, loginWithSiwe } = useLoginWithSiwe({
+  // Privy hooks — guard for __DEV__ where PrivyProvider is bypassed and the
+  // hook returns null (would otherwise crash on destructuring).
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const privy = usePrivy() ?? ({} as ReturnType<typeof usePrivy>);
+  const { isReady, user, logout: privyLogout } = privy;
+  const siwe = useLoginWithSiwe({
     onSuccess: privyUser => {
       log(`Privy login success! User ID: ${privyUser.id}`);
     },
@@ -55,12 +86,17 @@ export const usePrivyWallet = (
       log(`Privy error: ${err.message}`);
       setError(err.message);
     },
-  });
+  }) ?? ({} as ReturnType<typeof useLoginWithSiwe>);
+  const { generateSiweMessage, loginWithSiwe } = siwe;
 
-  // AppKit hooks for wallet connection
-  const { open, disconnect: appKitDisconnect } = useAppKit();
-  const { address, isConnected, chainId: accountChainId } = useAccount();
-  const { provider: walletProvider } = useProvider();
+  // AppKit hooks for wallet connection — guarded for __DEV__ where the
+  // AppKit provider is bypassed.
+  const appKit = useAppKit() ?? ({} as ReturnType<typeof useAppKit>);
+  const { open, disconnect: appKitDisconnect } = appKit;
+  const appKitAccount = useAccount() ?? ({} as ReturnType<typeof useAccount>);
+  const { address, isConnected, chainId: accountChainId } = appKitAccount;
+  const providerCtx = useProvider() ?? ({} as ReturnType<typeof useProvider>);
+  const { provider: walletProvider } = providerCtx;
 
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);

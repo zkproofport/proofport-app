@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useTranslation} from 'react-i18next';
 import {usePrivy} from '@privy-io/expo';
 import {
   useAppKit,
@@ -30,6 +31,7 @@ const WALLET_STORE_URLS = {
 };
 
 export const PrivyWalletScreen: React.FC = () => {
+  const {t} = useTranslation();
   const { logs, addLog, clearLogs, logScrollRef } = useLogs();
   const privy = usePrivy();
   const { isReady, user, logout: privyLogout, error: privyError } = privy;
@@ -211,8 +213,8 @@ export const PrivyWalletScreen: React.FC = () => {
             <Text style={styles.icon}>P</Text>
           </View>
 
-          <Text style={styles.title}>Privy Wallet</Text>
-          <Text style={styles.subtitle}>Connect external wallet via Privy</Text>
+          <Text style={styles.title}>{t('host.privy.title')}</Text>
+          <Text style={styles.subtitle}>{t('host.privy.subtitle')}</Text>
 
           <View style={styles.statusRow}>
             <View
@@ -247,7 +249,7 @@ export const PrivyWalletScreen: React.FC = () => {
           {/* Info Card */}
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Connected Wallet</Text>
+              <Text style={styles.infoLabel}>{t('host.privy.connectedWallet')}</Text>
               <Text
                 style={
                   isConnected ? styles.infoValue : styles.infoValueDisabled
@@ -255,14 +257,14 @@ export const PrivyWalletScreen: React.FC = () => {
               >
                 {isConnected && address
                   ? formatAddress(address)
-                  : 'Not connected'}
+                  : t('host.privy.notConnected')}
               </Text>
             </View>
 
             <View style={styles.divider} />
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Wallet Name</Text>
+              <Text style={styles.infoLabel}>{t('host.privy.walletName')}</Text>
               <Text
                 style={
                   isConnected ? styles.infoValue : styles.infoValueDisabled
@@ -275,7 +277,7 @@ export const PrivyWalletScreen: React.FC = () => {
             <View style={styles.divider} />
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Privy User</Text>
+              <Text style={styles.infoLabel}>{t('host.privy.privyUser')}</Text>
               <Text
                 style={
                   isAuthenticated ? styles.infoValue : styles.infoValueDisabled
@@ -292,13 +294,13 @@ export const PrivyWalletScreen: React.FC = () => {
           {noWalletDetected && !isConnected && (
             <View style={styles.infoContainer}>
               <Text style={styles.infoText}>
-                No wallet app detected. Install MetaMask to connect.
+                {t('host.privy.noWalletDetected')}
               </Text>
               <TouchableOpacity
                 style={styles.installWalletButton}
                 onPress={openWalletStore}
               >
-                <Text style={styles.installWalletText}>Install MetaMask</Text>
+                <Text style={styles.installWalletText}>{t('host.privy.installMetaMask')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -314,7 +316,7 @@ export const PrivyWalletScreen: React.FC = () => {
                 {isConnecting ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.buttonText}>Connect Wallet</Text>
+                  <Text style={styles.buttonText}>{t('host.privy.connectWallet')}</Text>
                 )}
               </TouchableOpacity>
             ) : (
@@ -322,7 +324,7 @@ export const PrivyWalletScreen: React.FC = () => {
                 style={[styles.button, styles.secondaryButton]}
                 onPress={handleDisconnect}
               >
-                <Text style={styles.buttonText}>Disconnect</Text>
+                <Text style={styles.buttonText}>{t('host.privy.disconnect')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -330,7 +332,7 @@ export const PrivyWalletScreen: React.FC = () => {
           {/* Full Address */}
           {isConnected && address && (
             <View style={styles.fullAddressContainer}>
-              <Text style={styles.fullAddressLabel}>Full Address</Text>
+              <Text style={styles.fullAddressLabel}>{t('host.privy.fullAddress')}</Text>
               <Text style={styles.fullAddressValue} selectable>
                 {address}
               </Text>

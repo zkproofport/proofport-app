@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTranslation} from 'react-i18next';
 import {Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -28,6 +29,7 @@ const MAX_COUNTRIES = 10;
 export const CountryInputScreen: React.FC = () => {
   const { colors: themeColors } = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
+  const { t } = useTranslation();
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [isIncluded, setIsIncluded] = useState<boolean>(true);
 
@@ -57,13 +59,15 @@ export const CountryInputScreen: React.FC = () => {
 
   const getSummaryText = () => {
     if (selectedCountries.length === 0) {
-      return 'Select at least one country to continue';
+      return t('host.proof.country.summarySelectAtLeastOne');
     }
-    const verb = isIncluded ? 'IS one of' : 'is NOT one of';
+    const verb = isIncluded
+      ? t('host.proof.country.summaryVerbIs')
+      : t('host.proof.country.summaryVerbIsNot');
     const countryNames = selectedCountries
       .map(code => COUNTRY_OPTIONS.find(c => c.code === code)?.name || code)
       .join(', ');
-    return `Prove that your country ${verb}: ${countryNames}`;
+    return t('host.proof.country.summaryProve', {verb, countries: countryNames});
   };
 
   return (
@@ -74,16 +78,22 @@ export const CountryInputScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}>
 
         <Card style={styles.heroCard}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.info[400], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>COUNTRY VERIFICATION</Text>
-          <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5, marginBottom: 8}}>Country Verification</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.info[400], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>
+            {t('host.proof.country.heroLabel')}
+          </Text>
+          <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5, marginBottom: 8}}>
+            {t('host.proof.country.heroTitle')}
+          </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
-            Select countries for verification and choose whether to prove inclusion or exclusion
+            {t('host.proof.country.heroDescription')}
           </Text>
         </Card>
 
         <Card style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase'}}>SELECTED COUNTRIES</Text>
+            <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase'}}>
+              {t('host.proof.country.selectedLabel')}
+            </Text>
             <Text style={{fontSize: 13, fontWeight: '600', color: themeColors.info[400]}}>
               {selectedCountries.length}/{MAX_COUNTRIES}
             </Text>
@@ -91,8 +101,12 @@ export const CountryInputScreen: React.FC = () => {
 
           {selectedCountries.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={{fontSize: 15, fontWeight: '500', color: themeColors.text.secondary, marginBottom: 4}}>No countries selected</Text>
-              <Text style={{fontSize: 13, color: themeColors.text.tertiary}}>Tap countries below to add them</Text>
+              <Text style={{fontSize: 15, fontWeight: '500', color: themeColors.text.secondary, marginBottom: 4}}>
+                {t('host.proof.country.noCountriesSelected')}
+              </Text>
+              <Text style={{fontSize: 13, color: themeColors.text.tertiary}}>
+                {t('host.proof.country.tapToAdd')}
+              </Text>
             </View>
           ) : (
             <View style={styles.chipContainer}>
@@ -114,7 +128,9 @@ export const CountryInputScreen: React.FC = () => {
         </Card>
 
         <Card style={styles.sectionCard}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase'}}>AVAILABLE COUNTRIES</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase'}}>
+            {t('host.proof.country.availableLabel')}
+          </Text>
           <View style={styles.countryGrid}>
             {COUNTRY_OPTIONS.map(country => {
               const isSelected = selectedCountries.includes(country.code);
@@ -152,7 +168,9 @@ export const CountryInputScreen: React.FC = () => {
         </Card>
 
         <Card style={styles.sectionCard}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase'}}>VERIFICATION MODE</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase'}}>
+            {t('host.proof.country.modeLabel')}
+          </Text>
 
           <TouchableOpacity
             style={[
@@ -174,10 +192,10 @@ export const CountryInputScreen: React.FC = () => {
                   {fontSize: 16, fontWeight: '600', color: themeColors.text.primary, marginBottom: 4},
                   isIncluded && {color: themeColors.info[400]},
                 ]}>
-                  Included
+                  {t('host.proof.country.includedTitle')}
                 </Text>
                 <Text style={{fontSize: 13, color: themeColors.text.tertiary, lineHeight: 18}}>
-                  Prove your country IS in the selected list
+                  {t('host.proof.country.includedDescription')}
                 </Text>
               </View>
             </View>
@@ -203,10 +221,10 @@ export const CountryInputScreen: React.FC = () => {
                   {fontSize: 16, fontWeight: '600', color: themeColors.text.primary, marginBottom: 4},
                   !isIncluded && {color: themeColors.info[400]},
                 ]}>
-                  Excluded
+                  {t('host.proof.country.excludedTitle')}
                 </Text>
                 <Text style={{fontSize: 13, color: themeColors.text.tertiary, lineHeight: 18}}>
-                  Prove your country is NOT in the selected list
+                  {t('host.proof.country.excludedDescription')}
                 </Text>
               </View>
             </View>
@@ -214,7 +232,9 @@ export const CountryInputScreen: React.FC = () => {
         </Card>
 
         <Card style={{marginBottom: 24, backgroundColor: themeColors.background.tertiary}}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>SUMMARY</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>
+            {t('host.proof.country.summaryLabel')}
+          </Text>
           <Text style={[
             {fontSize: 14, fontStyle: 'italic', color: themeColors.info[400], lineHeight: 20},
             selectedCountries.length === 0 && {color: themeColors.warning[400]},
@@ -224,7 +244,7 @@ export const CountryInputScreen: React.FC = () => {
         </Card>
 
         <Button
-          title="Continue to Proof"
+          title={t('host.proof.country.continueButton')}
           onPress={handleContinue}
           disabled={selectedCountries.length === 0}
           size="large"

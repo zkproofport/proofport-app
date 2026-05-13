@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
+import {useTranslation} from 'react-i18next';
 import {Icon, Badge, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 
@@ -23,6 +24,7 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
   isActive,
   onDisconnect,
 }) => {
+  const {t} = useTranslation();
   const { colors: themeColors } = useThemeColors();
   const [addressCopied, setAddressCopied] = useState(false);
 
@@ -48,21 +50,21 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
         </View>
         <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 8}}>{walletName}</Text>
         {isActive && (
-          <Badge variant="success" text="Active" />
+          <Badge variant="success" text={t('host.wallet.active')} />
         )}
       </View>
 
       <Card style={styles.detailsCard}>
-        <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Wallet Details</Text>
+        <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>{t('host.wallet.walletDetails')}</Text>
 
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Address</Text>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.wallet.address')}</Text>
           <TouchableOpacity
             onPress={handleCopyAddress}
             style={styles.copyableValue}
             activeOpacity={0.7}>
             <Text style={{fontSize: 14, fontWeight: '500', color: themeColors.text.primary, fontFamily: 'monospace'}}>
-              {addressCopied ? 'Copied!' : truncatedAddress}
+              {addressCopied ? t('host.wallet.copied') : truncatedAddress}
             </Text>
             <Icon name="copy" size="sm" color={themeColors.text.secondary} />
           </TouchableOpacity>
@@ -71,7 +73,7 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
         <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Network</Text>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.wallet.network')}</Text>
           <View style={styles.networkBadge}>
             <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: themeColors.info[500], marginRight: 6}} />
             <Text style={{fontSize: 13, fontWeight: '600', color: themeColors.info[400]}}>{network}</Text>
@@ -81,10 +83,10 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
         <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Status</Text>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.wallet.status')}</Text>
           <Badge
             variant={isActive ? 'success' : 'neutral'}
-            text={isActive ? 'Active' : 'Inactive'}
+            text={isActive ? t('host.wallet.active') : t('host.wallet.inactive')}
           />
         </View>
       </Card>
@@ -94,7 +96,7 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
         style={styles.disconnectRow}
         activeOpacity={0.7}>
         <Icon name="x" size="xs" color="#EF4444" />
-        <Text style={styles.disconnectText}>Disconnect</Text>
+        <Text style={styles.disconnectText}>{t('host.wallet.disconnect')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

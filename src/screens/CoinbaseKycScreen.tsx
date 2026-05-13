@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
+import {useTranslation} from 'react-i18next';
 import {LogViewer, StepProgress} from '../components';
 import {useLogs, useCoinbaseKyc, usePrivyWallet, useDeepLink} from '../hooks';
 import {findAttestationTransaction} from '../utils';
@@ -21,6 +22,7 @@ import {getActiveProofRequest, setActiveProofRequest} from '../stores/activeProo
 type CoinbaseKycRouteProp = RouteProp<RootStackParamList, 'CoinbaseKyc'>;
 
 export const CoinbaseKycScreen: React.FC = () => {
+  const {t} = useTranslation();
   const route = useRoute<CoinbaseKycRouteProp>();
   const navigation = useNavigation();
   const proofRequest = route.params?.proofRequest ?? getActiveProofRequest();
@@ -231,7 +233,7 @@ export const CoinbaseKycScreen: React.FC = () => {
         <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Coinbase KYC Verifier</Text>
+            <Text style={styles.title}>{t('host.coinbase.title')}</Text>
             <Text style={styles.subtitle}>
               Prove your Coinbase identity verification without revealing personal data
             </Text>
@@ -242,7 +244,7 @@ export const CoinbaseKycScreen: React.FC = () => {
 
           {/* Wallet Connection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Wallet Connection</Text>
+            <Text style={styles.sectionTitle}>{t('host.coinbase.walletConnection')}</Text>
             <TouchableOpacity
               style={[styles.walletButton, getWalletButtonStyle()]}
               onPress={handleWalletPress}
@@ -253,7 +255,7 @@ export const CoinbaseKycScreen: React.FC = () => {
 
           {/* Main Actions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Actions</Text>
+            <Text style={styles.sectionTitle}>{t('host.coinbase.actions')}</Text>
 
             {/* Button 1: Generate Proof */}
             <TouchableOpacity
@@ -319,7 +321,7 @@ export const CoinbaseKycScreen: React.FC = () => {
             style={[styles.button, styles.clearButton]}
             onPress={clearLogs}
             disabled={isProcessing}>
-            <Text style={styles.clearButtonText}>Clear Logs</Text>
+            <Text style={styles.clearButtonText}>{t('host.coinbase.clearLogs')}</Text>
           </TouchableOpacity>
 
           {isProcessing && (

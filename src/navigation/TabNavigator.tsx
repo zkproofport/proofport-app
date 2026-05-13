@@ -3,19 +3,24 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform, StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import type { TabParamList } from './types';
+import OpenStoaStackNavigator from './stacks/OpenStoaStackNavigator';
 import ProofStackNavigator from './stacks/ProofStackNavigator';
-import WalletStackNavigator from './stacks/WalletStackNavigator';
 import HistoryStackNavigator from './stacks/HistoryStackNavigator';
 import ScanStackNavigator from './stacks/ScanStackNavigator';
 import MoreStackNavigator from './stacks/MoreStackNavigator';
+import OpenStoaMarkIcon from '../components/icons/OpenStoaMarkIcon';
 import { useThemeColors } from '../context';
+import { useCurrentLanguage } from '../i18n';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const ScanTabButton: React.FC<any> = ({ onPress, accessibilityState }) => {
   const focused = accessibilityState?.selected;
   const { mode, colors: themeColors } = useThemeColors();
+  const { t } = useTranslation();
   const inactiveTintColor = mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
 
   return (
@@ -29,57 +34,74 @@ const ScanTabButton: React.FC<any> = ({ onPress, accessibilityState }) => {
       <Text style={[
         styles.scanLabel,
         { color: focused ? themeColors.text.primary : inactiveTintColor }
-      ]}>Scan</Text>
+      ]}>{t('host.tabs.scan')}</Text>
     </TouchableOpacity>
   );
 };
 
+// While the user is inside the embedded OpenStoa mini-app the inner
+// navigator owns the bottom tab bar (Feed/Topics/Chat/Profile + a fake
+// "ZKProofport" tab that calls host.exitToHost()). Hide the host tab bar
+// so only one bottom bar is visible at any time.
+function isInsideOpenStoa(route: any): boolean {
+  const focused = getFocusedRouteNameFromRoute(route);
+  if (!focused) return true; // default landing screen of OpenStoa stack
+  return focused === 'OpenStoaRoot';
+}
+
 const TabNavigator: React.FC = () => {
   const { mode, colors: themeColors } = useThemeColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  // Explicit subscription to languageChanged events; using useTranslation's
+  // i18n.language alone has been observed to skip re-renders when the
+  // navigator tree cascades remounts via key prop.
+  const lang = useCurrentLanguage();
+
+  const baseTabBarStyle = {
+    backgroundColor: themeColors.background.primary,
+    borderTopWidth: 1,
+    borderTopColor: themeColors.background.secondary,
+    paddingTop: 8,
+    paddingBottom: Math.max(insets.bottom, 16),
+    height: 60 + Math.max(insets.bottom, 16),
+  };
 
   return (
     <Tab.Navigator
+      key={lang}
+      initialRouteName="ProofTab"
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: themeColors.background.primary,
-          borderTopWidth: 1,
-          borderTopColor: themeColors.background.secondary,
-          paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom, 16),
-          height: 60 + Math.max(insets.bottom, 16),
-        },
+        tabBarStyle: baseTabBarStyle,
         tabBarActiveTintColor: themeColors.text.primary,
         tabBarInactiveTintColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
       <Tab.Screen
-        name="ProofTab"
-        component={ProofStackNavigator}
-        options={({ navigation }) => ({
-          tabBarLabel: 'Verify',
-          tabBarIcon: ({ focused, size, color }) => (
-            <Feather
-              name="shield"
-              size={size}
-              color={color}
-            />
+        name="OpenStoaTab"
+        component={OpenStoaStackNavigator}
+        options={({ route }) => ({
+          tabBarLabel: t('host.tabs.openstoa'),
+          // OpenStoa brand mark instead of a generic Feather glyph.
+          // Same SVG path as openstoa.xyz / the OG card, so the tab
+          // visually matches the destination's identity.
+          tabBarIcon: ({ size, color }) => (
+            <OpenStoaMarkIcon size={size} color={color} />
           ),
+          tabBarStyle: isInsideOpenStoa(route)
+            ? { display: 'none' }
+            : baseTabBarStyle,
         })}
       />
       <Tab.Screen
-        name="WalletTab"
-        component={WalletStackNavigator}
+        name="ProofTab"
+        component={ProofStackNavigator}
         options={{
-          tabBarLabel: 'Wallet',
-          tabBarIcon: ({ focused, size, color }) => (
-            <Feather
-              name="credit-card"
-              size={size}
-              color={color}
-            />
+          tabBarLabel: t('host.tabs.verify'),
+          tabBarIcon: ({ size, color }) => (
+            <Feather name="shield" size={size} color={color} />
           ),
         }}
       />
@@ -96,13 +118,9 @@ const TabNavigator: React.FC = () => {
         name="HistoryTab"
         component={HistoryStackNavigator}
         options={{
-          tabBarLabel: 'History',
-          tabBarIcon: ({ focused, size, color }) => (
-            <Feather
-              name="clock"
-              size={size}
-              color={color}
-            />
+          tabBarLabel: t('host.tabs.history'),
+          tabBarIcon: ({ size, color }) => (
+            <Feather name="clock" size={size} color={color} />
           ),
         }}
         listeners={({ navigation }) => ({
@@ -115,13 +133,9 @@ const TabNavigator: React.FC = () => {
         name="MoreTab"
         component={MoreStackNavigator}
         options={{
-          tabBarLabel: 'More',
-          tabBarIcon: ({ focused, size, color }) => (
-            <Feather
-              name="more-horizontal"
-              size={size}
-              color={color}
-            />
+          tabBarLabel: t('host.tabs.more'),
+          tabBarIcon: ({ size, color }) => (
+            <Feather name="more-horizontal" size={size} color={color} />
           ),
         }}
       />

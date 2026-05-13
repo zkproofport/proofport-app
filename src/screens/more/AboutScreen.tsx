@@ -10,6 +10,7 @@ import {
   Alert,
   Pressable,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {useThemeColors} from '../../context';
 
@@ -23,6 +24,7 @@ const ZKPROOFPORT_URL = 'https://www.zkproofport.com';
 const AZTEC_URL = 'https://aztec.network';
 
 const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
+  const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
   const {settings, updateSettings} = useSettings();
   const [tapCount, setTapCount] = useState(0);
@@ -37,8 +39,8 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
       const newValue = !settings?.developerMode;
       updateSettings({developerMode: newValue});
       Alert.alert(
-        newValue ? 'Developer Mode Enabled' : 'Developer Mode Disabled',
-        newValue ? 'Live logs and debug options are now available in settings.' : 'Developer options have been hidden.',
+        newValue ? t('host.about.devModeEnabled') : t('host.about.devModeDisabled'),
+        newValue ? t('host.about.devModeEnabledMsg') : t('host.about.devModeDisabledMsg'),
       );
       setTapCount(0);
     } else {
@@ -52,10 +54,10 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('Error', `Cannot open ${title}`);
+        Alert.alert(t('common.ok'), t('host.about.openURLError', {title}));
       }
     } catch (error) {
-      Alert.alert('Error', `Failed to open ${title}`);
+      Alert.alert(t('common.ok'), t('host.about.openURLFailed', {title}));
     }
   };
 
@@ -79,13 +81,13 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
             </Text>
           </Pressable>
           <Text style={[styles.tagline, {color: themeColors.text.tertiary}]}>
-            Privacy-first zero-knowledge proof generation
+            {t('host.about.tagline')}
           </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>
-            LINKS
+            {t('host.about.sectionLinks')}
           </Text>
           <MenuItem
             icon="globe"
@@ -109,12 +111,12 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>
-            POWERED BY
+            {t('host.about.sectionPoweredBy')}
           </Text>
           <MenuItem
             icon="link"
             title="Aztec"
-            subtitle="Zero-knowledge proof infrastructure"
+            subtitle={t('host.about.aztecSubtitle')}
             onPress={() => openURL(AZTEC_URL, 'Aztec')}
           />
         </View>

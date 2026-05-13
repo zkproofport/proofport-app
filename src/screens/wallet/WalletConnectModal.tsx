@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {Icon} from '../../components/ui/atoms/Icon';
 import {useThemeColors} from '../../context';
 import {typography, spacing, borderRadius} from '../../theme';
@@ -56,6 +57,7 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
   onClose,
   onSelectWallet,
 }) => {
+  const {t} = useTranslation();
   const { colors: themeColors } = useThemeColors();
   const WALLET_OPTIONS = getWalletOptions(themeColors);
   return (
@@ -71,8 +73,8 @@ export const WalletConnectModal: React.FC<WalletConnectModalProps> = ({
               <View style={{width: 40, height: 4, backgroundColor: themeColors.border.primary, borderRadius: 2, alignSelf: 'center', marginBottom: spacing[4]}} />
 
               <View style={styles.header}>
-                <Text style={{...typography.heading.h2, color: themeColors.text.primary, marginBottom: spacing[2]}}>Connect Wallet</Text>
-                <Text style={{...typography.body.medium, color: themeColors.text.secondary}}>Select a wallet to connect:</Text>
+                <Text style={{...typography.heading.h2, color: themeColors.text.primary, marginBottom: spacing[2]}}>{t('host.wallet.connectWallet')}</Text>
+                <Text style={{...typography.body.medium, color: themeColors.text.secondary}}>{t('host.wallet.selectWallet')}</Text>
               </View>
 
               <View style={styles.walletOptions}>

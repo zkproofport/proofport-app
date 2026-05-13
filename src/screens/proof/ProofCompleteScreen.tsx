@@ -13,6 +13,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTranslation} from 'react-i18next';
 import {Icon, Badge, Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -33,6 +34,7 @@ export const ProofCompleteScreen: React.FC = () => {
   const { colors: themeColors } = useThemeColors();
   const route = useRoute<ProofCompleteRouteProp>();
   const navigation = useNavigation<NavigationProp>();
+  const { t } = useTranslation();
 
   const params = route.params || {} as any;
   const proofHex = params.proofHex || '0x0000000000000000';
@@ -68,7 +70,7 @@ export const ProofCompleteScreen: React.FC = () => {
 
   const handleCopyProof = () => {
     Clipboard.setString(proofHex);
-    Alert.alert('Copied', 'Proof hash copied to clipboard');
+    Alert.alert(t('host.proof.complete.copiedTitle'), t('host.proof.complete.copiedMessage'));
   };
 
   const handleVerifyOffChain = async () => {
@@ -140,15 +142,19 @@ export const ProofCompleteScreen: React.FC = () => {
           <View style={{width: 80, height: 80, borderRadius: 40, backgroundColor: themeColors.success.background, borderWidth: 3, borderColor: themeColors.success[500], justifyContent: 'center', alignItems: 'center', marginBottom: 24}}>
             <Icon name="check" size="xl" color={themeColors.success[400]} />
           </View>
-          <Text style={{fontSize: 28, fontWeight: '700', color: themeColors.text.primary, marginBottom: 8}}>Proof Generated!</Text>
+          <Text style={{fontSize: 28, fontWeight: '700', color: themeColors.text.primary, marginBottom: 8}}>
+            {t('host.proof.complete.successTitle')}
+          </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, textAlign: 'center', lineHeight: 22}}>
-            Your zero-knowledge proof has been successfully created
+            {t('host.proof.complete.successDescription')}
           </Text>
         </View>
 
         <Card style={styles.proofHashCard}>
           <View style={styles.proofHashHeader}>
-            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase'}}>Proof Hash</Text>
+            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase'}}>
+              {t('host.proof.complete.proofHashLabel')}
+            </Text>
             <TouchableOpacity
               onPress={handleCopyProof}
               style={styles.copyButton}
@@ -160,20 +166,22 @@ export const ProofCompleteScreen: React.FC = () => {
         </Card>
 
         <Card style={styles.detailsCard}>
-          <Text style={{fontSize: 14, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Proof Details</Text>
+          <Text style={{fontSize: 14, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>
+            {t('host.proof.complete.proofDetailsLabel')}
+          </Text>
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Off-Chain</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.proof.complete.offChain')}</Text>
             {offChainStatus === 'generated' ? (
               <TouchableOpacity onPress={handleVerifyOffChain} style={{backgroundColor: themeColors.info[500], paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8}}>
-                <Text style={{color: '#FFFFFF', fontSize: 13, fontWeight: '600'}}>Verify</Text>
+                <Text style={{color: '#FFFFFF', fontSize: 13, fontWeight: '600'}}>{t('host.proof.complete.verifyButton')}</Text>
               </TouchableOpacity>
             ) : offChainStatus === 'loading' ? (
               <ActivityIndicator size="small" color={themeColors.info[400]} />
             ) : (
               <Badge
                 variant={offChainStatus === 'verified' ? 'success' : 'error'}
-                text={offChainStatus === 'verified' ? 'Verified' : 'Failed'}
+                text={offChainStatus === 'verified' ? t('host.proof.complete.verified') : t('host.proof.complete.failed')}
               />
             )}
           </View>
@@ -181,17 +189,17 @@ export const ProofCompleteScreen: React.FC = () => {
           <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>On-Chain</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.proof.complete.onChain')}</Text>
             {onChainStatus === 'generated' ? (
               <TouchableOpacity onPress={handleVerifyOnChain} style={{backgroundColor: themeColors.info[500], paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8}}>
-                <Text style={{color: '#FFFFFF', fontSize: 13, fontWeight: '600'}}>Verify</Text>
+                <Text style={{color: '#FFFFFF', fontSize: 13, fontWeight: '600'}}>{t('host.proof.complete.verifyButton')}</Text>
               </TouchableOpacity>
             ) : onChainStatus === 'loading' ? (
               <ActivityIndicator size="small" color={themeColors.info[400]} />
             ) : (
               <Badge
                 variant={onChainStatus === 'verified' ? 'success' : 'error'}
-                text={onChainStatus === 'verified' ? 'Verified' : 'Failed'}
+                text={onChainStatus === 'verified' ? t('host.proof.complete.verified') : t('host.proof.complete.failed')}
               />
             )}
           </View>
@@ -199,7 +207,7 @@ export const ProofCompleteScreen: React.FC = () => {
           <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Verification Chain</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.proof.complete.verificationChain')}</Text>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               <View style={styles.chainBadge}>
                 <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: themeColors.info[500], marginRight: 6}} />
@@ -211,28 +219,28 @@ export const ProofCompleteScreen: React.FC = () => {
           <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Circuit</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.proof.complete.circuit')}</Text>
             <Text style={{fontSize: 15, fontWeight: '500', color: themeColors.text.primary}}>{circuitName}</Text>
           </View>
 
           <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Generated</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.proof.complete.generated')}</Text>
             <Text style={{fontSize: 15, fontWeight: '500', color: themeColors.text.primary}}>{formattedDate}</Text>
           </View>
         </Card>
 
         <View style={styles.buttonsContainer}>
           <Button
-            title="View on EAS Scan"
+            title={t('host.proof.complete.viewEASScan')}
             onPress={handleViewEASScan}
             variant="secondary"
             size="large"
           />
           <View style={styles.buttonSpacer} />
           <Button
-            title="Generate Another Proof"
+            title={t('host.proof.complete.generateAnother')}
             onPress={handleGenerateAnother}
             variant="ghost"
             size="large"

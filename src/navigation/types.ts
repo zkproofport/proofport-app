@@ -4,8 +4,8 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type TabParamList = {
+  OpenStoaTab: NavigatorScreenParams<OpenStoaStackParamList>;
   ProofTab: NavigatorScreenParams<ProofStackParamList>;
-  WalletTab: NavigatorScreenParams<WalletStackParamList>;
   ScanTab: NavigatorScreenParams<ScanStackParamList>;
   HistoryTab: NavigatorScreenParams<HistoryStackParamList>;
   MoreTab: NavigatorScreenParams<MoreStackParamList>;
@@ -15,7 +15,7 @@ export type ProofStackParamList = {
   CircuitSelection: undefined;
   CountryInput: undefined;
   DomainInput: undefined;
-  ProofGeneration: { circuitId: string; proofRequest?: ProofRequest; countryInputs?: { countryList: string[]; isIncluded: boolean }; domainInput?: { domain: string; scope: string; provider?: string } };
+  ProofGeneration: { circuitId: string; proofRequest?: ProofRequest; countryInputs?: { countryList: string[]; isIncluded: boolean }; domainInput?: { domain?: string; scope: string; provider?: string } };
   ProofComplete: {
     proofHex: string;
     publicInputsHex: string[];
@@ -34,6 +34,16 @@ export type ProofStackParamList = {
   };
 };
 
+// OpenStoa root stack — single screen that mounts the embedded OpenStoa
+// mini-app via <HostProvider>. The mini-app owns its own bottom tab bar
+// (Feed/Topics/Chat/Profile + a fake "ZKProofport" tab that calls
+// host.exitToHost()).
+export type OpenStoaStackParamList = {
+  OpenStoaRoot: undefined;
+};
+
+// Wallet was promoted from a top-level tab into the More stack as part of
+// the 5-tab redesign (Option 2). Its screens are unchanged.
 export type WalletStackParamList = {
   WalletMain: undefined;
 };
@@ -50,7 +60,14 @@ export type HistoryStackParamList = {
 export type MoreStackParamList = {
   MoreMain: undefined;
   About: undefined;
+  Wallet: undefined;
+  SettingsLanguage: undefined;
 };
+
+export type OpenStoaTabScreenProps<T extends keyof OpenStoaStackParamList> = CompositeScreenProps<
+  NativeStackScreenProps<OpenStoaStackParamList, T>,
+  BottomTabScreenProps<TabParamList>
+>;
 
 export type ProofTabScreenProps<T extends keyof ProofStackParamList> = CompositeScreenProps<
   NativeStackScreenProps<ProofStackParamList, T>,

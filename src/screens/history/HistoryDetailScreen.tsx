@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
+import {useTranslation} from 'react-i18next';
 import {useRoute, useNavigation, useFocusEffect, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Icon, Badge, Card} from '../../components/ui';
@@ -26,6 +27,7 @@ type DetailNavigationProp = NativeStackNavigationProp<
 import {getCircuitIcon, getCircuitDisplayName} from '../../utils';
 
 const HistoryDetailScreen: React.FC = () => {
+  const {t} = useTranslation();
   const { colors: themeColors } = useThemeColors();
   const route = useRoute<DetailRouteProp>();
   const navigation = useNavigation<DetailNavigationProp>();
@@ -62,7 +64,7 @@ const HistoryDetailScreen: React.FC = () => {
       <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color={themeColors.info[400]} />
-          <Text style={{fontSize: 15, color: themeColors.text.secondary, marginTop: 16}}>Loading proof details...</Text>
+          <Text style={{fontSize: 15, color: themeColors.text.secondary, marginTop: 16}}>{t('host.history.detail.loadingText')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -82,29 +84,29 @@ const HistoryDetailScreen: React.FC = () => {
 
   const handleCopyProofHash = () => {
     Clipboard.setString(proofItem.proofHash);
-    Alert.alert('Copied', 'Proof hash copied to clipboard');
+    Alert.alert(t('host.history.detail.copied'), t('host.history.detail.copiedProofHash'));
   };
 
   const handleCopyWallet = () => {
     Clipboard.setString(proofItem.walletAddress);
-    Alert.alert('Copied', 'Wallet address copied to clipboard');
+    Alert.alert(t('host.history.detail.copied'), t('host.history.detail.copiedWallet'));
   };
 
   const handleCopyVerifier = () => {
     if (proofItem.verifierAddress) {
       Clipboard.setString(proofItem.verifierAddress);
-      Alert.alert('Copied', 'Verifier address copied to clipboard');
+      Alert.alert(t('host.history.detail.copied'), t('host.history.detail.copiedVerifier'));
     }
   };
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Proof',
-      `Are you sure you want to delete this ${circuitName} proof record?`,
+      t('host.history.deleteTitle'),
+      t('host.history.detail.deleteMessage', {name: circuitName}),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('common.cancel'), style: 'cancel'},
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             await proofHistoryStore.remove(proofId);
@@ -131,17 +133,17 @@ const HistoryDetailScreen: React.FC = () => {
 
         {proofItem.source === 'deeplink' && (proofItem.dappName || proofItem.requestId) && (
           <Card style={styles.statusCard}>
-            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>dApp Request</Text>
+            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>{t('host.history.detail.dappRequest')}</Text>
             {proofItem.dappName && (
               <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>dApp</Text>
+                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.dapp')}</Text>
                 <Text style={{fontSize: 15, fontWeight: '600', color: themeColors.info[400]}}>{proofItem.dappName}</Text>
               </View>
             )}
             {proofItem.dappName && proofItem.requestId && <View style={{height: 1, backgroundColor: themeColors.border.primary}} />}
             {proofItem.requestId && (
               <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Request ID</Text>
+                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.requestId')}</Text>
                 <Text style={{fontSize: 13, fontWeight: '500', color: themeColors.info[400], fontFamily: 'monospace'}}>
                   {proofItem.requestId.length > 20
                     ? `${proofItem.requestId.slice(0, 12)}...${proofItem.requestId.slice(-8)}`
@@ -154,18 +156,18 @@ const HistoryDetailScreen: React.FC = () => {
 
         {bothGenerated ? (
           <Card style={styles.statusCard}>
-            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Proof Status</Text>
+            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>{t('host.history.detail.proofStatus')}</Text>
             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Status</Text>
-              <Badge variant="info" text="Generated" />
+              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.proofStatus')}</Text>
+              <Badge variant="info" text={t('host.history.detail.statusGenerated')} />
             </View>
           </Card>
         ) : (
           <Card style={styles.statusCard}>
-            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Verification Status</Text>
+            <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>{t('host.history.detail.verificationStatus')}</Text>
 
             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Off-Chain Verification</Text>
+              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.offChain')}</Text>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 {offChainStatus === 'loading' ? (
                   <ActivityIndicator size="small" color={themeColors.info[400]} />
@@ -177,9 +179,9 @@ const HistoryDetailScreen: React.FC = () => {
                       offChainStatus === 'generated' ? 'info' : 'warning'
                     }
                     text={
-                      offChainStatus === 'verified' ? 'Verified' :
-                      offChainStatus === 'failed' ? 'Failed' :
-                      offChainStatus === 'generated' ? 'Generated' : 'Pending'
+                      offChainStatus === 'verified' ? t('host.history.detail.statusVerified') :
+                      offChainStatus === 'failed' ? t('host.history.detail.statusFailed') :
+                      offChainStatus === 'generated' ? t('host.history.detail.statusGenerated') : t('host.history.detail.statusPending')
                     }
                   />
                 )}
@@ -189,7 +191,7 @@ const HistoryDetailScreen: React.FC = () => {
             <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>On-Chain Verification</Text>
+              <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.onChain')}</Text>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 {onChainStatus === 'loading' ? (
                   <ActivityIndicator size="small" color={themeColors.info[400]} />
@@ -201,9 +203,9 @@ const HistoryDetailScreen: React.FC = () => {
                       onChainStatus === 'generated' ? 'info' : 'warning'
                     }
                     text={
-                      onChainStatus === 'verified' ? 'Verified' :
-                      onChainStatus === 'failed' ? 'Failed' :
-                      onChainStatus === 'generated' ? 'Generated' : 'Pending'
+                      onChainStatus === 'verified' ? t('host.history.detail.statusVerified') :
+                      onChainStatus === 'failed' ? t('host.history.detail.statusFailed') :
+                      onChainStatus === 'generated' ? t('host.history.detail.statusGenerated') : t('host.history.detail.statusPending')
                     }
                   />
                 )}
@@ -213,10 +215,10 @@ const HistoryDetailScreen: React.FC = () => {
         )}
 
         <Card style={styles.detailsCard}>
-          <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>Details</Text>
+          <Text style={{fontSize: 12, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 16}}>{t('host.history.detail.detailsSection')}</Text>
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Network</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.network')}</Text>
             <View style={styles.chainBadge}>
               <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: themeColors.info[500], marginRight: 6}} />
               <Text style={{fontSize: 13, fontWeight: '600', color: themeColors.info[400]}}>{proofItem.network}</Text>
@@ -228,7 +230,7 @@ const HistoryDetailScreen: React.FC = () => {
           {proofItem.verifierAddress && (
             <>
               <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Verifier Contract</Text>
+                <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.verifierContract')}</Text>
                 <TouchableOpacity
                   onPress={handleCopyVerifier}
                   style={styles.copyableValue}
@@ -243,7 +245,7 @@ const HistoryDetailScreen: React.FC = () => {
           )}
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Proof Hash</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.proofHash')}</Text>
             <TouchableOpacity
               onPress={handleCopyProofHash}
               style={styles.copyableValue}
@@ -260,7 +262,7 @@ const HistoryDetailScreen: React.FC = () => {
           <View style={{height: 1, backgroundColor: themeColors.border.primary}} />
 
           <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12}}>
-            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>Wallet Address</Text>
+            <Text style={{fontSize: 15, color: themeColors.text.secondary}}>{t('host.history.detail.walletAddress')}</Text>
             <TouchableOpacity
               onPress={handleCopyWallet}
               style={styles.copyableValue}
@@ -276,7 +278,7 @@ const HistoryDetailScreen: React.FC = () => {
           style={styles.deleteRow}
           activeOpacity={0.7}>
           <Icon name="trash-2" size="xs" color="#EF4444" />
-          <Text style={styles.deleteText}>Delete</Text>
+          <Text style={styles.deleteText}>{t('common.delete')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

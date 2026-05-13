@@ -1,5 +1,6 @@
 import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {View, Text, StyleSheet, Image, Animated, ActivityIndicator, Alert} from 'react-native';
+import {useTranslation} from 'react-i18next';
 
 import {
   downloadCircuitFiles,
@@ -17,6 +18,7 @@ interface LoadingScreenProps {
 }
 
 export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement {
+  const {t} = useTranslation();
   const {mode, colors: themeColors} = useThemeColors();
   const isDark = mode === 'dark';
   const [showSplash, setShowSplash] = useState(true);
@@ -98,9 +100,9 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
           const reasons = failed.map((r) => (r as PromiseRejectedResult).reason?.message || 'Unknown error');
           console.error('Background circuit download failed:', reasons);
           Alert.alert(
-            'Download Failed',
-            'Some circuit files could not be downloaded. Please check your network connection and restart the app to retry.',
-            [{text: 'OK'}],
+            t('host.loading.downloadFailedTitle'),
+            t('host.loading.downloadFailedMessage'),
+            [{text: t('common.ok')}],
           );
         } else {
           console.log('Background circuit downloads completed successfully.');
@@ -159,7 +161,7 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       </Animated.View>
 
       <Text style={[styles.appName, {color: themeColors.text.primary}]}>ZKProofport</Text>
-      <Text style={[styles.tagline, {color: themeColors.text.secondary}]}>Privacy-Preserving Identity Proofs</Text>
+      <Text style={[styles.tagline, {color: themeColors.text.secondary}]}>{t('host.loading.tagline')}</Text>
 
       {loading && (
         <ActivityIndicator size="large" color={isDark ? '#FFFFFF' : '#999999'} style={styles.spinner} />

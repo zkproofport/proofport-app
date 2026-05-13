@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {Icon} from '../../components/ui/atoms/Icon';
 import {Button} from '../../components/ui/molecules/Button';
 import {useThemeColors} from '../../context';
@@ -12,6 +13,7 @@ interface WalletNoConnectionScreenProps {
 export const WalletNoConnectionScreen: React.FC<
   WalletNoConnectionScreenProps
 > = ({onConnectPress}) => {
+  const {t} = useTranslation();
   const { colors: themeColors } = useThemeColors();
   return (
     <ScrollView
@@ -22,13 +24,13 @@ export const WalletNoConnectionScreen: React.FC<
           <Icon name="link" size="xl" color={themeColors.text.secondary} />
         </View>
 
-        <Text style={{...typography.heading.h1, color: themeColors.text.primary, marginBottom: spacing[3], textAlign: 'center'}}>No Wallet Connected</Text>
+        <Text style={{...typography.heading.h1, color: themeColors.text.primary, marginBottom: spacing[3], textAlign: 'center'}}>{t('host.wallet.noWalletConnected')}</Text>
         <Text style={{...typography.body.medium, color: themeColors.text.secondary, textAlign: 'center', marginBottom: spacing[8], paddingHorizontal: spacing[4]}}>
-          Connect your wallet to generate zero-knowledge proofs
+          {t('host.wallet.noWalletDescription')}
         </Text>
 
         <Button
-          title="Connect Wallet"
+          title={t('host.wallet.connectWallet')}
           variant="primary"
           size="large"
           onPress={onConnectPress}

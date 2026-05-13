@@ -1,0 +1,494 @@
+{
+  "common": {
+    "cancel": "취소",
+    "save": "저장",
+    "delete": "삭제",
+    "retry": "다시 시도",
+    "loading": "불러오는 중…",
+    "ok": "확인"
+  },
+  "host": {
+    "tabs": {
+      "openstoa": "OpenStoa",
+      "verify": "검증",
+      "scan": "스캔",
+      "history": "기록",
+      "more": "더보기"
+    },
+    "more": {
+      "title": "더보기",
+      "language": "언어",
+      "about": "정보",
+      "wallet": "지갑",
+      "sectionGeneral": "일반",
+      "sectionProofSettings": "증명 설정",
+      "sectionData": "데이터",
+      "sectionDeveloper": "개발자",
+      "theme": "테마",
+      "themeDark": "다크",
+      "themeLight": "라이트",
+      "defaultNetwork": "기본 네트워크",
+      "autoSaveProofs": "증명 자동 저장",
+      "confirmBeforeGenerate": "생성 전 확인",
+      "showLiveLogs": "라이브 로그 표시",
+      "exportProofHistory": "증명 기록 내보내기",
+      "clearLocalData": "로컬 데이터 삭제",
+      "exportTitle": "증명 기록 내보내기",
+      "exportMessage": "증명 기록을 JSON 파일로 내보낼까요?",
+      "export": "내보내기",
+      "exportError": "증명 기록 내보내기에 실패했어요",
+      "clearTitle": "로컬 데이터 삭제",
+      "clearMessage": "로컬에 저장된 모든 증명과 설정이 삭제돼요. 이 작업은 되돌릴 수 없어요.",
+      "clear": "삭제",
+      "clearSuccess": "로컬 데이터가 삭제됐어요",
+      "clearError": "로컬 데이터 삭제에 실패했어요",
+      "versionSupport": "버전, 지원"
+    },
+    "about": {
+      "tagline": "개인정보 보호 최우선 영지식 증명 생성",
+      "sectionLinks": "링크",
+      "sectionPoweredBy": "기반 기술",
+      "aztecSubtitle": "영지식 증명 인프라",
+      "devModeEnabled": "개발자 모드 활성화",
+      "devModeDisabled": "개발자 모드 비활성화",
+      "devModeEnabledMsg": "설정에서 라이브 로그와 디버그 옵션을 사용할 수 있어요.",
+      "devModeDisabledMsg": "개발자 옵션이 숨겨졌어요.",
+      "openURLError": "{{title}}을(를) 열 수 없어요",
+      "openURLFailed": "{{title}} 열기에 실패했어요"
+    },
+    "settings": {
+      "languageTitle": "언어",
+      "english": "English",
+      "korean": "한국어"
+    },
+    "wallet": {
+      "title": "WalletConnect",
+      "installMetaMask": "MetaMask 설치",
+      "connectWallet": "지갑 연결",
+      "disconnect": "연결 해제",
+      "walletAddress": "지갑 주소",
+      "tapToCopy": "탭하여 복사",
+      "notConnected": "연결되지 않음",
+      "network": "네트워크",
+      "chainId": "체인 ID",
+      "fullAddress": "전체 주소",
+      "clearWalletConnectCache": "WalletConnect 캐시 삭제",
+      "noWalletConnected": "연결된 지갑 없음",
+      "noWalletDescription": "영지식 증명을 생성하려면 지갑을 연결해 주세요",
+      "walletDetails": "지갑 정보",
+      "address": "주소",
+      "status": "상태",
+      "active": "활성",
+      "inactive": "비활성",
+      "copied": "복사됨!",
+      "selectWallet": "연결할 지갑을 선택하세요:"
+    },
+    "privy": {
+      "title": "Privy Wallet",
+      "subtitle": "Privy를 통해 외부 지갑 연결",
+      "connectedWallet": "연결된 지갑",
+      "walletName": "지갑 이름",
+      "privyUser": "Privy 사용자",
+      "connectWallet": "지갑 연결",
+      "disconnect": "연결 해제",
+      "fullAddress": "전체 주소",
+      "notConnected": "연결되지 않음",
+      "installMetaMask": "MetaMask 설치",
+      "noWalletDetected": "지갑 앱이 없어요. MetaMask를 설치하여 연결하세요."
+    },
+    "coinbase": {
+      "title": "Coinbase KYC 검증",
+      "walletConnection": "지갑 연결",
+      "actions": "작업",
+      "clearLogs": "로그 지우기"
+    },
+    "main": {
+      "subtitle": "기능을 선택해 시작하세요",
+      "coinbaseKycDesc": "신원 인증 증명",
+      "connectWalletDesc": "외부 지갑 연결"
+    },
+    "loading": {
+      "tagline": "Privacy-Preserving Identity Proofs",
+      "downloadFailedTitle": "다운로드 실패",
+      "downloadFailedMessage": "일부 회로 파일을 다운로드하지 못했어요. 네트워크 연결을 확인하고 앱을 다시 시작해 주세요."
+    },
+    "history": {
+      "loadingText": "증명 기록을 불러오는 중...",
+      "errorTitle": "오류",
+      "emptyTitle": "증명 기록 없음",
+      "emptyText": "생성한 증명이 여기에 표시돼요",
+      "deleteTitle": "증명 삭제",
+      "deleteMessage": "\"{{name}}\" 증명 기록을 삭제할까요?",
+      "clearAllTitle": "전체 기록 삭제",
+      "clearAllMessage": "모든 증명 기록을 삭제할까요? 이 작업은 되돌릴 수 없어요.",
+      "clearAll": "전체 삭제",
+      "totalProofs": "전체 증명",
+      "generated": "생성됨",
+      "failed": "실패",
+      "detail": {
+        "loadingText": "증명 상세 정보를 불러오는 중...",
+        "copied": "복사됨",
+        "copiedProofHash": "증명 해시가 클립보드에 복사됐어요",
+        "copiedWallet": "지갑 주소가 클립보드에 복사됐어요",
+        "copiedVerifier": "검증자 주소가 클립보드에 복사됐어요",
+        "deleteMessage": "이 {{name}} 증명 기록을 삭제할까요?",
+        "dappRequest": "dApp 요청",
+        "dapp": "dApp",
+        "requestId": "요청 ID",
+        "proofStatus": "증명 상태",
+        "statusGenerated": "생성됨",
+        "verificationStatus": "검증 상태",
+        "offChain": "오프체인 검증",
+        "onChain": "온체인 검증",
+        "statusVerified": "검증됨",
+        "statusFailed": "실패",
+        "statusPending": "대기 중",
+        "detailsSection": "상세 정보",
+        "network": "네트워크",
+        "verifierContract": "검증 컨트랙트",
+        "proofHash": "증명 해시",
+        "walletAddress": "지갑 주소",
+        "title": "증명 상세"
+      }
+    },
+    "scan": {
+      "permissionTitle": "카메라 접근 권한 필요",
+      "permissionText": "QR 코드를 스캔하려면 카메라 접근을 허용해 주세요",
+      "permissionButton": "계속",
+      "permissionAlertTitle": "카메라 권한 필요",
+      "permissionAlertText": "설정에서 카메라 접근을 허용해야 QR 코드를 스캔할 수 있어요.",
+      "openSettings": "설정 열기",
+      "noCameraTitle": "카메라 없음",
+      "noCameraText": "이 기기에는 카메라가 없어요",
+      "linkScannedTitle": "링크 스캔됨",
+      "openInBrowser": "브라우저에서 열기",
+      "qrScannedTitle": "QR 코드 스캔됨",
+      "overlayTitle": "QR 코드 스캔",
+      "overlayHint": "카메라를 QR 코드에 가져다 대면\n증명 요청을 스캔해요"
+    },
+    "proof": {
+      "circuitSelection": {
+        "title": "증명",
+        "sectionLabel": "증명 유형 선택",
+        "coinbaseKyc": {
+          "title": "Coinbase KYC 인증",
+          "description": "지갑을 공개하지 않고 신원을 증명해요"
+        },
+        "coinbaseCountry": {
+          "title": "Coinbase 국가 인증",
+          "description": "Coinbase를 통해 국가를 인증해요"
+        },
+        "oidcDomain": {
+          "title": "OIDC 도메인",
+          "description": "이메일 도메인 소속을 증명해요"
+        }
+      },
+      "country": {
+        "heroLabel": "국가 인증",
+        "heroTitle": "국가 인증",
+        "heroDescription": "인증할 국가를 선택하고 포함 또는 제외 여부를 선택하세요",
+        "selectedLabel": "선택된 국가",
+        "noCountriesSelected": "선택된 국가 없음",
+        "tapToAdd": "아래에서 국가를 탭해 추가하세요",
+        "availableLabel": "사용 가능한 국가",
+        "modeLabel": "인증 모드",
+        "includedTitle": "포함",
+        "includedDescription": "선택한 목록에 해당 국가가 포함됨을 증명해요",
+        "excludedTitle": "제외",
+        "excludedDescription": "선택한 목록에 해당 국가가 포함되지 않음을 증명해요",
+        "summaryLabel": "요약",
+        "summarySelectAtLeastOne": "계속하려면 국가를 하나 이상 선택하세요",
+        "summaryVerbIs": "에 포함됨",
+        "summaryVerbIsNot": "에 포함되지 않음",
+        "summaryProve": "해당 국가가 {{verb}}: {{countries}}임을 증명해요",
+        "continueButton": "증명 계속하기",
+        "stackTitle": "국가 인증"
+      },
+      "complete": {
+        "successTitle": "증명이 생성됐어요!",
+        "successDescription": "영지식 증명이 성공적으로 생성됐어요",
+        "proofHashLabel": "증명 해시",
+        "proofDetailsLabel": "증명 상세",
+        "offChain": "오프체인",
+        "onChain": "온체인",
+        "verifyButton": "검증",
+        "verified": "검증됨",
+        "failed": "실패",
+        "verificationChain": "검증 체인",
+        "circuit": "회로",
+        "generated": "생성됨",
+        "copiedTitle": "복사됨",
+        "copiedMessage": "증명 해시가 클립보드에 복사됐어요",
+        "viewEASScan": "EAS Scan에서 보기",
+        "generateAnother": "다른 증명 생성하기",
+        "stackTitle": "증명 완료",
+        "done": "완료"
+      },
+      "generation": {
+        "portalLabel": "증명 포털",
+        "oidcTitle": "OIDC 도메인 인증",
+        "coinbaseCountryTitle": "Coinbase 국가 인증",
+        "coinbaseKycTitle": "Coinbase KYC 인증",
+        "oidcDescription": "OIDC 신원 토큰을 사용해 이메일 도메인의 영지식 증명을 생성해요. 증명은 기기에서 로컬로 생성됩니다.",
+        "coinbaseCountryDescription": "개인 정보를 공개하지 않고 Coinbase를 통해 국가 인증의 영지식 증명을 생성해요.",
+        "coinbaseKycDescription": "개인 정보를 전혀 공개하지 않고 Coinbase 신원 인증의 영지식 증명을 생성해요.",
+        "connectWallet": "지갑 연결",
+        "processing": "처리 중",
+        "generateButton": "ZK 증명 생성",
+        "retryButton": "다시 시도",
+        "signInGoogle": "Google로 로그인 후 증명하기",
+        "signInMicrosoft": "Microsoft로 로그인 후 증명하기",
+        "confirmTitle": "ZK 증명 생성",
+        "confirmMessage": "영지식 증명을 생성할까요?",
+        "confirmCancel": "취소",
+        "confirmGenerate": "생성",
+        "stackTitle": "증명 생성"
+      },
+      "domain": {
+        "heroLabel": "OIDC 도메인 인증",
+        "heroTitle": "도메인 인증",
+        "heroDescription": "OIDC 공급자를 사용해 특정 도메인에 이메일이 속함을 증명해요. 이메일 주소는 공개되지 않아요.",
+        "domainLabel": "증명할 도메인",
+        "domainPlaceholder": "예: gmail.com",
+        "domainHint": "계정 이메일은 @{{domain}}으로 끝나야 해요",
+        "scopeLabel": "스코프 (선택)",
+        "scopeHint": "증명 고유성을 위한 애플리케이션 식별자",
+        "modeLabel": "인증 모드",
+        "summaryLabel": "요약",
+        "anyEmail": "모든 이메일",
+        "anyEmailDesc": "이메일 도메인만 인증",
+        "googleWorkspace": "Google Workspace",
+        "googleWorkspaceDesc": "조직 구성원 인증",
+        "microsoft365": "Microsoft 365",
+        "microsoft365Desc": "조직 구성원 인증",
+        "summaryMicrosoftMembership": "Microsoft 365 구성원 증명: {{domain}}",
+        "summaryGoogleMembership": "Google Workspace 구성원 증명: {{domain}}",
+        "summaryEmailDomain": "이메일 도메인 증명: {{domain}}",
+        "summaryAutoDetect": "이메일에서 도메인이 자동으로 감지돼요",
+        "summaryInvalidDomain": "올바른 도메인(예: gmail.com)을 입력하거나 비워두면 자동 감지해요",
+        "signInGoogle": "Google로 로그인 후 증명하기",
+        "signInMicrosoft": "Microsoft로 로그인 후 증명하기",
+        "stackTitle": "도메인 인증"
+      }
+    }
+  },
+  "openstoa": {
+    "tabs": {
+      "feed": "피드",
+      "topics": "토픽",
+      "chat": "채팅",
+      "profile": "프로필",
+      "zkproofport": "ZKProofport"
+    },
+    "feed": {
+      "empty": "아직 게시글이 없어요.",
+      "error": "피드를 불러오지 못했어요.",
+      "postTitle": "게시물",
+      "sort": {
+        "hot": "인기",
+        "new": "최신",
+        "active": "활성",
+        "top": "추천"
+      },
+      "tagAll": "전체"
+    },
+    "common": {
+      "retry": "다시 시도",
+      "cancel": "취소",
+      "save": "저장",
+      "delete": "삭제",
+      "ok": "확인"
+    },
+    "postCard": {
+      "author": {
+        "anon": "익명"
+      },
+      "commentsCount": "댓글 {{count}}개",
+      "viewsCount": "조회 {{count}}회",
+      "more": "더보기",
+      "showLess": "접기"
+    },
+    "relativeTime": {
+      "justNow": "방금 전",
+      "minutes": "{{n}}분 전",
+      "hours": "{{n}}시간 전",
+      "days": "{{n}}일 전",
+      "months": "{{n}}개월 전",
+      "years": "{{n}}년 전"
+    },
+    "profile": {
+      "editTitle": "프로필 편집",
+      "editButton": "편집",
+      "joined": "{{when}} 가입",
+      "domainBadge": {
+        "label": "도메인 뱃지",
+        "enableTitle": "도메인 뱃지 활성화",
+        "enableMessage": "조직 이메일을 OIDC 증명으로 인증해 도메인 뱃지를 활성화할 수 있어요.",
+        "generateProof": "증명 생성",
+        "cancel": "취소",
+        "error": "도메인 뱃지 활성화에 실패했어요"
+      },
+      "notSet": "미설정",
+      "badges": "뱃지",
+      "tabs": {
+        "posts": "내 글",
+        "likes": "좋아요",
+        "bookmarks": "북마크"
+      },
+      "empty": {
+        "posts": "작성한 글이 없어요.",
+        "likes": "좋아요한 글이 없어요.",
+        "bookmarks": "북마크한 글이 없어요."
+      },
+      "failedToLoad": "프로필을 불러오지 못했어요.",
+      "editPhoto": "사진 편집",
+      "recorded": "{{count}}개 기록"
+    },
+    "editProfile": {
+      "nickname": "닉네임",
+      "nicknamePlaceholder": "닉네임 입력",
+      "save": "저장",
+      "saved": {
+        "title": "저장됨",
+        "message": "닉네임이 변경되었어요."
+      },
+      "error": {
+        "title": "오류",
+        "empty": "닉네임을 입력해주세요.",
+        "same": "현재 닉네임과 동일해요."
+      },
+      "domainBadgeRemoveTitle": "도메인 뱃지 해제",
+      "domainBadgeRemoveMessage": "도메인 뱃지를 해제할까요?",
+      "remove": "해제",
+      "enabled": "활성화됨",
+      "domainOff": "도메인 뱃지가 비활성화 상태예요.",
+      "domainOffHint": "조직 이메일 인증 후 활성화할 수 있어요.",
+      "account": "계정",
+      "logout": {
+        "title": "로그아웃",
+        "message": "정말 로그아웃하시겠어요?"
+      },
+      "delete": {
+        "title": "계정 삭제",
+        "message": "계정을 삭제하면 모든 게시글, 댓글, 뱃지가 영구적으로 삭제돼요. 계속할까요?"
+      }
+    },
+    "topics": {
+      "detailTitle": "토픽",
+      "createTitle": "새 토픽",
+      "newPostTitle": "새 글",
+      "headers": {
+        "joined": "가입한 토픽",
+        "explore": "탐색"
+      },
+      "join": "참여",
+      "members": "{{count}}명",
+      "posts": "게시글",
+      "proofRequiredTitle": "증명이 필요해요",
+      "proofRequiredMessage": "이 토픽의 증명 생성은 아직 구현되지 않았어요.",
+      "joinFailedTitle": "가입 실패",
+      "notFound": "토픽을 찾을 수 없어요.",
+      "newPost": "글쓰기",
+      "sort": {
+        "hot": "인기",
+        "new": "최신",
+        "active": "활성",
+        "top": "추천"
+      },
+      "category": {
+        "all": "전체"
+      },
+      "invite": {
+        "cta": "초대 코드로 참여",
+        "hint": "초대 코드 입력",
+        "join": "참여",
+        "share": "초대",
+        "shareSubject": "OpenStoa 토픽에 참여하세요",
+        "shareBody": "이 초대 코드로 참여할 수 있어요: {{code}}",
+        "joinFailedTitle": "참여하지 못했어요",
+        "alreadyMember": "이미 이 토픽의 구성원이에요.",
+        "invalidCode": "유효하지 않거나 만료된 초대 코드예요."
+      }
+    },
+    "topicDetail": {
+      "members": "구성원",
+      "requests": "요청",
+      "settings": "설정",
+      "invite": "초대",
+      "actions": "토픽 메뉴",
+      "pin": "글 고정",
+      "unpin": "고정 해제",
+      "pinFailed": "고정 변경에 실패했어요",
+      "postActions": "글 메뉴"
+    },
+    "members": {
+      "title": "구성원",
+      "empty": "아직 구성원이 없어요.",
+      "role": {
+        "owner": "소유자",
+        "admin": "운영자",
+        "member": "구성원"
+      },
+      "promote": "운영자 지정",
+      "demote": "운영자 해제",
+      "kick": "내보내기",
+      "kickConfirm": "이 구성원을 토픽에서 내보낼까요?",
+      "actionsForMember": "{{nickname}}",
+      "actionFailed": "작업에 실패했어요"
+    },
+    "requests": {
+      "title": "대기 중인 요청",
+      "empty": "대기 중인 요청이 없어요",
+      "approve": "승인",
+      "reject": "거절",
+      "actionFailed": "작업에 실패했어요"
+    },
+    "topicEdit": {
+      "title": "토픽 편집",
+      "titleField": "제목",
+      "descriptionField": "설명",
+      "save": "저장",
+      "saved": "토픽이 업데이트됐어요",
+      "saveFailed": "저장에 실패했어요",
+      "deleteTopic": "토픽 삭제",
+      "deleteConfirm": "이 토픽을 삭제할까요? 되돌릴 수 없습니다."
+    },
+    "topicCreate": {
+      "title": "제목",
+      "titlePlaceholder": "토픽 제목을 입력하세요",
+      "descriptionOptional": "설명 (선택)",
+      "descriptionPlaceholder": "토픽에 대해 간단히 설명해 주세요",
+      "category": "카테고리",
+      "proofType": "인증 방식",
+      "submit": "토픽 생성",
+      "proofTypes": {
+        "none": "없음",
+        "kyc": "KYC (Coinbase)",
+        "country": "국가 인증",
+        "googleWorkspace": "Google Workspace",
+        "microsoft365": "Microsoft 365"
+      },
+      "comingSoonTitle": "준비 중",
+      "comingSoonMessage": "이 인증 방식은 아직 지원되지 않아요.",
+      "createFailed": "생성 실패"
+    },
+    "postCreate": {
+      "title": "제목",
+      "titlePlaceholder": "글 제목을 입력하세요",
+      "body": "본문",
+      "bodyPlaceholder": "내용을 입력하세요",
+      "submit": "글쓰기",
+      "failed": "작성 실패"
+    },
+    "postDetail": {
+      "commentsHeader": "댓글 {{count}}",
+      "noComments": "아직 댓글이 없어요. 첫 번째 댓글을 남겨보세요!",
+      "deleted": "[삭제됨]",
+      "addCommentPlaceholder": "댓글 입력…",
+      "send": "보내기",
+      "notFound": "글을 찾을 수 없어요.",
+      "bookmark": "저장",
+      "bookmarked": "저장됨"
+    }
+  }
+}

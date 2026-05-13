@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useTranslation} from 'react-i18next';
 import {useWalletConnect, useLogs} from '../hooks';
 import {LogViewer} from '../components';
 
@@ -26,6 +27,7 @@ const CHAIN_NAMES: Record<number, string> = {
 };
 
 export const WalletScreen: React.FC = () => {
+  const {t} = useTranslation();
   const {logs, addLog, clearLogs, logScrollRef} = useLogs();
 
   const {
@@ -109,7 +111,7 @@ export const WalletScreen: React.FC = () => {
             <Text style={styles.icon}>🔗</Text>
           </View>
 
-          <Text style={styles.title}>WalletConnect</Text>
+          <Text style={styles.title}>{t('host.wallet.title')}</Text>
 
           <View style={styles.statusRow}>
             <View style={[styles.statusDot, {backgroundColor: getStatusColor()}]} />
@@ -125,7 +127,7 @@ export const WalletScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.installWalletButton}
                   onPress={openWalletStore}>
-                  <Text style={styles.installWalletText}>Install MetaMask</Text>
+                  <Text style={styles.installWalletText}>{t('host.wallet.installMetaMask')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -139,36 +141,36 @@ export const WalletScreen: React.FC = () => {
               {status === 'connecting' ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.buttonText}>Connect Wallet</Text>
+                <Text style={styles.buttonText}>{t('host.wallet.connectWallet')}</Text>
               )}
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={[styles.button, styles.disconnectButton]}
               onPress={handleDisconnect}>
-              <Text style={styles.buttonText}>Disconnect</Text>
+              <Text style={styles.buttonText}>{t('host.wallet.disconnect')}</Text>
             </TouchableOpacity>
           )}
 
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Wallet Address</Text>
+              <Text style={styles.infoLabel}>{t('host.wallet.walletAddress')}</Text>
               {isConnected ? (
                 <TouchableOpacity onPress={handleCopyAddress}>
                   <Text style={styles.infoValue}>{formattedAddress}</Text>
-                  <Text style={styles.copyHint}>Tap to copy</Text>
+                  <Text style={styles.copyHint}>{t('host.wallet.tapToCopy')}</Text>
                 </TouchableOpacity>
               ) : (
-                <Text style={styles.infoValueDisabled}>Not connected</Text>
+                <Text style={styles.infoValueDisabled}>{t('host.wallet.notConnected')}</Text>
               )}
             </View>
 
             <View style={styles.divider} />
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Network</Text>
+              <Text style={styles.infoLabel}>{t('host.wallet.network')}</Text>
               <Text style={isConnected ? styles.infoValue : styles.infoValueDisabled}>
-                {isConnected ? getChainName(chainId) : 'Not connected'}
+                {isConnected ? getChainName(chainId) : t('host.wallet.notConnected')}
               </Text>
             </View>
 
@@ -176,7 +178,7 @@ export const WalletScreen: React.FC = () => {
               <>
                 <View style={styles.divider} />
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Chain ID</Text>
+                  <Text style={styles.infoLabel}>{t('host.wallet.chainId')}</Text>
                   <Text style={styles.infoValue}>{chainId}</Text>
                 </View>
               </>
@@ -185,7 +187,7 @@ export const WalletScreen: React.FC = () => {
 
           {isConnected && (
             <View style={styles.fullAddressContainer}>
-              <Text style={styles.fullAddressLabel}>Full Address</Text>
+              <Text style={styles.fullAddressLabel}>{t('host.wallet.fullAddress')}</Text>
               <Text style={styles.fullAddressValue} selectable>
                 {account}
               </Text>
@@ -196,7 +198,7 @@ export const WalletScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.clearCacheButton}
             onPress={handleClearCache}>
-            <Text style={styles.clearCacheText}>Clear WalletConnect Cache</Text>
+            <Text style={styles.clearCacheText}>{t('host.wallet.clearWalletConnectCache')}</Text>
           </TouchableOpacity>
         </View>
 

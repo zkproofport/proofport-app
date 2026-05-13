@@ -84,7 +84,11 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       base: ['https://sepolia.base.org'],
     },
     relay: {
-      trustedHosts: ['localhost'],
+      // Dev builds (__DEV__) accept localhost (LAN dev), the staging relay
+      // (when developing against staging community), and the production
+      // relay (since OpenStoa staging currently has RELAY_URL pointing at
+      // production until that env var is reconfigured).
+      trustedHosts: ['localhost', 'stg-relay.zkproofport.app', 'relay.zkproofport.app'],
       allowPrivateIps: true,
     },
     broadcastSource: {
@@ -108,7 +112,11 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       base: ['https://sepolia.base.org'],
     },
     relay: {
-      trustedHosts: ['stg-relay.zkproofport.app'],
+      // OpenStoa staging deployment currently uses RELAY_URL=relay.zkproofport.app
+      // (production relay) in its env config. Until that is reconfigured to the
+      // staging relay, accept production relay in staging builds so the
+      // self-relay login flow can complete during dev.
+      trustedHosts: ['stg-relay.zkproofport.app', 'relay.zkproofport.app'],
       allowPrivateIps: false,
     },
     broadcastSource: {

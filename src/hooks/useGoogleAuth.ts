@@ -39,36 +39,68 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
     setError(null);
     setIdToken(null);
 
-    try {
+    const attempt = async (): Promise<string | null> => {
       // hasPlayServices is Android-only — skip on iOS
       if (Platform.OS === 'android') {
         await GoogleSignin.hasPlayServices();
       }
-
       const response = await GoogleSignin.signIn();
-
       if (isSuccessResponse(response)) {
         const token = response.data.idToken;
-        if (token) {
-          setIdToken(token);
-          return token;
-        }
+        if (token) return token;
         throw new Error('Google Sign-In succeeded but no id_token returned. Ensure webClientId is configured.');
       }
-
       throw new Error('Google Sign-In failed: unexpected response');
+    };
+
+    try {
+      const token = await attempt();
+      if (token) {
+        setIdToken(token);
+        return token;
+      }
+      return null;
     } catch (e: unknown) {
       const err = e as {code?: string; message?: string};
+      console.log('[GoogleAuth] signIn error (attempt 1)', {code: err.code, message: err.message});
+
+      // GIDSignInErrorCode.keychain (-2): the SDK could not read/write its
+      // keychain entry. This is a known iOS-simulator issue when the bundle's
+      // keychain-access-groups entitlement can't be resolved without a
+      // provisioning profile. Recover by signing out (which clears any
+      // stale partial keychain record the SDK left behind) and retrying once.
+      if (err.code === '-2' || err.message?.toLowerCase().includes('keychain')) {
+        try {
+          await GoogleSignin.signOut();
+        } catch (_signOutErr) {
+          // best-effort — even if signOut fails, the retry can still succeed
+        }
+        try {
+          const token = await attempt();
+          if (token) {
+            setIdToken(token);
+            return token;
+          }
+        } catch (e2: unknown) {
+          const err2 = e2 as {code?: string; message?: string};
+          console.log('[GoogleAuth] signIn error (attempt 2)', {code: err2.code, message: err2.message});
+          setError(
+            `Google Sign-In keychain error persisted after retry (code=${err2.code ?? 'unknown'}, msg=${err2.message ?? 'none'}). ` +
+              `This typically requires rebuilding the app with a valid keychain-access-groups entitlement.`,
+          );
+          return null;
+        }
+      }
 
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {
-        setError('Google sign-in was cancelled');
+        setError(`Google sign-in was cancelled (code=${err.code}, msg=${err.message ?? 'none'})`);
       } else if (err.code === statusCodes.IN_PROGRESS) {
         setError('Google sign-in already in progress');
       } else if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         setError('Google Play Services not available');
       } else {
         const msg = err.message || String(e);
-        setError(msg);
+        setError(`${msg} (code=${err.code ?? 'unknown'})`);
       }
 
       return null;

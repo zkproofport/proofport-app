@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, Alert, TouchableOpacity} from 'react-native';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {useTranslation} from 'react-i18next';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {HistoryStackParamList} from '../../navigation/types';
 import {ProofHistoryCard} from '../../components/ui/organisms/ProofHistoryCard';
@@ -51,6 +52,7 @@ const mapOverallToDisplayStatus = (overallStatus: string): 'pending' | 'failed' 
 };
 
 const ProofHistoryScreen: React.FC = () => {
+  const {t} = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<HistoryStackParamList>>();
   const {items: proofs, loading, error, removeItem, clearAll, refresh} = useProofHistory();
   const { colors: themeColors } = useThemeColors();
@@ -69,12 +71,12 @@ const ProofHistoryScreen: React.FC = () => {
 
   const handleDeleteItem = (id: string, circuitName: string) => {
     Alert.alert(
-      'Delete Proof',
-      `Are you sure you want to delete "${circuitName}" proof record?`,
+      t('host.history.deleteTitle'),
+      t('host.history.deleteMessage', {name: circuitName}),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('common.cancel'), style: 'cancel'},
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => removeItem(id).catch(console.error),
         },
@@ -84,12 +86,12 @@ const ProofHistoryScreen: React.FC = () => {
 
   const handleClearAll = () => {
     Alert.alert(
-      'Clear All History',
-      'Are you sure you want to delete all proof records? This cannot be undone.',
+      t('host.history.clearAllTitle'),
+      t('host.history.clearAllMessage'),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('common.cancel'), style: 'cancel'},
         {
-          text: 'Clear All',
+          text: t('host.history.clearAll'),
           style: 'destructive',
           onPress: () => clearAll().catch(console.error),
         },
@@ -102,7 +104,7 @@ const ProofHistoryScreen: React.FC = () => {
       <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color={themeColors.info[500]} />
-          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>Loading proof history...</Text>
+          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>{t('host.history.loadingText')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -112,7 +114,7 @@ const ProofHistoryScreen: React.FC = () => {
     return (
       <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>Error</Text>
+          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>{t('host.history.errorTitle')}</Text>
           <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>{error.message}</Text>
         </View>
       </SafeAreaView>
@@ -126,9 +128,9 @@ const ProofHistoryScreen: React.FC = () => {
           <View style={{marginBottom: 16}}>
             <Icon name="shield" size="xl" color={themeColors.text.secondary} />
           </View>
-          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>No Proofs Yet</Text>
+          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>{t('host.history.emptyTitle')}</Text>
           <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>
-            Your generated proofs will appear here
+            {t('host.history.emptyText')}
           </Text>
         </View>
       </SafeAreaView>
@@ -162,15 +164,15 @@ const ProofHistoryScreen: React.FC = () => {
 
         <View style={[styles.summary, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Total Proofs</Text>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>{t('host.history.totalProofs')}</Text>
             <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{totalProofs}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Generated</Text>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>{t('host.history.generated')}</Text>
             <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{generatedCount}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>Failed</Text>
+            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>{t('host.history.failed')}</Text>
             <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{failedCount}</Text>
           </View>
         </View>
@@ -179,7 +181,7 @@ const ProofHistoryScreen: React.FC = () => {
           style={[styles.clearAllButton, {borderColor: `rgba(239, 68, 68, 0.3)`}]}
           onPress={handleClearAll}
           activeOpacity={0.7}>
-          <Text style={[styles.clearAllText, {color: themeColors.error[500]}]}>Clear All History</Text>
+          <Text style={[styles.clearAllText, {color: themeColors.error[500]}]}>{t('host.history.clearAll')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

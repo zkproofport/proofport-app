@@ -10,6 +10,9 @@ import '@ethersproject/shims'; // ethers.js polyfills
 // WalletConnect polyfills - after crypto polyfills
 import '@walletconnect/react-native-compat';
 
+// i18n — must initialise before any screen renders
+import './src/i18n';
+
 import {AppRegistry, LogBox} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';

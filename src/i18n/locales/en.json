@@ -1,0 +1,494 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "ok": "OK"
+  },
+  "host": {
+    "tabs": {
+      "openstoa": "OpenStoa",
+      "verify": "Verify",
+      "scan": "Scan",
+      "history": "History",
+      "more": "More"
+    },
+    "more": {
+      "title": "More",
+      "language": "Language",
+      "about": "About",
+      "wallet": "Wallet",
+      "sectionGeneral": "GENERAL",
+      "sectionProofSettings": "PROOF SETTINGS",
+      "sectionData": "DATA",
+      "sectionDeveloper": "DEVELOPER",
+      "theme": "Theme",
+      "themeDark": "Dark",
+      "themeLight": "Light",
+      "defaultNetwork": "Default Network",
+      "autoSaveProofs": "Auto-save proofs",
+      "confirmBeforeGenerate": "Confirm before generate",
+      "showLiveLogs": "Show live logs",
+      "exportProofHistory": "Export Proof History",
+      "clearLocalData": "Clear Local Data",
+      "exportTitle": "Export Proof History",
+      "exportMessage": "Export your proof history as JSON file?",
+      "export": "Export",
+      "exportError": "Failed to export proof history",
+      "clearTitle": "Clear Local Data",
+      "clearMessage": "This will delete all locally stored proofs and settings. This action cannot be undone.",
+      "clear": "Clear",
+      "clearSuccess": "Local data cleared",
+      "clearError": "Failed to clear local data",
+      "versionSupport": "Version, Support"
+    },
+    "about": {
+      "tagline": "Privacy-first zero-knowledge proof generation",
+      "sectionLinks": "LINKS",
+      "sectionPoweredBy": "POWERED BY",
+      "aztecSubtitle": "Zero-knowledge proof infrastructure",
+      "devModeEnabled": "Developer Mode Enabled",
+      "devModeDisabled": "Developer Mode Disabled",
+      "devModeEnabledMsg": "Live logs and debug options are now available in settings.",
+      "devModeDisabledMsg": "Developer options have been hidden.",
+      "openURLError": "Cannot open {{title}}",
+      "openURLFailed": "Failed to open {{title}}"
+    },
+    "settings": {
+      "languageTitle": "Language",
+      "english": "English",
+      "korean": "한국어"
+    },
+    "wallet": {
+      "title": "WalletConnect",
+      "installMetaMask": "Install MetaMask",
+      "connectWallet": "Connect Wallet",
+      "disconnect": "Disconnect",
+      "walletAddress": "Wallet Address",
+      "tapToCopy": "Tap to copy",
+      "notConnected": "Not connected",
+      "network": "Network",
+      "chainId": "Chain ID",
+      "fullAddress": "Full Address",
+      "clearWalletConnectCache": "Clear WalletConnect Cache",
+      "noWalletConnected": "No Wallet Connected",
+      "noWalletDescription": "Connect your wallet to generate zero-knowledge proofs",
+      "walletDetails": "Wallet Details",
+      "address": "Address",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "copied": "Copied!",
+      "selectWallet": "Select a wallet to connect:"
+    },
+    "privy": {
+      "title": "Privy Wallet",
+      "subtitle": "Connect external wallet via Privy",
+      "connectedWallet": "Connected Wallet",
+      "walletName": "Wallet Name",
+      "privyUser": "Privy User",
+      "connectWallet": "Connect Wallet",
+      "disconnect": "Disconnect",
+      "fullAddress": "Full Address",
+      "notConnected": "Not connected",
+      "installMetaMask": "Install MetaMask",
+      "noWalletDetected": "No wallet app detected. Install MetaMask to connect."
+    },
+    "coinbase": {
+      "title": "Coinbase KYC Verifier",
+      "walletConnection": "Wallet Connection",
+      "actions": "Actions",
+      "clearLogs": "Clear Logs"
+    },
+    "main": {
+      "subtitle": "Select a feature to explore",
+      "coinbaseKycDesc": "Prove identity verification",
+      "connectWalletDesc": "Link your external wallet"
+    },
+    "loading": {
+      "tagline": "Privacy-Preserving Identity Proofs",
+      "downloadFailedTitle": "Download Failed",
+      "downloadFailedMessage": "Some circuit files could not be downloaded. Please check your network connection and restart the app to retry."
+    },
+    "history": {
+      "loadingText": "Loading proof history...",
+      "errorTitle": "Error",
+      "emptyTitle": "No Proofs Yet",
+      "emptyText": "Your generated proofs will appear here",
+      "deleteTitle": "Delete Proof",
+      "deleteMessage": "Are you sure you want to delete \"{{name}}\" proof record?",
+      "clearAllTitle": "Clear All History",
+      "clearAllMessage": "Are you sure you want to delete all proof records? This cannot be undone.",
+      "clearAll": "Clear All",
+      "totalProofs": "Total Proofs",
+      "generated": "Generated",
+      "failed": "Failed",
+      "detail": {
+        "loadingText": "Loading proof details...",
+        "copied": "Copied",
+        "copiedProofHash": "Proof hash copied to clipboard",
+        "copiedWallet": "Wallet address copied to clipboard",
+        "copiedVerifier": "Verifier address copied to clipboard",
+        "deleteMessage": "Are you sure you want to delete this {{name}} proof record?",
+        "dappRequest": "dApp Request",
+        "dapp": "dApp",
+        "requestId": "Request ID",
+        "proofStatus": "Proof Status",
+        "statusGenerated": "Generated",
+        "verificationStatus": "Verification Status",
+        "offChain": "Off-Chain Verification",
+        "onChain": "On-Chain Verification",
+        "statusVerified": "Verified",
+        "statusFailed": "Failed",
+        "statusPending": "Pending",
+        "detailsSection": "Details",
+        "network": "Network",
+        "verifierContract": "Verifier Contract",
+        "proofHash": "Proof Hash",
+        "walletAddress": "Wallet Address",
+        "title": "Proof Detail"
+      }
+    },
+    "scan": {
+      "permissionTitle": "Camera Access Required",
+      "permissionText": "Allow camera access to scan QR codes for proof requests",
+      "permissionButton": "Continue",
+      "permissionAlertTitle": "Camera Permission Required",
+      "permissionAlertText": "Please enable camera access in Settings to scan QR codes.",
+      "openSettings": "Open Settings",
+      "noCameraTitle": "No Camera Available",
+      "noCameraText": "This device does not have a camera",
+      "linkScannedTitle": "Link Scanned",
+      "openInBrowser": "Open in Browser",
+      "qrScannedTitle": "QR Code Scanned",
+      "overlayTitle": "Scan QR Code",
+      "overlayHint": "Point your camera at a QR code\nto scan a proof request"
+    },
+    "proof": {
+      "circuitSelection": {
+        "title": "Proofs",
+        "sectionLabel": "Select Proof Type",
+        "coinbaseKyc": {
+          "title": "Coinbase KYC Verification",
+          "description": "Prove identity without revealing wallet"
+        },
+        "coinbaseCountry": {
+          "title": "Coinbase Country Verification",
+          "description": "Verify your country through Coinbase"
+        },
+        "oidcDomain": {
+          "title": "OIDC Domain",
+          "description": "Prove your email domain affiliation"
+        }
+      },
+      "country": {
+        "heroLabel": "COUNTRY VERIFICATION",
+        "heroTitle": "Country Verification",
+        "heroDescription": "Select countries for verification and choose whether to prove inclusion or exclusion",
+        "selectedLabel": "SELECTED COUNTRIES",
+        "noCountriesSelected": "No countries selected",
+        "tapToAdd": "Tap countries below to add them",
+        "availableLabel": "AVAILABLE COUNTRIES",
+        "modeLabel": "VERIFICATION MODE",
+        "includedTitle": "Included",
+        "includedDescription": "Prove your country IS in the selected list",
+        "excludedTitle": "Excluded",
+        "excludedDescription": "Prove your country is NOT in the selected list",
+        "summaryLabel": "SUMMARY",
+        "summarySelectAtLeastOne": "Select at least one country to continue",
+        "summaryVerbIs": "IS one of",
+        "summaryVerbIsNot": "is NOT one of",
+        "summaryProve": "Prove that your country {{verb}}: {{countries}}",
+        "continueButton": "Continue to Proof",
+        "stackTitle": "Country Verification"
+      },
+      "complete": {
+        "successTitle": "Proof Generated!",
+        "successDescription": "Your zero-knowledge proof has been successfully created",
+        "proofHashLabel": "Proof Hash",
+        "proofDetailsLabel": "Proof Details",
+        "offChain": "Off-Chain",
+        "onChain": "On-Chain",
+        "verifyButton": "Verify",
+        "verified": "Verified",
+        "failed": "Failed",
+        "verificationChain": "Verification Chain",
+        "circuit": "Circuit",
+        "generated": "Generated",
+        "copiedTitle": "Copied",
+        "copiedMessage": "Proof hash copied to clipboard",
+        "viewEASScan": "View on EAS Scan",
+        "generateAnother": "Generate Another Proof",
+        "stackTitle": "Proof Complete",
+        "done": "Done"
+      },
+      "generation": {
+        "portalLabel": "PROOF PORTAL",
+        "oidcTitle": "OIDC Domain Verification",
+        "coinbaseCountryTitle": "Coinbase Country Verification",
+        "coinbaseKycTitle": "Coinbase KYC Verification",
+        "oidcDescription": "Generate a zero-knowledge proof of your email domain using an OIDC identity token. Proof is generated locally on your device.",
+        "coinbaseCountryDescription": "Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.",
+        "coinbaseKycDescription": "Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.",
+        "connectWallet": "Connect Wallet",
+        "processing": "Processing",
+        "generateButton": "Generate ZK Proof",
+        "retryButton": "Retry",
+        "signInGoogle": "Sign in with Google & Prove",
+        "signInMicrosoft": "Sign in with Microsoft & Prove",
+        "confirmTitle": "Generate ZK Proof",
+        "confirmMessage": "This will generate a zero-knowledge proof. Proceed?",
+        "confirmCancel": "Cancel",
+        "confirmGenerate": "Generate",
+        "stackTitle": "Generate Proof"
+      },
+      "domain": {
+        "heroLabel": "OIDC DOMAIN VERIFICATION",
+        "heroTitle": "Domain Verification",
+        "heroDescription": "Prove your email belongs to a specific domain using your OIDC provider. Your email address is never revealed.",
+        "domainLabel": "DOMAIN TO PROVE",
+        "domainPlaceholder": "e.g. gmail.com",
+        "domainHint": "Your account email must end with @{{domain}}",
+        "scopeLabel": "SCOPE (OPTIONAL)",
+        "scopeHint": "Application-specific identifier for proof uniqueness",
+        "modeLabel": "VERIFICATION MODE",
+        "summaryLabel": "SUMMARY",
+        "anyEmail": "Any Email",
+        "anyEmailDesc": "Verify email domain only",
+        "googleWorkspace": "Google Workspace",
+        "googleWorkspaceDesc": "Verify organization membership",
+        "microsoft365": "Microsoft 365",
+        "microsoft365Desc": "Verify organization membership",
+        "summaryMicrosoftMembership": "Prove Microsoft 365 membership: {{domain}}",
+        "summaryGoogleMembership": "Prove Google Workspace membership: {{domain}}",
+        "summaryEmailDomain": "Prove that your email domain is: {{domain}}",
+        "summaryAutoDetect": "Domain will be auto-detected from your email",
+        "summaryInvalidDomain": "Enter a valid domain (e.g. gmail.com) or leave empty for auto-detection",
+        "signInGoogle": "Sign in with Google & Prove",
+        "signInMicrosoft": "Sign in with Microsoft & Prove",
+        "stackTitle": "Domain Verification"
+      }
+    }
+  },
+  "openstoa": {
+    "tabs": {
+      "feed": "Feed",
+      "topics": "Topics",
+      "chat": "Chat",
+      "profile": "Profile",
+      "zkproofport": "ZKProofport"
+    },
+    "feed": {
+      "empty": "No posts yet.",
+      "error": "Failed to load feed.",
+      "postTitle": "Post",
+      "sort": {
+        "hot": "Hot",
+        "new": "New",
+        "active": "Active",
+        "top": "Top"
+      },
+      "tagAll": "All"
+    },
+    "common": {
+      "retry": "Retry",
+      "cancel": "Cancel",
+      "save": "Save",
+      "delete": "Delete",
+      "ok": "OK"
+    },
+    "postCard": {
+      "author": {
+        "anon": "anon"
+      },
+      "commentsCount": "{{count}} comments",
+      "viewsCount": "{{count}} views",
+      "more": "More",
+      "showLess": "Show less"
+    },
+    "relativeTime": {
+      "justNow": "just now",
+      "minutes": "{{n}}m ago",
+      "hours": "{{n}}h ago",
+      "days": "{{n}}d ago",
+      "months": "{{n}}mo ago",
+      "years": "{{n}}y ago"
+    },
+    "profile": {
+      "editTitle": "Edit profile",
+      "editButton": "Edit",
+      "joined": "Joined {{when}}",
+      "domainBadge": {
+        "label": "Domain badge",
+        "enableTitle": "Enable domain badge",
+        "enableMessage": "Verify your organization email with an OIDC proof to enable a domain badge.",
+        "generateProof": "Generate proof",
+        "cancel": "Cancel",
+        "error": "Failed to enable domain badge"
+      },
+      "notSet": "Not set",
+      "badges": "Badges",
+      "tabs": {
+        "posts": "Posts",
+        "likes": "Likes",
+        "bookmarks": "Bookmarks"
+      },
+      "empty": {
+        "posts": "No posts yet.",
+        "likes": "No likes yet.",
+        "bookmarks": "No bookmarks yet."
+      },
+      "failedToLoad": "Failed to load profile.",
+      "editPhoto": "Edit photo",
+      "recorded": "{{count}} recorded"
+    },
+    "editProfile": {
+      "nickname": "Nickname",
+      "nicknamePlaceholder": "Enter nickname",
+      "save": "Save",
+      "saved": {
+        "title": "Saved",
+        "message": "Your nickname has been updated."
+      },
+      "error": {
+        "title": "Error",
+        "empty": "Please enter a nickname.",
+        "same": "This is already your nickname."
+      },
+      "domainBadgeRemoveTitle": "Remove domain badge",
+      "domainBadgeRemoveMessage": "Remove your domain badge?",
+      "remove": "Remove",
+      "enabled": "Enabled",
+      "domainOff": "Domain badge is off.",
+      "domainOffHint": "Verify an organization email to enable it.",
+      "account": "Account",
+      "logout": {
+        "title": "Log out",
+        "message": "Are you sure you want to log out?"
+      },
+      "delete": {
+        "title": "Delete account",
+        "message": "Deleting your account permanently removes all your posts, comments, and badges. Continue?"
+      }
+    },
+    "topics": {
+      "detailTitle": "Topic",
+      "createTitle": "New topic",
+      "newPostTitle": "New post",
+      "headers": {
+        "joined": "Joined",
+        "explore": "Explore"
+      },
+      "join": "Join",
+      "members": "{{count}} members",
+      "posts": "Posts",
+      "proofRequiredTitle": "Proof Required",
+      "proofRequiredMessage": "Proof generation not yet implemented for this topic.",
+      "joinFailedTitle": "Join Failed",
+      "notFound": "Topic not found.",
+      "newPost": "New Post",
+      "sort": {
+        "hot": "Hot",
+        "new": "New",
+        "active": "Active",
+        "top": "Top"
+      },
+      "category": {
+        "all": "All"
+      },
+      "invite": {
+        "cta": "Join with invite code",
+        "hint": "Enter invite code",
+        "join": "Join",
+        "share": "Invite",
+        "shareSubject": "Join this topic on OpenStoa",
+        "shareBody": "Use this invite code to join: {{code}}",
+        "joinFailedTitle": "Couldn't join",
+        "alreadyMember": "You're already a member of this topic.",
+        "invalidCode": "That invite code is invalid or expired."
+      }
+    },
+    "topicDetail": {
+      "members": "Members",
+      "requests": "Requests",
+      "settings": "Settings",
+      "invite": "Invite",
+      "actions": "Topic actions",
+      "pin": "Pin post",
+      "unpin": "Unpin post",
+      "pinFailed": "Couldn't update pin",
+      "postActions": "Post actions"
+    },
+    "members": {
+      "title": "Members",
+      "empty": "No members yet.",
+      "role": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Member"
+      },
+      "promote": "Make admin",
+      "demote": "Remove admin",
+      "kick": "Remove from topic",
+      "kickConfirm": "Remove this member from the topic?",
+      "actionsForMember": "{{nickname}}",
+      "actionFailed": "Action failed"
+    },
+    "requests": {
+      "title": "Pending requests",
+      "empty": "No pending requests",
+      "approve": "Approve",
+      "reject": "Reject",
+      "actionFailed": "Action failed"
+    },
+    "topicEdit": {
+      "title": "Edit topic",
+      "titleField": "Title",
+      "descriptionField": "Description",
+      "save": "Save",
+      "saved": "Topic updated",
+      "saveFailed": "Couldn't save",
+      "deleteTopic": "Delete topic",
+      "deleteConfirm": "Delete this topic? This cannot be undone."
+    },
+    "topicCreate": {
+      "title": "Title",
+      "titlePlaceholder": "Enter topic title",
+      "descriptionOptional": "Description (optional)",
+      "descriptionPlaceholder": "Briefly describe this topic",
+      "category": "Category",
+      "proofType": "Proof type",
+      "submit": "Create topic",
+      "proofTypes": {
+        "none": "None",
+        "kyc": "KYC (Coinbase)",
+        "country": "Country",
+        "googleWorkspace": "Google Workspace",
+        "microsoft365": "Microsoft 365"
+      },
+      "comingSoonTitle": "Coming soon",
+      "comingSoonMessage": "This proof type is not supported yet.",
+      "createFailed": "Create failed"
+    },
+    "postCreate": {
+      "title": "Title",
+      "titlePlaceholder": "Enter post title",
+      "body": "Body",
+      "bodyPlaceholder": "Write your post",
+      "submit": "Post",
+      "failed": "Post failed"
+    },
+    "postDetail": {
+      "commentsHeader": "Comments ({{count}})",
+      "noComments": "No comments yet. Be the first!",
+      "deleted": "[deleted]",
+      "addCommentPlaceholder": "Add a comment…",
+      "send": "Send",
+      "notFound": "Post not found.",
+      "bookmark": "Save",
+      "bookmarked": "Saved"
+    }
+  }
+}

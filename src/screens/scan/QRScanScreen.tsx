@@ -16,10 +16,12 @@ import {
   useCodeScanner,
 } from 'react-native-vision-camera';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {useTranslation} from 'react-i18next';
 import {triggerDeepLink} from '../../utils/deepLinkBridge';
 import {useThemeColors} from '../../context';
 
 const QRScanScreen: React.FC = () => {
+  const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
   const {hasPermission, requestPermission} = useCameraPermission();
   const device = useCameraDevice('back');
@@ -56,18 +58,18 @@ const QRScanScreen: React.FC = () => {
           }, 300);
         } else if (value.startsWith('http://') || value.startsWith('https://')) {
           Alert.alert(
-            'Link Scanned',
+            t('host.scan.linkScannedTitle'),
             value,
             [
               {
-                text: 'Open in Browser',
+                text: t('host.scan.openInBrowser'),
                 onPress: () => {
                   Linking.openURL(value);
                   resetScanner();
                 },
               },
               {
-                text: 'Cancel',
+                text: t('common.cancel'),
                 style: 'cancel',
                 onPress: resetScanner,
               },
@@ -75,11 +77,11 @@ const QRScanScreen: React.FC = () => {
           );
         } else {
           Alert.alert(
-            'QR Code Scanned',
+            t('host.scan.qrScannedTitle'),
             value,
             [
               {
-                text: 'OK',
+                text: t('common.ok'),
                 onPress: resetScanner,
               },
             ],
@@ -98,11 +100,11 @@ const QRScanScreen: React.FC = () => {
     const granted = await requestPermission();
     if (!granted) {
       Alert.alert(
-        'Camera Permission Required',
-        'Please enable camera access in Settings to scan QR codes.',
+        t('host.scan.permissionAlertTitle'),
+        t('host.scan.permissionAlertText'),
         [
-          {text: 'Cancel', style: 'cancel'},
-          {text: 'Open Settings', onPress: () => Linking.openSettings()},
+          {text: t('common.cancel'), style: 'cancel'},
+          {text: t('host.scan.openSettings'), onPress: () => Linking.openSettings()},
         ],
       );
     }
@@ -113,15 +115,15 @@ const QRScanScreen: React.FC = () => {
       <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.permissionContainer}>
           <Text style={styles.permissionIcon}>📷</Text>
-          <Text style={[styles.permissionTitle, {color: themeColors.text.primary}]}>Camera Access Required</Text>
+          <Text style={[styles.permissionTitle, {color: themeColors.text.primary}]}>{t('host.scan.permissionTitle')}</Text>
           <Text style={[styles.permissionText, {color: themeColors.text.secondary}]}>
-            Allow camera access to scan QR codes for proof requests
+            {t('host.scan.permissionText')}
           </Text>
           <TouchableOpacity
             style={[styles.permissionButton, {backgroundColor: themeColors.info[500]}]}
             onPress={handleRequestPermission}
             activeOpacity={0.8}>
-            <Text style={[styles.permissionButtonText, {color: themeColors.text.primary}]}>Continue</Text>
+            <Text style={[styles.permissionButtonText, {color: themeColors.text.primary}]}>{t('host.scan.permissionButton')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -132,9 +134,9 @@ const QRScanScreen: React.FC = () => {
     return (
       <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
         <View style={styles.permissionContainer}>
-          <Text style={[styles.permissionTitle, {color: themeColors.text.primary}]}>No Camera Available</Text>
+          <Text style={[styles.permissionTitle, {color: themeColors.text.primary}]}>{t('host.scan.noCameraTitle')}</Text>
           <Text style={[styles.permissionText, {color: themeColors.text.secondary}]}>
-            This device does not have a camera
+            {t('host.scan.noCameraText')}
           </Text>
         </View>
       </SafeAreaView>
@@ -151,7 +153,7 @@ const QRScanScreen: React.FC = () => {
         {...(Platform.OS === 'android' && {photo: true})}
       />
       <SafeAreaView style={styles.overlay}>
-        <Text style={[styles.overlayTitle, {color: themeColors.text.primary}]}>Scan QR Code</Text>
+        <Text style={[styles.overlayTitle, {color: themeColors.text.primary}]}>{t('host.scan.overlayTitle')}</Text>
         <View style={styles.scanFrame}>
           <View style={[styles.corner, styles.cornerTL, {borderColor: themeColors.info[500]}]} />
           <View style={[styles.corner, styles.cornerTR, {borderColor: themeColors.info[500]}]} />
@@ -159,7 +161,7 @@ const QRScanScreen: React.FC = () => {
           <View style={[styles.corner, styles.cornerBR, {borderColor: themeColors.info[500]}]} />
         </View>
         <Text style={styles.overlayHint}>
-          Point your camera at a QR code{'\n'}to scan a proof request
+          {t('host.scan.overlayHint')}
         </Text>
       </SafeAreaView>
     </View>

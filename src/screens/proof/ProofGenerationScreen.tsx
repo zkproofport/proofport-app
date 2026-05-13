@@ -12,6 +12,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTranslation} from 'react-i18next';
 import {
   Button,
   Card,
@@ -188,6 +189,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
   const route = useRoute<ProofGenerationRouteProp>();
   const navigation = useNavigation<NavigationProp>();
+  const {t} = useTranslation();
   const proofRequest = getActiveProofRequest() ?? route.params?.proofRequest;
 
   const hasAutoStarted = useRef(false);
@@ -550,26 +552,31 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const getButtonState = () => {
     if (!isOidc && !isWalletConnected)
-      return {title: 'Connect Wallet', onPress: connectWallet, disabled: !isPrivyReady, loading: false};
+      return {title: t('host.proof.generation.connectWallet'), onPress: connectWallet, disabled: !isPrivyReady, loading: false};
     if (isProcessing) {
       const activeIdx = userSteps.findIndex(s => s.status === 'active');
       const activeStep = activeIdx >= 0 ? userSteps[activeIdx] : null;
       const stepNum = activeIdx >= 0 ? activeIdx + 1 : userSteps.length;
       const title = activeStep
         ? `${stepNum}/${userSteps.length}  ${activeStep.label}`
-        : 'Processing';
+        : t('host.proof.generation.processing');
       const progress = stepNum / userSteps.length;
       return {title, onPress: () => {}, disabled: true, loading: false, progress};
     }
     if (errorMessage)
-      return {title: 'Retry', onPress: handleGenerateProof, disabled: false, loading: false};
+      return {title: t('host.proof.generation.retryButton'), onPress: handleGenerateProof, disabled: false, loading: false};
     return {
-      title: isOidc ? (oidcProvider === 'microsoft' ? 'Sign in with Microsoft & Prove' : 'Sign in with Google & Prove') : 'Generate ZK Proof',
+      title: isOidc
+        ? (oidcProvider === 'microsoft' ? t('host.proof.generation.signInMicrosoft') : t('host.proof.generation.signInGoogle'))
+        : t('host.proof.generation.generateButton'),
       onPress: settings?.confirmBeforeGenerate
-        ? () => Alert.alert('Generate ZK Proof', 'This will generate a zero-knowledge proof. Proceed?', [
-            {text: 'Cancel', style: 'cancel'},
-            {text: 'Generate', onPress: handleGenerateProof},
-          ])
+        ? () => Alert.alert(
+            t('host.proof.generation.confirmTitle'),
+            t('host.proof.generation.confirmMessage'),
+            [
+              {text: t('host.proof.generation.confirmCancel'), style: 'cancel'},
+              {text: t('host.proof.generation.confirmGenerate'), onPress: handleGenerateProof},
+            ])
         : handleGenerateProof,
       disabled: false,
       loading: false,
@@ -583,21 +590,21 @@ export const ProofGenerationScreen: React.FC = () => {
       <ScrollView ref={scrollViewRef} style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.hero}>
           <Text style={{fontSize: 11, fontWeight: '700', color: themeColors.info[400], letterSpacing: 1.5, marginBottom: 8}}>
-            PROOF PORTAL
+            {t('host.proof.generation.portalLabel')}
           </Text>
           <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 12}}>
             {isOidc
-              ? 'OIDC Domain Verification'
+              ? t('host.proof.generation.oidcTitle')
               : isCountry
-              ? 'Coinbase Country Verification'
-              : 'Coinbase KYC Verification'}
+              ? t('host.proof.generation.coinbaseCountryTitle')
+              : t('host.proof.generation.coinbaseKycTitle')}
           </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
             {isOidc
-              ? 'Generate a zero-knowledge proof of your email domain using an OIDC identity token. Proof is generated locally on your device.'
+              ? t('host.proof.generation.oidcDescription')
               : isCountry
-              ? 'Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.'
-              : 'Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.'}
+              ? t('host.proof.generation.coinbaseCountryDescription')
+              : t('host.proof.generation.coinbaseKycDescription')}
           </Text>
         </Card>
 

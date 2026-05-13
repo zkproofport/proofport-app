@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import type { ProofStackParamList } from '../types';
 import {
   CircuitSelectionScreen,
@@ -15,41 +16,42 @@ import {useThemeColors} from '../../context';
 const Stack = createNativeStackNavigator<ProofStackParamList>();
 
 const ProofStackNavigator: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const stackScreenOptions = useStackScreenOptions();
   const {colors: themeColors} = useThemeColors();
   return (
-    <Stack.Navigator screenOptions={stackScreenOptions}>
+    <Stack.Navigator key={i18n.language} screenOptions={stackScreenOptions}>
       <Stack.Screen
         name="CircuitSelection"
         component={CircuitSelectionScreen}
-        options={{ title: 'Verify' }}
+        options={{ title: t('host.tabs.verify') }}
       />
       <Stack.Screen
         name="CountryInput"
         component={CountryInputScreen}
-        options={{ title: 'Country Verification' }}
+        options={{ title: t('host.proof.country.stackTitle') }}
       />
       <Stack.Screen
         name="DomainInput"
         component={DomainInputScreen}
-        options={{ title: 'Domain Verification' }}
+        options={{ title: t('host.proof.domain.stackTitle') }}
       />
       <Stack.Screen
         name="ProofGeneration"
         component={ProofGenerationScreen}
-        options={{ title: 'Generate Proof' }}
+        options={{ title: t('host.proof.generation.stackTitle') }}
       />
       <Stack.Screen
         name="ProofComplete"
         component={ProofCompleteScreen}
         options={({navigation}) => ({
-          title: 'Proof Complete',
+          title: t('host.proof.complete.stackTitle'),
           headerBackVisible: false,
           headerRight: () => (
             <TouchableOpacity
               onPress={() => navigation.popToTop()}
               hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-              <Text style={{fontSize: 16, fontWeight: '600', color: themeColors.info[500]}}>Done</Text>
+              <Text style={{fontSize: 16, fontWeight: '600', color: themeColors.info[500]}}>{t('host.proof.complete.done')}</Text>
             </TouchableOpacity>
           ),
         })}

@@ -2,24 +2,26 @@ import React, {useState} from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, TouchableOpacity} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTranslation} from 'react-i18next';
 import {Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'DomainInput'>;
 
-const PROVIDER_OPTIONS = [
-  {value: undefined, label: 'Any Email', desc: 'Verify email domain only'},
-  {value: 'google', label: 'Google Workspace', desc: 'Verify organization membership'},
-  {value: 'microsoft', label: 'Microsoft 365', desc: 'Verify organization membership'},
-] as const;
-
 export const DomainInputScreen: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
+  const {t} = useTranslation();
   const [domain, setDomain] = useState('');
   const [scope, setScope] = useState('proofport:default');
   const [provider, setProvider] = useState<string | undefined>(undefined);
+
+  const PROVIDER_OPTIONS = [
+    {value: undefined, label: t('host.proof.domain.anyEmail'), desc: t('host.proof.domain.anyEmailDesc')},
+    {value: 'google', label: t('host.proof.domain.googleWorkspace'), desc: t('host.proof.domain.googleWorkspaceDesc')},
+    {value: 'microsoft', label: t('host.proof.domain.microsoft365'), desc: t('host.proof.domain.microsoft365Desc')},
+  ] as const;
 
   // Domain is always optional — auto-extracted from JWT email if not provided
   const isValid = domain.trim().length === 0 || domain.includes('.');
@@ -35,6 +37,22 @@ export const DomainInputScreen: React.FC = () => {
     });
   };
 
+  const getSummaryText = () => {
+    if (!isValid) {
+      return t('host.proof.domain.summaryInvalidDomain');
+    }
+    if (!domain.trim()) {
+      return t('host.proof.domain.summaryAutoDetect');
+    }
+    if (provider === 'microsoft') {
+      return t('host.proof.domain.summaryMicrosoftMembership', {domain: domain.trim().toLowerCase()});
+    }
+    if (provider === 'google') {
+      return t('host.proof.domain.summaryGoogleMembership', {domain: domain.trim().toLowerCase()});
+    }
+    return t('host.proof.domain.summaryEmailDomain', {domain: domain.trim().toLowerCase()});
+  };
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
       <ScrollView
@@ -43,15 +61,21 @@ export const DomainInputScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}>
 
         <Card style={styles.heroCard}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.info[400], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>OIDC DOMAIN VERIFICATION</Text>
-          <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5, marginBottom: 8}}>Domain Verification</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.info[400], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>
+            {t('host.proof.domain.heroLabel')}
+          </Text>
+          <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, letterSpacing: -0.5, marginBottom: 8}}>
+            {t('host.proof.domain.heroTitle')}
+          </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
-            Prove your email belongs to a specific domain using your OIDC provider. Your email address is never revealed.
+            {t('host.proof.domain.heroDescription')}
           </Text>
         </Card>
 
         <Card style={styles.sectionCard}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12}}>DOMAIN TO PROVE</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12}}>
+            {t('host.proof.domain.domainLabel')}
+          </Text>
           <TextInput
             style={{
               backgroundColor: themeColors.background.secondary,
@@ -63,7 +87,7 @@ export const DomainInputScreen: React.FC = () => {
               fontWeight: '600',
               color: themeColors.text.primary,
             }}
-            placeholder="e.g. gmail.com"
+            placeholder={t('host.proof.domain.domainPlaceholder')}
             placeholderTextColor={themeColors.text.disabled}
             value={domain}
             onChangeText={setDomain}
@@ -72,12 +96,14 @@ export const DomainInputScreen: React.FC = () => {
             keyboardType="url"
           />
           <Text style={{fontSize: 13, color: themeColors.text.tertiary, marginTop: 8, lineHeight: 18}}>
-            Your account email must end with @{domain || '...'}
+            {t('host.proof.domain.domainHint', {domain: domain || '...'})}
           </Text>
         </Card>
 
         <Card style={styles.sectionCard}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12}}>SCOPE (OPTIONAL)</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12}}>
+            {t('host.proof.domain.scopeLabel')}
+          </Text>
           <TextInput
             style={{
               backgroundColor: themeColors.background.secondary,
@@ -96,12 +122,14 @@ export const DomainInputScreen: React.FC = () => {
             autoCorrect={false}
           />
           <Text style={{fontSize: 13, color: themeColors.text.tertiary, marginTop: 8, lineHeight: 18}}>
-            Application-specific identifier for proof uniqueness
+            {t('host.proof.domain.scopeHint')}
           </Text>
         </Card>
 
         <Card style={styles.sectionCard}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12}}>VERIFICATION MODE</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12}}>
+            {t('host.proof.domain.modeLabel')}
+          </Text>
           {PROVIDER_OPTIONS.map(opt => {
             const isSelected = provider === opt.value;
             return (
@@ -132,23 +160,19 @@ export const DomainInputScreen: React.FC = () => {
         </Card>
 
         <Card style={{marginBottom: 24, backgroundColor: themeColors.background.tertiary}}>
-          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>SUMMARY</Text>
+          <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.text.tertiary, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>
+            {t('host.proof.domain.summaryLabel')}
+          </Text>
           <Text style={[
             {fontSize: 14, fontStyle: 'italic', color: themeColors.info[400], lineHeight: 20},
             !isValid && {color: themeColors.warning[400]},
           ]}>
-            {isValid
-              ? domain.trim()
-                ? provider
-                  ? `Prove ${provider === 'microsoft' ? 'Microsoft 365' : 'Google Workspace'} membership: ${domain.trim().toLowerCase()}`
-                  : `Prove that your email domain is: ${domain.trim().toLowerCase()}`
-                : 'Domain will be auto-detected from your email'
-              : 'Enter a valid domain (e.g. gmail.com) or leave empty for auto-detection'}
+            {getSummaryText()}
           </Text>
         </Card>
 
         <Button
-          title={provider === 'microsoft' ? 'Sign in with Microsoft & Prove' : 'Sign in with Google & Prove'}
+          title={provider === 'microsoft' ? t('host.proof.domain.signInMicrosoft') : t('host.proof.domain.signInGoogle')}
           onPress={handleContinue}
           disabled={!isValid}
           size="large"
