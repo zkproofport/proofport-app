@@ -104,6 +104,10 @@ export function createZkProofportHostApi(
       body: JSON.stringify({
         circuitType: 'oidc_domain_attestation',
       }),
+      // Skip the iOS shared cookie store — we authenticate via headers
+      // (or no auth at all). Sending stale cookies caused the server to
+      // treat logged-out users as still-signed-in.
+      credentials: 'omit',
     });
     if (!reqRes.ok) {
       throw new Error(`proof-request failed (${reqRes.status}): ${await reqRes.text()}`);
@@ -127,8 +131,9 @@ export function createZkProofportHostApi(
       try {
         pollRes = await fetch(
           `${baseUrl}/api/auth/poll/${encodeURIComponent(reqData.requestId)}?format=token`,
+          { credentials: 'omit' },
         );
-      } catch (e) {
+      } catch {
         // transient network — keep retrying
         continue;
       }
@@ -151,7 +156,7 @@ export function createZkProofportHostApi(
         throw new Error('Proof generation failed');
       }
       if (data.status === 'completed') {
-        if (!data.token) {
+        if (!('token' in data) || !data.token) {
           throw new Error('Poll completed but token missing in response');
         }
         const auth: AuthResult = {
@@ -182,7 +187,15 @@ export function createZkProofportHostApi(
   return {
     getEnvironment: () => env,
 
-    getOpenStoaToken: async () => readToken(),
+    getOpenStoaToken: async () => {
+      // If the user explicitly logged out, ignore any token still sitting
+      // in AsyncStorage (paranoid defence — clearAuth() removes it, but a
+      // crash between removeItem and setItem could leave the token alive).
+      // The mini-app treats a null return as "no auth", forcing Welcome.
+      const loggedOut = await AsyncStorage.getItem(LOGGED_OUT_KEY);
+      if (loggedOut === '1') return null;
+      return readToken();
+    },
 
     loginToOpenStoa: async ({ force }: { force?: boolean } = {}) => {
       if (!force) {
