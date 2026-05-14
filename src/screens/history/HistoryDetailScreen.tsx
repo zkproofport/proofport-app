@@ -15,12 +15,12 @@ import {useRoute, useNavigation, useFocusEffect, RouteProp} from '@react-navigat
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {Icon, Badge, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
-import type {HistoryStackParamList} from '../../navigation/types';
+import type {MoreStackParamList} from '../../navigation/types';
 import {proofHistoryStore, type ProofHistoryItem} from '../../stores';
 
-type DetailRouteProp = RouteProp<HistoryStackParamList, 'HistoryDetail'>;
+type DetailRouteProp = RouteProp<MoreStackParamList, 'HistoryDetail'>;
 type DetailNavigationProp = NativeStackNavigationProp<
-  HistoryStackParamList,
+  MoreStackParamList,
   'HistoryDetail'
 >;
 

@@ -6,7 +6,7 @@ import {
   MoreMainScreen,
   AboutScreen,
 } from '../../screens/more';
-import {WalletMainScreen} from '../../screens/wallet';
+import {ProofHistoryScreen, HistoryDetailScreen} from '../../screens/history';
 import SettingsLanguageScreen from '../../screens/more/SettingsLanguageScreen';
 import {useStackScreenOptions} from '../shared';
 
@@ -28,9 +28,14 @@ const MoreStackNavigator: React.FC = () => {
         options={{ title: t('host.more.about') }}
       />
       <Stack.Screen
-        name="Wallet"
-        component={WalletMainScreen}
-        options={{ title: t('host.more.wallet') }}
+        name="HistoryMain"
+        component={ProofHistoryScreen}
+        options={{ title: t('host.more.history') }}
+      />
+      <Stack.Screen
+        name="HistoryDetail"
+        component={HistoryDetailScreen}
+        options={{ title: t('host.history.detail.title') }}
       />
       <Stack.Screen
         name="SettingsLanguage"

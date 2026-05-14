@@ -15,7 +15,7 @@ const WalletStackNavigator: React.FC = () => {
       <Stack.Screen
         name="WalletMain"
         component={WalletMainScreen}
-        options={{ title: t('host.more.wallet') }}
+        options={{ title: t('host.tabs.wallet') }}
       />
     </Stack.Navigator>
   );

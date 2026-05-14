@@ -4,10 +4,10 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type TabParamList = {
-  OpenStoaTab: NavigatorScreenParams<OpenStoaStackParamList>;
   ProofTab: NavigatorScreenParams<ProofStackParamList>;
+  WalletTab: NavigatorScreenParams<WalletStackParamList>;
   ScanTab: NavigatorScreenParams<ScanStackParamList>;
-  HistoryTab: NavigatorScreenParams<HistoryStackParamList>;
+  OpenStoaTab: NavigatorScreenParams<OpenStoaStackParamList>;
   MoreTab: NavigatorScreenParams<MoreStackParamList>;
 };
 
@@ -42,8 +42,6 @@ export type OpenStoaStackParamList = {
   OpenStoaRoot: undefined;
 };
 
-// Wallet was promoted from a top-level tab into the More stack as part of
-// the 5-tab redesign (Option 2). Its screens are unchanged.
 export type WalletStackParamList = {
   WalletMain: undefined;
 };
@@ -52,15 +50,11 @@ export type ScanStackParamList = {
   ScanMain: undefined;
 };
 
-export type HistoryStackParamList = {
-  HistoryMain: undefined;
-  HistoryDetail: { proofId: string };
-};
-
 export type MoreStackParamList = {
   MoreMain: undefined;
   About: undefined;
-  Wallet: undefined;
+  HistoryMain: undefined;
+  HistoryDetail: { proofId: string };
   SettingsLanguage: undefined;
 };
 
@@ -81,11 +75,6 @@ export type WalletTabScreenProps<T extends keyof WalletStackParamList> = Composi
 
 export type ScanTabScreenProps<T extends keyof ScanStackParamList> = CompositeScreenProps<
   NativeStackScreenProps<ScanStackParamList, T>,
-  BottomTabScreenProps<TabParamList>
->;
-
-export type HistoryTabScreenProps<T extends keyof HistoryStackParamList> = CompositeScreenProps<
-  NativeStackScreenProps<HistoryStackParamList, T>,
   BottomTabScreenProps<TabParamList>
 >;
 

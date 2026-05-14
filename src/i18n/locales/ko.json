@@ -12,14 +12,14 @@
       "openstoa": "OpenStoa",
       "verify": "검증",
       "scan": "스캔",
-      "history": "기록",
+      "wallet": "지갑",
       "more": "더보기"
     },
     "more": {
       "title": "더보기",
       "language": "언어",
       "about": "정보",
-      "wallet": "지갑",
+      "history": "기록",
       "sectionGeneral": "일반",
       "sectionProofSettings": "증명 설정",
       "sectionData": "데이터",

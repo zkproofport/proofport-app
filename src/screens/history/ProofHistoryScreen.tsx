@@ -3,7 +3,7 @@ import {View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, Ale
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {useTranslation} from 'react-i18next';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import type {HistoryStackParamList} from '../../navigation/types';
+import type {MoreStackParamList} from '../../navigation/types';
 import {ProofHistoryCard} from '../../components/ui/organisms/ProofHistoryCard';
 import {Icon} from '../../components/ui/atoms/Icon';
 import {useProofHistory} from '../../hooks/useProofHistory';
@@ -53,7 +53,7 @@ const mapOverallToDisplayStatus = (overallStatus: string): 'pending' | 'failed' 
 
 const ProofHistoryScreen: React.FC = () => {
   const {t} = useTranslation();
-  const navigation = useNavigation<NativeStackNavigationProp<HistoryStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const {items: proofs, loading, error, removeItem, clearAll, refresh} = useProofHistory();
   const { colors: themeColors } = useThemeColors();
 

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { TabParamList } from './types';
 import OpenStoaStackNavigator from './stacks/OpenStoaStackNavigator';
 import ProofStackNavigator from './stacks/ProofStackNavigator';
-import HistoryStackNavigator from './stacks/HistoryStackNavigator';
+import WalletStackNavigator from './stacks/WalletStackNavigator';
 import ScanStackNavigator from './stacks/ScanStackNavigator';
 import MoreStackNavigator from './stacks/MoreStackNavigator';
 import OpenStoaMarkIcon from '../components/icons/OpenStoaMarkIcon';
@@ -80,28 +80,22 @@ const TabNavigator: React.FC = () => {
       }}
     >
       <Tab.Screen
-        name="OpenStoaTab"
-        component={OpenStoaStackNavigator}
-        options={({ route }) => ({
-          tabBarLabel: t('host.tabs.openstoa'),
-          // OpenStoa brand mark instead of a generic Feather glyph.
-          // Same SVG path as openstoa.xyz / the OG card, so the tab
-          // visually matches the destination's identity.
-          tabBarIcon: ({ size, color }) => (
-            <OpenStoaMarkIcon size={size} color={color} />
-          ),
-          tabBarStyle: isInsideOpenStoa(route)
-            ? { display: 'none' }
-            : baseTabBarStyle,
-        })}
-      />
-      <Tab.Screen
         name="ProofTab"
         component={ProofStackNavigator}
         options={{
           tabBarLabel: t('host.tabs.verify'),
           tabBarIcon: ({ size, color }) => (
             <Feather name="shield" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="WalletTab"
+        component={WalletStackNavigator}
+        options={{
+          tabBarLabel: t('host.tabs.wallet'),
+          tabBarIcon: ({ size, color }) => (
+            <Feather name="credit-card" size={size} color={color} />
           ),
         }}
       />
@@ -115,18 +109,19 @@ const TabNavigator: React.FC = () => {
         }}
       />
       <Tab.Screen
-        name="HistoryTab"
-        component={HistoryStackNavigator}
-        options={{
-          tabBarLabel: t('host.tabs.history'),
+        name="OpenStoaTab"
+        component={OpenStoaStackNavigator}
+        options={({ route }) => ({
+          tabBarLabel: t('host.tabs.openstoa'),
+          // OpenStoa brand mark instead of a generic Feather glyph.
+          // Same SVG path as openstoa.xyz / the OG card, so the tab
+          // visually matches the destination's identity.
           tabBarIcon: ({ size, color }) => (
-            <Feather name="clock" size={size} color={color} />
+            <OpenStoaMarkIcon size={size} color={color} />
           ),
-        }}
-        listeners={({ navigation }) => ({
-          tabPress: () => {
-            navigation.navigate('HistoryTab', { screen: 'HistoryMain' });
-          },
+          tabBarStyle: isInsideOpenStoa(route)
+            ? { display: 'none' }
+            : baseTabBarStyle,
         })}
       />
       <Tab.Screen

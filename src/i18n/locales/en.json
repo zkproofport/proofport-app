@@ -12,14 +12,14 @@
       "openstoa": "OpenStoa",
       "verify": "Verify",
       "scan": "Scan",
-      "history": "History",
+      "wallet": "Wallet",
       "more": "More"
     },
     "more": {
       "title": "More",
       "language": "Language",
       "about": "About",
-      "wallet": "Wallet",
+      "history": "History",
       "sectionGeneral": "GENERAL",
       "sectionProofSettings": "PROOF SETTINGS",
       "sectionData": "DATA",

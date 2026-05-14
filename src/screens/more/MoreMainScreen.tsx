@@ -104,10 +104,10 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
-            onPress={() => navigation.navigate('Wallet')}
+            onPress={() => navigation.navigate('HistoryMain')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.wallet')}</Text>
+            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.history')}</Text>
             <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
           </TouchableOpacity>
           <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
