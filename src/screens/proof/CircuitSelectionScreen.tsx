@@ -19,6 +19,10 @@ export const CircuitSelectionScreen: React.FC = () => {
     navigation.navigate('ProofGeneration', {circuitId: 'coinbase-kyc'});
   };
 
+  const handleGiwaKyc = () => {
+    navigation.navigate('ProofGeneration', {circuitId: 'giwa-kyc'});
+  };
+
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
       <ScrollView
@@ -55,6 +59,13 @@ export const CircuitSelectionScreen: React.FC = () => {
             title={t('host.proof.circuitSelection.oidcDomain.title')}
             description={t('host.proof.circuitSelection.oidcDomain.description')}
             onPress={() => navigation.navigate('DomainInput')}
+          />
+
+          <CircuitCard
+            icon={getCircuitIcon('giwa-kyc')}
+            title={t('host.proof.circuitSelection.giwaKyc.title')}
+            description={t('host.proof.circuitSelection.giwaKyc.description')}
+            onPress={handleGiwaKyc}
           />
         </View>
       </ScrollView>

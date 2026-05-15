@@ -60,9 +60,10 @@ const DEV_STUB: UsePrivyWalletReturn = {
 export const usePrivyWallet = (
   addLog?: (msg: string) => void,
 ): UsePrivyWalletReturn => {
-  if (__DEV__) {
-    return DEV_STUB;
-  }
+  // (was: __DEV__ stub. Restored because ios/ProofportApp.entitlements now
+  // re-includes keychain-access-groups, so PrivyProvider mounts cleanly in
+  // dev builds again.)
+  void DEV_STUB;
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const log = useCallback(

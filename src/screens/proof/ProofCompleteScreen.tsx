@@ -17,9 +17,10 @@ import {useTranslation} from 'react-i18next';
 import {Icon, Badge, Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useLogs} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useLogs} from '../../hooks';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig} from '../../config';
+import {findGiwaAttestationTransaction} from '../../utils';
 
 type ProofCompleteRouteProp = RouteProp<ProofStackParamList, 'ProofComplete'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofComplete'>;
@@ -61,10 +62,16 @@ export const ProofCompleteScreen: React.FC = () => {
 
   const isCountryCircuit = circuitId === 'coinbase-country';
   const isOidcCircuit = circuitId === 'oidc_domain_attestation';
+  const isGiwaCircuit = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
-  const activeHook = isOidcCircuit ? oidcHook : (isCountryCircuit ? countryHook : kycHook);
+  const giwaHook = useGiwaKyc();
+  const activeHook = isOidcCircuit
+    ? oidcHook
+    : isGiwaCircuit
+    ? giwaHook
+    : (isCountryCircuit ? countryHook : kycHook);
   const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = activeHook;
   const {logs, addLog} = useLogs();
 
@@ -121,10 +128,25 @@ export const ProofCompleteScreen: React.FC = () => {
     }
   };
 
-  const handleViewEASScan = () => {
+  const handleViewEASScan = async () => {
     const addr = walletAddress || '';
-    const url = `https://base.easscan.org/address/${addr}`;
-    Linking.openURL(url);
+    if (isGiwaCircuit) {
+      // GIWA has no easscan — link directly to the attestation tx on the
+      // Blockscout explorer. Resolve the tx hash via the same cached lookup
+      // that produced the proof; fall back to the address page if missing.
+      try {
+        const result = await findGiwaAttestationTransaction(addr);
+        if (result?.attestation.txHash) {
+          Linking.openURL(`https://sepolia-explorer.giwa.io/tx/${result.attestation.txHash}`);
+          return;
+        }
+      } catch (e) {
+        console.warn('[GIWA] tx lookup failed, falling back to address view:', e);
+      }
+      Linking.openURL(`https://sepolia-explorer.giwa.io/address/${addr}`);
+      return;
+    }
+    Linking.openURL(`https://base.easscan.org/address/${addr}`);
   };
 
   const handleGenerateAnother = () => {
@@ -232,13 +254,23 @@ export const ProofCompleteScreen: React.FC = () => {
         </Card>
 
         <View style={styles.buttonsContainer}>
-          <Button
-            title={t('host.proof.complete.viewEASScan')}
-            onPress={handleViewEASScan}
-            variant="secondary"
-            size="large"
-          />
-          <View style={styles.buttonSpacer} />
+          {/* OIDC proofs are wallet-less — there's no attestation address
+              or tx to show, so hide the explorer button entirely. */}
+          {!isOidcCircuit && (
+            <>
+              <Button
+                title={t(
+                  isGiwaCircuit
+                    ? 'host.proof.complete.viewGiwaExplorer'
+                    : 'host.proof.complete.viewEASScan',
+                )}
+                onPress={handleViewEASScan}
+                variant="secondary"
+                size="large"
+              />
+              <View style={styles.buttonSpacer} />
+            </>
+          )}
           <Button
             title={t('host.proof.complete.generateAnother')}
             onPress={handleGenerateAnother}

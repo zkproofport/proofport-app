@@ -5,7 +5,7 @@
  * Runtime: setEnvironmentOverride() allows switching in dev builds.
  */
 
-import {STATIC_CONFIGS, VERIFIER_ABI, FALLBACK_VERIFIERS} from './contracts';
+import {STATIC_CONFIGS, VERIFIER_ABI, FALLBACK_VERIFIERS, CIRCUIT_NETWORK_OVERRIDES} from './contracts';
 import {getVerifierAddress as getVerifierAddressAsync, syncDeployments} from './deployments';
 import type {
   Environment,
@@ -42,6 +42,15 @@ export function setEnvironmentOverride(env: Environment | null): void {
 
 export function getNetworkConfig(): NetworkConfig {
   return STATIC_CONFIGS[getEnvironment()].network;
+}
+
+/**
+ * Network config for a specific circuit. Honors CIRCUIT_NETWORK_OVERRIDES
+ * so e.g. giwa_attestation always resolves to GIWA Sepolia (chain 91342)
+ * regardless of the current environment.
+ */
+export function getNetworkConfigForCircuit(circuit: CircuitName): NetworkConfig {
+  return CIRCUIT_NETWORK_OVERRIDES[circuit] ?? getNetworkConfig();
 }
 
 export function getAttestationConfig(): AttestationConfig {

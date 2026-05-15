@@ -4,6 +4,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import {useTranslation} from 'react-i18next';
 import {Icon, Badge, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
+import {CircuitWalletsCard} from './CircuitWalletsCard';
 
 interface WalletConnectedScreenProps {
   walletIcon: string;
@@ -90,6 +91,8 @@ export const WalletConnectedScreen: React.FC<WalletConnectedScreenProps> = ({
           />
         </View>
       </Card>
+
+      <CircuitWalletsCard />
 
       <TouchableOpacity
         onPress={onDisconnect}

@@ -181,6 +181,10 @@
         "oidcDomain": {
           "title": "OIDC 도메인",
           "description": "이메일 도메인 소속을 증명해요"
+        },
+        "giwaKyc": {
+          "title": "기와 KYC (Experimental)",
+          "description": "PoC — 기와 Sepolia에 발급된 KYC attestation을 증명해요"
         }
       },
       "country": {
@@ -220,6 +224,7 @@
         "copiedTitle": "복사됨",
         "copiedMessage": "증명 해시가 클립보드에 복사됐어요",
         "viewEASScan": "EAS Scan에서 보기",
+        "viewGiwaExplorer": "GIWA 익스플로러에서 보기",
         "generateAnother": "다른 증명 생성하기",
         "stackTitle": "증명 완료",
         "done": "완료"
@@ -229,6 +234,8 @@
         "oidcTitle": "OIDC 도메인 인증",
         "coinbaseCountryTitle": "Coinbase 국가 인증",
         "coinbaseKycTitle": "Coinbase KYC 인증",
+        "giwaKycTitle": "기와 KYC 인증 (Experimental)",
+        "giwaKycDescription": "PoC — 기와 Sepolia에 발급된 KYC attestation을 영지식 증명으로 생성합니다. 지갑 탭에서 기와 테스트넷 지갑 주소를 핀해 두세요.",
         "oidcDescription": "OIDC 신원 토큰을 사용해 이메일 도메인의 영지식 증명을 생성해요. 증명은 기기에서 로컬로 생성됩니다.",
         "coinbaseCountryDescription": "개인 정보를 공개하지 않고 Coinbase를 통해 국가 인증의 영지식 증명을 생성해요.",
         "coinbaseKycDescription": "개인 정보를 전혀 공개하지 않고 Coinbase 신원 인증의 영지식 증명을 생성해요.",

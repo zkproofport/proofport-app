@@ -270,33 +270,18 @@ const App: React.FC = () => {
     );
   }
 
-  // In simulator/dev builds the iOS keychain entitlements that Privy's
-  // expo-secure-store backend requires aren't fully wired up, which causes
-  // PrivyProvider to crash with "A required entitlement isn't present"
-  // before children mount. Wrap the auth providers so dev builds get a
-  // pass-through and only TestFlight/production paths exercise real Privy
-  // / WalletConnect flows.
+  // Auth/wallet providers always mount. The dev-only bypass that lived
+  // here was a workaround for a missing keychain-access-groups entitlement
+  // — that entitlement has since been restored in
+  // ios/ProofportApp/ProofportApp.entitlements, so PrivyProvider now mounts
+  // safely in dev builds too.
   const inner = (
     <NavigationContainer ref={navigationRef}>
       <TabNavigator />
     </NavigationContainer>
   );
 
-  const withProofModal = (children: React.ReactNode) => (
-    <>
-      {children}
-      <ProofRequestModal
-        visible={showRequestModal}
-        request={pendingRequest}
-        onAccept={handleAcceptRequest}
-        onReject={handleRejectRequest}
-      />
-    </>
-  );
-
-  const tree = __DEV__ ? (
-    withProofModal(inner)
-  ) : (
+  const tree = (
     <PrivyProvider
       appId={PRIVY_APP_ID}
       clientId={PRIVY_CLIENT_ID}

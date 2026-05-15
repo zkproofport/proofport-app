@@ -37,6 +37,11 @@ const CIRCUIT_INFO = {
     icon: '🔐',
     description: 'Prove your email domain via OIDC identity token',
   },
+  giwa_attestation: {
+    name: 'GIWA KYC (Experimental)',
+    icon: '🏯',
+    description: 'Prove GIWA Sepolia KYC attestation (PoC)',
+  },
 };
 
 export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({

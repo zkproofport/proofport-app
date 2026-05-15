@@ -1,5 +1,9 @@
 
-export type CircuitType = 'coinbase_attestation' | 'coinbase_country_attestation' | 'oidc_domain_attestation';
+export type CircuitType =
+  | 'coinbase_attestation'
+  | 'coinbase_country_attestation'
+  | 'oidc_domain_attestation'
+  | 'giwa_attestation';
 
 export interface CoinbaseKycInputs {
   userAddress?: string; // Optional - app will connect wallet if not provided
@@ -176,7 +180,7 @@ export function validateProofRequest(
     return {valid: false, error: 'Missing circuit type'};
   }
 
-  if (!['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'].includes(request.circuit)) {
+  if (!['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation', 'giwa_attestation'].includes(request.circuit)) {
     return {valid: false, error: `Invalid circuit type: ${request.circuit}`};
   }
 
@@ -185,14 +189,18 @@ export function validateProofRequest(
   }
 
   // Validate circuit-specific inputs
-  if (request.circuit === 'coinbase_attestation' || request.circuit === 'coinbase_country_attestation') {
-    // Coinbase KYC: userAddress is optional - app will connect wallet if not provided
+  if (
+    request.circuit === 'coinbase_attestation' ||
+    request.circuit === 'coinbase_country_attestation' ||
+    request.circuit === 'giwa_attestation'
+  ) {
+    // KYC-style circuits: userAddress is optional — app will connect wallet if not provided
     const inputs = request.inputs as CoinbaseKycInputs;
     if (inputs.userAddress && !/^0x[a-fA-F0-9]{40}$/.test(inputs.userAddress)) {
       return {valid: false, error: 'Invalid userAddress format'};
     }
-    // Scope is required for coinbase_attestation
-    if (request.circuit === 'coinbase_attestation' && !inputs.scope) {
+    // Scope is required for coinbase_attestation / giwa_attestation
+    if ((request.circuit === 'coinbase_attestation' || request.circuit === 'giwa_attestation') && !inputs.scope) {
       return {valid: false, error: 'Missing required scope parameter'};
     }
     // countryList and isIncluded are required for coinbase_country_attestation

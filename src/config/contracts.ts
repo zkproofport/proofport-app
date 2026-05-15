@@ -13,7 +13,11 @@
 
 export type Environment = 'development' | 'staging' | 'production';
 
-export type CircuitName = 'coinbase_attestation' | 'coinbase_country_attestation' | 'oidc_domain_attestation';
+export type CircuitName =
+  | 'coinbase_attestation'
+  | 'coinbase_country_attestation'
+  | 'oidc_domain_attestation'
+  | 'giwa_attestation';
 
 export interface NetworkConfig {
   chainId: number;
@@ -171,6 +175,8 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
   oidc_domain_attestation: (chainId) =>
     `DeployOidcDomainAttestation.s.sol/${chainId}/run-latest.json`,
+  // giwa_attestation is a PoC — addresses come from FALLBACK_VERIFIERS only
+  giwa_attestation: null,
 };
 
 export interface CircuitFilePaths {
@@ -200,6 +206,11 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
     vkPath: 'oidc-domain-attestation/target/vk',
     vkFileName: 'vk',
   },
+  giwa_attestation: {
+    basePath: 'giwa-attestation/target',
+    vkPath: 'giwa-attestation/target/vk',
+    vkFileName: 'vk',
+  },
 };
 
 /**
@@ -211,6 +222,27 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   coinbase_attestation: 1,
   coinbase_country_attestation: 1,
   oidc_domain_attestation: 3, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
+  giwa_attestation: 1,
+};
+
+/**
+ * Per-circuit network override.
+ * Most circuits use the env-default network (Base). GIWA attestation lives
+ * on a different chain entirely (GIWA Sepolia, chain ID 91342), so we pin
+ * its network here regardless of the build environment.
+ *
+ * `undefined` = use STATIC_CONFIGS[env].network.
+ */
+export const CIRCUIT_NETWORK_OVERRIDES: Record<CircuitName, NetworkConfig | undefined> = {
+  coinbase_attestation: undefined,
+  coinbase_country_attestation: undefined,
+  oidc_domain_attestation: undefined,
+  giwa_attestation: {
+    chainId: 91342,
+    name: 'GIWA Sepolia',
+    rpcUrl: 'https://sepolia-rpc.giwa.io/',
+    explorerUrl: 'https://sepolia-explorer.giwa.io',
+  },
 };
 
 /**
@@ -222,15 +254,19 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
+    // GIWA PoC verifier — same address across env (testnet-only PoC)
+    giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
   },
   staging: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
+    giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
+    giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
   },
 };

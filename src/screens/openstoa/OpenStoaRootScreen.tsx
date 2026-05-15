@@ -4,13 +4,19 @@ import { useNavigation, useNavigationContainerRef } from '@react-navigation/nati
 import { HostProvider, OpenStoaApp } from 'openstoa-mobile';
 import { createZkProofportHostApi } from '../../openstoa-host/zkProofportHostApi';
 import { useThemeColors } from '../../context';
+import { getEnvironment } from '../../config';
 
-// In dev/staging the simulator points at staging community; production
-// build resolves the production canonical domain. This mirrors the host's
-// existing environment split.
-const OPENSTOA_BASE_URL = __DEV__
-  ? 'https://stg-community.zkproofport.app'
-  : 'https://www.openstoa.xyz';
+// Mirror the host's 3-way environment split so the mini-app and the host
+// always point at the same backend tier:
+//   development → staging community (devs hit staging APIs)
+//   staging     → staging community
+//   production  → canonical openstoa.xyz
+function resolveOpenStoaBaseUrl(): string {
+  const env = getEnvironment();
+  if (env === 'production') return 'https://www.openstoa.xyz';
+  return 'https://stg-community.zkproofport.app';
+}
+const OPENSTOA_BASE_URL = resolveOpenStoaBaseUrl();
 
 const OpenStoaRootScreen: React.FC = () => {
   const navigation = useNavigation();

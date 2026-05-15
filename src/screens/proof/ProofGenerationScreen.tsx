@@ -20,12 +20,14 @@ import {
   LiveLogsPanel,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGoogleAuth, useMicrosoftAuth, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
-import {findAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useGoogleAuth, useMicrosoftAuth, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
+import {findAttestationTransaction, findGiwaAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore, settingsStore} from '../../stores';
-import {getVerifierAddressSync, getNetworkConfig, type CircuitName} from '../../config';
+import {getVerifierAddressSync, getNetworkConfig, getNetworkConfigForCircuit, type CircuitName} from '../../config';
+// Wallet-cache logic now lives in useCircuitWalletGate.
 import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
 import {ethers} from 'ethers';
 import {getActiveProofRequest, setActiveProofRequest} from '../../stores/activeProofRequestStore';
@@ -37,12 +39,16 @@ const CIRCUIT_DISPLAY: Record<string, string> = {
   'coinbase-kyc': 'Coinbase KYC',
   'coinbase-country': 'Coinbase Country',
   'oidc_domain_attestation': 'OIDC Domain',
+  'giwa-kyc': 'GIWA KYC (Experimental)',
+  'giwa_attestation': 'GIWA KYC (Experimental)',
 };
 
 const CIRCUIT_CONFIG: Record<string, string> = {
   'coinbase-kyc': 'coinbase_attestation',
   'coinbase-country': 'coinbase_country_attestation',
   'oidc_domain_attestation': 'oidc_domain_attestation',
+  'giwa-kyc': 'giwa_attestation',
+  'giwa_attestation': 'giwa_attestation',
 };
 
 const ProgressButton: React.FC<{
@@ -193,6 +199,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const proofRequest = getActiveProofRequest() ?? route.params?.proofRequest;
 
   const hasAutoStarted = useRef(false);
+  const didResetOnMountRef = useRef(false);
   const proofStartedAt = useRef<number | null>(null);
   const historyIdRef = useRef<string | null>(null);
   const failedMarkedRef = useRef(false);
@@ -206,16 +213,40 @@ export const ProofGenerationScreen: React.FC = () => {
   const circuitId = route.params?.circuitId || 'coinbase-kyc';
   const isCountry = circuitId === 'coinbase-country';
   const isOidc = circuitId === 'oidc_domain_attestation';
+  const isGiwa = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
   const oidcProvider = (proofRequest?.inputs as {provider?: string} | undefined)?.provider || route.params?.domainInput?.provider;
 
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
+  const giwaHook = useGiwaKyc();
   const googleAuth = useGoogleAuth();
   const microsoftAuth = useMicrosoftAuth();
-  const hook = isOidc ? oidcHook : (isCountry ? countryHook : kycHook);
+  const hook = isOidc ? oidcHook : isGiwa ? giwaHook : (isCountry ? countryHook : kycHook);
 
-  const {account, isReady: isPrivyReady, isWalletConnected, connect: connectWallet, getProvider} = usePrivyWallet(addLog);
+  // Each entry to this screen starts from a clean slate. Without this, the
+  // module-level proof caches inside the hooks (kept across navigations to
+  // survive ProofComplete → re-verify) would replay the previous proof on
+  // the new attempt, racing the "navigate to ProofComplete" effect below.
+  if (!didResetOnMountRef.current) {
+    didResetOnMountRef.current = true;
+    kycHook.resetProofCache();
+    countryHook.resetProofCache();
+    oidcHook.resetProofCache();
+    giwaHook.resetProofCache();
+  }
+
+  const {account, isReady: isPrivyReady, isWalletConnected, connect: connectWallet, disconnect: disconnectWallet, getProvider} = usePrivyWallet(addLog);
+  const walletGate = useCircuitWalletGate({
+    account,
+    connectWallet,
+    disconnectWallet,
+    onPending: () => {},
+    log: addLog,
+  });
+  // Track the last `account` we observed; when the gate is in post-picker
+  // mode and `account` flips to a new value, we re-fire handleGenerateProof.
+  const previousAccountRef = useRef<string | null>(null);
   const {sendProof, sendError} = useDeepLink();
 
   const googleStepStatus = googleAuth.idToken ? 'complete' : 'pending';
@@ -261,6 +292,10 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [hook.proofSteps, markHistoryFailed]);
 
   // Handle successful proof → update history + navigate
+  // Only navigate to ProofComplete when the parsedProof was produced AFTER
+  // we hit "Generate" on THIS screen entry. proofStartedAt is null on mount
+  // and set only inside handleGenerateProof, so a stale cached proof from a
+  // previous screen entry can't trigger this navigation.
   useEffect(() => {
     if (!hook.parsedProof || !proofStartedAt.current) return;
 
@@ -291,6 +326,7 @@ export const ProofGenerationScreen: React.FC = () => {
         nullifierHex = ethers.utils.hexlify(nullifierBytes);
       }
 
+      const circuitNet = getNetworkConfigForCircuit(resolved);
       sendProof(proofRequest, {
         proof: hook.parsedProof.proofHex,
         publicInputs: hook.parsedProof.publicInputsHex,
@@ -301,10 +337,11 @@ export const ProofGenerationScreen: React.FC = () => {
         startedAt: proofStartedAt.current,
         completedAt: generatedAt,
         verifierAddress: getVerifierAddressSync(resolved),
-        chainId: getNetworkConfig().chainId,
+        chainId: circuitNet.chainId,
       }).then(() => setActiveProofRequest(null)).catch(console.error);
     }
 
+    const circuitNet = getNetworkConfigForCircuit(resolved);
     navigation.navigate('ProofComplete', {
       proofHex: hook.parsedProof.proofHex,
       publicInputsHex: hook.parsedProof.publicInputsHex,
@@ -315,18 +352,36 @@ export const ProofGenerationScreen: React.FC = () => {
         offChain: null,
         onChain: null,
         verifierContract: getVerifierAddressSync(resolved),
-        chainName: getNetworkConfig().name,
-        explorerUrl: getNetworkConfig().explorerUrl,
+        chainName: circuitNet.name,
+        explorerUrl: circuitNet.explorerUrl,
       },
       walletAddress: account || undefined,
       historyId: historyIdRef.current || undefined,
     });
+    // Clear the "in-flight proof" marker so a re-mount of this screen with a
+    // stale `hook.parsedProof` value can't navigate again.
+    proofStartedAt.current = null;
+    historyIdRef.current = null;
   }, [hook.parsedProof, navigation, circuitId, proofRequest, sendProof, account, isOidc, markHistoryFailed]);
 
   const handleGenerateProof = useCallback(async () => {
-    if (!isOidc && !account) {
-      addLog('Please connect wallet first');
-      return;
+    // Wallet flow is fully driven by useCircuitWalletGate (single source of
+    // truth implementing the documented K-map). Anything other than `address`
+    // means the gate already opened a picker / dismissed; the auto-retry
+    // effect below will re-invoke handleGenerateProof when account changes.
+    let gatedAddress: string | null = null;
+    if (!isOidc) {
+      const resolved = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
+      const gateResult = await walletGate.runGate(
+        resolved,
+        CIRCUIT_DISPLAY[circuitId] || resolved,
+      );
+      if (gateResult === 'pending') return;
+      if (gateResult === 'cancelled') {
+        setErrorMessage('Wallet selection cancelled.');
+        return;
+      }
+      gatedAddress = gateResult.address;
     }
 
     clearLogs();
@@ -431,24 +486,34 @@ export const ProofGenerationScreen: React.FC = () => {
         return;
       }
 
-      // Non-OIDC paths require wallet — guarded by !isOidc && !account check above
-      const walletAddress = account as string;
+      // The gate already resolved the wallet for this circuit.
+      const walletAddress = gatedAddress as string;
 
       const selector = isCountry ? SELECTOR_ATTEST_COUNTRY : SELECTOR_ATTEST_ACCOUNT;
-      addLog(isCountry
+      addLog(isGiwa
+        ? '=== Searching for GIWA Attestation ==='
+        : isCountry
         ? '=== Searching for Coinbase Country Attestation ==='
         : '=== Searching for Coinbase Attestation ===');
 
-      const txResult = await findAttestationTransaction(walletAddress, addLog, selector);
+      const txResult = isGiwa
+        ? await findGiwaAttestationTransaction(walletAddress, addLog)
+        : await findAttestationTransaction(walletAddress, addLog, selector);
       if (!txResult) {
-        const msg = isCountry
-          ? `No country attestation found for wallet ${walletAddress}`
-          : `No attestation found for wallet ${walletAddress}`;
+        await walletGate.recordLookupFailure(configName);
+        const msg = isGiwa
+          ? `No GIWA attestation for ${walletAddress.slice(0, 10)}… — pick another wallet.`
+          : isCountry
+          ? `No country attestation for ${walletAddress.slice(0, 10)}… — pick another wallet.`
+          : `No attestation for ${walletAddress.slice(0, 10)}… — pick another wallet.`;
         setErrorMessage(msg);
         addLog(msg);
         markHistoryFailed();
         return;
       }
+
+      // Attestation lookup succeeded → bind this wallet to this circuit.
+      await walletGate.recordSuccess(configName, walletAddress);
 
       addLog('Attestation found!');
       addLog(`TX length: ${txResult.rawTransaction.length} chars`);
@@ -489,6 +554,14 @@ export const ProofGenerationScreen: React.FC = () => {
           {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, countryList, countryListLength: countryList.length, isIncluded, scopeString: scopeStr},
           ethereum, addLog,
         );
+      } else if (isGiwa) {
+        const deep = proofRequest?.inputs as CoinbaseKycInputs | undefined;
+        const scopeStr = deep?.scope || 'proofport:giwa-poc';
+
+        await giwaHook.generateProofWithSteps(
+          {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, scopeString: scopeStr},
+          ethereum, addLog,
+        );
       } else {
         const deep = proofRequest?.inputs as CoinbaseKycInputs | undefined;
         const scopeStr = deep?.scope || 'proofport:default';
@@ -507,7 +580,23 @@ export const ProofGenerationScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [account, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, isCountry, isOidc, proofRequest, route.params, sendError, circuitId, markHistoryFailed]);
+  }, [walletGate, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, giwaHook.generateProofWithSteps, isCountry, isOidc, isGiwa, proofRequest, route.params, sendError, circuitId, markHistoryFailed]);
+
+  // After the wallet gate opens a picker / reconnect prompt, it sets its
+  // internal post-picker flag. When `account` then flips to a new wallet,
+  // we auto-retry handleGenerateProof. The gate's runGate() sees P=1 and
+  // skips the confirmation alert.
+  useEffect(() => {
+    const prev = previousAccountRef.current;
+    if (walletGate.isPostPicker && account && account !== prev) {
+      previousAccountRef.current = account;
+      addLog(`[Wallet] Wallet connected: ${account}. Retrying proof generation…`);
+      setErrorMessage(null);
+      const t = setTimeout(() => handleGenerateProof(), 300);
+      return () => clearTimeout(t);
+    }
+    if (!walletGate.isPostPicker) previousAccountRef.current = account;
+  }, [account, walletGate.isPostPicker, addLog, handleGenerateProof]);
 
   // Auto-start for deep link requests
   useEffect(() => {
@@ -551,7 +640,7 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [hook.proofSteps, hasStepsStarted, isProcessing, logs]);
 
   const getButtonState = () => {
-    if (!isOidc && !isWalletConnected)
+    if (!isOidc && !isWalletConnected && !walletGate.isPostPicker)
       return {title: t('host.proof.generation.connectWallet'), onPress: connectWallet, disabled: !isPrivyReady, loading: false};
     if (isProcessing) {
       const activeIdx = userSteps.findIndex(s => s.status === 'active');
@@ -597,6 +686,8 @@ export const ProofGenerationScreen: React.FC = () => {
               ? t('host.proof.generation.oidcTitle')
               : isCountry
               ? t('host.proof.generation.coinbaseCountryTitle')
+              : isGiwa
+              ? t('host.proof.generation.giwaKycTitle')
               : t('host.proof.generation.coinbaseKycTitle')}
           </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
@@ -604,6 +695,8 @@ export const ProofGenerationScreen: React.FC = () => {
               ? t('host.proof.generation.oidcDescription')
               : isCountry
               ? t('host.proof.generation.coinbaseCountryDescription')
+              : isGiwa
+              ? t('host.proof.generation.giwaKycDescription')
               : t('host.proof.generation.coinbaseKycDescription')}
           </Text>
         </Card>

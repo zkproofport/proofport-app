@@ -12,6 +12,7 @@ export {
   getEnvironment,
   setEnvironmentOverride,
   getNetworkConfig,
+  getNetworkConfigForCircuit,
   getAttestationConfig,
   getRelayConfig,
   getVerifierAbi,

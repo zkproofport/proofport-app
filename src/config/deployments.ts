@@ -191,6 +191,8 @@ export async function getVerifierAddress(
  * Returns true if any address was updated.
  */
 export async function syncDeployments(env: Environment): Promise<boolean> {
+  // NOTE: giwa_attestation is intentionally excluded — its address is hard-coded
+  // in FALLBACK_VERIFIERS for the PoC (BROADCAST_PATHS[giwa_attestation] is null).
   const circuits: CircuitName[] = [
     'coinbase_attestation',
     'coinbase_country_attestation',

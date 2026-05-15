@@ -181,6 +181,10 @@
         "oidcDomain": {
           "title": "OIDC Domain",
           "description": "Prove your email domain affiliation"
+        },
+        "giwaKyc": {
+          "title": "GIWA KYC (Experimental)",
+          "description": "PoC — prove a KYC attestation issued on GIWA Sepolia"
         }
       },
       "country": {
@@ -220,6 +224,7 @@
         "copiedTitle": "Copied",
         "copiedMessage": "Proof hash copied to clipboard",
         "viewEASScan": "View on EAS Scan",
+        "viewGiwaExplorer": "View on GIWA Explorer",
         "generateAnother": "Generate Another Proof",
         "stackTitle": "Proof Complete",
         "done": "Done"
@@ -229,6 +234,8 @@
         "oidcTitle": "OIDC Domain Verification",
         "coinbaseCountryTitle": "Coinbase Country Verification",
         "coinbaseKycTitle": "Coinbase KYC Verification",
+        "giwaKycTitle": "GIWA KYC Verification (Experimental)",
+        "giwaKycDescription": "PoC — generate a zero-knowledge proof of a KYC attestation issued on GIWA Sepolia. Bring your own GIWA testnet wallet via the Wallet tab.",
         "oidcDescription": "Generate a zero-knowledge proof of your email domain using an OIDC identity token. Proof is generated locally on your device.",
         "coinbaseCountryDescription": "Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.",
         "coinbaseKycDescription": "Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.",

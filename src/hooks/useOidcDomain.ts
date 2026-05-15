@@ -535,7 +535,11 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
     isLoading,
     vk,
     fullProof,
-    parsedProof: parsedProof || _cachedParsedProof,
+    // Return the live `parsedProof` state only. Falling back to the
+    // module-level cache here would make a fresh hook consumer see a stale
+    // proof from a previous run, which races ProofGeneration's "navigate to
+    // ProofComplete" effect.
+    parsedProof,
     proofSteps,
     generateProofWithSteps,
     verifyProofOffChain,
