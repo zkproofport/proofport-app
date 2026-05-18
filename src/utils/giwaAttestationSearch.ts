@@ -9,7 +9,6 @@
 import {ethers} from 'ethers';
 import type {AttestationInfo} from './attestationSearch';
 
-const GIWA_EXPLORER_API = 'https://sepolia-explorer.giwa.io/api/v2';
 const GIWA_RPC = 'https://sepolia-rpc.giwa.io/';
 
 // EAS predeploy + Attested event topic
@@ -21,7 +20,7 @@ const ATTESTED_TOPIC =
 const GIWA_VERIFIED_ACCOUNT_SCHEMA_UID =
   '0xbda8dd64efa4c537514cfe4c96ab5d5f14a8ec0c9105b799b47a010e89c0c72d';
 
-// MockCoinbaseAttester contract — the `to` address of the attestAccount tx,
+// MockGiwaAttester contract — the `to` address of the attestAccount tx,
 // matched against GIWA_ATTESTER_CONTRACT inside the giwa_attestation circuit.
 export const GIWA_MOCK_ATTESTER_CONTRACT =
   '0x6646d970499BBeD728636823A5A7e551E811b414';
@@ -33,6 +32,9 @@ const cache = new Map<
 >();
 const CACHE_TTL = 10 * 60 * 1000;
 
+// Normalized log shape returned by findAttestationLog (matches the
+// historical Blockscout snake_case so the rest of this module stays
+// unchanged when the source switches from REST to RPC).
 interface BlockscoutLog {
   address: string;
   block_number: number;
@@ -43,39 +45,92 @@ interface BlockscoutLog {
   transaction_hash: string;
 }
 
-async function fetchBlockscoutLogs(
-  schemaUid: string,
-  addLog?: (msg: string) => void,
-): Promise<BlockscoutLog[]> {
-  const log = addLog || console.log;
-  const url = `${GIWA_EXPLORER_API}/addresses/${EAS_CONTRACT}/logs?topic=${ATTESTED_TOPIC}`;
-  log('[GIWA] Searching attested events via Blockscout...');
-  log(`[GIWA] URL: ${url}`);
+// GIWA Sepolia RPC caps `eth_getLogs` at 100,000 blocks per query. EAS
+// Attested has every meaningful field indexed (`recipient`, `attester`,
+// `schema`), so the RPC server itself can filter — we just need to feed
+// it chunked block ranges starting from the chain head and walking back.
+// First match wins (newest), which is what the user wants when they
+// just registered a fresh attestation.
+const CHUNK_SIZE = 99_999; // RPC limit is 100k inclusive; stay just under
+const MAX_CHUNKS = 30; // ≈ 3M blocks back, plenty for a fresh PoC
+const PAD = (v: string) =>
+  '0x' + v.replace(/^0x/, '').toLowerCase().padStart(64, '0');
+const toHex = (n: number) => '0x' + n.toString(16);
 
+interface RpcLog {
+  address: string;
+  blockHash: string;
+  blockNumber: string;
+  data: string;
+  logIndex: string;
+  topics: string[];
+  transactionHash: string;
+}
+
+async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const t = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(url, {signal: controller.signal});
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      throw new Error(`Blockscout HTTP ${response.status}`);
-    }
-    const data = await response.json();
-    const items: BlockscoutLog[] = data.items ?? [];
-
-    // Filter by schema UID (Attested event has schema as topic[3])
-    const matching = items.filter(
-      (l) =>
-        l.topics &&
-        l.topics.length >= 4 &&
-        l.topics[3]?.toLowerCase() === schemaUid.toLowerCase(),
-    );
-    log(`[GIWA] Total Attested logs: ${items.length}, schema-matched: ${matching.length}`);
-    return matching;
-  } catch (e) {
-    clearTimeout(timeoutId);
-    throw e instanceof Error ? e : new Error(String(e));
+    const resp = await fetch(GIWA_RPC, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({jsonrpc: '2.0', id: 1, method, params}),
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`RPC HTTP ${resp.status}`);
+    const j = await resp.json();
+    if (j.error) throw new Error(j.error.message);
+    return j.result as T;
+  } finally {
+    clearTimeout(t);
   }
+}
+
+async function findAttestationLog(
+  schemaUid: string,
+  walletAddress: string,
+  addLog: (msg: string) => void,
+): Promise<BlockscoutLog | null> {
+  const paddedRecipient = PAD(walletAddress);
+  const paddedSchema = PAD(schemaUid);
+  const head = parseInt(await rpcCall<string>('eth_blockNumber', []), 16);
+  addLog(`[GIWA] eth_getLogs walking back from head ${head} in ${CHUNK_SIZE}-block chunks`);
+
+  let toBlock = head;
+  for (let chunk = 0; chunk < MAX_CHUNKS && toBlock > 0; chunk++) {
+    const fromBlock = Math.max(0, toBlock - CHUNK_SIZE);
+    const result = await rpcCall<RpcLog[]>('eth_getLogs', [
+      {
+        address: EAS_CONTRACT,
+        fromBlock: toHex(fromBlock),
+        toBlock: toHex(toBlock),
+        topics: [ATTESTED_TOPIC, paddedRecipient, null, paddedSchema],
+      },
+    ]);
+    if (result.length > 0) {
+      // Highest block within this chunk is the newest match.
+      result.sort(
+        (a, b) => parseInt(b.blockNumber, 16) - parseInt(a.blockNumber, 16),
+      );
+      const r = result[0];
+      addLog(
+        `[GIWA] Match in chunk ${chunk + 1} [${fromBlock}-${toBlock}]: tx ${r.transactionHash}`,
+      );
+      return {
+        address: r.address,
+        block_hash: r.blockHash,
+        block_number: parseInt(r.blockNumber, 16),
+        data: r.data,
+        index: parseInt(r.logIndex, 16),
+        topics: r.topics,
+        transaction_hash: r.transactionHash,
+      };
+    }
+    addLog(`[GIWA] No match in chunk ${chunk + 1} [${fromBlock}-${toBlock}]`);
+    if (fromBlock === 0) break;
+    toBlock = fromBlock - 1;
+  }
+  return null;
 }
 
 function topicToAddress(topic: string): string {
@@ -159,54 +214,45 @@ export async function findGiwaAttestationTransaction(
   log(`[GIWA Search] Wallet: ${walletAddress}`);
   log(`[GIWA Search] Schema: ${GIWA_VERIFIED_ACCOUNT_SCHEMA_UID}`);
 
-  const logs = await fetchBlockscoutLogs(GIWA_VERIFIED_ACCOUNT_SCHEMA_UID, log);
-
-  // Attested event topic layout (after fix in EAS spec):
-  // topics[0] = event sig, topics[1] = recipient, topics[2] = attester, topics[3] = schema
-  const matching = logs.filter((l) => {
-    const recipient = topicToAddress(l.topics[1]);
-    return recipient.toLowerCase() === walletAddress.toLowerCase();
-  });
-
-  if (matching.length === 0) {
+  // Paginated scan — Blockscout sorts logs newest-first and the wallet's
+  // attestation may be buried beyond page 1 once other testers register
+  // newer ones.
+  const match = await findAttestationLog(
+    GIWA_VERIFIED_ACCOUNT_SCHEMA_UID,
+    walletAddress,
+    log,
+  );
+  if (!match) {
     log(`[GIWA Search] No GIWA attestation found for wallet ${walletAddress}`);
     return null;
   }
-  log(`[GIWA Search] Matching attestations: ${matching.length}`);
 
-  // Try each candidate tx until one yields a valid raw tx
-  for (const match of matching) {
-    try {
-      const rawTx = await reconstructRawTx(match.transaction_hash, log);
+  try {
+    const rawTx = await reconstructRawTx(match.transaction_hash, log);
 
-      // Sanity: tx.to must equal MockCoinbaseAttester contract
-      const parsed = ethers.utils.parseTransaction(rawTx);
-      if (
-        parsed.to?.toLowerCase() !== GIWA_MOCK_ATTESTER_CONTRACT.toLowerCase()
-      ) {
-        log(
-          `[GIWA Search] tx.to=${parsed.to} != ${GIWA_MOCK_ATTESTER_CONTRACT}, skipping`,
-        );
-        continue;
-      }
-
-      const attestation: AttestationInfo = {
-        id: match.data,
-        txHash: match.transaction_hash,
-        attester: topicToAddress(match.topics[2]),
-        recipient: topicToAddress(match.topics[1]),
-        time: match.block_number,
-        rawTransaction: rawTx,
-      };
-      const result = {attestation, rawTransaction: rawTx};
-      cache.set(cacheKey, {result, timestamp: Date.now()});
-      log('[GIWA Search] Attestation accepted.');
-      return result;
-    } catch (e) {
-      log(`[GIWA Search] candidate failed: ${e instanceof Error ? e.message : e}`);
+    // Sanity: tx.to must equal MockGiwaAttester contract
+    const parsed = ethers.utils.parseTransaction(rawTx);
+    if (parsed.to?.toLowerCase() !== GIWA_MOCK_ATTESTER_CONTRACT.toLowerCase()) {
+      log(
+        `[GIWA Search] tx.to=${parsed.to} != ${GIWA_MOCK_ATTESTER_CONTRACT}, rejecting.`,
+      );
+      return null;
     }
-  }
 
-  log('[GIWA Search] No usable attestation among candidates.');
-  return null;
+    const attestation: AttestationInfo = {
+      id: match.data,
+      txHash: match.transaction_hash,
+      attester: topicToAddress(match.topics[2]),
+      recipient: topicToAddress(match.topics[1]),
+      time: match.block_number,
+      rawTransaction: rawTx,
+    };
+    const result = {attestation, rawTransaction: rawTx};
+    cache.set(cacheKey, {result, timestamp: Date.now()});
+    log('[GIWA Search] Attestation accepted.');
+    return result;
+  } catch (e) {
+    log(`[GIWA Search] Tx fetch/parse failed: ${e instanceof Error ? e.message : e}`);
+    return null;
+  }
 }

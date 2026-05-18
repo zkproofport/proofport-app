@@ -500,7 +500,7 @@ export const ProofGenerationScreen: React.FC = () => {
         ? await findGiwaAttestationTransaction(walletAddress, addLog)
         : await findAttestationTransaction(walletAddress, addLog, selector);
       if (!txResult) {
-        await walletGate.recordLookupFailure(configName);
+        await walletGate.recordLookupFailure(configName, walletAddress);
         const msg = isGiwa
           ? `No GIWA attestation for ${walletAddress.slice(0, 10)}… — pick another wallet.`
           : isCountry
@@ -586,17 +586,32 @@ export const ProofGenerationScreen: React.FC = () => {
   // internal post-picker flag. When `account` then flips to a new wallet,
   // we auto-retry handleGenerateProof. The gate's runGate() sees P=1 and
   // skips the confirmation alert.
+  //
+  // Guard: if the user re-picked a wallet that already failed an
+  // attestation lookup in this session, do NOT auto-retry — the search
+  // would just fail again and we'd loop forever. Surface a clear hint
+  // and let the user choose a different wallet themselves.
   useEffect(() => {
     const prev = previousAccountRef.current;
     if (walletGate.isPostPicker && account && account !== prev) {
       previousAccountRef.current = account;
+      const circuitForGate = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
+      if (walletGate.wasFailedAddress(circuitForGate, account)) {
+        addLog(
+          `[Wallet] Re-selected ${account} which already failed lookup — pick a different wallet.`,
+        );
+        setErrorMessage(
+          `${account.slice(0, 10)}… already has no attestation. Pick a different wallet.`,
+        );
+        return;
+      }
       addLog(`[Wallet] Wallet connected: ${account}. Retrying proof generation…`);
       setErrorMessage(null);
       const t = setTimeout(() => handleGenerateProof(), 300);
       return () => clearTimeout(t);
     }
     if (!walletGate.isPostPicker) previousAccountRef.current = account;
-  }, [account, walletGate.isPostPicker, addLog, handleGenerateProof]);
+  }, [account, walletGate, circuitId, addLog, handleGenerateProof]);
 
   // Auto-start for deep link requests
   useEffect(() => {

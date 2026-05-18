@@ -49,8 +49,16 @@ export interface CircuitWalletGate {
   /** Mark a successful proof: persist the binding so next attempt skips the picker. */
   recordSuccess: (circuit: CircuitName, address: string) => Promise<void>;
 
-  /** Mark a failed attestation lookup: drop binding, kick off a new picker. */
-  recordLookupFailure: (circuit: CircuitName) => Promise<void>;
+  /** Mark a failed attestation lookup: drop binding, kick off a new picker.
+   *  `address` is the wallet that just failed — passing it lets the gate
+   *  short-circuit an auto-retry if the user re-picks the same wallet
+   *  (otherwise the search would loop forever for users with only one
+   *  wallet that lacks the attestation). */
+  recordLookupFailure: (circuit: CircuitName, address: string | null) => Promise<void>;
+
+  /** True if `address` already failed an attestation lookup for `circuit`
+   *  during this session. Callers use it to skip a no-op auto-retry. */
+  wasFailedAddress: (circuit: CircuitName, address: string) => boolean;
 }
 
 interface Args {
@@ -76,6 +84,12 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
   const {account, connectWallet, disconnectWallet, log} = args;
   const postPickerRef = useRef(false);
   const [postPickerVisible, setPostPickerVisible] = useState(false);
+  // Addresses that already failed an attestation lookup for a given
+  // circuit in this session. Used to break the auto-retry loop when the
+  // user only owns a single wallet that lacks the attestation — without
+  // this they'd keep re-picking the same wallet and the search would
+  // re-run forever.
+  const failedByCircuitRef = useRef<Map<CircuitName, Set<string>>>(new Map());
 
   const setPostPicker = useCallback((on: boolean) => {
     postPickerRef.current = on;
@@ -106,6 +120,13 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
       // --- P=1: post-picker auto-retry → no confirm. -----------------------
       if (P) {
         if (W) {
+          const failed = failedByCircuitRef.current.get(circuit);
+          if (failed && failed.has(W.toLowerCase())) {
+            log(
+              `[Gate] Post-picker re-selected ${W} which already failed lookup for ${circuit} — not retrying.`,
+            );
+            return 'cancelled';
+          }
           if (C && !M) {
             log(`[Gate] Post-picker chose different wallet — dropping stale cache.`);
             await clearCircuitWallet(circuit);
@@ -179,18 +200,43 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
   );
 
   const recordLookupFailure = useCallback(
-    async (circuit: CircuitName) => {
-      log(`[Gate] Lookup failed for ${circuit} — clearing cache + opening picker.`);
+    async (circuit: CircuitName, address: string | null) => {
+      log(
+        `[Gate] Lookup failed for ${circuit}${
+          address ? ` (${address})` : ''
+        } — clearing cache + opening picker.`,
+      );
+      if (address) {
+        let set = failedByCircuitRef.current.get(circuit);
+        if (!set) {
+          set = new Set();
+          failedByCircuitRef.current.set(circuit, set);
+        }
+        set.add(address.toLowerCase());
+      }
       await clearCircuitWallet(circuit);
+      // Flip the post-picker latch BEFORE disconnecting. Otherwise the
+      // brief `account=null && isPostPicker=false` window between the
+      // disconnect and the latch flip lets ProofGenerationScreen's
+      // previousAccountRef get cleared, and the next re-connect of the
+      // SAME wallet then trips the auto-retry effect.
+      setPostPicker(true);
       try {
         await disconnectWallet();
       } catch {}
-      setPostPicker(true);
       try {
         await connectWallet();
       } catch {}
     },
     [log, disconnectWallet, connectWallet, setPostPicker],
+  );
+
+  const wasFailedAddress = useCallback(
+    (circuit: CircuitName, address: string): boolean => {
+      const set = failedByCircuitRef.current.get(circuit);
+      return !!set && set.has(address.toLowerCase());
+    },
+    [],
   );
 
   // Silence unused-var lints if the consumer never inspects this flag.
@@ -202,6 +248,7 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
     runGate,
     recordSuccess,
     recordLookupFailure,
+    wasFailedAddress,
     consumePostPickerLatch,
     isPostPicker: postPickerVisible,
   };

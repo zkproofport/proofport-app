@@ -6,7 +6,7 @@
  * constant is swapped for the GIWA PoC equivalent:
  *
  * - Circuit name: giwa_attestation (loads target/giwa_attestation.{json,srs} + vk)
- * - Attester contract: MockCoinbaseAttester on GIWA Sepolia
+ * - Attester contract: MockGiwaAttester on GIWA Sepolia
  * - Authorized signers: a single mock Upbit attester EOA
  * - On-chain verifier: GIWA Sepolia HonkVerifier (chain 91342)
  */

@@ -3,7 +3,7 @@
  * building circuit inputs against the GIWA Sepolia mock attester.
  *
  * Mirrors coinbaseKyc.ts but uses GIWA constants:
- * - to_address: MockCoinbaseAttester on GIWA Sepolia
+ * - to_address: MockGiwaAttester on GIWA Sepolia
  * - authorized signer set: a single mock Upbit attester EOA
  */
 import {ethers} from 'ethers';
@@ -42,7 +42,7 @@ export function verifyGiwaAttestationTx(
     if (tx.to?.toLowerCase() !== GIWA_MOCK_ATTESTER_CONTRACT.toLowerCase()) {
       return {
         valid: false,
-        error: `Transaction not sent to MockCoinbaseAttester on GIWA (got ${tx.to})`,
+        error: `Transaction not sent to MockGiwaAttester on GIWA (got ${tx.to})`,
       };
     }
 
