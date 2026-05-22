@@ -7,5 +7,5 @@
  * webClientId must be a "Web application" type OAuth 2.0 Client ID from Google Cloud Console.
  * This is what causes Google to include id_token (JWT) in the sign-in response.
  */
-export const GOOGLE_WEB_CLIENT_ID = '995938448974-q1upiqj40nmk918ul6fsgqnubfd6bcpj.apps.googleusercontent.com';
-export const GOOGLE_IOS_CLIENT_ID = '995938448974-dk8ogv5kv5o4ck5gtt74odsbregvslkk.apps.googleusercontent.com';
+export const GOOGLE_WEB_CLIENT_ID = '491923400813-5bb3up7dhejns2unvbrt6mku520hrr5g.apps.googleusercontent.com';
+export const GOOGLE_IOS_CLIENT_ID = '491923400813-ei78mtmkjppvueb577lqai14e4jvbmqk.apps.googleusercontent.com';
