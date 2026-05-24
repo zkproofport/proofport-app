@@ -4,23 +4,21 @@
  * Uses react-native-app-auth with Authorization Code + PKCE flow.
  * Returns raw id_token (JWT) with tid, email, xms_edov claims.
  *
- * Azure AD App Registration:
- * - Tenant: hyuki0130gmail.onmicrosoft.com
+ * Azure AD App Registration (Masse Labs Inc. corporate tenant, 2026-05-24):
+ * - Tenant: Default Directory under jaehyuk.hyun@masselabs.com
+ * - Account type: All Entra ID tenants + personal Microsoft accounts (multitenant)
  * - Token configuration: optional claims email + xms_edov enabled
- * - Authentication: ID tokens implicit flow enabled
- *
- * For production: register a new Azure AD app with mobile redirect URI
- * and update CLIENT_ID + REDIRECT_URI below.
+ * - Authentication: ID tokens implicit flow enabled, public client flows allowed
  */
 
-export const MICROSOFT_CLIENT_ID = 'cd5404cc-d313-431c-8112-725e629dad28';
+export const MICROSOFT_CLIENT_ID = '8b09c842-d7a8-4d9c-a6ea-46c797412bac';
 
 /**
  * Redirect URI for react-native-app-auth.
  * Must match the redirect URI registered in Azure AD App Registration.
- * Format: msauth.{bundleId}://auth
+ * Format: msal{clientId}://auth
  */
-export const MICROSOFT_REDIRECT_URI = 'msalcd5404cc-d313-431c-8112-725e629dad28://auth';
+export const MICROSOFT_REDIRECT_URI = 'msal8b09c842-d7a8-4d9c-a6ea-46c797412bac://auth';
 
 /**
  * Microsoft Entra ID v2.0 OIDC endpoints.
