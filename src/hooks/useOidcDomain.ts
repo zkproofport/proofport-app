@@ -208,13 +208,9 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
 
           // Microsoft 365: email_verified claim does NOT exist.
           // Use xms_edov (email domain owner verified) as alternative.
-          // For onmicrosoft.com test tenants, xms_edov may be absent — skip check for test domains
-          const isTestTenant = payload.email?.endsWith('.onmicrosoft.com') || payload.preferred_username?.endsWith('.onmicrosoft.com');
-          if (!payload.xms_edov && !isTestTenant) {
+          // No exceptions: every Microsoft account must present xms_edov=true.
+          if (!payload.xms_edov) {
             throw new Error('Email domain is not verified by Microsoft 365. Only verified organizational accounts can generate proofs.');
-          }
-          if (isTestTenant) {
-            addLog(`[JWT] Test tenant detected — skipping xms_edov check`);
           }
           addLog(`[JWT] xms_edov: true (Microsoft email domain owner verified)`);
 
