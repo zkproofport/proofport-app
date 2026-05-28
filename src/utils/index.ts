@@ -9,6 +9,7 @@ export {
   loadVkFromAssets,
 } from './asset';
 export {arrayBufferToHex, getTimestamp, validateInputs} from './format';
+export * from './circuitHelpers';
 export * from './coinbaseKyc';
 export * from './attestationSearch';
 export {findGiwaAttestationTransaction, GIWA_MOCK_ATTESTER_CONTRACT} from './giwaAttestationSearch';

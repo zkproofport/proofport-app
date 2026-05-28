@@ -1,27 +1,144 @@
-import React from 'react';
-import {View, Text, StyleSheet, SafeAreaView, ScrollView} from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {ScrollView, StyleSheet, Text, View, SafeAreaView} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTranslation} from 'react-i18next';
-import {CircuitCard} from '../../components/ui';
+import {CircuitCard, Select, type SelectOption} from '../../components/ui';
 import {useThemeColors} from '../../context';
+import {useSettings} from '../../hooks';
 import {getCircuitIcon} from '../../utils';
+import {
+  USER_FACING_NETWORKS,
+  NETWORK_INDEPENDENT_CIRCUITS,
+  isNetworkVisible,
+  type CircuitName,
+  type NetworkId,
+} from '../../config';
 import type {ProofStackParamList} from '../../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'CircuitSelection'>;
 
+// "other" lives at the UI layer only — it's a bucket for circuits that
+// aren't bound to any specific chain (currently OIDC). All real chains
+// come from USER_FACING_NETWORKS in src/config/networks.ts.
+type CategoryId = NetworkId | 'other';
+
+const OTHER_KEY = 'other' as const;
+
+// Persist the user's network selection across screen remounts (e.g. returning
+// to Verify after a completed proof) so it doesn't reset to the default network.
+let persistedCategory: CategoryId | null = null;
+
+interface CircuitDescriptor {
+  /** Internal canonical circuit ID matching CircuitName. */
+  id: CircuitName;
+  /** Route param used by ProofGeneration / CountryInput / DomainInput. */
+  routeCircuitId: string;
+  iconKey: string;
+  titleKey: string;
+  descriptionKey: string;
+  /** Direct circuit screens (no extra input step). */
+  navigate: (nav: NavigationProp, routeCircuitId: string) => void;
+  experimental?: boolean;
+}
+
+// Single source of truth for the Verify-tab card list. Adding a new
+// circuit means:
+//   1. Add its CircuitName to config/contracts.ts.
+//   2. Append an entry below.
+//   3. Make sure its network is listed in USER_FACING_NETWORKS or
+//      NETWORK_INDEPENDENT_CIRCUITS.
+const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
+  {
+    id: 'coinbase_attestation',
+    routeCircuitId: 'coinbase-kyc',
+    iconKey: 'coinbase-kyc',
+    titleKey: 'host.proof.circuitSelection.coinbaseKyc.title',
+    descriptionKey: 'host.proof.circuitSelection.coinbaseKyc.description',
+    navigate: (nav, id) => nav.navigate('ProofGeneration', {circuitId: id}),
+  },
+  {
+    id: 'coinbase_country_attestation',
+    routeCircuitId: 'coinbase-country',
+    iconKey: 'coinbase-country',
+    titleKey: 'host.proof.circuitSelection.coinbaseCountry.title',
+    descriptionKey: 'host.proof.circuitSelection.coinbaseCountry.description',
+    navigate: (nav) => nav.navigate('CountryInput'),
+  },
+  {
+    id: 'giwa_attestation',
+    routeCircuitId: 'giwa-kyc',
+    iconKey: 'giwa-kyc',
+    titleKey: 'host.proof.circuitSelection.giwaKyc.title',
+    descriptionKey: 'host.proof.circuitSelection.giwaKyc.description',
+    navigate: (nav, id) => nav.navigate('ProofGeneration', {circuitId: id}),
+    experimental: true,
+  },
+  {
+    id: 'oidc_domain_attestation',
+    routeCircuitId: 'oidc-domain',
+    iconKey: 'oidc_domain_attestation',
+    titleKey: 'host.proof.circuitSelection.oidcDomain.title',
+    descriptionKey: 'host.proof.circuitSelection.oidcDomain.description',
+    navigate: (nav) => nav.navigate('DomainInput'),
+  },
+];
+
 export const CircuitSelectionScreen: React.FC = () => {
-  const { colors: themeColors } = useThemeColors();
+  const {colors: themeColors} = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
-  const { t } = useTranslation();
+  const {t} = useTranslation();
+  const {settings, loading} = useSettings();
 
-  const handleCoinbaseKyc = () => {
-    navigation.navigate('ProofGeneration', {circuitId: 'coinbase-kyc'});
-  };
+  const [category, setCategory] = useState<CategoryId>(persistedCategory ?? 'base');
+  // Seed the picker from the user's default-network setting (More tab) only
+  // until a selection exists. Once the user (or this seed) picks a category,
+  // persistedCategory keeps it across remounts so returning from a proof
+  // doesn't reset the network back to default.
+  useEffect(() => {
+    if (persistedCategory !== null) return;
+    if (!loading && settings) {
+      setCategory((settings.defaultNetwork as CategoryId) ?? 'base');
+    }
+  }, [loading, settings]);
 
-  const handleGiwaKyc = () => {
-    navigation.navigate('ProofGeneration', {circuitId: 'giwa-kyc'});
-  };
+  // Remember the current selection across screen remounts.
+  useEffect(() => {
+    persistedCategory = category;
+  }, [category]);
+
+  const developerMode = !loading && settings ? settings.developerMode : false;
+  const categoryOptions: SelectOption<CategoryId>[] = useMemo(
+    () => [
+      ...USER_FACING_NETWORKS.filter((n) =>
+        isNetworkVisible(n, developerMode, category),
+      ).map((n) => ({
+        value: n.id as CategoryId,
+        label: t(n.labelKey),
+      })),
+      {
+        value: OTHER_KEY,
+        label: t('host.proof.circuitSelection.network.other'),
+      },
+    ],
+    [t, developerMode, category],
+  );
+
+
+  // Resolve which CircuitName IDs belong in the current category.
+  const visibleCircuitIds: ReadonlyArray<CircuitName> = useMemo(() => {
+    if (category === OTHER_KEY) return NETWORK_INDEPENDENT_CIRCUITS;
+    const net = USER_FACING_NETWORKS.find((n) => n.id === category);
+    return net?.circuits ?? [];
+  }, [category]);
+
+  const visibleCards = useMemo(
+    () =>
+      visibleCircuitIds
+        .map((id) => CIRCUIT_REGISTRY.find((c) => c.id === id))
+        .filter((c): c is CircuitDescriptor => !!c),
+    [visibleCircuitIds],
+  );
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
@@ -35,38 +152,42 @@ export const CircuitSelectionScreen: React.FC = () => {
           </Text>
         </View>
 
+        {/* Category picker — same Select used by the More tab. */}
+        <View
+          style={[
+            styles.selectWrap,
+            {
+              backgroundColor: themeColors.background.secondary,
+              borderColor: themeColors.border.primary,
+            },
+          ]}>
+          <Select<CategoryId>
+            label={t('host.proof.circuitSelection.network.label')}
+            value={category}
+            options={categoryOptions}
+            onChange={setCategory}
+            pickerTitle={t('host.proof.circuitSelection.network.label')}
+          />
+        </View>
+
         <View style={styles.section}>
           <Text style={{fontSize: 14, fontWeight: '600', color: themeColors.text.secondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16}}>
             {t('host.proof.circuitSelection.sectionLabel')}
           </Text>
 
-          <CircuitCard
-            icon={getCircuitIcon('coinbase-kyc')}
-            title={t('host.proof.circuitSelection.coinbaseKyc.title')}
-            description={t('host.proof.circuitSelection.coinbaseKyc.description')}
-            onPress={handleCoinbaseKyc}
-          />
-
-          <CircuitCard
-            icon={getCircuitIcon('coinbase-country')}
-            title={t('host.proof.circuitSelection.coinbaseCountry.title')}
-            description={t('host.proof.circuitSelection.coinbaseCountry.description')}
-            onPress={() => navigation.navigate('CountryInput')}
-          />
-
-          <CircuitCard
-            icon={getCircuitIcon('oidc_domain_attestation')}
-            title={t('host.proof.circuitSelection.oidcDomain.title')}
-            description={t('host.proof.circuitSelection.oidcDomain.description')}
-            onPress={() => navigation.navigate('DomainInput')}
-          />
-
-          <CircuitCard
-            icon={getCircuitIcon('giwa-kyc')}
-            title={t('host.proof.circuitSelection.giwaKyc.title')}
-            description={t('host.proof.circuitSelection.giwaKyc.description')}
-            onPress={handleGiwaKyc}
-          />
+          {visibleCards.length === 0 ? null : (
+            visibleCards.map((c) => (
+              <CircuitCard
+                key={c.id}
+                icon={getCircuitIcon(c.iconKey)}
+                title={t(c.titleKey)}
+                description={t(c.descriptionKey)}
+                experimental={c.experimental}
+                experimentalLabel={t('host.proof.circuitSelection.experimentalBadge')}
+                onPress={() => c.navigate(navigation, c.routeCircuitId)}
+              />
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -74,17 +195,13 @@ export const CircuitSelectionScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
+  scrollView: {flex: 1},
+  contentContainer: {paddingHorizontal: 16, paddingBottom: 32},
+  header: {paddingVertical: 24},
+  selectWrap: {
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 20,
   },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-  },
-  header: {
-    paddingVertical: 24,
-  },
-  section: {
-    marginTop: 8,
-  },
+  section: {marginTop: 8},
 });

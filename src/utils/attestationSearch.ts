@@ -336,7 +336,7 @@ export async function findAttestationTransaction(
     const result = await Promise.any(
       uniqueAttestations.map(async (attestation, i) => {
         log(`[Search] [#${i + 1}] Fetching tx ${attestation.txHash}`);
-        const rawTransaction = await fetchRawTransaction(attestation.txHash);
+        const rawTransaction = await fetchRawTransaction(attestation.txHash, log);
         const validation = validateAttestationTransaction(rawTransaction, walletAddress, undefined, expectedSelector);
         if (!validation.valid) {
           throw new Error(validation.error || 'Validation failed');

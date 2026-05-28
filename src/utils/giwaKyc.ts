@@ -1,30 +1,29 @@
 /**
- * GIWA-specific helpers for verifying the on-chain attestAccount tx and
- * building circuit inputs against the GIWA Sepolia mock attester.
+ * GIWA-specific constants and helpers for the on-chain attestAccount tx and
+ * GIWA circuit input preparation against MockGiwaAttester on GIWA Sepolia.
  *
- * Mirrors coinbaseKyc.ts but uses GIWA constants:
- * - to_address: MockGiwaAttester on GIWA Sepolia
- * - authorized signer set: a single mock Upbit attester EOA
+ * Circuit-agnostic helpers (Merkle tree, pubkey/sig recovery, scope/nullifier
+ * hashing, input flattening, AttesterCircuitInputs) live in `circuitHelpers.ts`.
  */
 import {ethers} from 'ethers';
 import {
+  AttesterCircuitInputs,
+  SimpleMerkleTree,
+  bytesToNoirInput,
+  computeNullifier,
+  computeScope,
   extractPubkeyCoordinates,
   hexToByteArray,
   padArray,
-  bytesToNoirInput,
-  SimpleMerkleTree,
   recoverTxSignerPubkey,
-  computeScope,
-  computeNullifier,
-  type CoinbaseKycCircuitInputs,
-} from './coinbaseKyc';
+} from './circuitHelpers';
 
-// On-chain attest target — has to match GIWA_ATTESTER_CONTRACT inside the
-// giwa_attestation Noir circuit.
+// On-chain attest target — must match GIWA_ATTESTER_CONTRACT inside the
+// giwa_attestation Noir circuit (circuits/giwa-attestation/src/main.nr).
 export const GIWA_MOCK_ATTESTER_CONTRACT =
   '0x6646d970499BBeD728636823A5A7e551E811b414';
 
-// PoC attester EOA (the wallet that signs attestAccount txs in our PoC).
+// PoC attester EOA (the wallet that signs attestAccount txs in the GIWA PoC).
 // Replace with real Upbit-authorized addresses once the issuer onboards.
 export const GIWA_AUTHORIZED_SIGNERS = [
   '0xEE099845CDfF93e73aDcBcB36A9B93578bcCed4b',
@@ -91,7 +90,7 @@ export function prepareGiwaCircuitInputs(
   rawTransaction: string,
   attesterSignerIndex: number,
   scopeString: string,
-): CoinbaseKycCircuitInputs {
+): AttesterCircuitInputs {
   const merkleTree = new SimpleMerkleTree(GIWA_AUTHORIZED_SIGNERS);
   const merkleRoot = merkleTree.getRoot();
   const {

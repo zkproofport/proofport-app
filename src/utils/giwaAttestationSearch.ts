@@ -8,8 +8,16 @@
  */
 import {ethers} from 'ethers';
 import type {AttestationInfo} from './attestationSearch';
+import {CIRCUIT_NETWORK_OVERRIDES} from '../config/contracts';
 
-const GIWA_RPC = 'https://sepolia-rpc.giwa.io/';
+// Single source of truth for the GIWA Sepolia endpoints — same struct
+// the proof-generation pipeline uses (CIRCUIT_NETWORK_OVERRIDES). Add a
+// future GIWA network by editing that map only.
+const GIWA_NET = CIRCUIT_NETWORK_OVERRIDES.giwa_attestation;
+if (!GIWA_NET) {
+  throw new Error('CIRCUIT_NETWORK_OVERRIDES.giwa_attestation missing — required for attestation search');
+}
+const GIWA_RPC = GIWA_NET.rpcUrl;
 
 // EAS predeploy + Attested event topic
 const EAS_CONTRACT = '0x4200000000000000000000000000000000000021';

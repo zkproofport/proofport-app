@@ -34,7 +34,7 @@ import {
   prepareGiwaCircuitInputs,
   GIWA_AUTHORIZED_SIGNERS,
 } from '../utils/giwaKyc';
-import {flattenCircuitInputs} from '../utils/coinbaseKyc';
+import {flattenCircuitInputs} from '../utils/circuitHelpers';
 import {
   getVerifierAddress,
   getVerifierAbi,

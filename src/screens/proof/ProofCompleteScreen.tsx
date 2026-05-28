@@ -19,7 +19,7 @@ import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useLogs} from '../../hooks';
 import {proofHistoryStore} from '../../stores';
-import {getVerifierAddressSync, getNetworkConfig} from '../../config';
+import {getVerifierAddressSync, getNetworkConfig, getNetworkConfigForCircuit} from '../../config';
 import {findGiwaAttestationTransaction} from '../../utils';
 
 type ProofCompleteRouteProp = RouteProp<ProofStackParamList, 'ProofComplete'>;
@@ -131,19 +131,20 @@ export const ProofCompleteScreen: React.FC = () => {
   const handleViewEASScan = async () => {
     const addr = walletAddress || '';
     if (isGiwaCircuit) {
-      // GIWA has no easscan — link directly to the attestation tx on the
-      // Blockscout explorer. Resolve the tx hash via the same cached lookup
-      // that produced the proof; fall back to the address page if missing.
+      // GIWA has no easscan — link directly to the attestation tx on
+      // the explorer pulled from CIRCUIT_NETWORK_OVERRIDES.giwa_attestation
+      // so the URL stays in one place if the explorer ever moves.
+      const explorer = getNetworkConfigForCircuit('giwa_attestation').explorerUrl;
       try {
         const result = await findGiwaAttestationTransaction(addr);
         if (result?.attestation.txHash) {
-          Linking.openURL(`https://sepolia-explorer.giwa.io/tx/${result.attestation.txHash}`);
+          Linking.openURL(`${explorer}/tx/${result.attestation.txHash}`);
           return;
         }
       } catch (e) {
         console.warn('[GIWA] tx lookup failed, falling back to address view:', e);
       }
-      Linking.openURL(`https://sepolia-explorer.giwa.io/address/${addr}`);
+      Linking.openURL(`${explorer}/address/${addr}`);
       return;
     }
     Linking.openURL(`https://base.easscan.org/address/${addr}`);

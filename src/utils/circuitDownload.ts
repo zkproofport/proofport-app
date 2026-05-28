@@ -1,7 +1,7 @@
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
-import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS} from '../config/contracts';
+import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
@@ -160,7 +160,12 @@ async function getCircuitFileUrl(
 ): Promise<string> {
   const configPath = getCircuitFilePaths(circuitName);
   if (configPath) {
-    const baseUrl = await resolveCircuitBaseUrl(env);
+    // GIWA is a dev-only circuit that exists only on main (not in any release
+    // tag), so always fetch it from main regardless of environment.
+    const baseUrl =
+      circuitName === 'giwa_attestation'
+        ? GITHUB_RAW('main')
+        : await resolveCircuitBaseUrl(env);
     return buildFilePath(baseUrl, circuitName, extension, configPath);
   }
 
