@@ -28,6 +28,8 @@
       "themeDark": "다크",
       "themeLight": "라이트",
       "defaultNetwork": "기본 네트워크",
+      "networkBase": "Base",
+      "networkGiwa": "기와 테스트넷",
       "autoSaveProofs": "증명 자동 저장",
       "confirmBeforeGenerate": "생성 전 확인",
       "showLiveLogs": "라이브 로그 표시",
@@ -96,17 +98,6 @@
       "installMetaMask": "MetaMask 설치",
       "noWalletDetected": "지갑 앱이 없어요. MetaMask를 설치하여 연결하세요."
     },
-    "coinbase": {
-      "title": "Coinbase KYC 검증",
-      "walletConnection": "지갑 연결",
-      "actions": "작업",
-      "clearLogs": "로그 지우기"
-    },
-    "main": {
-      "subtitle": "기능을 선택해 시작하세요",
-      "coinbaseKycDesc": "신원 인증 증명",
-      "connectWalletDesc": "외부 지갑 연결"
-    },
     "loading": {
       "tagline": "Privacy-Preserving Identity Proofs",
       "downloadFailedTitle": "다운로드 실패",
@@ -170,6 +161,13 @@
       "circuitSelection": {
         "title": "증명",
         "sectionLabel": "증명 유형 선택",
+        "experimentalBadge": "Experimental",
+        "network": {
+          "label": "네트워크",
+          "base": "Base",
+          "giwa": "기와 테스트넷",
+          "other": "기타"
+        },
         "coinbaseKyc": {
           "title": "Coinbase KYC 인증",
           "description": "지갑을 공개하지 않고 신원을 증명해요"
@@ -183,7 +181,7 @@
           "description": "이메일 도메인 소속을 증명해요"
         },
         "giwaKyc": {
-          "title": "기와 KYC (Experimental)",
+          "title": "기와 KYC",
           "description": "PoC — 기와 Sepolia에 발급된 KYC attestation을 증명해요"
         }
       },
@@ -459,25 +457,6 @@
       "saveFailed": "저장에 실패했어요",
       "deleteTopic": "토픽 삭제",
       "deleteConfirm": "이 토픽을 삭제할까요? 되돌릴 수 없습니다."
-    },
-    "topicCreate": {
-      "title": "제목",
-      "titlePlaceholder": "토픽 제목을 입력하세요",
-      "descriptionOptional": "설명 (선택)",
-      "descriptionPlaceholder": "토픽에 대해 간단히 설명해 주세요",
-      "category": "카테고리",
-      "proofType": "인증 방식",
-      "submit": "토픽 생성",
-      "proofTypes": {
-        "none": "없음",
-        "kyc": "KYC (Coinbase)",
-        "country": "국가 인증",
-        "googleWorkspace": "Google Workspace",
-        "microsoft365": "Microsoft 365"
-      },
-      "comingSoonTitle": "준비 중",
-      "comingSoonMessage": "이 인증 방식은 아직 지원되지 않아요.",
-      "createFailed": "생성 실패"
     },
     "postCreate": {
       "title": "제목",

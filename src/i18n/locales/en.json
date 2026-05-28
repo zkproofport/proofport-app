@@ -28,6 +28,8 @@
       "themeDark": "Dark",
       "themeLight": "Light",
       "defaultNetwork": "Default Network",
+      "networkBase": "Base",
+      "networkGiwa": "GIWA Testnet",
       "autoSaveProofs": "Auto-save proofs",
       "confirmBeforeGenerate": "Confirm before generate",
       "showLiveLogs": "Show live logs",
@@ -96,17 +98,6 @@
       "installMetaMask": "Install MetaMask",
       "noWalletDetected": "No wallet app detected. Install MetaMask to connect."
     },
-    "coinbase": {
-      "title": "Coinbase KYC Verifier",
-      "walletConnection": "Wallet Connection",
-      "actions": "Actions",
-      "clearLogs": "Clear Logs"
-    },
-    "main": {
-      "subtitle": "Select a feature to explore",
-      "coinbaseKycDesc": "Prove identity verification",
-      "connectWalletDesc": "Link your external wallet"
-    },
     "loading": {
       "tagline": "Privacy-Preserving Identity Proofs",
       "downloadFailedTitle": "Download Failed",
@@ -170,6 +161,13 @@
       "circuitSelection": {
         "title": "Proofs",
         "sectionLabel": "Select Proof Type",
+        "experimentalBadge": "Experimental",
+        "network": {
+          "label": "Network",
+          "base": "Base",
+          "giwa": "GIWA Testnet",
+          "other": "Other"
+        },
         "coinbaseKyc": {
           "title": "Coinbase KYC Verification",
           "description": "Prove identity without revealing wallet"
@@ -183,7 +181,7 @@
           "description": "Prove your email domain affiliation"
         },
         "giwaKyc": {
-          "title": "GIWA KYC (Experimental)",
+          "title": "GIWA KYC",
           "description": "PoC — prove a KYC attestation issued on GIWA Sepolia"
         }
       },
@@ -459,25 +457,6 @@
       "saveFailed": "Couldn't save",
       "deleteTopic": "Delete topic",
       "deleteConfirm": "Delete this topic? This cannot be undone."
-    },
-    "topicCreate": {
-      "title": "Title",
-      "titlePlaceholder": "Enter topic title",
-      "descriptionOptional": "Description (optional)",
-      "descriptionPlaceholder": "Briefly describe this topic",
-      "category": "Category",
-      "proofType": "Proof type",
-      "submit": "Create topic",
-      "proofTypes": {
-        "none": "None",
-        "kyc": "KYC (Coinbase)",
-        "country": "Country",
-        "googleWorkspace": "Google Workspace",
-        "microsoft365": "Microsoft 365"
-      },
-      "comingSoonTitle": "Coming soon",
-      "comingSoonMessage": "This proof type is not supported yet.",
-      "createFailed": "Create failed"
     },
     "postCreate": {
       "title": "Title",

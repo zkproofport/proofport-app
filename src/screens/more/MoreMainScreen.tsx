@@ -14,6 +14,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import {Toggle} from '../../components/ui/molecules/Toggle';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
+import {Select} from '../../components/ui/molecules/Select';
+import {USER_FACING_NETWORKS, isNetworkVisible, type NetworkId} from '../../config';
 import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import {useThemeColors} from '../../context';
@@ -139,9 +141,37 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
               </Pressable>
             </View>
           </View>
-          <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.defaultNetwork')}</Text>
-            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>Base</Text>
+          <View
+            style={[
+              styles.settingItem,
+              {
+                backgroundColor: themeColors.background.secondary,
+                borderColor: themeColors.border.primary,
+                // Override the row flex so the Select picker stretches to
+                // fill the card width — otherwise label + value collapse
+                // onto each other in shrink-wrap mode.
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                paddingVertical: 0,
+                paddingHorizontal: 0,
+              },
+            ]}>
+            <Select<NetworkId>
+              label={t('host.more.defaultNetwork')}
+              value={(settings.defaultNetwork as NetworkId) ?? 'base'}
+              // Developer-only networks (e.g. GIWA Testnet PoC) hidden
+              // unless Developer Mode is on or the user already had it
+              // selected — preserves the option to switch away without
+              // re-enabling dev mode.
+              options={USER_FACING_NETWORKS.filter((n) =>
+                isNetworkVisible(n, settings.developerMode, settings.defaultNetwork),
+              ).map((n) => ({
+                value: n.id,
+                label: t(n.labelKey),
+              }))}
+              onChange={(next) => updateSettings({defaultNetwork: next})}
+              pickerTitle={t('host.more.defaultNetwork')}
+            />
           </View>
         </View>
 

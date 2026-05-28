@@ -1,5 +1,3 @@
-export {MainScreen} from './MainScreen';
-export {CoinbaseKycScreen} from './CoinbaseKycScreen';
 export {PrivyWalletScreen} from './PrivyWalletScreen';
 export {LoadingScreen} from './LoadingScreen';
 // Deprecated: WalletScreen (use PrivyWalletScreen instead)

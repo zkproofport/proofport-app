@@ -1,8 +1,6 @@
 import type {ProofRequest} from '../utils/deeplink';
 
 export type RootStackParamList = {
-  Main: undefined;
-  CoinbaseKyc: {proofRequest?: ProofRequest} | undefined;
   PrivyWallet: undefined;
 };
 

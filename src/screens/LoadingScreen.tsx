@@ -8,8 +8,14 @@ import {
 } from '../utils/circuitDownload';
 import {getEnvironment, initDeployments} from '../config';
 import {useThemeColors} from '../context';
+import {settingsStore} from '../stores';
 
-const CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation', 'giwa_attestation'];
+const BASE_CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'];
+// GIWA is a Developer-Mode-only circuit. It exists on circuits@main but is not
+// in the production release tag, so prefetching it without Developer Mode 404s
+// and triggers a false "Download Failed" modal. Only prefetch when the in-app
+// Developer Mode toggle is on (works in release builds too, not just dev env).
+const DEV_ONLY_CIRCUITS = ['giwa_attestation'];
 const SPLASH_DURATION = 3000;
 const MAX_LOADING_DURATION = 5000;
 
@@ -70,9 +76,16 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       console.warn('Deployment sync failed, using fallback addresses:', deployError);
     }
 
+    // GIWA only downloads when in-app Developer Mode is enabled, since it is
+    // absent from the production release tag and would otherwise 404.
+    const {developerMode} = await settingsStore.get();
+    const circuits = developerMode
+      ? [...BASE_CIRCUITS, ...DEV_ONLY_CIRCUITS]
+      : BASE_CIRCUITS;
+
     // Start all circuit downloads in parallel
     const downloadPromise = Promise.allSettled(
-      CIRCUITS.map((circuitName) =>
+      circuits.map((circuitName) =>
         downloadCircuitFiles(circuitName, env, handleProgress, (msg) => {
           console.log(msg);
         }),
