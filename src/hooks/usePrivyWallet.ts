@@ -1,5 +1,4 @@
-import {useState, useCallback, useEffect} from 'react';
-import {usePrivy, useLoginWithSiwe} from '@privy-io/expo';
+import {useState, useCallback} from 'react';
 import {useAppKit, useAccount, useProvider} from '@reown/appkit-react-native';
 import {ethers} from 'ethers';
 
@@ -12,7 +11,6 @@ export type PrivyConnectionStatus =
   | 'error';
 
 interface UsePrivyWalletReturn {
-  // Connection state
   account: string | null;
   chainId: number | null;
   status: PrivyConnectionStatus;
@@ -22,10 +20,8 @@ interface UsePrivyWalletReturn {
   isProviderReady: boolean;
   isAuthenticated: boolean;
 
-  // Formatted display
   formattedAddress: string;
 
-  // Actions
   connect: () => Promise<void>;
   signInWithWallet: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -34,38 +30,12 @@ interface UsePrivyWalletReturn {
   getSigner: () => Promise<ethers.Signer | null>;
 }
 
-// __DEV__ stub — when PrivyProvider/AppKitProvider are bypassed in the
-// simulator, calling the Privy/AppKit hooks themselves throws inside the
-// library because they read from a null provider context. Short-circuit
-// here so the Wallet screen renders a benign placeholder instead of a
-// red-box. Production builds keep the real hooks.
-const DEV_STUB: UsePrivyWalletReturn = {
-  account: null,
-  chainId: null,
-  status: 'disconnected',
-  error: 'Wallet is unavailable in dev simulator',
-  isReady: false,
-  isWalletConnected: false,
-  isProviderReady: false,
-  isAuthenticated: false,
-  formattedAddress: '',
-  connect: async () => {},
-  signInWithWallet: async () => {},
-  disconnect: async () => {},
-  signMessage: async () => '',
-  getProvider: async () => null,
-  getSigner: async () => null,
-};
-
+// Privy-free implementation: AppKit (Reown/WalletConnect) only.
+// `isAuthenticated` is treated as "wallet connected" since SIWE-backed
+// Privy user records are no longer required for the proof flow.
 export const usePrivyWallet = (
   addLog?: (msg: string) => void,
 ): UsePrivyWalletReturn => {
-  // (was: __DEV__ stub. Restored because ios/ProofportApp.entitlements now
-  // re-includes keychain-access-groups, so PrivyProvider mounts cleanly in
-  // dev builds again.)
-  void DEV_STUB;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const log = useCallback(
     (msg: string) => {
       console.log(`🔐 ${msg}`);
@@ -74,52 +44,28 @@ export const usePrivyWallet = (
     [addLog],
   );
 
-  // Privy hooks — guard for __DEV__ where PrivyProvider is bypassed and the
-  // hook returns null (would otherwise crash on destructuring).
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const privy = usePrivy() ?? ({} as ReturnType<typeof usePrivy>);
-  const { isReady, user, logout: privyLogout } = privy;
-  const siwe = useLoginWithSiwe({
-    onSuccess: privyUser => {
-      log(`Privy login success! User ID: ${privyUser.id}`);
-    },
-    onError: err => {
-      log(`Privy error: ${err.message}`);
-      setError(err.message);
-    },
-  }) ?? ({} as ReturnType<typeof useLoginWithSiwe>);
-  const { generateSiweMessage, loginWithSiwe } = siwe;
-
-  // AppKit hooks for wallet connection — guarded for __DEV__ where the
-  // AppKit provider is bypassed.
   const appKit = useAppKit() ?? ({} as ReturnType<typeof useAppKit>);
-  const { open, disconnect: appKitDisconnect } = appKit;
+  const {open, disconnect: appKitDisconnect} = appKit;
   const appKitAccount = useAccount() ?? ({} as ReturnType<typeof useAccount>);
-  const { address, isConnected, chainId: accountChainId } = appKitAccount;
+  const {address, isConnected, chainId: accountChainId} = appKitAccount;
   const providerCtx = useProvider() ?? ({} as ReturnType<typeof useProvider>);
-  const { provider: walletProvider } = providerCtx;
+  const {provider: walletProvider} = providerCtx;
 
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [isSigning, setIsSigning] = useState(false);
 
-  const isAuthenticated = !!user;
   const chainId = accountChainId ? Number(accountChainId) : null;
-
-  // Get wallet address from Privy user (for authenticated state)
-  const privyWalletAddress = user?.linked_accounts?.find(
-    account => account.type === 'wallet',
-  )?.address;
-
-  // Use AppKit address when connected, or Privy wallet address when authenticated
-  const account = address || privyWalletAddress || null;
+  const account = address || null;
+  const isWalletConnected = !!(isConnected && address);
+  // AppKit mounts synchronously; surface as "ready" immediately.
+  const isReady = true;
+  // Privy SIWE removed — wallet connection itself is the authenticated state.
+  const isAuthenticated = isWalletConnected;
 
   function getStatus(): PrivyConnectionStatus {
-    if (!isReady) return 'initializing';
     if (error) return 'error';
-    if (isConnecting || isSigning) return 'connecting';
-    if (isAuthenticated) return 'authenticated';
-    if (isConnected && address) return 'wallet_connected';
+    if (isConnecting) return 'connecting';
+    if (isWalletConnected) return 'wallet_connected';
     return 'disconnected';
   }
 
@@ -128,7 +74,6 @@ export const usePrivyWallet = (
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   }
 
-  // Connect wallet via AppKit modal
   const connect = useCallback(async () => {
     setError(null);
     setIsConnecting(true);
@@ -145,95 +90,17 @@ export const usePrivyWallet = (
     }
   }, [open, log]);
 
-  // Sign in with wallet (SIWE) to authenticate with Privy
+  // SIWE login removed. Kept as a no-op so callers don't need refactoring;
+  // wallet connection alone is sufficient for the proof generation flow.
   const signInWithWallet = useCallback(async () => {
     if (!address) {
-      const msg = 'Please connect your wallet first';
-      log(msg);
-      setError(msg);
-      return;
+      log('signInWithWallet called without a connected wallet — ignored');
     }
+  }, [address, log]);
 
-    if (!walletProvider) {
-      const msg = 'No wallet provider available';
-      log(msg);
-      setError(msg);
-      return;
-    }
-
-    setError(null);
-    setIsSigning(true);
-
-    try {
-      log('Generating SIWE message...');
-      const chainIdValue = chainId || 1;
-
-      // Debug: Log wallet info
-      log(`Wallet address: ${address}`);
-      log(`Chain ID: eip155:${chainIdValue}`);
-
-      // For mobile apps, use the bundle identifier as domain
-      const domain = 'zkproofport.com';
-      const message = await generateSiweMessage({
-        wallet: {
-          address,
-          chainId: `eip155:${chainIdValue}`,
-        },
-        from: {
-          domain,
-          uri: `https://${domain}`,
-        },
-      });
-
-      log('SIWE message generated, requesting signature...');
-      // Debug: Log full message for debugging
-      log(`=== SIWE Message ===`);
-      log(message);
-      log(`=== End Message ===`);
-
-      // Sign the SIWE message using ethers signer for proper encoding
-      const provider = new ethers.providers.Web3Provider(
-        walletProvider as ethers.providers.ExternalProvider,
-      );
-      const signer = provider.getSigner(address);
-
-      // Debug: Verify signer address matches
-      const signerAddress = await signer.getAddress();
-      log(`Signer address: ${signerAddress}`);
-
-      const signature = await signer.signMessage(message);
-      log(`Signature received: ${signature}`);
-
-      log('Logging in with Privy...');
-
-      // Login with signature and messageOverride (in case cache doesn't match)
-      await loginWithSiwe({ signature, messageOverride: message });
-      log('Successfully authenticated with Privy!');
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Sign-in failed';
-      log(`Sign-in error: ${errorMessage}`);
-      setError(errorMessage);
-    } finally {
-      setIsSigning(false);
-    }
-  }, [
-    address,
-    chainId,
-    walletProvider,
-    generateSiweMessage,
-    loginWithSiwe,
-    log,
-  ]);
-
-  // Disconnect from both Privy and AppKit
   const disconnect = useCallback(async () => {
     try {
       log('Disconnecting...');
-      if (isAuthenticated) {
-        await privyLogout();
-        log('Privy logged out');
-      }
       if (isConnected) {
         await appKitDisconnect();
         log('Wallet disconnected');
@@ -245,9 +112,8 @@ export const usePrivyWallet = (
       log(`Disconnect error: ${errorMessage}`);
       setError(errorMessage);
     }
-  }, [isAuthenticated, isConnected, privyLogout, appKitDisconnect, log]);
+  }, [isConnected, appKitDisconnect, log]);
 
-  // Sign a message (requires wallet connection)
   const signMessage = useCallback(
     async (message: string): Promise<string> => {
       if (!isConnected || !walletProvider || !address) {
@@ -268,7 +134,6 @@ export const usePrivyWallet = (
     [isConnected, walletProvider, address, log],
   );
 
-  // Get ethers provider
   const getProvider =
     useCallback(async (): Promise<ethers.providers.Web3Provider | null> => {
       if (!walletProvider) {
@@ -280,7 +145,6 @@ export const usePrivyWallet = (
       );
     }, [walletProvider, log]);
 
-  // Get ethers signer
   const getSigner = useCallback(async (): Promise<ethers.Signer | null> => {
     if (!walletProvider || !address) {
       log('No provider or address available');
@@ -292,12 +156,10 @@ export const usePrivyWallet = (
     return provider.getSigner(address);
   }, [walletProvider, address, log]);
 
-  // Log connection changes
-  useEffect(() => {
-    if (isConnected && address) {
-      log(`Wallet connected: ${formatAddress(address)}`);
-    }
-  }, [isConnected, address, log]);
+  // No global "Wallet connected" log here: this hook is circuit-agnostic, so
+  // logging the globally-connected address (e.g. the Coinbase wallet) on the
+  // GIWA screen is misleading. Per-circuit connection state is logged by the
+  // wallet gate (`[Gate]`/`[Wallet]`) instead.
 
   return {
     account,
@@ -305,8 +167,8 @@ export const usePrivyWallet = (
     status: getStatus(),
     error,
     isReady,
-    isWalletConnected: isConnected && !!address,
-    isProviderReady: isConnected && !!address && !!walletProvider,
+    isWalletConnected,
+    isProviderReady: isWalletConnected && !!walletProvider,
     isAuthenticated,
     formattedAddress: formatAddress(account || undefined),
     connect,

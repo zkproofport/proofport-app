@@ -11,6 +11,10 @@ interface CircuitCardProps {
   onPress: () => void;
   disabled?: boolean;
   comingSoon?: boolean;
+  /** Renders an "Experimental" pill next to the title — for PoC circuits
+   *  (e.g. GIWA testnet) that are wired up but not production-ready. */
+  experimental?: boolean;
+  experimentalLabel?: string;
 }
 
 export const CircuitCard: React.FC<CircuitCardProps> = ({
@@ -20,6 +24,8 @@ export const CircuitCard: React.FC<CircuitCardProps> = ({
   onPress,
   disabled = false,
   comingSoon = false,
+  experimental = false,
+  experimentalLabel = 'Experimental',
 }) => {
   const isDisabled = disabled || comingSoon;
   const {colors: themeColors} = useThemeColors();
@@ -63,6 +69,9 @@ export const CircuitCard: React.FC<CircuitCardProps> = ({
               {title}
             </Text>
             {comingSoon && <Badge variant="neutral" text="Coming Soon" />}
+            {experimental && !comingSoon && (
+              <Badge variant="warning" text={experimentalLabel} />
+            )}
           </View>
           <Text
             style={[

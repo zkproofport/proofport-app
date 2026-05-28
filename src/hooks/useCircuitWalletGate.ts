@@ -11,17 +11,20 @@
  *
  *  P  C  W  M  → Action
  *  -  -  -  -    -----------------------------------------------------------
- *  1  *  1  *    Proceed. No confirm. If C && !M, drop stale cache.
+ *  1  *  1  *    Bind W to circuit + proceed. If C && !M, drop stale cache.
  *  1  *  0  -    Picker cancelled → user-visible note, no proof.
  *  0  0  0  -    Open picker, set P=1, exit (auto-retry on connect).
- *  0  0  1  -    Confirm "Use this wallet?". Yes→proceed. No→clear+picker.
+ *  0  0  1  -    Drop session + open picker (P=1). Forces fresh pick.
  *  0  1  0  -    Reconnect prompt → picker for cached address.
  *  0  1  1  0    Disconnect → reconnect prompt for cached address.
- *  0  1  1  1    Confirm "Use the remembered wallet?". Yes→proceed.
- *                                                       No→clear+picker.
+ *  0  1  1  1    Cached + matches → proceed silently.
  *
- * On attestation-lookup failure (caller's responsibility) → clearCache +
- * disconnect + picker (P=1).
+ * Binding semantics (IMPORTANT):
+ *   Binding is committed at *connect* time (the P=1 branch), NOT at proof-
+ *   success time. As soon as the user picks a wallet, that wallet is
+ *   recorded as the binding for the circuit group. On attestation-lookup
+ *   failure the caller invokes `recordLookupFailure`, which clears the
+ *   binding and re-opens the picker.
  */
 import {useCallback, useRef, useState, useEffect} from 'react';
 import {
@@ -29,6 +32,7 @@ import {
   setCircuitWallet,
   clearCircuitWallet,
 } from '../stores';
+import {walletGroupKey} from '../stores/circuitWalletStore';
 import type {CircuitName} from '../config';
 
 export interface CircuitWalletGate {
@@ -45,9 +49,6 @@ export interface CircuitWalletGate {
     circuit: CircuitName,
     circuitDisplayName: string,
   ) => Promise<{address: string} | 'pending' | 'cancelled'>;
-
-  /** Mark a successful proof: persist the binding so next attempt skips the picker. */
-  recordSuccess: (circuit: CircuitName, address: string) => Promise<void>;
 
   /** Mark a failed attestation lookup: drop binding, kick off a new picker.
    *  `address` is the wallet that just failed — passing it lets the gate
@@ -107,10 +108,13 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
       circuit: CircuitName,
       displayName: string,
     ): Promise<{address: string} | 'pending' | 'cancelled'> => {
-      const cached = await getCircuitWalletEntry(circuit);
+      // Binding is keyed by wallet group, so circuits proven with the same
+      // wallet (e.g. Coinbase KYC + Country) share one binding.
+      const key = walletGroupKey(circuit);
+      const cached = await getCircuitWalletEntry(key);
       if (cached?.expired) {
         log(`[Gate] Cache for ${circuit} expired, clearing.`);
-        await clearCircuitWallet(circuit);
+        await clearCircuitWallet(key);
       }
       const C = cached && !cached.expired ? cached : null;
       const W = account;
@@ -120,7 +124,7 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
       // --- P=1: post-picker auto-retry → no confirm. -----------------------
       if (P) {
         if (W) {
-          const failed = failedByCircuitRef.current.get(circuit);
+          const failed = failedByCircuitRef.current.get(key);
           if (failed && failed.has(W.toLowerCase())) {
             log(
               `[Gate] Post-picker re-selected ${W} which already failed lookup for ${circuit} — not retrying.`,
@@ -129,18 +133,31 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
           }
           if (C && !M) {
             log(`[Gate] Post-picker chose different wallet — dropping stale cache.`);
-            await clearCircuitWallet(circuit);
+            await clearCircuitWallet(key);
           }
-          log(`[Gate] Post-picker proceed with ${W} for ${circuit}.`);
+          // Bind on connect: persist the chosen wallet now so the binding
+          // reflects the user's current intent regardless of whether the
+          // subsequent attestation lookup succeeds or fails.
+          await setCircuitWallet(key, W);
+          log(`[Gate] Post-picker bound ${W} to ${circuit}; proceed.`);
           return {address: W};
         }
         log('[Gate] Post-picker but no wallet — picker cancelled.');
         return 'cancelled';
       }
 
-      // --- P=0, C=0, W=0: open picker. -------------------------------------
-      if (!C && !W) {
-        log(`[Gate] No binding for ${circuit} and no wallet — opening picker.`);
+      // --- P=0, C=0: no binding for this group. Open a fresh picker. If a
+      // wallet from another group is connected, drop that session first so
+      // the wallet picker (not the account sheet) shows. Never inherit it.
+      if (!C) {
+        if (W) {
+          log(`[Gate] No binding for ${circuit}; dropping ${W} before picker.`);
+          try {
+            await disconnectWallet();
+          } catch {}
+        } else {
+          log(`[Gate] No binding for ${circuit} and no wallet — opening picker.`);
+        }
         setPostPicker(true);
         try {
           await connectWallet();
@@ -148,12 +165,6 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
           log(`[Gate] connect error: ${e instanceof Error ? e.message : e}`);
         }
         return 'pending';
-      }
-
-      // --- P=0, C=0, W=1: first-bind. Proceed without confirmation. -------
-      if (!C && W) {
-        log(`[Gate] First bind for ${circuit} → using connected wallet ${W}.`);
-        return {address: W};
       }
 
       // --- P=0, C=1, W=0: reconnect required. ------------------------------
@@ -191,35 +202,28 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
     [account, connectWallet, disconnectWallet, log, consumePostPickerLatch, setPostPicker],
   );
 
-  const recordSuccess = useCallback(
-    async (circuit: CircuitName, address: string) => {
-      await setCircuitWallet(circuit, address);
-      log(`[Gate] Cached ${address} for ${circuit}.`);
-    },
-    [log],
-  );
-
   const recordLookupFailure = useCallback(
     async (circuit: CircuitName, address: string | null) => {
       log(
         `[Gate] Lookup failed for ${circuit}${
           address ? ` (${address})` : ''
-        } — clearing cache + opening picker.`,
+        } — keeping binding; opening picker so user can pick a different wallet.`,
       );
+      const key = walletGroupKey(circuit);
       if (address) {
-        let set = failedByCircuitRef.current.get(circuit);
+        let set = failedByCircuitRef.current.get(key);
         if (!set) {
           set = new Set();
-          failedByCircuitRef.current.set(circuit, set);
+          failedByCircuitRef.current.set(key, set);
         }
         set.add(address.toLowerCase());
       }
-      await clearCircuitWallet(circuit);
-      // Flip the post-picker latch BEFORE disconnecting. Otherwise the
-      // brief `account=null && isPostPicker=false` window between the
-      // disconnect and the latch flip lets ProofGenerationScreen's
-      // previousAccountRef get cleared, and the next re-connect of the
-      // SAME wallet then trips the auto-retry effect.
+      // IMPORTANT: do NOT clear the circuit binding here. The user-stated
+      // rule is "binding happens at connect time". A failed attestation
+      // lookup means "this wallet has no attestation for this circuit yet",
+      // not "the user no longer wants this wallet bound". If they want to
+      // unbind, they tap Clear in the Wallet tab. We still open the picker
+      // so they can pick a different wallet on this attempt.
       setPostPicker(true);
       try {
         await disconnectWallet();
@@ -233,7 +237,7 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
 
   const wasFailedAddress = useCallback(
     (circuit: CircuitName, address: string): boolean => {
-      const set = failedByCircuitRef.current.get(circuit);
+      const set = failedByCircuitRef.current.get(walletGroupKey(circuit));
       return !!set && set.has(address.toLowerCase());
     },
     [],
@@ -246,7 +250,6 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
 
   return {
     runGate,
-    recordSuccess,
     recordLookupFailure,
     wasFailedAddress,
     consumePostPickerLatch,

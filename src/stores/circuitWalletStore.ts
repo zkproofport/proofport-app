@@ -23,6 +23,23 @@ export type CircuitWalletMap = Partial<Record<CircuitName, CircuitWalletEntry>>;
 
 const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
 
+/**
+ * Wallet binding group per circuit. Circuits proven with the SAME wallet share
+ * one binding key, so connecting/binding once covers all of them.
+ * Coinbase KYC and Coinbase Country are attestations on the same Coinbase
+ * wallet → same group. GIWA is independent.
+ */
+const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
+  coinbase_attestation: 'coinbase',
+  coinbase_country_attestation: 'coinbase',
+  giwa_attestation: 'giwa',
+  oidc_domain_attestation: 'oidc',
+};
+
+export function walletGroupKey(circuit: CircuitName): CircuitName {
+  return (CIRCUIT_WALLET_GROUP[circuit] ?? circuit) as CircuitName;
+}
+
 async function readAll(): Promise<CircuitWalletMap> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);

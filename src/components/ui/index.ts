@@ -6,6 +6,8 @@ export {Button} from './molecules/Button';
 export {Card} from './molecules/Card';
 export {MenuItem} from './molecules/MenuItem';
 export {Toggle} from './molecules/Toggle';
+export {Select} from './molecules/Select';
+export type {SelectOption} from './molecules/Select';
 
 export {
   StepIndicator,

@@ -12,46 +12,12 @@ const NETWORK_NAMES: Record<number, string> = {
   80001: 'Mumbai Testnet',
   8453: 'Base Mainnet',
   84531: 'Base Goerli',
+  91342: 'GIWA Sepolia',
 };
 
-const getWalletMetadata = (themeColors: any): Record<
-  string,
-  {icon: string; name: string; color: string}
-> => ({
-  metamask: {
-    icon: 'activity',
-    name: 'MetaMask',
-    color: themeColors.wallets.metamask,
-  },
-  coinbase: {
-    icon: 'circle',
-    name: 'Coinbase Wallet',
-    color: themeColors.wallets.coinbase,
-  },
-  trust: {
-    icon: 'shield',
-    name: 'Trust Wallet',
-    color: themeColors.wallets.trust,
-  },
-  walletconnect: {
-    icon: 'link-2',
-    name: 'WalletConnect',
-    color: themeColors.wallets.walletconnect,
-  },
-});
-
 export const WalletMainScreen: React.FC = () => {
-  const { colors: themeColors } = useThemeColors();
-  const {isWalletConnected, account, chainId, connect, disconnect} =
-    usePrivyWallet();
-
-  const handleConnect = async () => {
-    try {
-      await connect();
-    } catch (error) {
-      console.error('Failed to connect wallet:', error);
-    }
-  };
+  const {colors: themeColors} = useThemeColors();
+  const {isWalletConnected, account, chainId, disconnect} = usePrivyWallet();
 
   const handleDisconnect = async () => {
     try {
@@ -62,18 +28,19 @@ export const WalletMainScreen: React.FC = () => {
   };
 
   if (!isWalletConnected) {
-    return <WalletNoConnectionScreen onConnectPress={handleConnect} />;
+    // Per-circuit Connect actions live in the CircuitWalletsCard rendered
+    // inside WalletNoConnectionScreen. There is no global "Connect Wallet"
+    // entry point anymore — binding requires picking the target circuit.
+    return <WalletNoConnectionScreen />;
   }
-
-  const walletMetadata = getWalletMetadata(themeColors).walletconnect;
 
   return (
     <WalletConnectedScreen
-      walletIcon={walletMetadata.icon}
-      walletName={walletMetadata.name}
+      walletIcon="link-2"
+      walletName="WalletConnect"
       address={account || ''}
       network={chainId ? NETWORK_NAMES[chainId] || `Chain ${chainId}` : 'Unknown'}
-      brandColor={walletMetadata.color}
+      brandColor={themeColors.wallets.walletconnect}
       isActive={true}
       onDisconnect={handleDisconnect}
     />
