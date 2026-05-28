@@ -160,10 +160,14 @@ async function getCircuitFileUrl(
 ): Promise<string> {
   const configPath = getCircuitFilePaths(circuitName);
   if (configPath) {
-    // GIWA is a dev-only circuit that exists only on main (not in any release
-    // tag), so always fetch it from main regardless of environment.
+    // GIWA + Korea mDL (ownership/age/region) are dev-only circuits that
+    // exist only on main (not in any release tag), so always fetch from
+    // main regardless of env.
     const baseUrl =
-      circuitName === 'giwa_attestation'
+      circuitName === 'giwa_attestation' ||
+      circuitName === 'mdl_kr_ownership' ||
+      circuitName === 'mdl_kr_age' ||
+      circuitName === 'mdl_kr_region'
         ? GITHUB_RAW('main')
         : await resolveCircuitBaseUrl(env);
     return buildFilePath(baseUrl, circuitName, extension, configPath);

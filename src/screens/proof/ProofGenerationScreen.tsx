@@ -21,6 +21,7 @@ import {
   type StepData,
 } from '../../components/ui';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useGoogleAuth, useMicrosoftAuth, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {useMdlKr} from '../../hooks/useMdlKr';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
 import {useThemeColors} from '../../context';
@@ -42,6 +43,9 @@ const CIRCUIT_DISPLAY: Record<string, string> = {
   'oidc_domain_attestation': 'OIDC Domain',
   'giwa-kyc': 'GIWA KYC (Experimental)',
   'giwa_attestation': 'GIWA KYC (Experimental)',
+  'mdl-kr-ownership': 'Korea Mobile ID — Ownership',
+  'mdl-kr-age': 'Korea Mobile ID — Age',
+  'mdl-kr-region': 'Korea Mobile ID — Region',
 };
 
 const CIRCUIT_CONFIG: Record<string, string> = {
@@ -50,6 +54,18 @@ const CIRCUIT_CONFIG: Record<string, string> = {
   'oidc_domain_attestation': 'oidc_domain_attestation',
   'giwa-kyc': 'giwa_attestation',
   'giwa_attestation': 'giwa_attestation',
+  'mdl-kr-ownership': 'mdl_kr_ownership',
+  'mdl-kr-age': 'mdl_kr_age',
+  'mdl-kr-region': 'mdl_kr_region',
+};
+
+// Map route circuitId -> mdl_kr predicate variant. The MdlKrInputScreen
+// also collects the per-variant inputs (disclose_flags / age_threshold /
+// target_region) before navigating here.
+const MDL_VARIANT_OF: Record<string, 'ownership' | 'age' | 'region'> = {
+  'mdl-kr-ownership': 'ownership',
+  'mdl-kr-age': 'age',
+  'mdl-kr-region': 'region',
 };
 
 const ProgressButton: React.FC<{
@@ -215,15 +231,29 @@ export const ProofGenerationScreen: React.FC = () => {
   const isCountry = circuitId === 'coinbase-country';
   const isOidc = circuitId === 'oidc_domain_attestation';
   const isGiwa = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
+  const mdlVariant = MDL_VARIANT_OF[circuitId];
+  const isMdl = mdlVariant !== undefined;
   const oidcProvider = (proofRequest?.inputs as {provider?: string} | undefined)?.provider || route.params?.domainInput?.provider;
 
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
+  // useMdlKr requires a variant at hook init. When this screen is not
+  // serving an mDL circuit, the hook still mounts (rules of hooks) but
+  // is never driven; we keep 'ownership' as the inert default.
+  const mdlHook = useMdlKr(mdlVariant ?? 'ownership');
   const googleAuth = useGoogleAuth();
   const microsoftAuth = useMicrosoftAuth();
-  const hook = isOidc ? oidcHook : isGiwa ? giwaHook : (isCountry ? countryHook : kycHook);
+  const hook = isMdl
+    ? mdlHook
+    : isOidc
+    ? oidcHook
+    : isGiwa
+    ? giwaHook
+    : isCountry
+    ? countryHook
+    : kycHook;
 
   // Each entry to this screen starts from a clean slate. Without this, the
   // module-level proof caches inside the hooks (kept across navigations to
@@ -235,6 +265,7 @@ export const ProofGenerationScreen: React.FC = () => {
     countryHook.resetProofCache();
     oidcHook.resetProofCache();
     giwaHook.resetProofCache();
+    mdlHook.resetProofCache();
   }
 
   const {account, isReady: isPrivyReady, connect: connectWallet, disconnect: disconnectWallet, getProvider} = usePrivyWallet(addLog);
@@ -255,7 +286,9 @@ export const ProofGenerationScreen: React.FC = () => {
   // and Country share a group, so binding one makes the other ready too.
   const [circuitReady, setCircuitReady] = useState(false);
   useEffect(() => {
-    if (isOidc) {
+    if (isOidc || isMdl) {
+      // OIDC and Korea mDL are web2 flows — no Privy wallet binding, so the
+      // circuit is always "ready" without a wallet gate.
       setCircuitReady(true);
       return;
     }
@@ -394,7 +427,7 @@ export const ProofGenerationScreen: React.FC = () => {
     // means the gate already opened a picker / dismissed; the auto-retry
     // effect below will re-invoke handleGenerateProof when account changes.
     let gatedAddress: string | null = null;
-    if (!isOidc) {
+    if (!isOidc && !isMdl) {
       const resolved = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
       const gateResult = await walletGate.runGate(
         resolved,
@@ -448,6 +481,73 @@ export const ProofGenerationScreen: React.FC = () => {
     }
 
     try {
+      if (isMdl) {
+        // Korea Mobile ID (web2 OmniOne CX flow). Inputs come from either:
+        //   (a) the deep-link `proofRequest.inputs` (when a dApp drives it),
+        //   (b) the MdlKrInputScreen result on `route.params.mdlKrInputs`
+        //       (when the user taps a card and picks the predicate input),
+        // in that order. No silent defaults for region or age threshold —
+        // missing values throw rather than auto-passing the wrong proof.
+        const deep = proofRequest?.inputs as {
+          scope?: string;
+          targetRegion?: string;
+          ageThreshold?: number;
+          currentYear?: number;
+          discloseFlags?: number;
+        } | undefined;
+        const scopeStr = deep?.scope || 'proofport:default';
+        const mInputs = route.params?.mdlKrInputs;
+
+        if (mdlVariant === 'ownership') {
+          const discloseFlags =
+            deep?.discloseFlags ?? mInputs?.discloseFlags ?? 0;
+          await mdlHook.generateProofWithSteps(
+            {
+              variant: 'ownership',
+              provider: 'comdl_v1.5',
+              scopeString: scopeStr,
+              discloseFlags,
+            },
+            addLog,
+          );
+        } else if (mdlVariant === 'age') {
+          const ageThreshold = deep?.ageThreshold ?? mInputs?.ageThreshold;
+          if (ageThreshold === undefined) {
+            throw new Error(
+              'age_threshold is required — open the Korea mDL input screen first',
+            );
+          }
+          const currentYear =
+            deep?.currentYear ?? mInputs?.currentYear ?? new Date().getFullYear();
+          await mdlHook.generateProofWithSteps(
+            {
+              variant: 'age',
+              provider: 'comdl_v1.5',
+              scopeString: scopeStr,
+              ageThreshold,
+              currentYear,
+            },
+            addLog,
+          );
+        } else if (mdlVariant === 'region') {
+          const targetRegion = deep?.targetRegion ?? mInputs?.targetRegion;
+          if (!targetRegion) {
+            throw new Error(
+              'target_region is required — open the Korea mDL input screen first',
+            );
+          }
+          await mdlHook.generateProofWithSteps(
+            {
+              variant: 'region',
+              provider: 'comdl_v1.5',
+              scopeString: scopeStr,
+              targetRegion,
+            },
+            addLog,
+          );
+        }
+        return;
+      }
       if (isOidc) {
         // OIDC: on-device proof generation — no attestation lookup needed
         const deep = proofRequest?.inputs as {scope?: string; domain?: string; provider?: string} | undefined;
@@ -603,7 +703,7 @@ export const ProofGenerationScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [walletGate, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, giwaHook.generateProofWithSteps, isCountry, isOidc, isGiwa, proofRequest, route.params, sendError, circuitId, markHistoryFailed]);
+  }, [walletGate, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, giwaHook.generateProofWithSteps, mdlHook.generateProofWithSteps, isCountry, isOidc, isGiwa, isMdl, proofRequest, route.params, sendError, circuitId, markHistoryFailed]);
 
   // After the wallet gate opens a picker / reconnect prompt, it sets its
   // internal post-picker flag. When `account` then flips to a new wallet,
@@ -724,7 +824,15 @@ export const ProofGenerationScreen: React.FC = () => {
             {t('host.proof.generation.portalLabel')}
           </Text>
           <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 12}}>
-            {isOidc
+            {circuitId === 'mdl-kr-ownership'
+              ? t('host.proof.generation.mdlKrOwnershipTitle')
+              : circuitId === 'mdl-kr-age'
+              ? t('host.proof.generation.mdlKrAgeTitle')
+              : circuitId === 'mdl-kr-region'
+              ? t('host.proof.generation.mdlKrRegionTitle')
+              : isMdl
+              ? t('host.proof.generation.mdlKrOwnershipTitle')
+              : isOidc
               ? t('host.proof.generation.oidcTitle')
               : isCountry
               ? t('host.proof.generation.coinbaseCountryTitle')
@@ -733,7 +841,15 @@ export const ProofGenerationScreen: React.FC = () => {
               : t('host.proof.generation.coinbaseKycTitle')}
           </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
-            {isOidc
+            {circuitId === 'mdl-kr-ownership'
+              ? t('host.proof.generation.mdlKrOwnershipDescription')
+              : circuitId === 'mdl-kr-age'
+              ? t('host.proof.generation.mdlKrAgeDescription')
+              : circuitId === 'mdl-kr-region'
+              ? t('host.proof.generation.mdlKrRegionDescription')
+              : isMdl
+              ? t('host.proof.generation.mdlKrOwnershipDescription')
+              : isOidc
               ? t('host.proof.generation.oidcDescription')
               : isCountry
               ? t('host.proof.generation.coinbaseCountryDescription')

@@ -17,7 +17,10 @@ export type CircuitName =
   | 'coinbase_attestation'
   | 'coinbase_country_attestation'
   | 'oidc_domain_attestation'
-  | 'giwa_attestation';
+  | 'giwa_attestation'
+  | 'mdl_kr_ownership'
+  | 'mdl_kr_age'
+  | 'mdl_kr_region';
 
 export interface NetworkConfig {
   chainId: number;
@@ -177,6 +180,12 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployOidcDomainAttestation.s.sol/${chainId}/run-latest.json`,
   // giwa_attestation is a PoC — addresses come from FALLBACK_VERIFIERS only
   giwa_attestation: null,
+  mdl_kr_ownership: (chainId) =>
+    `DeployMdlKrOwnership.s.sol/${chainId}/run-latest.json`,
+  mdl_kr_age: (chainId) =>
+    `DeployMdlKrAge.s.sol/${chainId}/run-latest.json`,
+  mdl_kr_region: (chainId) =>
+    `DeployMdlKrRegion.s.sol/${chainId}/run-latest.json`,
 };
 
 export interface CircuitFilePaths {
@@ -211,6 +220,21 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = 
     vkPath: 'giwa-attestation/target/vk',
     vkFileName: 'vk',
   },
+  mdl_kr_ownership: {
+    basePath: 'mdl/kr-ownership/target',
+    vkPath: 'mdl/kr-ownership/target/vk',
+    vkFileName: 'vk',
+  },
+  mdl_kr_age: {
+    basePath: 'mdl/kr-age/target',
+    vkPath: 'mdl/kr-age/target/vk',
+    vkFileName: 'vk',
+  },
+  mdl_kr_region: {
+    basePath: 'mdl/kr-region/target',
+    vkPath: 'mdl/kr-region/target/vk',
+    vkFileName: 'vk',
+  },
 };
 
 /**
@@ -223,6 +247,12 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   coinbase_country_attestation: 1,
   oidc_domain_attestation: 3, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
   giwa_attestation: 1,
+  // Split into 3 independent circuits sharing the same canonical
+  // (ci || jti || pri || birth || address) commitment — each enforces
+  // a single predicate (selective disclosure, age, region).
+  mdl_kr_ownership: 1,
+  mdl_kr_age: 1,
+  mdl_kr_region: 1,
 };
 
 /**
@@ -243,6 +273,29 @@ export const CIRCUIT_NETWORK_OVERRIDES: Record<CircuitName, NetworkConfig | unde
     rpcUrl: 'https://sepolia-rpc.giwa.io/',
     explorerUrl: 'https://sepolia-explorer.giwa.io',
   },
+  // Korea Mobile ID verifiers currently live on Base Sepolia. OmniOne
+  // Chain (Hyperledger Besu permissioned network) access requires a
+  // signup whose RPC URL is not publicly available; the UI labels the
+  // network as "OmniOne" for the demo and we will repoint these
+  // overrides once OmniOne Chain access is granted.
+  mdl_kr_ownership: {
+    chainId: 84532,
+    name: 'OmniOne Chain (preview / Base Sepolia)',
+    rpcUrl: 'https://sepolia.base.org',
+    explorerUrl: 'https://sepolia.basescan.org',
+  },
+  mdl_kr_age: {
+    chainId: 84532,
+    name: 'OmniOne Chain (preview / Base Sepolia)',
+    rpcUrl: 'https://sepolia.base.org',
+    explorerUrl: 'https://sepolia.basescan.org',
+  },
+  mdl_kr_region: {
+    chainId: 84532,
+    name: 'OmniOne Chain (preview / Base Sepolia)',
+    rpcUrl: 'https://sepolia.base.org',
+    explorerUrl: 'https://sepolia.basescan.org',
+  },
 };
 
 /**
@@ -256,17 +309,29 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     // GIWA PoC verifier — same address across env (testnet-only PoC)
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
+    // Korea mDL — three independent verifiers on Base Sepolia.
+    mdl_kr_ownership: '0xEB1d555e90E639d44Fe5671E1A166305033a999F',
+    mdl_kr_age:       '0xe7E1da54B881b20654E68179fFa26dBB2adA33c7',
+    mdl_kr_region:    '0x69caE4adE568cAC0Ba7Bae5b76b232E9538C78fe',
   },
   staging: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
+    mdl_kr_ownership: '0xEB1d555e90E639d44Fe5671E1A166305033a999F',
+    mdl_kr_age:       '0xe7E1da54B881b20654E68179fFa26dBB2adA33c7',
+    mdl_kr_region:    '0x69caE4adE568cAC0Ba7Bae5b76b232E9538C78fe',
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
+    // Korea mDL not yet deployed to a mainnet. Pinning to the Base
+    // Sepolia addresses until OmniOne Chain mainnet access is granted.
+    mdl_kr_ownership: '0xEB1d555e90E639d44Fe5671E1A166305033a999F',
+    mdl_kr_age:       '0xe7E1da54B881b20654E68179fFa26dBB2adA33c7',
+    mdl_kr_region:    '0x69caE4adE568cAC0Ba7Bae5b76b232E9538C78fe',
   },
 };

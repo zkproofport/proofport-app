@@ -89,7 +89,18 @@ export function createZkProofportHostApi(
   // self-trigger the resulting deep link to drive the host's existing
   // ProofGenerationScreen pipeline (same code path as a 3rd-party dapp
   // request), then poll for the resulting JWT.
-  async function runSelfRelayLogin(): Promise<AuthResult> {
+  async function runSelfRelayLogin(
+    method: 'oidc' | 'mdl' = 'oidc',
+  ): Promise<AuthResult> {
+    // Map the high-level method to the circuit-type the relay accepts.
+    // Both branches converge in the same proof-request -> deeplink -> poll
+    // pipeline; only the circuit changes.
+    // For mDL login we use the ownership predicate in anonymous mode
+    // (disclose_flags = 0). The resulting nullifier is the user's
+    // sybil-resistant identity for the openstoa:login scope.
+    const circuitType =
+      method === 'mdl' ? 'mdl_kr_ownership' : 'oidc_domain_attestation';
+
     // Match the web ProofGate behavior for login: only specify circuitType.
     // Do NOT send `provider`/`domain` — the web's `<ProofGate circuitType=
     // "oidc_domain_attestation" mode="login" />` (openstoa/src/app/page.tsx)
@@ -102,7 +113,7 @@ export function createZkProofportHostApi(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        circuitType: 'oidc_domain_attestation',
+        circuitType,
       }),
       // Skip the iOS shared cookie store — we authenticate via headers
       // (or no auth at all). Sending stale cookies caused the server to
@@ -197,7 +208,10 @@ export function createZkProofportHostApi(
       return readToken();
     },
 
-    loginToOpenStoa: async ({ force }: { force?: boolean } = {}) => {
+    loginToOpenStoa: async ({
+      force,
+      method,
+    }: { force?: boolean; method?: 'oidc' | 'mdl' } = {}) => {
       if (!force) {
         const existing = await readToken();
         if (existing) {
@@ -211,7 +225,7 @@ export function createZkProofportHostApi(
 
       // Explicit Sign-in (force=true): drive the real self-relay ZK proof
       // flow via the host's existing ProofGenerationScreen pipeline.
-      return runSelfRelayLogin();
+      return runSelfRelayLogin(method ?? 'oidc');
     },
 
     logoutFromOpenStoa: async () => {

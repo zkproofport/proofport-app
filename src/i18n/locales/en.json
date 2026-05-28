@@ -30,6 +30,7 @@
       "defaultNetwork": "Default Network",
       "networkBase": "Base",
       "networkGiwa": "GIWA Testnet",
+      "networkOmniOne": "OmniOne Chain (preview)",
       "autoSaveProofs": "Auto-save proofs",
       "confirmBeforeGenerate": "Confirm before generate",
       "showLiveLogs": "Show live logs",
@@ -183,6 +184,22 @@
         "giwaKyc": {
           "title": "GIWA KYC",
           "description": "PoC — prove a KYC attestation issued on GIWA Sepolia"
+        },
+        "mdlKr": {
+          "title": "Korea Mobile ID",
+          "description": "Verify Korean mobile driver's license / resident card via OmniOne CX"
+        },
+        "mdlKrOwnership": {
+          "title": "Korea Mobile ID — Ownership",
+          "description": "Prove ownership of a Korea mobile ID (name + birth + sex + phone commitment)"
+        },
+        "mdlKrAge": {
+          "title": "Korea Mobile ID — Age",
+          "description": "Prove you are an adult (age 19+) via Korea mobile ID — fully anonymous"
+        },
+        "mdlKrRegion": {
+          "title": "Korea Mobile ID — Region",
+          "description": "Prove your residence region via Korea mobile ID — fully anonymous"
         }
       },
       "country": {
@@ -234,6 +251,12 @@
         "coinbaseKycTitle": "Coinbase KYC Verification",
         "giwaKycTitle": "GIWA KYC Verification (Experimental)",
         "giwaKycDescription": "PoC — generate a zero-knowledge proof of a KYC attestation issued on GIWA Sepolia. Bring your own GIWA testnet wallet via the Wallet tab.",
+        "mdlKrOwnershipTitle": "Korea Mobile ID — Ownership (Experimental)",
+        "mdlKrOwnershipDescription": "Prove ownership of your Korea mobile driver's license via OmniOne CX. The proof binds your name, birthdate, sex, and phone as a single commitment — no individual field is exposed on-chain.",
+        "mdlKrAgeTitle": "Korea Mobile ID — Age (Experimental)",
+        "mdlKrAgeDescription": "Prove that you are an adult (age 19+) via your Korea mobile ID. Fully anonymous — no personal attributes are committed.",
+        "mdlKrRegionTitle": "Korea Mobile ID — Region (Experimental)",
+        "mdlKrRegionDescription": "Prove your residence region (e.g. 경기도) via your Korea mobile ID. Fully anonymous — no personal attributes are committed.",
         "oidcDescription": "Generate a zero-knowledge proof of your email domain using an OIDC identity token. Proof is generated locally on your device.",
         "coinbaseCountryDescription": "Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.",
         "coinbaseKycDescription": "Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.",

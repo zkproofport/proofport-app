@@ -12,7 +12,7 @@
  */
 import type {CircuitName} from './contracts';
 
-export type NetworkId = 'base' | 'giwa';
+export type NetworkId = 'base' | 'giwa' | 'omnione';
 
 export interface NetworkDescriptor {
   id: NetworkId;
@@ -36,6 +36,12 @@ export const USER_FACING_NETWORKS: ReadonlyArray<NetworkDescriptor> = [
     id: 'giwa',
     labelKey: 'host.more.networkGiwa',
     circuits: ['giwa_attestation'],
+    developerOnly: true,
+  },
+  {
+    id: 'omnione',
+    labelKey: 'host.more.networkOmniOne',
+    circuits: ['mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'],
     developerOnly: true,
   },
 ];

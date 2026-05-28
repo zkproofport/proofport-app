@@ -30,6 +30,7 @@
       "defaultNetwork": "기본 네트워크",
       "networkBase": "Base",
       "networkGiwa": "기와 테스트넷",
+      "networkOmniOne": "OmniOne 체인 (preview)",
       "autoSaveProofs": "증명 자동 저장",
       "confirmBeforeGenerate": "생성 전 확인",
       "showLiveLogs": "라이브 로그 표시",
@@ -183,6 +184,22 @@
         "giwaKyc": {
           "title": "기와 KYC",
           "description": "PoC — 기와 Sepolia에 발급된 KYC attestation을 증명해요"
+        },
+        "mdlKr": {
+          "title": "한국 모바일 신분증",
+          "description": "OmniOne CX로 모바일 운전면허/주민등록증을 검증해요"
+        },
+        "mdlKrOwnership": {
+          "title": "한국 모바일 신분증 — 소유권",
+          "description": "이름·생년월일·성별·전화번호 묶음 commitment로 본인 소유권을 증명해요"
+        },
+        "mdlKrAge": {
+          "title": "한국 모바일 신분증 — 나이",
+          "description": "만 19세 이상임을 증명해요 (완전 익명)"
+        },
+        "mdlKrRegion": {
+          "title": "한국 모바일 신분증 — 지역",
+          "description": "거주 지역을 증명해요 (완전 익명)"
         }
       },
       "country": {
@@ -234,6 +251,12 @@
         "coinbaseKycTitle": "Coinbase KYC 인증",
         "giwaKycTitle": "기와 KYC 인증 (Experimental)",
         "giwaKycDescription": "PoC — 기와 Sepolia에 발급된 KYC attestation을 영지식 증명으로 생성합니다. 지갑 탭에서 기와 테스트넷 지갑 주소를 핀해 두세요.",
+        "mdlKrOwnershipTitle": "한국 모바일 신분증 — 소유권 (Experimental)",
+        "mdlKrOwnershipDescription": "OmniOne CX로 한국 모바일 운전면허증의 본인 소유권을 증명해요. 이름·생년월일·성별·전화번호를 묶음 commitment 하나로 만들어, 개별 항목은 on-chain에 노출되지 않습니다.",
+        "mdlKrAgeTitle": "한국 모바일 신분증 — 나이 (Experimental)",
+        "mdlKrAgeDescription": "한국 모바일 신분증으로 만 19세 이상임을 증명해요. 완전 익명 — 어떤 개인 정보도 commitment에 포함되지 않습니다.",
+        "mdlKrRegionTitle": "한국 모바일 신분증 — 지역 (Experimental)",
+        "mdlKrRegionDescription": "한국 모바일 신분증으로 거주 지역(예: 경기도)을 증명해요. 완전 익명 — 어떤 개인 정보도 commitment에 포함되지 않습니다.",
         "oidcDescription": "OIDC 신원 토큰을 사용해 이메일 도메인의 영지식 증명을 생성해요. 증명은 기기에서 로컬로 생성됩니다.",
         "coinbaseCountryDescription": "개인 정보를 공개하지 않고 Coinbase를 통해 국가 인증의 영지식 증명을 생성해요.",
         "coinbaseKycDescription": "개인 정보를 전혀 공개하지 않고 Coinbase 신원 인증의 영지식 증명을 생성해요.",

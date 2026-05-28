@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {ScrollView, StyleSheet, Text, View, SafeAreaView} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -25,9 +25,10 @@ type CategoryId = NetworkId | 'other';
 
 const OTHER_KEY = 'other' as const;
 
-// Persist the user's network selection across screen remounts (e.g. returning
-// to Verify after a completed proof) so it doesn't reset to the default network.
-let persistedCategory: CategoryId | null = null;
+// The default-network setting (settings.defaultNetwork) is the single source
+// of truth for the Verify-tab category. `useSettings` already refreshes on
+// focus (useFocusEffect), so the dropdown stays in sync whenever the user
+// changes "Default Network" from the More tab.
 
 interface CircuitDescriptor {
   /** Internal canonical circuit ID matching CircuitName. */
@@ -74,6 +75,38 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     navigate: (nav, id) => nav.navigate('ProofGeneration', {circuitId: id}),
     experimental: true,
   },
+  // Korea Mobile ID — three independent Noir circuits sharing the same
+  // canonical natural-person commitment. Each card routes through the
+  // MdlKrInput screen so the user supplies the predicate parameter
+  // (disclose_flags / age_threshold / target si-do) before the proof
+  // flow starts.
+  {
+    id: 'mdl_kr_ownership',
+    routeCircuitId: 'mdl-kr-ownership',
+    iconKey: 'giwa-kyc',
+    titleKey: 'host.proof.circuitSelection.mdlKrOwnership.title',
+    descriptionKey: 'host.proof.circuitSelection.mdlKrOwnership.description',
+    navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'ownership'}),
+    experimental: true,
+  },
+  {
+    id: 'mdl_kr_age',
+    routeCircuitId: 'mdl-kr-age',
+    iconKey: 'giwa-kyc',
+    titleKey: 'host.proof.circuitSelection.mdlKrAge.title',
+    descriptionKey: 'host.proof.circuitSelection.mdlKrAge.description',
+    navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'age'}),
+    experimental: true,
+  },
+  {
+    id: 'mdl_kr_region',
+    routeCircuitId: 'mdl-kr-region',
+    iconKey: 'giwa-kyc',
+    titleKey: 'host.proof.circuitSelection.mdlKrRegion.title',
+    descriptionKey: 'host.proof.circuitSelection.mdlKrRegion.description',
+    navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'region'}),
+    experimental: true,
+  },
   {
     id: 'oidc_domain_attestation',
     routeCircuitId: 'oidc-domain',
@@ -88,24 +121,27 @@ export const CircuitSelectionScreen: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const {t} = useTranslation();
-  const {settings, loading} = useSettings();
+  const {settings, loading, updateSettings} = useSettings();
 
-  const [category, setCategory] = useState<CategoryId>(persistedCategory ?? 'base');
-  // Seed the picker from the user's default-network setting (More tab) only
-  // until a selection exists. Once the user (or this seed) picks a category,
-  // persistedCategory keeps it across remounts so returning from a proof
-  // doesn't reset the network back to default.
+  const [category, setCategory] = useState<CategoryId>('base');
+  // Keep the picker mirrored on settings.defaultNetwork. useSettings refreshes
+  // on screen focus, so changing the default network from the More tab will
+  // re-flow into this dropdown on the next focus event.
   useEffect(() => {
-    if (persistedCategory !== null) return;
     if (!loading && settings) {
       setCategory((settings.defaultNetwork as CategoryId) ?? 'base');
     }
-  }, [loading, settings]);
+  }, [loading, settings?.defaultNetwork]);
 
-  // Remember the current selection across screen remounts.
-  useEffect(() => {
-    persistedCategory = category;
-  }, [category]);
+  const handleCategoryChange = useCallback(
+    (next: CategoryId) => {
+      setCategory(next);
+      // Persist back to settings so this picker, the More tab, and any other
+      // surface that reads `settings.defaultNetwork` stay in lockstep.
+      updateSettings({defaultNetwork: next}).catch((e) => console.error('[Verify] updateSettings failed', e));
+    },
+    [updateSettings],
+  );
 
   const developerMode = !loading && settings ? settings.developerMode : false;
   const categoryOptions: SelectOption<CategoryId>[] = useMemo(
@@ -134,9 +170,9 @@ export const CircuitSelectionScreen: React.FC = () => {
 
   const visibleCards = useMemo(
     () =>
-      visibleCircuitIds
-        .map((id) => CIRCUIT_REGISTRY.find((c) => c.id === id))
-        .filter((c): c is CircuitDescriptor => !!c),
+      visibleCircuitIds.flatMap((id) =>
+        CIRCUIT_REGISTRY.filter((c) => c.id === id),
+      ),
     [visibleCircuitIds],
   );
 
@@ -165,7 +201,7 @@ export const CircuitSelectionScreen: React.FC = () => {
             label={t('host.proof.circuitSelection.network.label')}
             value={category}
             options={categoryOptions}
-            onChange={setCategory}
+            onChange={handleCategoryChange}
             pickerTitle={t('host.proof.circuitSelection.network.label')}
           />
         </View>

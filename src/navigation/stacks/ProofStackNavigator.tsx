@@ -7,6 +7,7 @@ import {
   CircuitSelectionScreen,
   CountryInputScreen,
   DomainInputScreen,
+  MdlKrInputScreen,
   ProofGenerationScreen,
   ProofCompleteScreen,
 } from '../../screens/proof';
@@ -35,6 +36,11 @@ const ProofStackNavigator: React.FC = () => {
         name="DomainInput"
         component={DomainInputScreen}
         options={{ title: t('host.proof.domain.stackTitle') }}
+      />
+      <Stack.Screen
+        name="MdlKrInput"
+        component={MdlKrInputScreen}
+        options={{ title: 'Korea Mobile ID' }}
       />
       <Stack.Screen
         name="ProofGeneration"

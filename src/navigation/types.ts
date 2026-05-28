@@ -15,7 +15,20 @@ export type ProofStackParamList = {
   CircuitSelection: undefined;
   CountryInput: undefined;
   DomainInput: undefined;
-  ProofGeneration: { circuitId: string; proofRequest?: ProofRequest; countryInputs?: { countryList: string[]; isIncluded: boolean }; domainInput?: { domain?: string; scope: string; provider?: string } };
+  MdlKrInput: { variant: 'ownership' | 'age' | 'region' };
+  ProofGeneration: {
+    circuitId: string;
+    proofRequest?: ProofRequest;
+    countryInputs?: { countryList: string[]; isIncluded: boolean };
+    domainInput?: { domain?: string; scope: string; provider?: string };
+    mdlKrInputs?: {
+      variant: 'ownership' | 'age' | 'region';
+      discloseFlags?: number;
+      ageThreshold?: number;
+      currentYear?: number;
+      targetRegion?: string;
+    };
+  };
   ProofComplete: {
     proofHex: string;
     publicInputsHex: string[];
