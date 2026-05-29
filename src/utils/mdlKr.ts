@@ -248,10 +248,12 @@ export function flattenMdlKrOwnershipInputs(inputs: MdlKrOwnershipInputs): strin
     inputs.sex,
     // TODO(HS256): Re-enable address when derive_self_id_20 is re-enabled.
     // ...inputs.address,
-    ...inputs.expected_name,
-    ...inputs.expected_birth,
-    ...inputs.expected_telno,
-    inputs.expected_sex,
+    // NOTE: expected_name/birth/telno/sex are NOT circuit inputs. They are
+    // used off-circuit by prepareMdlKrOwnershipInputs to compute
+    // owner_commit = keccak(flag || masked(expected...)); the circuit
+    // recomputes that hash from its own mDL values and asserts equality.
+    // Appending them here added 89 phantom fields and broke witness
+    // generation (MoproError.NoirError).
   ];
 }
 

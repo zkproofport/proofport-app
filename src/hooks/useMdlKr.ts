@@ -291,22 +291,31 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
           }
           addLog('OACX widget succeeded');
 
-          // The widget callback returns only a token (res.token). Parse it
-          // via the shared stage-5 module to get the actual VC payload. A
-          // future widget build returning { data } directly is accepted
-          // as-is.
-          const widgetRes = busResult.payload as {
-            token?: string;
-            data?: OacxParsedToken['data'];
-          };
-          if (widgetRes?.data?.ci) {
+          // Log the raw widget payload so we can see the exact shape the
+          // RAON widget returns (its key for the token has varied between
+          // builds: token / resultToken / data.token).
+          const widgetRes = (busResult.payload ?? {}) as Record<string, any>;
+          addLog(
+            `OACX widget payload keys: [${Object.keys(widgetRes).join(', ')}]`,
+          );
+          addLog(`OACX widget payload: ${JSON.stringify(widgetRes).slice(0, 300)}`);
+
+          // Pull the token out of whatever key the widget used.
+          const widgetToken: string | undefined =
+            widgetRes.token ??
+            widgetRes.resultToken ??
+            widgetRes.data?.token ??
+            widgetRes.result?.token;
+
+          if (widgetRes.data?.ci) {
+            // Some widget builds return an already-parsed VC.
             parsedCx = widgetRes as OacxParsedToken;
-          } else if (widgetRes?.token) {
+          } else if (widgetToken) {
             addLog('OACX — parsing token into VC (POST /trans/token)...');
-            parsedCx = await parseToken({token: widgetRes.token});
+            parsedCx = await parseToken({token: widgetToken});
           } else {
             throw new Error(
-              'OACX widget result missing both token and parsed data',
+              `OACX widget result has no token. keys=[${Object.keys(widgetRes).join(', ')}] payload=${JSON.stringify(widgetRes).slice(0, 200)}`,
             );
           }
         } else {
