@@ -10,6 +10,14 @@ export interface AppSettings {
   theme: 'dark' | 'light';
   language: string;
   defaultNetwork: string;
+  /**
+   * Developer-mode toggle for the Korea mDL flow. When true (default),
+   * OmniOne CX runs through the RAON standard widget (WebView) which
+   * owns app selection. When false, the app drives the raw 4-stage
+   * OACX HTTP API and deep-links into the mobile-ID app directly
+   * (oacxClient.ts::runAppAuthFlow). Only surfaced in Developer Mode.
+   */
+  useOmniOneCxUi: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -20,6 +28,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   language: 'en',
   defaultNetwork: 'base',
+  useOmniOneCxUi: true,
 };
 
 export const settingsStore = {

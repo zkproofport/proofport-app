@@ -203,6 +203,13 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
                 label={t('host.more.showLiveLogs')}
               />
             </View>
+            <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
+              <Toggle
+                value={settings.useOmniOneCxUi}
+                onValueChange={(value) => updateSettings({useOmniOneCxUi: value})}
+                label={t('host.more.useOmniOneCxUi')}
+              />
+            </View>
           </View>
         )}
 

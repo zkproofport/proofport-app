@@ -34,6 +34,7 @@
       "autoSaveProofs": "증명 자동 저장",
       "confirmBeforeGenerate": "생성 전 확인",
       "showLiveLogs": "라이브 로그 표시",
+      "useOmniOneCxUi": "OmniOne CX UI 사용 (끄면 딥링크 직접 연결)",
       "exportProofHistory": "증명 기록 내보내기",
       "clearLocalData": "로컬 데이터 삭제",
       "exportTitle": "증명 기록 내보내기",

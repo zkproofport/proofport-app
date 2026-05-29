@@ -55,13 +55,22 @@ import {
 } from '../utils/mdlKr';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-// oacxClient.ts (raw 4-stage HTTP path) is retained for reference but is
-// no longer auto-invoked: the RAON widget owns app selection, and we must
-// not launch the mobile-ID deep link ourselves. Only the types are used.
-import type {
-  OacxProvider,
-  OacxParsedToken,
+// Two OmniOne CX auth paths, selected by the Developer-Mode setting
+// `useOmniOneCxUi`:
+//   - true (default): the RAON standard widget (OacxWebViewScreen) owns
+//     app selection and returns only a token; `parseToken` (stage 5)
+//     turns that into the parsed VC.
+//   - false: `runAppAuthFlow` drives the raw 4-stage HTTP API and
+//     deep-links into the mobile-ID app directly. Only reachable when a
+//     developer explicitly turns the CX UI off — never an auto-fallback.
+// `parseToken` is the shared token -> parsed-VC module used by both.
+import {
+  parseToken,
+  runAppAuthFlow,
+  type OacxProvider,
+  type OacxParsedToken,
 } from '../utils/oacxClient';
+import {settingsStore} from '../stores/settingsStore';
 import * as oacxResultBus from '../utils/oacxResultBus';
 import type {ProofStackParamList} from '../navigation/types';
 import {
@@ -253,42 +262,62 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
           detail: `${currentVk.byteLength} bytes (${vkElapsed}ms)`,
         });
 
-        // Step 2: OmniOne CX authentication via the RAON standard widget
-        // (OacxWebViewScreen). The widget OWNS the entire flow including
-        // which mobile-ID app the user picks. We must NOT auto-launch the
-        // mobile-ID app ourselves — doing so previously opened the app
-        // deep link even when the user had not selected anything in the
-        // CX UI. So on widget failure we surface the error and STOP; we
-        // do NOT fall back to oacxClient.ts::launchMobileIdApp.
+        // Step 2: OmniOne CX authentication. The path depends on the
+        // Developer-Mode setting `useOmniOneCxUi`:
+        //   - ON  (default): RAON standard widget (OacxWebViewScreen). The
+        //     widget owns app selection + App2App; it returns only a token
+        //     which we parse via stage 5. We never launch the mobile-ID
+        //     app ourselves, so on failure we surface the error and stop.
+        //   - OFF: raw 4-stage HTTP path (runAppAuthFlow) which deep-links
+        //     into the mobile-ID app directly. Only chosen deliberately by
+        //     a developer — never an auto-fallback.
         updateStep('oacx', {status: 'in_progress'});
         const oacxStart = Date.now();
-        addLog('OACX — navigating to RAON widget...');
-        const resultPromise = oacxResultBus.awaitNextResult(5 * 60 * 1000);
-        navigation.navigate('OacxWebView', {
-          provider: inputs.provider,
-          scope: inputs.scopeString,
-        });
-        const busResult = await resultPromise;
-        if (!busResult.ok) {
-          throw new Error(
-            `OmniOne CX 인증 실패: ${busResult.error}. CX 인증창에서 다시 시도해 주세요.`,
-          );
-        }
-        parsedCx = busResult.payload;
-        addLog('OACX widget succeeded');
+        const settings = await settingsStore.get();
+        const useCxUi = settings.useOmniOneCxUi !== false;
 
-        // MANUAL FALLBACK (disabled): the raw 4-stage HTTP path below
-        // (oacxClient.ts::runAppAuthFlow) auto-launches the mobile-ID app
-        // deep link, which must NOT happen automatically — the RAON
-        // widget owns app selection. Kept here, commented out, so we can
-        // manually re-enable it if the widget path is ever unavailable.
-        // To use: import {runAppAuthFlow} from '../utils/oacxClient', then
-        //   parsedCx = await runAppAuthFlow({
-        //     provider: inputs.provider,
-        //     ci: true,
-        //     telno: true,
-        //     onLog: addLog,
-        //   });
+        if (useCxUi) {
+          addLog('OACX — navigating to RAON widget (CX UI on)...');
+          const resultPromise = oacxResultBus.awaitNextResult(5 * 60 * 1000);
+          navigation.navigate('OacxWebView', {
+            provider: inputs.provider,
+            scope: inputs.scopeString,
+          });
+          const busResult = await resultPromise;
+          if (!busResult.ok) {
+            throw new Error(
+              `OmniOne CX 인증 실패: ${busResult.error}. CX 인증창에서 다시 시도해 주세요.`,
+            );
+          }
+          addLog('OACX widget succeeded');
+
+          // The widget callback returns only a token (res.token). Parse it
+          // via the shared stage-5 module to get the actual VC payload. A
+          // future widget build returning { data } directly is accepted
+          // as-is.
+          const widgetRes = busResult.payload as {
+            token?: string;
+            data?: OacxParsedToken['data'];
+          };
+          if (widgetRes?.data?.ci) {
+            parsedCx = widgetRes as OacxParsedToken;
+          } else if (widgetRes?.token) {
+            addLog('OACX — parsing token into VC (POST /trans/token)...');
+            parsedCx = await parseToken({token: widgetRes.token});
+          } else {
+            throw new Error(
+              'OACX widget result missing both token and parsed data',
+            );
+          }
+        } else {
+          addLog('OACX — raw 4-stage deep-link path (CX UI off)...');
+          parsedCx = await runAppAuthFlow({
+            provider: inputs.provider,
+            ci: true,
+            telno: true,
+            onLog: addLog,
+          });
+        }
         const oacxElapsed = Date.now() - oacxStart;
         setCxData(parsedCx);
         updateStep('oacx', {

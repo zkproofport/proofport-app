@@ -34,6 +34,7 @@
       "autoSaveProofs": "Auto-save proofs",
       "confirmBeforeGenerate": "Confirm before generate",
       "showLiveLogs": "Show live logs",
+      "useOmniOneCxUi": "Use OmniOne CX UI (off = direct deep link)",
       "exportProofHistory": "Export Proof History",
       "clearLocalData": "Clear Local Data",
       "exportTitle": "Export Proof History",
