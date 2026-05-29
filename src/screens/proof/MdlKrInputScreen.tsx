@@ -24,6 +24,7 @@ import {
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
+import {useTranslation} from 'react-i18next';
 import {Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -57,19 +58,8 @@ const SI_DO_OPTIONS: ReadonlyArray<string> = [
   '제주특별자치도',
 ];
 
-const DISCLOSE_OPTIONS: ReadonlyArray<{
-  key: 'name' | 'birth' | 'sex' | 'telno';
-  bit: number;
-  label: string;
-  hint: string;
-}> = [
-  {key: 'name',  bit: DISCLOSE_NAME,  label: '이름',     hint: 'name'},
-  {key: 'birth', bit: DISCLOSE_BIRTH, label: '생년월일', hint: 'birth_date'},
-  {key: 'sex',   bit: DISCLOSE_SEX,   label: '성별',     hint: 'sex'},
-  {key: 'telno', bit: DISCLOSE_TELNO, label: '전화번호', hint: 'telno'},
-];
-
 export const MdlKrInputScreen: React.FC = () => {
+  const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
@@ -100,9 +90,10 @@ export const MdlKrInputScreen: React.FC = () => {
 
   const discloseFlags = useMemo(() => {
     let f = 0;
-    for (const opt of DISCLOSE_OPTIONS) {
-      if (discloseBits[opt.key]) f |= opt.bit;
-    }
+    if (discloseBits.name)  f |= DISCLOSE_NAME;
+    if (discloseBits.birth) f |= DISCLOSE_BIRTH;
+    if (discloseBits.sex)   f |= DISCLOSE_SEX;
+    if (discloseBits.telno) f |= DISCLOSE_TELNO;
     return f & 0x0f;
   }, [discloseBits]);
 
@@ -159,24 +150,22 @@ export const MdlKrInputScreen: React.FC = () => {
     }
   };
 
-  const heroLabel =
-    variant === 'ownership'
-      ? '소유권 증명'
-      : variant === 'age'
-      ? '나이 증명'
-      : '거주지 증명';
-  const heroTitle =
-    variant === 'ownership'
-      ? '공개할 속성을 선택하세요'
-      : variant === 'age'
-      ? '증명할 최소 나이를 정하세요'
-      : '거주를 증명할 시/도를 고르세요';
-  const heroDesc =
-    variant === 'ownership'
-      ? '체크한 항목만 owner_commit에 포함됩니다. 아무것도 체크하지 않으면 익명 증명입니다.'
-      : variant === 'age'
-      ? `회로는 (현재 연도 ${currentYear} - 출생 연도) >= 입력값 인지 검증합니다.`
-      : '회로는 OmniOne CX 주소의 첫 토큰이 선택한 시/도와 일치하는지 검증합니다.';
+  // Attribute rows for the ownership variant — labels via i18n.
+  const PROVE_OPTIONS: ReadonlyArray<{
+    key: 'name' | 'birth' | 'sex' | 'telno';
+    bit: number;
+    label: string;
+    hint: string;
+  }> = [
+    {key: 'name',  bit: DISCLOSE_NAME,  label: t('host.proof.mdlKrInput.attrName'),  hint: 'name'},
+    {key: 'birth', bit: DISCLOSE_BIRTH, label: t('host.proof.mdlKrInput.attrBirth'), hint: 'birth_date'},
+    {key: 'sex',   bit: DISCLOSE_SEX,   label: t('host.proof.mdlKrInput.attrSex'),   hint: 'sex'},
+    {key: 'telno', bit: DISCLOSE_TELNO, label: t('host.proof.mdlKrInput.attrTelno'), hint: 'telno'},
+  ];
+
+  const heroLabel = t(`host.proof.mdlKrInput.heroLabel.${variant}`);
+  const heroTitle = t(`host.proof.mdlKrInput.heroTitle.${variant}`);
+  const heroDesc  = t(`host.proof.mdlKrInput.heroDescription.${variant}`, {currentYear});
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
@@ -196,13 +185,13 @@ export const MdlKrInputScreen: React.FC = () => {
         {variant === 'ownership' && (
           <Card style={styles.sectionCard}>
             <Text style={[styles.sectionLabel, {color: themeColors.text.tertiary}]}>
-              공개할 속성 (disclose_flags = 0x{discloseFlags.toString(16).padStart(2, '0')})
+              {t('host.proof.mdlKrInput.ownershipFlagsLabel', {flags: discloseFlags.toString(16).padStart(2, '0')})}
             </Text>
             <Text style={{marginTop: 8, fontSize: 13, color: themeColors.text.tertiary}}>
-              체크한 항목에 직접 값을 입력하세요. 회로는 입력값과 mDL의 실제 값이 같은지 검증합니다.
+              {t('host.proof.mdlKrInput.ownershipFlagsHint')}
             </Text>
             <View style={{marginTop: 12}}>
-              {DISCLOSE_OPTIONS.map((opt) => {
+              {PROVE_OPTIONS.map((opt) => {
                 const checked = discloseBits[opt.key];
                 const value =
                   opt.key === 'name'  ? expectedName
@@ -219,6 +208,11 @@ export const MdlKrInputScreen: React.FC = () => {
                   opt.key === 'birth' || opt.key === 'telno' ? 'number-pad' : 'default';
                 const maxLen =
                   opt.key === 'birth' ? 8 : opt.key === 'sex' ? 1 : opt.key === 'telno' ? 16 : 32;
+                const placeholder =
+                  opt.key === 'birth' ? t('host.proof.mdlKrInput.placeholderBirth')
+                  : opt.key === 'sex'   ? t('host.proof.mdlKrInput.placeholderSex')
+                  : opt.key === 'telno' ? t('host.proof.mdlKrInput.placeholderTelno')
+                  : t('host.proof.mdlKrInput.placeholderName');
                 return (
                   <View
                     key={opt.key}
@@ -266,12 +260,7 @@ export const MdlKrInputScreen: React.FC = () => {
                       <TextInput
                         value={value}
                         onChangeText={onChange}
-                        placeholder={
-                          opt.key === 'birth' ? 'YYYYMMDD'
-                          : opt.key === 'sex' ? 'M / F'
-                          : opt.key === 'telno' ? '01012345678'
-                          : '홍길동'
-                        }
+                        placeholder={placeholder}
                         placeholderTextColor={themeColors.text.tertiary}
                         keyboardType={keyboard}
                         maxLength={maxLen}
@@ -295,7 +284,7 @@ export const MdlKrInputScreen: React.FC = () => {
         {variant === 'age' && (
           <Card style={styles.sectionCard}>
             <Text style={[styles.sectionLabel, {color: themeColors.text.tertiary}]}>
-              최소 나이 (age_threshold)
+              {t('host.proof.mdlKrInput.ageThresholdLabel')}
             </Text>
             <TextInput
               value={ageThresholdText}
@@ -313,8 +302,8 @@ export const MdlKrInputScreen: React.FC = () => {
             />
             <Text style={{marginTop: 8, fontSize: 13, color: themeColors.text.tertiary}}>
               {parsedAgeThreshold !== null
-                ? `current_year = ${currentYear}, age_threshold = ${parsedAgeThreshold}`
-                : '0..150 사이 정수를 입력하세요'}
+                ? t('host.proof.mdlKrInput.ageHint', {currentYear, threshold: parsedAgeThreshold})
+                : t('host.proof.mdlKrInput.ageInputHint')}
             </Text>
           </Card>
         )}
@@ -322,7 +311,7 @@ export const MdlKrInputScreen: React.FC = () => {
         {variant === 'region' && (
           <Card style={styles.sectionCard}>
             <Text style={[styles.sectionLabel, {color: themeColors.text.tertiary}]}>
-              시 / 도
+              {t('host.proof.mdlKrInput.regionLabel')}
             </Text>
             <View style={{marginTop: 12}}>
               {SI_DO_OPTIONS.map((region) => {
@@ -356,7 +345,7 @@ export const MdlKrInputScreen: React.FC = () => {
         )}
 
         <Button
-          title="계속"
+          title={t('host.proof.mdlKrInput.continueButton')}
           onPress={handleContinue}
           disabled={!canContinue}
           style={styles.continueButton}

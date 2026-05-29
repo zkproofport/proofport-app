@@ -56,10 +56,17 @@ type Route = RouteProp<ProofStackParamList, 'OacxWebView'>;
  * delegates all UI and API staging to the RAON-hosted widget.
  */
 function buildHtml(provider: string, scope: string): string {
+  // RAON OACX widget required params:
+  //   - compareCI: boolean — whether to compare the returned CI against
+  //     a previously-stored CI (false for first-time authentication; the
+  //     widget shows "compareCI key의 true, false 설정 값이 누락" if
+  //     missing).
+  //   - ci / telno: opt-in to receiving these fields in the VC payload.
   const paramsJson = JSON.stringify({
     provider,
     scope,
     contentInfo: {signType: 'ENT_MID'},
+    compareCI: false,
     ci: true,
     telno: true,
   });

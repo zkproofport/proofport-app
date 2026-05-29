@@ -202,6 +202,38 @@
           "description": "Prove your residence region via Korea mobile ID — fully anonymous"
         }
       },
+      "mdlKrInput": {
+        "heroLabel": {
+          "ownership": "OWNERSHIP PROOF",
+          "age": "AGE PROOF",
+          "region": "REGION PROOF"
+        },
+        "heroTitle": {
+          "ownership": "Select attributes to prove",
+          "age": "Set the minimum age to prove",
+          "region": "Choose the province to prove residence"
+        },
+        "heroDescription": {
+          "ownership": "Only checked attributes are included in owner_commit. Checking nothing produces an anonymous proof.",
+          "age": "The circuit verifies (current year {{currentYear}} − birth year) ≥ the value you enter.",
+          "region": "The circuit verifies that the first token of your OmniOne CX address matches the selected province."
+        },
+        "ownershipFlagsLabel": "Attributes to prove (disclose_flags = 0x{{flags}})",
+        "ownershipFlagsHint": "Check each attribute and enter the value you expect your mDL to contain. The circuit verifies that the entered value matches the actual value in your mDL.",
+        "attrName": "Name",
+        "attrBirth": "Date of Birth",
+        "attrSex": "Sex",
+        "attrTelno": "Phone Number",
+        "placeholderName": "e.g. 홍길동",
+        "placeholderBirth": "YYYYMMDD",
+        "placeholderSex": "M / F",
+        "placeholderTelno": "01012345678",
+        "ageThresholdLabel": "Minimum age (age_threshold)",
+        "ageHint": "current_year = {{currentYear}}, age_threshold = {{threshold}}",
+        "ageInputHint": "Enter an integer between 0 and 150",
+        "regionLabel": "Province (si/do)",
+        "continueButton": "Continue"
+      },
       "country": {
         "heroLabel": "COUNTRY VERIFICATION",
         "heroTitle": "Country Verification",

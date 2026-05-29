@@ -202,6 +202,38 @@
           "description": "거주 지역을 증명해요 (완전 익명)"
         }
       },
+      "mdlKrInput": {
+        "heroLabel": {
+          "ownership": "소유권 증명",
+          "age": "나이 증명",
+          "region": "거주지 증명"
+        },
+        "heroTitle": {
+          "ownership": "증명할 속성을 선택하세요",
+          "age": "증명할 최소 나이를 정하세요",
+          "region": "거주를 증명할 시/도를 고르세요"
+        },
+        "heroDescription": {
+          "ownership": "체크한 항목만 owner_commit에 포함됩니다. 아무것도 체크하지 않으면 익명 증명입니다.",
+          "age": "회로는 (현재 연도 {{currentYear}} - 출생 연도) >= 입력값 인지 검증합니다.",
+          "region": "회로는 OmniOne CX 주소의 첫 토큰이 선택한 시/도와 일치하는지 검증합니다."
+        },
+        "ownershipFlagsLabel": "증명할 속성 (disclose_flags = 0x{{flags}})",
+        "ownershipFlagsHint": "체크한 항목에 직접 값을 입력하세요. 회로는 입력값과 mDL의 실제 값이 같은지 검증합니다.",
+        "attrName": "이름",
+        "attrBirth": "생년월일",
+        "attrSex": "성별",
+        "attrTelno": "전화번호",
+        "placeholderName": "예: 홍길동",
+        "placeholderBirth": "YYYYMMDD",
+        "placeholderSex": "M / F",
+        "placeholderTelno": "01012345678",
+        "ageThresholdLabel": "최소 나이 (age_threshold)",
+        "ageHint": "current_year = {{currentYear}}, age_threshold = {{threshold}}",
+        "ageInputHint": "0..150 사이 정수를 입력하세요",
+        "regionLabel": "시 / 도",
+        "continueButton": "계속"
+      },
       "country": {
         "heroLabel": "국가 인증",
         "heroTitle": "국가 인증",
