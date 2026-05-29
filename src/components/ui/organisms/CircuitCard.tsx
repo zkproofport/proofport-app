@@ -134,6 +134,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '600',
   },

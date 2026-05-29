@@ -41,6 +41,12 @@ interface CircuitDescriptor {
   /** Direct circuit screens (no extra input step). */
   navigate: (nav: NavigationProp, routeCircuitId: string) => void;
   experimental?: boolean;
+  /**
+   * i18n key for a shared group header rendered once above the first card
+   * that carries it (e.g. the three Korea mDL cards share one
+   * "Korea Mobile ID" header instead of repeating it in every title).
+   */
+  groupKey?: string;
 }
 
 // Single source of truth for the Verify-tab card list. Adding a new
@@ -88,6 +94,7 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     descriptionKey: 'host.proof.circuitSelection.mdlKrOwnership.description',
     navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'ownership'}),
     experimental: true,
+    groupKey: 'host.proof.circuitSelection.mdlKr.title',
   },
   {
     id: 'mdl_kr_age',
@@ -97,6 +104,7 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     descriptionKey: 'host.proof.circuitSelection.mdlKrAge.description',
     navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'age'}),
     experimental: true,
+    groupKey: 'host.proof.circuitSelection.mdlKr.title',
   },
   {
     id: 'mdl_kr_region',
@@ -106,6 +114,7 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     descriptionKey: 'host.proof.circuitSelection.mdlKrRegion.description',
     navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'region'}),
     experimental: true,
+    groupKey: 'host.proof.circuitSelection.mdlKr.title',
   },
   {
     id: 'oidc_domain_attestation',
@@ -212,17 +221,38 @@ export const CircuitSelectionScreen: React.FC = () => {
           </Text>
 
           {visibleCards.length === 0 ? null : (
-            visibleCards.map((c) => (
-              <CircuitCard
-                key={c.id}
-                icon={getCircuitIcon(c.iconKey)}
-                title={t(c.titleKey)}
-                description={t(c.descriptionKey)}
-                experimental={c.experimental}
-                experimentalLabel={t('host.proof.circuitSelection.experimentalBadge')}
-                onPress={() => c.navigate(navigation, c.routeCircuitId)}
-              />
-            ))
+            visibleCards.map((c, i) => {
+              // Render a shared group header once, above the first card that
+              // carries a groupKey (so the three Korea mDL cards sit under one
+              // "Korea Mobile ID" heading instead of repeating it per title).
+              const prev = visibleCards[i - 1];
+              const showGroupHeader = !!c.groupKey && c.groupKey !== prev?.groupKey;
+              return (
+                <React.Fragment key={c.id}>
+                  {showGroupHeader && (
+                    <Text
+                      style={{
+                        fontSize: 18,
+                        fontWeight: '700',
+                        color: themeColors.text.primary,
+                        letterSpacing: -0.3,
+                        marginTop: 4,
+                        marginBottom: 12,
+                      }}>
+                      {t(c.groupKey!)}
+                    </Text>
+                  )}
+                  <CircuitCard
+                    icon={getCircuitIcon(c.iconKey)}
+                    title={t(c.titleKey)}
+                    description={t(c.descriptionKey)}
+                    experimental={c.experimental}
+                    experimentalLabel={t('host.proof.circuitSelection.experimentalBadge')}
+                    onPress={() => c.navigate(navigation, c.routeCircuitId)}
+                  />
+                </React.Fragment>
+              );
+            })
           )}
         </View>
       </ScrollView>

@@ -252,9 +252,16 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // the OIDC-domain-attestation pattern. signal_hash, cx_integrity_root,
   // cx_jti, cx_pri removed pending RAON RP registration (HS256 path dormant).
   // Each circuit enforces a single predicate (selective disclosure, age, region).
-  mdl_kr_ownership: 4,
-  mdl_kr_age: 4,
-  mdl_kr_region: 4,
+  // v5: force re-download to eliminate any stale on-device circuit cache
+  // while diagnosing the ownership witness mismatch (circuit bytes unchanged
+  // vs v4; bump only invalidates the device cache).
+  // v6: verifies the cache-invalidation fix self-heals WITHOUT a reinstall --
+  // a device holding the v5 cache must now auto delete + re-download on the
+  // next proof run (downloadCircuitFiles is always invoked; shouldInvalidateCache
+  // sees stored.dataVersion 5 != 6). Circuit bytes unchanged vs v5.
+  mdl_kr_ownership: 6,
+  mdl_kr_age: 6,
+  mdl_kr_region: 6,
 };
 
 /**
@@ -282,19 +289,19 @@ export const CIRCUIT_NETWORK_OVERRIDES: Record<CircuitName, NetworkConfig | unde
   // overrides once OmniOne Chain access is granted.
   mdl_kr_ownership: {
     chainId: 84532,
-    name: 'OmniOne Chain (preview / Base Sepolia)',
+    name: 'OmniOne Chain Testnet',
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
   },
   mdl_kr_age: {
     chainId: 84532,
-    name: 'OmniOne Chain (preview / Base Sepolia)',
+    name: 'OmniOne Chain Testnet',
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
   },
   mdl_kr_region: {
     chainId: 84532,
-    name: 'OmniOne Chain (preview / Base Sepolia)',
+    name: 'OmniOne Chain Testnet',
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
   },

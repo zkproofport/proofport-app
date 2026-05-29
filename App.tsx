@@ -166,6 +166,26 @@ const App: React.FC = () => {
     // Mark this as the active request
     activeRequestId.current = request.requestId;
 
+    // mDL: skip the generic confirmation modal. The mobile-ID-type bottom
+    // sheet inside ProofGenerationScreen is the confirmation + entry point;
+    // the modal's wallet / Coinbase-shaped UI does not apply to the on-device
+    // mDL flow. Navigate straight to proof generation.
+    if (request.circuit.startsWith('mdl_kr_')) {
+      console.log('[App] mDL request — navigating directly:', request.requestId);
+      setActiveProofRequest(request);
+      navigationRef.current?.dispatch(
+        CommonActions.navigate({
+          name: 'ProofTab',
+          params: {
+            screen: 'ProofGeneration',
+            params: {circuitId: request.circuit, proofRequest: request},
+          },
+        }),
+      );
+      setPendingRequest(null);
+      return;
+    }
+
     console.log('[App] Valid proof request, showing modal:', request.requestId);
     setPendingRequest(request);
     setShowRequestModal(true);

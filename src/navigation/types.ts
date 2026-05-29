@@ -25,6 +25,14 @@ export type ProofStackParamList = {
     domainInput?: { domain?: string; scope: string; provider?: string };
     mdlKrInputs?: {
       variant: 'ownership' | 'age' | 'region';
+      /**
+       * OmniOne CX document type:
+       *   comdl_v1.5      = mobile driver's license
+       *   comrc_v1.5      = mobile resident registration card
+       *   comnh_v1.5      = mobile veterans (national-merit) card
+       *   coresidence_v1.5 = alien registration card
+       */
+      provider?: 'comdl_v1.5' | 'comrc_v1.5' | 'comnh_v1.5' | 'coresidence_v1.5';
       discloseFlags?: number;
       expectedName?: string;
       expectedBirth?: string;

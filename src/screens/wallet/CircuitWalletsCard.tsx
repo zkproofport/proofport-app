@@ -23,11 +23,12 @@
  * `pendingBindTarget` is non-null), the binding is written immediately —
  * binding happens at connect time, NOT at proof-success time.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import {usePrivyWallet} from '../../hooks/usePrivyWallet';
+import {useSettings} from '../../hooks/useSettings';
 import {getCircuitDisplayName} from '../../utils/circuit';
 import {
   CIRCUIT_WALLET_TTL_MS,
@@ -87,6 +88,18 @@ function rowStatus(entry: Entry | null, account: string | null): Status {
 export const CircuitWalletsCard: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
   const {account, connect, disconnect} = usePrivyWallet();
+  const {settings} = useSettings();
+  const developerMode = settings?.developerMode ?? false;
+  // GIWA is a dev-only / experimental network. Its wallet-binding row is
+  // hidden unless Developer Mode is on, matching how the GIWA network is
+  // gated everywhere else (circuit picker, LoadingScreen download list).
+  const visibleCircuits = useMemo(
+    () =>
+      developerMode
+        ? CIRCUITS
+        : CIRCUITS.filter((c) => c !== 'giwa_attestation'),
+    [developerMode],
+  );
   const [entries, setEntries] = useState<Record<string, Entry | null>>({});
   // Seed from the module-level latch so a remounted instance after
   // disconnect/picker→reconnect can still commit the pending binding.
@@ -101,11 +114,11 @@ export const CircuitWalletsCard: React.FC = () => {
 
   const refresh = useCallback(async () => {
     const next: Record<string, Entry | null> = {};
-    for (const c of CIRCUITS) {
+    for (const c of visibleCircuits) {
       next[c] = await getCircuitWalletEntry(walletGroupKey(c));
     }
     setEntries(next);
-  }, []);
+  }, [visibleCircuits]);
 
   useEffect(() => {
     refresh().catch(console.error);
@@ -217,7 +230,7 @@ export const CircuitWalletsCard: React.FC = () => {
         link a wallet to a circuit; Clear unbinds. A wallet shows as Connected
         only while it is the currently active session.
       </Text>
-      {CIRCUITS.map((c) => {
+      {visibleCircuits.map((c) => {
         const e = entries[c] ?? null;
         const status = rowStatus(e, account);
         const isBusy = busy === c;

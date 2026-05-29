@@ -200,12 +200,17 @@ export function prepareMdlKrOwnershipInputs(
     ? expectedSexChar.charCodeAt(0)
     : 0;
 
+  // owner_buf layout MUST match circuits/mdl/kr-common/src/lib.nr
+  // ::assert_owner_commit and circuits/mdl/scripts/gen.mjs exactly:
+  //   name(64) @ 0 | telno(16) @ 64 | birth(8) @ 80 | sex(1) @ 88
+  // A wrong order makes owner_commit disagree with the circuit's
+  // recomputed hash -> assert fails -> MoproError.NoirError.
   const f = opts.discloseFlags & 0x0f;
   const ownerBuf = new Uint8Array(89);
   if (f & DISCLOSE_NAME)  ownerBuf.set(expectedName,  0);
-  if (f & DISCLOSE_BIRTH) ownerBuf.set(expectedBirth, 64);
-  if (f & DISCLOSE_SEX)   ownerBuf[72] = expectedSex;
-  if (f & DISCLOSE_TELNO) ownerBuf.set(expectedTelno, 73);
+  if (f & DISCLOSE_TELNO) ownerBuf.set(expectedTelno, 64);
+  if (f & DISCLOSE_BIRTH) ownerBuf.set(expectedBirth, 80);
+  if (f & DISCLOSE_SEX)   ownerBuf[88] = expectedSex;
 
   const ownerCommit =
     f === 0

@@ -1,4 +1,5 @@
 import React, {useState, useCallback, useEffect, useRef} from 'react';
+import {MobileIdTypeSheet, type MdlProvider} from '../../components/MobileIdTypeSheet';
 import {
   View,
   Text,
@@ -46,6 +47,10 @@ const CIRCUIT_DISPLAY: Record<string, string> = {
   'mdl-kr-ownership': 'Korea Mobile ID — Ownership',
   'mdl-kr-age': 'Korea Mobile ID — Age',
   'mdl-kr-region': 'Korea Mobile ID — Region',
+  // Canonical underscore ids — deep links / OpenStoa login arrive with these.
+  'mdl_kr_ownership': 'Korea Mobile ID — Ownership',
+  'mdl_kr_age': 'Korea Mobile ID — Age',
+  'mdl_kr_region': 'Korea Mobile ID — Region',
 };
 
 const CIRCUIT_CONFIG: Record<string, string> = {
@@ -57,6 +62,9 @@ const CIRCUIT_CONFIG: Record<string, string> = {
   'mdl-kr-ownership': 'mdl_kr_ownership',
   'mdl-kr-age': 'mdl_kr_age',
   'mdl-kr-region': 'mdl_kr_region',
+  'mdl_kr_ownership': 'mdl_kr_ownership',
+  'mdl_kr_age': 'mdl_kr_age',
+  'mdl_kr_region': 'mdl_kr_region',
 };
 
 // Map route circuitId -> mdl_kr predicate variant. The MdlKrInputScreen
@@ -66,6 +74,12 @@ const MDL_VARIANT_OF: Record<string, 'ownership' | 'age' | 'region'> = {
   'mdl-kr-ownership': 'ownership',
   'mdl-kr-age': 'age',
   'mdl-kr-region': 'region',
+  // Canonical underscore ids — deep links / OpenStoa login use these. Without
+  // these aliases mdlVariant is undefined -> isMdl false -> the request falls
+  // through to the Coinbase KYC default flow.
+  'mdl_kr_ownership': 'ownership',
+  'mdl_kr_age': 'age',
+  'mdl_kr_region': 'region',
 };
 
 const ProgressButton: React.FC<{
@@ -233,6 +247,11 @@ export const ProofGenerationScreen: React.FC = () => {
   const isGiwa = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
   const mdlVariant = MDL_VARIANT_OF[circuitId];
   const isMdl = mdlVariant !== undefined;
+  // Document-type bottom sheet for the mDL flow. The chosen provider is held
+  // in a ref so handleGenerateProof (a stable useCallback) reads the latest
+  // value without being recreated.
+  const [mdlSheetVisible, setMdlSheetVisible] = useState(false);
+  const chosenMdlProviderRef = useRef<MdlProvider | null>(null);
   const oidcProvider = (proofRequest?.inputs as {provider?: string} | undefined)?.provider || route.params?.domainInput?.provider;
 
   const kycHook = useCoinbaseKyc();
@@ -422,6 +441,13 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [hook.parsedProof, navigation, circuitId, proofRequest, sendProof, account, isOidc, markHistoryFailed]);
 
   const handleGenerateProof = useCallback(async () => {
+    // mDL: the document-type bottom sheet is the entry point and the
+    // confirmation step. Open it first; its onSelect sets the provider ref
+    // and re-invokes this function (ref non-null -> proceeds past this guard).
+    if (isMdl && chosenMdlProviderRef.current === null) {
+      setMdlSheetVisible(true);
+      return;
+    }
     // Wallet flow is fully driven by useCircuitWalletGate (single source of
     // truth implementing the documented K-map). Anything other than `address`
     // means the gate already opened a picker / dismissed; the auto-retry
@@ -504,7 +530,7 @@ export const ProofGenerationScreen: React.FC = () => {
           await mdlHook.generateProofWithSteps(
             {
               variant: 'ownership',
-              provider: 'comdl_v1.5',
+              provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
               scopeString: scopeStr,
               discloseFlags,
               expectedName:  mInputs?.expectedName,
@@ -526,7 +552,7 @@ export const ProofGenerationScreen: React.FC = () => {
           await mdlHook.generateProofWithSteps(
             {
               variant: 'age',
-              provider: 'comdl_v1.5',
+              provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
               scopeString: scopeStr,
               ageThreshold,
               currentYear,
@@ -543,7 +569,7 @@ export const ProofGenerationScreen: React.FC = () => {
           await mdlHook.generateProofWithSteps(
             {
               variant: 'region',
-              provider: 'comdl_v1.5',
+              provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
               scopeString: scopeStr,
               targetRegion,
             },
@@ -744,6 +770,27 @@ export const ProofGenerationScreen: React.FC = () => {
     if (!walletGate.isPostPicker) previousAccountRef.current = account;
   }, [account, walletGate, circuitId, addLog, handleGenerateProof]);
 
+  // mDL document-type sheet selection -> stash provider + start proof.
+  const handleMdlProviderSelect = useCallback(
+    (provider: MdlProvider) => {
+      chosenMdlProviderRef.current = provider;
+      setMdlSheetVisible(false);
+      handleGenerateProof();
+    },
+    [handleGenerateProof],
+  );
+
+  // mDL deep link / OpenStoa login: on arrival, kick off the flow. The guard
+  // in handleGenerateProof opens the document-type sheet; selection drives the
+  // proof. No wallet/account needed (mDL is on-device), unlike the effect below.
+  useEffect(() => {
+    if (isMdl && proofRequest && !hasAutoStarted.current) {
+      hasAutoStarted.current = true;
+      addLog(`[DeepLink] mDL from: ${proofRequest.dappName || 'Unknown'}`);
+      handleGenerateProof();
+    }
+  }, [isMdl, proofRequest, handleGenerateProof, addLog]);
+
   // Auto-start for deep link requests
   useEffect(() => {
     if (proofRequest && circuitReady && account && !hasAutoStarted.current) {
@@ -894,6 +941,11 @@ export const ProofGenerationScreen: React.FC = () => {
           <ActivityIndicator size="large" color={themeColors.info[500]} />
         </View>
       )}
+      <MobileIdTypeSheet
+        visible={mdlSheetVisible}
+        onSelect={handleMdlProviderSelect}
+        onCancel={() => setMdlSheetVisible(false)}
+      />
     </SafeAreaView>
   );
 };

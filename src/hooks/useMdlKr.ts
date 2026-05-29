@@ -33,7 +33,6 @@ import {
   ensureStorageAvailable,
   loadVkFromAssets,
   downloadCircuitFiles,
-  allCircuitFilesExist,
 } from '../utils';
 import {
   prepareMdlKrOwnershipInputs,
@@ -242,13 +241,13 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
       let parsedCx: OacxParsedToken | null = null;
 
       try {
-        const filesExist = await allCircuitFilesExist(CIRCUIT_NAME);
-        if (!filesExist) {
-          addLog(`Circuit files for ${CIRCUIT_NAME} not found, downloading...`);
-          const env = getEnvironment();
-          await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
-          addLog('Circuit files downloaded');
-        }
+        // Always run downloadCircuitFiles -- it owns the version-invalidation
+        // check (shouldInvalidateCache) and only re-downloads when the cached
+        // data version differs. Gating this on `!filesExist` would skip the
+        // version check whenever a stale circuit is already on disk, so a
+        // CIRCUIT_DATA_VERSIONS bump would never self-heal without a reinstall.
+        const env = getEnvironment();
+        await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
 
         // Step 1: VK
         updateStep('vk', {status: 'in_progress'});
@@ -291,16 +290,25 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
           }
           addLog('OACX widget succeeded');
 
-          // Log the raw widget payload so we can see the exact shape the
-          // RAON widget returns (its key for the token has varied between
-          // builds: token / resultToken / data.token).
-          const widgetRes = (busResult.payload ?? {}) as Record<string, any>;
-          addLog(
-            `OACX widget payload keys: [${Object.keys(widgetRes).join(', ')}]`,
-          );
-          addLog(`OACX widget payload: ${JSON.stringify(widgetRes).slice(0, 300)}`);
+          // The RAON widget callback delivers `res` as a JSON STRING
+          // (e.g. '{"token":"eyJ..."}'), NOT an object. Parse it first.
+          // NEVER JSON.stringify / Object.keys the raw value for logging
+          // — a string explodes into tens of thousands of per-character
+          // indices and blows up the log view.
+          const raw = busResult.payload as unknown;
+          let widgetRes: Record<string, any>;
+          if (typeof raw === 'string') {
+            try {
+              widgetRes = JSON.parse(raw);
+            } catch {
+              throw new Error(
+                `OACX widget returned an unparseable string (len=${raw.length})`,
+              );
+            }
+          } else {
+            widgetRes = (raw ?? {}) as Record<string, any>;
+          }
 
-          // Pull the token out of whatever key the widget used.
           const widgetToken: string | undefined =
             widgetRes.token ??
             widgetRes.resultToken ??
@@ -308,14 +316,13 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
             widgetRes.result?.token;
 
           if (widgetRes.data?.ci) {
-            // Some widget builds return an already-parsed VC.
             parsedCx = widgetRes as OacxParsedToken;
           } else if (widgetToken) {
-            addLog('OACX — parsing token into VC (POST /trans/token)...');
+            addLog('OACX — token received, parsing VC (POST /trans/token)...');
             parsedCx = await parseToken({token: widgetToken});
           } else {
             throw new Error(
-              `OACX widget result has no token. keys=[${Object.keys(widgetRes).join(', ')}] payload=${JSON.stringify(widgetRes).slice(0, 200)}`,
+              `OACX widget result has no token (keys: ${Object.keys(widgetRes).slice(0, 12).join(',')})`,
             );
           }
         } else {
@@ -403,6 +410,28 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
         updateStep('proof', {status: 'in_progress'});
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
+
+        // Diagnostic: confirm the on-device circuit matches the v4 inputs
+        // before proving. If circuitPubInputs !== expected (ownership 97 /
+        // age 66 / region 96) the device is running a STALE circuit (cache
+        // not invalidated). flatLen must equal the circuit's total field
+        // count (ownership 274). A mismatch here is the NoirError cause.
+        const flatLen = flat.length;
+        let circuitPubInputs = -1;
+        try {
+          circuitPubInputs = getNumPublicInputsFromCircuit(circuitPath);
+        } catch (e) {
+          addLog(`[diag] getNumPublicInputsFromCircuit threw: ${String(e)}`);
+        }
+        addLog(`[diag] flatLen=${flatLen} circuitPublicInputs=${circuitPubInputs}`);
+        // Log the public-input bytes we are submitting (hex) so they can be
+        // compared against what the circuit recomputes.
+        const toHex = (arr: string[]): string =>
+          arr.map((v) => (parseInt(v, 10) & 0xff).toString(16).padStart(2, '0')).join('');
+        addLog(`[diag] disclose_flags=${flat[64]}`);
+        addLog(`[diag] nullifier=0x${toHex(flat.slice(32, 64))}`);
+        addLog(`[diag] owner_commit=0x${toHex(flat.slice(65, 97))}`);
+
         const proofStart = Date.now();
         currentProof = generateNoirProof(
           circuitPath,

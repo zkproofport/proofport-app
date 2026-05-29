@@ -42,6 +42,21 @@ const CIRCUIT_INFO = {
     icon: '🏯',
     description: 'Prove GIWA Sepolia KYC attestation (PoC)',
   },
+  mdl_kr_ownership: {
+    name: 'Korea Mobile ID — Ownership',
+    icon: '🪪',
+    description: 'Prove ownership of your Korea mobile ID',
+  },
+  mdl_kr_age: {
+    name: 'Korea Mobile ID — Age',
+    icon: '🪪',
+    description: 'Prove you are an adult via your Korea mobile ID',
+  },
+  mdl_kr_region: {
+    name: 'Korea Mobile ID — Region',
+    icon: '🪪',
+    description: 'Prove your residence region via your Korea mobile ID',
+  },
 };
 
 export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({

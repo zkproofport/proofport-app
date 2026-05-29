@@ -3,7 +3,10 @@ export type CircuitType =
   | 'coinbase_attestation'
   | 'coinbase_country_attestation'
   | 'oidc_domain_attestation'
-  | 'giwa_attestation';
+  | 'giwa_attestation'
+  | 'mdl_kr_ownership'
+  | 'mdl_kr_age'
+  | 'mdl_kr_region';
 
 export interface CoinbaseKycInputs {
   userAddress?: string; // Optional - app will connect wallet if not provided
@@ -180,7 +183,17 @@ export function validateProofRequest(
     return {valid: false, error: 'Missing circuit type'};
   }
 
-  if (!['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation', 'giwa_attestation'].includes(request.circuit)) {
+  if (
+    ![
+      'coinbase_attestation',
+      'coinbase_country_attestation',
+      'oidc_domain_attestation',
+      'giwa_attestation',
+      'mdl_kr_ownership',
+      'mdl_kr_age',
+      'mdl_kr_region',
+    ].includes(request.circuit)
+  ) {
     return {valid: false, error: `Invalid circuit type: ${request.circuit}`};
   }
 

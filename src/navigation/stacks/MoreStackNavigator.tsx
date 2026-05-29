@@ -46,7 +46,7 @@ const MoreStackNavigator: React.FC = () => {
       <Stack.Screen
         name="InAppBrowser"
         component={InAppBrowserScreen}
-        options={{headerShown: false}}
+        options={{headerShown: false, presentation: 'modal'}}
       />
     </Stack.Navigator>
   );

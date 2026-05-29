@@ -31,7 +31,6 @@ import type {ProofStackParamList} from '../../navigation/types';
 import {
   DISCLOSE_NAME,
   DISCLOSE_BIRTH,
-  DISCLOSE_SEX,
   DISCLOSE_TELNO,
 } from '../../utils/mdlKr';
 
@@ -71,15 +70,17 @@ export const MdlKrInputScreen: React.FC = () => {
   // in the value they expect their mDL to match; the circuit asserts
   // equality when the corresponding flag bit is set. Blank input with
   // the flag set is rejected by canContinue below.
+  // sex is intentionally absent: the Korea mDL (OmniOne CX ENT_MID) VC does
+  // not carry a sex field, so a user-supplied sex could never match the
+  // credential's (empty) value -> owner_commit mismatch. Only attributes the
+  // mDL actually returns (name / birth / phone) can be proven.
   const [discloseBits, setDiscloseBits] = useState<Record<string, boolean>>({
     name: false,
     birth: false,
-    sex: false,
     telno: false,
   });
   const [expectedName, setExpectedName] = useState('');
   const [expectedBirth, setExpectedBirth] = useState('');
-  const [expectedSex, setExpectedSex] = useState('');
   const [expectedTelno, setExpectedTelno] = useState('');
 
   // age state
@@ -92,7 +93,6 @@ export const MdlKrInputScreen: React.FC = () => {
     let f = 0;
     if (discloseBits.name)  f |= DISCLOSE_NAME;
     if (discloseBits.birth) f |= DISCLOSE_BIRTH;
-    if (discloseBits.sex)   f |= DISCLOSE_SEX;
     if (discloseBits.telno) f |= DISCLOSE_TELNO;
     return f & 0x0f;
   }, [discloseBits]);
@@ -109,14 +109,13 @@ export const MdlKrInputScreen: React.FC = () => {
       // Anonymous (flags == 0) is also allowed.
       if (discloseBits.name  && expectedName.trim().length === 0) return false;
       if (discloseBits.birth && expectedBirth.trim().length === 0) return false;
-      if (discloseBits.sex   && expectedSex.trim().length === 0) return false;
       if (discloseBits.telno && expectedTelno.trim().length === 0) return false;
       return true;
     }
     if (variant === 'age') return parsedAgeThreshold !== null;
     if (variant === 'region') return selectedRegion !== null;
     return false;
-  }, [variant, parsedAgeThreshold, selectedRegion, discloseBits, expectedName, expectedBirth, expectedSex, expectedTelno]);
+  }, [variant, parsedAgeThreshold, selectedRegion, discloseBits, expectedName, expectedBirth, expectedTelno]);
 
   const handleContinue = () => {
     if (!canContinue) return;
@@ -129,7 +128,6 @@ export const MdlKrInputScreen: React.FC = () => {
           discloseFlags,
           expectedName:  discloseBits.name  ? expectedName.trim()  : undefined,
           expectedBirth: discloseBits.birth ? expectedBirth.trim() : undefined,
-          expectedSex:   discloseBits.sex   ? expectedSex.trim()   : undefined,
           expectedTelno: discloseBits.telno ? expectedTelno.trim() : undefined,
         },
       });
@@ -152,14 +150,13 @@ export const MdlKrInputScreen: React.FC = () => {
 
   // Attribute rows for the ownership variant — labels via i18n.
   const PROVE_OPTIONS: ReadonlyArray<{
-    key: 'name' | 'birth' | 'sex' | 'telno';
+    key: 'name' | 'birth' | 'telno';
     bit: number;
     label: string;
     hint: string;
   }> = [
     {key: 'name',  bit: DISCLOSE_NAME,  label: t('host.proof.mdlKrInput.attrName'),  hint: 'name'},
     {key: 'birth', bit: DISCLOSE_BIRTH, label: t('host.proof.mdlKrInput.attrBirth'), hint: 'birth_date'},
-    {key: 'sex',   bit: DISCLOSE_SEX,   label: t('host.proof.mdlKrInput.attrSex'),   hint: 'sex'},
     {key: 'telno', bit: DISCLOSE_TELNO, label: t('host.proof.mdlKrInput.attrTelno'), hint: 'telno'},
   ];
 
@@ -196,21 +193,18 @@ export const MdlKrInputScreen: React.FC = () => {
                 const value =
                   opt.key === 'name'  ? expectedName
                   : opt.key === 'birth' ? expectedBirth
-                  : opt.key === 'sex'   ? expectedSex
                   : expectedTelno;
                 const onChange = (txt: string) => {
                   if (opt.key === 'name')  setExpectedName(txt);
                   else if (opt.key === 'birth') setExpectedBirth(txt);
-                  else if (opt.key === 'sex')   setExpectedSex(txt);
                   else if (opt.key === 'telno') setExpectedTelno(txt);
                 };
                 const keyboard =
                   opt.key === 'birth' || opt.key === 'telno' ? 'number-pad' : 'default';
                 const maxLen =
-                  opt.key === 'birth' ? 8 : opt.key === 'sex' ? 1 : opt.key === 'telno' ? 16 : 32;
+                  opt.key === 'birth' ? 8 : opt.key === 'telno' ? 16 : 32;
                 const placeholder =
                   opt.key === 'birth' ? t('host.proof.mdlKrInput.placeholderBirth')
-                  : opt.key === 'sex'   ? t('host.proof.mdlKrInput.placeholderSex')
                   : opt.key === 'telno' ? t('host.proof.mdlKrInput.placeholderTelno')
                   : t('host.proof.mdlKrInput.placeholderName');
                 return (
@@ -264,7 +258,7 @@ export const MdlKrInputScreen: React.FC = () => {
                         placeholderTextColor={themeColors.text.tertiary}
                         keyboardType={keyboard}
                         maxLength={maxLen}
-                        autoCapitalize={opt.key === 'sex' ? 'characters' : 'none'}
+                        autoCapitalize="none"
                         style={[
                           styles.expectedInput,
                           {

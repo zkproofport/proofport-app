@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
+import {cacheNeedsInvalidation} from './cacheInvalidation';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
 
@@ -293,13 +294,18 @@ async function shouldInvalidateCache(
   if (!configPath) return false;
 
   const stored = await getStoredCircuitVersion(circuitName);
-  if (!stored) return false;
-
   const expectedVersion = CIRCUIT_DATA_VERSIONS[circuitName as CircuitName] ?? 0;
-  if ((stored.dataVersion ?? 0) !== expectedVersion) return true;
-
   const currentBaseUrl = await resolveCircuitBaseUrl(env);
-  return stored.baseUrl !== currentBaseUrl;
+  // hasCachedFiles only matters when there is no stored metadata, so skip the
+  // extra disk hit otherwise.
+  const hasCachedFiles = stored ? false : await allCircuitFilesExist(circuitName);
+
+  return cacheNeedsInvalidation({
+    stored,
+    expectedVersion,
+    currentBaseUrl,
+    hasCachedFiles,
+  });
 }
 
 export async function downloadCircuitFiles(

@@ -30,11 +30,11 @@
       "defaultNetwork": "Default Network",
       "networkBase": "Base",
       "networkGiwa": "GIWA Testnet",
-      "networkOmniOne": "OmniOne Chain (preview)",
+      "networkOmniOne": "OmniOne Chain Testnet",
       "autoSaveProofs": "Auto-save proofs",
       "confirmBeforeGenerate": "Confirm before generate",
       "showLiveLogs": "Show live logs",
-      "useOmniOneCxUi": "Use OmniOne CX UI (off = direct deep link)",
+      "useOmniOneCxUi": "Use OmniOne CX UI",
       "exportProofHistory": "Export Proof History",
       "clearLocalData": "Clear Local Data",
       "exportTitle": "Export Proof History",
@@ -191,15 +191,15 @@
           "description": "Verify Korean mobile driver's license / resident card via OmniOne CX"
         },
         "mdlKrOwnership": {
-          "title": "Korea Mobile ID — Ownership",
-          "description": "Prove ownership of a Korea mobile ID (name + birth + sex + phone commitment)"
+          "title": "Ownership",
+          "description": "Prove ownership of a Korea mobile ID (name + birth + phone commitment)"
         },
         "mdlKrAge": {
-          "title": "Korea Mobile ID — Age",
+          "title": "Age",
           "description": "Prove you are an adult (age 19+) via Korea mobile ID — fully anonymous"
         },
         "mdlKrRegion": {
-          "title": "Korea Mobile ID — Region",
+          "title": "Region",
           "description": "Prove your residence region via Korea mobile ID — fully anonymous"
         }
       },
@@ -219,6 +219,12 @@
           "age": "The circuit verifies (current year {{currentYear}} − birth year) ≥ the value you enter.",
           "region": "The circuit verifies that the first token of your OmniOne CX address matches the selected province."
         },
+        "docTypeLabel": "Mobile ID type",
+        "docDriver": "Mobile Driver's License",
+        "docResident": "Mobile Resident Card",
+        "docVeteran": "Mobile Veterans Card",
+        "docAlien": "Alien Registration Card",
+        "docCancel": "Cancel",
         "ownershipFlagsLabel": "Attributes to prove (disclose_flags = 0x{{flags}})",
         "ownershipFlagsHint": "Check each attribute and enter the value you expect your mDL to contain. The circuit verifies that the entered value matches the actual value in your mDL.",
         "attrName": "Name",

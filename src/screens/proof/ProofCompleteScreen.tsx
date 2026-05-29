@@ -34,6 +34,10 @@ const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
   'mdl-kr-ownership': 'Korea Mobile ID — Ownership',
   'mdl-kr-age': 'Korea Mobile ID — Age',
   'mdl-kr-region': 'Korea Mobile ID — Region',
+  // Canonical underscore ids — deep links / OpenStoa login arrive with these.
+  'mdl_kr_ownership': 'Korea Mobile ID — Ownership',
+  'mdl_kr_age': 'Korea Mobile ID — Age',
+  'mdl_kr_region': 'Korea Mobile ID — Region',
 };
 
 export const ProofCompleteScreen: React.FC = () => {
@@ -69,9 +73,9 @@ export const ProofCompleteScreen: React.FC = () => {
   const isOidcCircuit = circuitId === 'oidc_domain_attestation';
   const isGiwaCircuit = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
   const mdlVariant: 'ownership' | 'age' | 'region' | null =
-    circuitId === 'mdl-kr-ownership' ? 'ownership'
-    : circuitId === 'mdl-kr-age' ? 'age'
-    : circuitId === 'mdl-kr-region' ? 'region'
+    circuitId === 'mdl-kr-ownership' || circuitId === 'mdl_kr_ownership' ? 'ownership'
+    : circuitId === 'mdl-kr-age' || circuitId === 'mdl_kr_age' ? 'age'
+    : circuitId === 'mdl-kr-region' || circuitId === 'mdl_kr_region' ? 'region'
     : null;
   const isMdlCircuit = mdlVariant !== null;
   const kycHook = useCoinbaseKyc();
