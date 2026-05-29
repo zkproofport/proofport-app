@@ -55,10 +55,12 @@ import {
 } from '../utils/mdlKr';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {
-  runAppAuthFlow,
-  type OacxProvider,
-  type OacxParsedToken,
+// oacxClient.ts (raw 4-stage HTTP path) is retained for reference but is
+// no longer auto-invoked: the RAON widget owns app selection, and we must
+// not launch the mobile-ID deep link ourselves. Only the types are used.
+import type {
+  OacxProvider,
+  OacxParsedToken,
 } from '../utils/oacxClient';
 import * as oacxResultBus from '../utils/oacxResultBus';
 import type {ProofStackParamList} from '../navigation/types';
@@ -251,43 +253,42 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
           detail: `${currentVk.byteLength} bytes (${vkElapsed}ms)`,
         });
 
-        // Step 2: OmniOne CX authentication via WebView widget.
-        // Navigates to OacxWebViewScreen which loads the RAON standard widget.
-        // The screen resolves via OacxResultBus. If the WebView fails (e.g.,
-        // RAON RP origin not registered yet), falls back to the raw 4-stage
-        // HTTP path (oacxClient.ts::runAppAuthFlow).
+        // Step 2: OmniOne CX authentication via the RAON standard widget
+        // (OacxWebViewScreen). The widget OWNS the entire flow including
+        // which mobile-ID app the user picks. We must NOT auto-launch the
+        // mobile-ID app ourselves — doing so previously opened the app
+        // deep link even when the user had not selected anything in the
+        // CX UI. So on widget failure we surface the error and STOP; we
+        // do NOT fall back to oacxClient.ts::launchMobileIdApp.
         updateStep('oacx', {status: 'in_progress'});
         const oacxStart = Date.now();
-        try {
-          addLog('OACX — navigating to WebView widget...');
-          const resultPromise = oacxResultBus.awaitNextResult(5 * 60 * 1000);
-          navigation.navigate('OacxWebView', {
-            provider: inputs.provider,
-            scope: inputs.scopeString,
-          });
-          const busResult = await resultPromise;
-          if (busResult.ok) {
-            parsedCx = busResult.payload;
-            addLog('OACX WebView succeeded');
-          } else {
-            addLog(`OACX WebView failed (${busResult.error}), falling back to raw API path...`);
-            parsedCx = await runAppAuthFlow({
-              provider: inputs.provider,
-              ci: true,
-              telno: true,
-              onLog: addLog,
-            });
-          }
-        } catch (webViewErr) {
-          const msg = webViewErr instanceof Error ? webViewErr.message : String(webViewErr);
-          addLog(`OACX WebView error (${msg}), falling back to raw API path...`);
-          parsedCx = await runAppAuthFlow({
-            provider: inputs.provider,
-            ci: true,
-            telno: true,
-            onLog: addLog,
-          });
+        addLog('OACX — navigating to RAON widget...');
+        const resultPromise = oacxResultBus.awaitNextResult(5 * 60 * 1000);
+        navigation.navigate('OacxWebView', {
+          provider: inputs.provider,
+          scope: inputs.scopeString,
+        });
+        const busResult = await resultPromise;
+        if (!busResult.ok) {
+          throw new Error(
+            `OmniOne CX 인증 실패: ${busResult.error}. CX 인증창에서 다시 시도해 주세요.`,
+          );
         }
+        parsedCx = busResult.payload;
+        addLog('OACX widget succeeded');
+
+        // MANUAL FALLBACK (disabled): the raw 4-stage HTTP path below
+        // (oacxClient.ts::runAppAuthFlow) auto-launches the mobile-ID app
+        // deep link, which must NOT happen automatically — the RAON
+        // widget owns app selection. Kept here, commented out, so we can
+        // manually re-enable it if the widget path is ever unavailable.
+        // To use: import {runAppAuthFlow} from '../utils/oacxClient', then
+        //   parsedCx = await runAppAuthFlow({
+        //     provider: inputs.provider,
+        //     ci: true,
+        //     telno: true,
+        //     onLog: addLog,
+        //   });
         const oacxElapsed = Date.now() - oacxStart;
         setCxData(parsedCx);
         updateStep('oacx', {
