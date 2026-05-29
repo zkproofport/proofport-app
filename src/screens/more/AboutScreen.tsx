@@ -6,15 +6,16 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Linking,
   Alert,
   Pressable,
 } from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTranslation} from 'react-i18next';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {useThemeColors} from '../../context';
 
-import type {MoreTabScreenProps} from '../../navigation/types';
+import type {MoreTabScreenProps, MoreStackParamList} from '../../navigation/types';
 import {getVersionDisplay} from '../../utils/version';
 import {useSettings} from '../../hooks/useSettings';
 
@@ -23,10 +24,13 @@ const OPENSTOA_URL = 'https://www.openstoa.xyz';
 const ZKPROOFPORT_URL = 'https://www.zkproofport.com';
 const AZTEC_URL = 'https://aztec.network';
 
+type MoreNavigation = NativeStackNavigationProp<MoreStackParamList>;
+
 const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
   const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
   const {settings, updateSettings} = useSettings();
+  const navigation = useNavigation<MoreNavigation>();
   const [tapCount, setTapCount] = useState(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -48,17 +52,9 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
     }
   };
 
-  const openURL = async (url: string, title: string) => {
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert(t('common.ok'), t('host.about.openURLError', {title}));
-      }
-    } catch (error) {
-      Alert.alert(t('common.ok'), t('host.about.openURLFailed', {title}));
-    }
+  // Open http(s) URLs inside in-app WebView instead of Safari.
+  const openURL = (url: string, title: string) => {
+    navigation.navigate('InAppBrowser', {url, title});
   };
 
   return (

@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Linking,
   ActivityIndicator,
 } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -156,16 +155,25 @@ export const ProofCompleteScreen: React.FC = () => {
       try {
         const result = await findGiwaAttestationTransaction(addr);
         if (result?.attestation.txHash) {
-          Linking.openURL(`${explorer}/tx/${result.attestation.txHash}`);
+          navigation.navigate('InAppBrowser', {
+            url: `${explorer}/tx/${result.attestation.txHash}`,
+            title: 'Transaction',
+          });
           return;
         }
       } catch (e) {
         console.warn('[GIWA] tx lookup failed, falling back to address view:', e);
       }
-      Linking.openURL(`${explorer}/address/${addr}`);
+      navigation.navigate('InAppBrowser', {
+        url: `${explorer}/address/${addr}`,
+        title: 'Explorer',
+      });
       return;
     }
-    Linking.openURL(`https://base.easscan.org/address/${addr}`);
+    navigation.navigate('InAppBrowser', {
+      url: `https://base.easscan.org/address/${addr}`,
+      title: 'EAS Scan',
+    });
   };
 
   const handleGenerateAnother = () => {

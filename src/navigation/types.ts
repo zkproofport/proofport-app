@@ -16,6 +16,8 @@ export type ProofStackParamList = {
   CountryInput: undefined;
   DomainInput: undefined;
   MdlKrInput: { variant: 'ownership' | 'age' | 'region' };
+  /** OACX widget WebView screen. provider = OacxProvider string, scope = scopeString. */
+  OacxWebView: { provider: string; scope: string };
   ProofGeneration: {
     circuitId: string;
     proofRequest?: ProofRequest;
@@ -49,6 +51,7 @@ export type ProofStackParamList = {
     walletAddress?: string;
     historyId?: string;
   };
+  InAppBrowser: { url: string; title?: string };
 };
 
 // OpenStoa root stack — single screen that mounts the embedded OpenStoa
@@ -61,10 +64,12 @@ export type OpenStoaStackParamList = {
 
 export type WalletStackParamList = {
   WalletMain: undefined;
+  InAppBrowser: { url: string; title?: string };
 };
 
 export type ScanStackParamList = {
   ScanMain: undefined;
+  InAppBrowser: { url: string; title?: string };
 };
 
 export type MoreStackParamList = {
@@ -73,7 +78,9 @@ export type MoreStackParamList = {
   HistoryMain: undefined;
   HistoryDetail: { proofId: string };
   SettingsLanguage: undefined;
+  InAppBrowser: { url: string; title?: string };
 };
+
 
 export type OpenStoaTabScreenProps<T extends keyof OpenStoaStackParamList> = CompositeScreenProps<
   NativeStackScreenProps<OpenStoaStackParamList, T>,

@@ -16,9 +16,13 @@ import {
   useCodeScanner,
 } from 'react-native-vision-camera';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTranslation} from 'react-i18next';
 import {triggerDeepLink} from '../../utils/deepLinkBridge';
 import {useThemeColors} from '../../context';
+import type {ScanStackParamList} from '../../navigation/types';
+
+type ScanNavigation = NativeStackNavigationProp<ScanStackParamList>;
 
 const QRScanScreen: React.FC = () => {
   const {t} = useTranslation();
@@ -27,7 +31,7 @@ const QRScanScreen: React.FC = () => {
   const device = useCameraDevice('back');
   const [isActive, setIsActive] = useState(true);
   const [scannedData, setScannedData] = useState<string | null>(null);
-  const navigation = useNavigation();
+  const navigation = useNavigation<ScanNavigation>();
 
   useFocusEffect(
     useCallback(() => {
@@ -64,7 +68,8 @@ const QRScanScreen: React.FC = () => {
               {
                 text: t('host.scan.openInBrowser'),
                 onPress: () => {
-                  Linking.openURL(value);
+                  // Open http(s) URLs inside in-app WebView, not Safari.
+                  navigation.navigate('InAppBrowser', {url: value});
                   resetScanner();
                 },
               },

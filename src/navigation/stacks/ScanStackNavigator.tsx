@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import type { ScanStackParamList } from '../types';
 import QRScanScreen from '../../screens/scan/QRScanScreen';
+import {InAppBrowserScreen} from '../../screens/shared/InAppBrowserScreen';
 import {useStackScreenOptions} from '../shared';
 
 const Stack = createNativeStackNavigator<ScanStackParamList>();
@@ -16,6 +17,11 @@ const ScanStackNavigator: React.FC = () => {
         name="ScanMain"
         component={QRScanScreen}
         options={{ title: t('host.tabs.scan'), headerShown: false }}
+      />
+      <Stack.Screen
+        name="InAppBrowser"
+        component={InAppBrowserScreen}
+        options={{headerShown: false}}
       />
     </Stack.Navigator>
   );

@@ -53,11 +53,15 @@ import {
   type MdlKrRegionInputs,
   type OmniOneCxData,
 } from '../utils/mdlKr';
+import {useNavigation} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {
   runAppAuthFlow,
   type OacxProvider,
   type OacxParsedToken,
 } from '../utils/oacxClient';
+import * as oacxResultBus from '../utils/oacxResultBus';
+import type {ProofStackParamList} from '../navigation/types';
 import {
   getVerifierAddress,
   getVerifierAbi,
@@ -173,8 +177,11 @@ const moduleCaches: Record<MdlKrVariant, MdlKrCache> = {
 // Hook
 // --------------------------------------------------------------------------
 
+type ProofNavigation = NativeStackNavigationProp<ProofStackParamList>;
+
 export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
   const CIRCUIT_NAME = MDL_KR_CIRCUIT_NAMES[variant];
+  const navigation = useNavigation<ProofNavigation>();
 
   const [status, setStatus] = useState<ProofStatus>('Ready');
   const [isLoading, setIsLoading] = useState(false);
@@ -244,15 +251,43 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
           detail: `${currentVk.byteLength} bytes (${vkElapsed}ms)`,
         });
 
-        // Step 2: OmniOne CX 4-stage flow
+        // Step 2: OmniOne CX authentication via WebView widget.
+        // Navigates to OacxWebViewScreen which loads the RAON standard widget.
+        // The screen resolves via OacxResultBus. If the WebView fails (e.g.,
+        // RAON RP origin not registered yet), falls back to the raw 4-stage
+        // HTTP path (oacxClient.ts::runAppAuthFlow).
         updateStep('oacx', {status: 'in_progress'});
         const oacxStart = Date.now();
-        parsedCx = await runAppAuthFlow({
-          provider: inputs.provider,
-          ci: true,
-          telno: true,
-          onLog: addLog,
-        });
+        try {
+          addLog('OACX — navigating to WebView widget...');
+          const resultPromise = oacxResultBus.awaitNextResult(5 * 60 * 1000);
+          navigation.navigate('OacxWebView', {
+            provider: inputs.provider,
+            scope: inputs.scopeString,
+          });
+          const busResult = await resultPromise;
+          if (busResult.ok) {
+            parsedCx = busResult.payload;
+            addLog('OACX WebView succeeded');
+          } else {
+            addLog(`OACX WebView failed (${busResult.error}), falling back to raw API path...`);
+            parsedCx = await runAppAuthFlow({
+              provider: inputs.provider,
+              ci: true,
+              telno: true,
+              onLog: addLog,
+            });
+          }
+        } catch (webViewErr) {
+          const msg = webViewErr instanceof Error ? webViewErr.message : String(webViewErr);
+          addLog(`OACX WebView error (${msg}), falling back to raw API path...`);
+          parsedCx = await runAppAuthFlow({
+            provider: inputs.provider,
+            ci: true,
+            telno: true,
+            onLog: addLog,
+          });
+        }
         const oacxElapsed = Date.now() - oacxStart;
         setCxData(parsedCx);
         updateStep('oacx', {
@@ -262,10 +297,10 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
 
         // Step 3: Prepare circuit inputs
         updateStep('inputs', {status: 'in_progress'});
+        // v4: OmniOneCxData no longer includes jti/pri (HS256 path dormant).
+        // TODO(HS256): Re-add jti/pri when RAON RP registration is complete.
         const cxRaw: OmniOneCxData = {
           ci: parsedCx.data.ci,
-          jti: parsedCx.data.jti,
-          pri: parsedCx.data.pri,
           name: parsedCx.data.name,
           birth: parsedCx.data.birth,
           telno: parsedCx.data.telno,
@@ -393,7 +428,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
         setIsLoading(false);
       }
     },
-    [CIRCUIT_NAME, resetSteps, updateStep, variant],
+    [CIRCUIT_NAME, navigation, resetSteps, updateStep, variant],
   );
 
   const verifyProofOffChain = useCallback(

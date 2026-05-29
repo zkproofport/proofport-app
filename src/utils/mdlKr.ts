@@ -1,42 +1,50 @@
 /**
- * Korea Mobile ID (mDL) circuit input preparation.
+ * Korea Mobile ID (mDL) circuit input preparation. v4.
  *
- * Three independent Noir circuits — `mdl_kr_ownership`, `mdl_kr_age`,
- * `mdl_kr_region` — share the same canonical natural-person commitment
+ * v4 change: nullifier formula changed to keccak(keccak(ci) || scope),
+ * matching the OIDC-domain-attestation pattern. signal_hash, cx_integrity_root,
+ * cx_jti, and cx_pri are commented out pending RAON RP registration (HS256).
  *
- *   keccak( ci || jti || pri || birth_date || address )  (436 bytes)
- *
- * so a single OmniOne CX response yields the same self_id_20 (and
- * therefore the same nullifier for a given scope/signal_hash) across
- * all three circuits. Each circuit enforces exactly one extra
- * predicate; this module produces the right input set for each.
+ * Three independent Noir circuits -- `mdl_kr_ownership`, `mdl_kr_age`,
+ * `mdl_kr_region` -- share the canonical `ci` identifier. Each circuit
+ * enforces exactly one extra predicate; this module produces the right
+ * input set for each.
  *
  * The byte layouts and padding rules here must match the Noir circuits
- * exactly — the same logic is mirrored in `circuits/mdl/scripts/gen.mjs`
+ * exactly -- the same logic is mirrored in `circuits/mdl/scripts/gen.mjs`
  * for the offline acceptance fixtures.
  */
 import {ethers} from 'ethers';
 
-// Disclosure flag bits — match the ownership circuit.
+// Disclosure flag bits -- match the ownership circuit.
 export const DISCLOSE_NAME = 0x01;
 export const DISCLOSE_BIRTH = 0x02;
 export const DISCLOSE_SEX = 0x04;
 export const DISCLOSE_TELNO = 0x08;
 
-// Fixed buffer sizes — must match `mdl_kr_common` globals.
+// Fixed buffer sizes -- must match `mdl_kr_common` globals.
 const CI_LEN = 88;
-const JTI_LEN = 40;
-const PRI_LEN = 44;
+// TODO(HS256): Re-enable when RAON registration provides the RP shared
+// secret. Currently disabled because no off-chain HS256 verifier exists,
+// so cx_integrity_root cannot anchor anything meaningfully.
+// const JTI_LEN = 40;
+// const PRI_LEN = 44;
 const NAME_MAX = 64;
 const TELNO_MAX = 16;
 const REGION_MAX = 64;
 const BIRTH_LEN = 8;
-const ADDRESS_MAX = 256;
+// TODO(HS256): Re-enable when RAON registration provides the RP shared
+// secret. Currently disabled because no off-chain HS256 verifier exists,
+// so cx_integrity_root cannot anchor anything meaningfully.
+// const ADDRESS_MAX = 256;
 
 export interface OmniOneCxData {
   ci: string;
-  jti: string;
-  pri: string;
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // jti: string;
+  // pri: string;
   name: string;
   birth: string;   // "YYYYMMDD"
   telno: string;
@@ -81,56 +89,61 @@ function bytesToNoir(bytes: Uint8Array): string[] {
 
 // --------------------------------------------------------------------------
 // Shared base inputs (common to all 3 circuits)
+// v4: nullifier = keccak(keccak(ci) || scope)
 // --------------------------------------------------------------------------
 
 interface MdlKrBase {
   // Public
-  signal_hash: string[];
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // signal_hash: string[];
   scope: string[];
   nullifier_value: string[];
-  cx_integrity_root: string[];
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // cx_integrity_root: string[];
   // Private (common)
   ci: string[];
-  cx_jti: string[];
-  cx_pri: string[];
-  birth_date: string[];
-  address: string[];
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // cx_jti: string[];
+  // cx_pri: string[];
 }
 
 function deriveBase(
   cx: OmniOneCxData,
   scopeString: string,
-  signalHash?: Uint8Array,
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // signalHash?: Uint8Array,
 ): MdlKrBase {
   const ci = padZero(cx.ci, CI_LEN);
-  const jti = padZero(cx.jti, JTI_LEN);
-  const pri = padZero(cx.pri, PRI_LEN);
-  const birth = padZero(cx.birth, BIRTH_LEN);
-  const address = padZero(cx.address ?? '', ADDRESS_MAX);
 
-  // CX integrity anchor (jti || pri).
-  const cxIntegrityRoot = keccak(concat([jti, pri]));
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // const jti = padZero(cx.jti, JTI_LEN);
+  // const pri = padZero(cx.pri, PRI_LEN);
+  // const cxIntegrityRoot = keccak(concat([jti, pri]));
+  // const mdlCommit = keccak(concat([ci, jti, pri, birth, address]));
+  // const selfId20 = mdlCommit.slice(0, 20);
+  // const sig = signalHash ?? ethers.utils.randomBytes(32);
+  // const userSecret = keccak(concat([selfId20, sig]));
+  // const nullifierValue = keccak(concat([userSecret, scopeBytes]));
 
-  // Canonical natural-person commitment — identical to mdl_kr_common::derive_self_id_20.
-  const mdlCommit = keccak(concat([ci, jti, pri, birth, address]));
-  const selfId20 = mdlCommit.slice(0, 20);
-
-  // Scope + nullifier (same coinbase_libs::nullifier helper the circuits use).
+  // v4 nullifier: keccak(keccak(ci) || scope)
   const scopeBytes = keccak(ethers.utils.toUtf8Bytes(scopeString));
-  const sig = signalHash ?? ethers.utils.randomBytes(32);
-  const userSecret = keccak(concat([selfId20, sig]));
-  const nullifierValue = keccak(concat([userSecret, scopeBytes]));
+  const ciHash = keccak(ci);
+  const nullifierValue = keccak(concat([ciHash, scopeBytes]));
 
   return {
-    signal_hash: bytesToNoir(sig),
     scope: bytesToNoir(scopeBytes),
     nullifier_value: bytesToNoir(nullifierValue),
-    cx_integrity_root: bytesToNoir(cxIntegrityRoot),
     ci: bytesToNoir(ci),
-    cx_jti: bytesToNoir(jti),
-    cx_pri: bytesToNoir(pri),
-    birth_date: bytesToNoir(birth),
-    address: bytesToNoir(address),
   };
 }
 
@@ -149,13 +162,17 @@ export interface MdlKrOwnershipOpts {
   expectedSex?: string;
   /** Expected telno digits. Defaults to the mDL telno. */
   expectedTelno?: string;
-  signalHash?: Uint8Array;
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // signalHash?: Uint8Array;
 }
 
 export interface MdlKrOwnershipInputs extends MdlKrBase {
   disclose_flags: string;
   owner_commit: string[];
   name: string[];
+  birth_date: string[];
   telno: string[];
   sex: string;
   expected_name: string[];
@@ -168,17 +185,13 @@ export function prepareMdlKrOwnershipInputs(
   cx: OmniOneCxData,
   opts: MdlKrOwnershipOpts,
 ): MdlKrOwnershipInputs {
-  const base = deriveBase(cx, opts.scopeString, opts.signalHash);
+  const base = deriveBase(cx, opts.scopeString);
 
   const name = padZero(cx.name, NAME_MAX);
   const telno = padZero(cx.telno, TELNO_MAX);
   const sex = cx.sex && cx.sex.length > 0 ? cx.sex.charCodeAt(0) : 0;
   const birth = padZero(cx.birth, BIRTH_LEN);
 
-  // Expected values default to the mDL values themselves, so a "honest"
-  // ownership proof (user typed in matching values) passes. Any flag
-  // bit set with a non-matching expected value triggers the circuit's
-  // equality assertion and the proof fails.
   const expectedName  = padZero(opts.expectedName  ?? cx.name,  NAME_MAX);
   const expectedBirth = padZero(opts.expectedBirth ?? cx.birth, BIRTH_LEN);
   const expectedTelno = padZero(opts.expectedTelno ?? cx.telno, TELNO_MAX);
@@ -204,6 +217,7 @@ export function prepareMdlKrOwnershipInputs(
     disclose_flags: f.toString(),
     owner_commit: bytesToNoir(ownerCommit),
     name: bytesToNoir(name),
+    birth_date: bytesToNoir(birth),
     telno: bytesToNoir(telno),
     sex: sex.toString(),
     expected_name: bytesToNoir(expectedName),
@@ -216,20 +230,24 @@ export function prepareMdlKrOwnershipInputs(
 // Order MUST match circuits/mdl/kr-ownership/src/main.nr::main().
 export function flattenMdlKrOwnershipInputs(inputs: MdlKrOwnershipInputs): string[] {
   return [
-    ...inputs.signal_hash,
+    // TODO(HS256): Re-enable signal_hash when RAON RP registration lands.
+    // ...inputs.signal_hash,
     ...inputs.scope,
     ...inputs.nullifier_value,
-    ...inputs.cx_integrity_root,
+    // TODO(HS256): Re-enable cx_integrity_root when RAON RP registration lands.
+    // ...inputs.cx_integrity_root,
     inputs.disclose_flags,
     ...inputs.owner_commit,
     ...inputs.ci,
-    ...inputs.cx_jti,
-    ...inputs.cx_pri,
+    // TODO(HS256): Re-enable cx_jti, cx_pri when RAON RP registration lands.
+    // ...inputs.cx_jti,
+    // ...inputs.cx_pri,
     ...inputs.name,
     ...inputs.birth_date,
     ...inputs.telno,
     inputs.sex,
-    ...inputs.address,
+    // TODO(HS256): Re-enable address when derive_self_id_20 is re-enabled.
+    // ...inputs.address,
     ...inputs.expected_name,
     ...inputs.expected_birth,
     ...inputs.expected_telno,
@@ -245,40 +263,50 @@ export interface MdlKrAgeOpts {
   scopeString: string;
   ageThreshold: number;
   currentYear: number;
-  signalHash?: Uint8Array;
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // signalHash?: Uint8Array;
 }
 
 export interface MdlKrAgeInputs extends MdlKrBase {
   age_threshold: string;
   current_year: string;
+  birth_date: string[];
 }
 
 export function prepareMdlKrAgeInputs(
   cx: OmniOneCxData,
   opts: MdlKrAgeOpts,
 ): MdlKrAgeInputs {
-  const base = deriveBase(cx, opts.scopeString, opts.signalHash);
+  const base = deriveBase(cx, opts.scopeString);
+  const birth = padZero(cx.birth, BIRTH_LEN);
   return {
     ...base,
     age_threshold: opts.ageThreshold.toString(),
     current_year: opts.currentYear.toString(),
+    birth_date: bytesToNoir(birth),
   };
 }
 
 // Order MUST match circuits/mdl/kr-age/src/main.nr::main().
 export function flattenMdlKrAgeInputs(inputs: MdlKrAgeInputs): string[] {
   return [
-    ...inputs.signal_hash,
+    // TODO(HS256): Re-enable signal_hash when RAON RP registration lands.
+    // ...inputs.signal_hash,
     ...inputs.scope,
     ...inputs.nullifier_value,
-    ...inputs.cx_integrity_root,
+    // TODO(HS256): Re-enable cx_integrity_root when RAON RP registration lands.
+    // ...inputs.cx_integrity_root,
     inputs.age_threshold,
     inputs.current_year,
     ...inputs.ci,
-    ...inputs.cx_jti,
-    ...inputs.cx_pri,
+    // TODO(HS256): Re-enable cx_jti, cx_pri when RAON RP registration lands.
+    // ...inputs.cx_jti,
+    // ...inputs.cx_pri,
     ...inputs.birth_date,
-    ...inputs.address,
+    // TODO(HS256): Re-enable address when derive_self_id_20 is re-enabled.
+    // ...inputs.address,
   ];
 }
 
@@ -288,12 +316,16 @@ export function flattenMdlKrAgeInputs(inputs: MdlKrAgeInputs): string[] {
 
 export interface MdlKrRegionOpts {
   scopeString: string;
-  targetRegion: string;         // dApp-supplied si/do (e.g., "경기도")
-  signalHash?: Uint8Array;
+  targetRegion: string;         // dApp-supplied si/do (e.g., "")
+  // TODO(HS256): Re-enable when RAON registration provides the RP shared
+  // secret. Currently disabled because no off-chain HS256 verifier exists,
+  // so cx_integrity_root cannot anchor anything meaningfully.
+  // signalHash?: Uint8Array;
 }
 
 export interface MdlKrRegionInputs extends MdlKrBase {
   region_code: string[];
+  address: string[];
 }
 
 export function prepareMdlKrRegionInputs(
@@ -303,27 +335,35 @@ export function prepareMdlKrRegionInputs(
   if (!opts.targetRegion || opts.targetRegion.trim().length === 0) {
     throw new Error('mdl_kr_region requires a non-empty targetRegion');
   }
-  const base = deriveBase(cx, opts.scopeString, opts.signalHash);
+  const base = deriveBase(cx, opts.scopeString);
   const targetRegion = padZero(opts.targetRegion, REGION_MAX);
   const regionCode = keccak(targetRegion);
+  // address is still a private input for the region circuit (needed for predicate)
+  const ADDRESS_MAX = 256;
+  const address = padZero(cx.address ?? '', ADDRESS_MAX);
   return {
     ...base,
     region_code: bytesToNoir(regionCode),
+    address: bytesToNoir(address),
   };
 }
 
 // Order MUST match circuits/mdl/kr-region/src/main.nr::main().
 export function flattenMdlKrRegionInputs(inputs: MdlKrRegionInputs): string[] {
   return [
-    ...inputs.signal_hash,
+    // TODO(HS256): Re-enable signal_hash when RAON RP registration lands.
+    // ...inputs.signal_hash,
     ...inputs.scope,
     ...inputs.nullifier_value,
-    ...inputs.cx_integrity_root,
+    // TODO(HS256): Re-enable cx_integrity_root when RAON RP registration lands.
+    // ...inputs.cx_integrity_root,
     ...inputs.region_code,
     ...inputs.ci,
-    ...inputs.cx_jti,
-    ...inputs.cx_pri,
-    ...inputs.birth_date,
+    // TODO(HS256): Re-enable cx_jti, cx_pri when RAON RP registration lands.
+    // ...inputs.cx_jti,
+    // ...inputs.cx_pri,
+    // TODO(HS256): Re-enable birth_date when derive_self_id_20 is re-enabled.
+    // ...inputs.birth_date,
     ...inputs.address,
   ];
 }

@@ -138,6 +138,9 @@ export const PrivyWalletScreen: React.FC = () => {
         : WALLET_STORE_URLS.metamask.android;
 
     try {
+      // wallet handoff — must stay as Linking.openURL.
+      // App Store / Play Store URLs route to the native store app; a WebView
+      // cannot install apps and would show a blank page.
       await Linking.openURL(storeUrl);
       addLog('Opening wallet store...');
     } catch (error) {

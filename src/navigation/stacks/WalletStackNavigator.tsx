@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import type { WalletStackParamList } from '../types';
 import {WalletMainScreen} from '../../screens/wallet';
+import {InAppBrowserScreen} from '../../screens/shared/InAppBrowserScreen';
 import {useStackScreenOptions} from '../shared';
 
 const Stack = createNativeStackNavigator<WalletStackParamList>();
@@ -16,6 +17,11 @@ const WalletStackNavigator: React.FC = () => {
         name="WalletMain"
         component={WalletMainScreen}
         options={{ title: t('host.tabs.wallet') }}
+      />
+      <Stack.Screen
+        name="InAppBrowser"
+        component={InAppBrowserScreen}
+        options={{headerShown: false}}
       />
     </Stack.Navigator>
   );

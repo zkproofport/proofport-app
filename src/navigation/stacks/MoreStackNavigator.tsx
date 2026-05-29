@@ -8,6 +8,7 @@ import {
 } from '../../screens/more';
 import {ProofHistoryScreen, HistoryDetailScreen} from '../../screens/history';
 import SettingsLanguageScreen from '../../screens/more/SettingsLanguageScreen';
+import {InAppBrowserScreen} from '../../screens/shared/InAppBrowserScreen';
 import {useStackScreenOptions} from '../shared';
 
 const Stack = createNativeStackNavigator<MoreStackParamList>();
@@ -41,6 +42,11 @@ const MoreStackNavigator: React.FC = () => {
         name="SettingsLanguage"
         component={SettingsLanguageScreen}
         options={{ title: t('host.more.language') }}
+      />
+      <Stack.Screen
+        name="InAppBrowser"
+        component={InAppBrowserScreen}
+        options={{headerShown: false}}
       />
     </Stack.Navigator>
   );

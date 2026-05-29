@@ -11,6 +11,8 @@ import {
   ProofGenerationScreen,
   ProofCompleteScreen,
 } from '../../screens/proof';
+import {OacxWebViewScreen} from '../../screens/auth/OacxWebViewScreen';
+import {InAppBrowserScreen} from '../../screens/shared/InAppBrowserScreen';
 import {useStackScreenOptions} from '../shared';
 import {useThemeColors} from '../../context';
 
@@ -61,6 +63,19 @@ const ProofStackNavigator: React.FC = () => {
             </TouchableOpacity>
           ),
         })}
+      />
+      <Stack.Screen
+        name="OacxWebView"
+        component={OacxWebViewScreen}
+        options={{
+          title: '모바일 신분증 인증',
+          headerShown: false, // OacxWebViewScreen has its own header
+        }}
+      />
+      <Stack.Screen
+        name="InAppBrowser"
+        component={InAppBrowserScreen}
+        options={{headerShown: false}}
       />
     </Stack.Navigator>
   );
