@@ -141,6 +141,14 @@ function deriveBase(
 export interface MdlKrOwnershipOpts {
   scopeString: string;
   discloseFlags: number;        // 0x00..0x0F bit-mask
+  /** User- or dApp-supplied expected name. Defaults to the mDL name. */
+  expectedName?: string;
+  /** Expected birth_date "YYYYMMDD". Defaults to the mDL birth_date. */
+  expectedBirth?: string;
+  /** Expected sex char ('M' / 'F' / ''). Defaults to the mDL sex. */
+  expectedSex?: string;
+  /** Expected telno digits. Defaults to the mDL telno. */
+  expectedTelno?: string;
   signalHash?: Uint8Array;
 }
 
@@ -150,6 +158,10 @@ export interface MdlKrOwnershipInputs extends MdlKrBase {
   name: string[];
   telno: string[];
   sex: string;
+  expected_name: string[];
+  expected_birth: string[];
+  expected_telno: string[];
+  expected_sex: string;
 }
 
 export function prepareMdlKrOwnershipInputs(
@@ -163,12 +175,24 @@ export function prepareMdlKrOwnershipInputs(
   const sex = cx.sex && cx.sex.length > 0 ? cx.sex.charCodeAt(0) : 0;
   const birth = padZero(cx.birth, BIRTH_LEN);
 
+  // Expected values default to the mDL values themselves, so a "honest"
+  // ownership proof (user typed in matching values) passes. Any flag
+  // bit set with a non-matching expected value triggers the circuit's
+  // equality assertion and the proof fails.
+  const expectedName  = padZero(opts.expectedName  ?? cx.name,  NAME_MAX);
+  const expectedBirth = padZero(opts.expectedBirth ?? cx.birth, BIRTH_LEN);
+  const expectedTelno = padZero(opts.expectedTelno ?? cx.telno, TELNO_MAX);
+  const expectedSexChar = opts.expectedSex ?? (cx.sex ?? '');
+  const expectedSex = expectedSexChar && expectedSexChar.length > 0
+    ? expectedSexChar.charCodeAt(0)
+    : 0;
+
   const f = opts.discloseFlags & 0x0f;
   const ownerBuf = new Uint8Array(89);
-  if (f & DISCLOSE_NAME) ownerBuf.set(name, 0);
-  if (f & DISCLOSE_BIRTH) ownerBuf.set(birth, 64);
-  if (f & DISCLOSE_SEX) ownerBuf[72] = sex;
-  if (f & DISCLOSE_TELNO) ownerBuf.set(telno, 73);
+  if (f & DISCLOSE_NAME)  ownerBuf.set(expectedName,  0);
+  if (f & DISCLOSE_BIRTH) ownerBuf.set(expectedBirth, 64);
+  if (f & DISCLOSE_SEX)   ownerBuf[72] = expectedSex;
+  if (f & DISCLOSE_TELNO) ownerBuf.set(expectedTelno, 73);
 
   const ownerCommit =
     f === 0
@@ -182,6 +206,10 @@ export function prepareMdlKrOwnershipInputs(
     name: bytesToNoir(name),
     telno: bytesToNoir(telno),
     sex: sex.toString(),
+    expected_name: bytesToNoir(expectedName),
+    expected_birth: bytesToNoir(expectedBirth),
+    expected_telno: bytesToNoir(expectedTelno),
+    expected_sex: expectedSex.toString(),
   };
 }
 
@@ -202,6 +230,10 @@ export function flattenMdlKrOwnershipInputs(inputs: MdlKrOwnershipInputs): strin
     ...inputs.telno,
     inputs.sex,
     ...inputs.address,
+    ...inputs.expected_name,
+    ...inputs.expected_birth,
+    ...inputs.expected_telno,
+    inputs.expected_sex,
   ];
 }
 

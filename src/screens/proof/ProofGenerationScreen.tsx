@@ -507,6 +507,10 @@ export const ProofGenerationScreen: React.FC = () => {
               provider: 'comdl_v1.5',
               scopeString: scopeStr,
               discloseFlags,
+              expectedName:  mInputs?.expectedName,
+              expectedBirth: mInputs?.expectedBirth,
+              expectedSex:   mInputs?.expectedSex,
+              expectedTelno: mInputs?.expectedTelno,
             },
             addLog,
           );

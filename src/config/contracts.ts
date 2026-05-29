@@ -250,9 +250,13 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // Split into 3 independent circuits sharing the same canonical
   // (ci || jti || pri || birth || address) commitment — each enforces
   // a single predicate (selective disclosure, age, region).
-  mdl_kr_ownership: 1,
-  mdl_kr_age: 1,
-  mdl_kr_region: 1,
+  // v2: ownership now takes expected_name/birth/sex/telno private inputs
+  // and asserts equality with mDL values when the matching flag bit is
+  // set; bump all three (age/region rebuilt fresh) so devices re-fetch
+  // vk/srs/json from main.
+  mdl_kr_ownership: 2,
+  mdl_kr_age: 2,
+  mdl_kr_region: 2,
 };
 
 /**
@@ -310,8 +314,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // GIWA PoC verifier — same address across env (testnet-only PoC)
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
     // Korea mDL — three independent verifiers on Base Sepolia.
-    mdl_kr_ownership: '0xEB1d555e90E639d44Fe5671E1A166305033a999F',
-    mdl_kr_age:       '0xe7E1da54B881b20654E68179fFa26dBB2adA33c7',
+    mdl_kr_ownership: '0x70cc10A15FAa9e78793D3a39689b50daDf91951e',
+    mdl_kr_age:       '0x445A13a435F152cAf5832275DEd37CeE6d733a02',
     mdl_kr_region:    '0x69caE4adE568cAC0Ba7Bae5b76b232E9538C78fe',
   },
   staging: {
@@ -319,8 +323,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
-    mdl_kr_ownership: '0xEB1d555e90E639d44Fe5671E1A166305033a999F',
-    mdl_kr_age:       '0xe7E1da54B881b20654E68179fFa26dBB2adA33c7',
+    mdl_kr_ownership: '0x70cc10A15FAa9e78793D3a39689b50daDf91951e',
+    mdl_kr_age:       '0x445A13a435F152cAf5832275DEd37CeE6d733a02',
     mdl_kr_region:    '0x69caE4adE568cAC0Ba7Bae5b76b232E9538C78fe',
   },
   production: {
@@ -330,8 +334,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
     // Korea mDL not yet deployed to a mainnet. Pinning to the Base
     // Sepolia addresses until OmniOne Chain mainnet access is granted.
-    mdl_kr_ownership: '0xEB1d555e90E639d44Fe5671E1A166305033a999F',
-    mdl_kr_age:       '0xe7E1da54B881b20654E68179fFa26dBB2adA33c7',
+    mdl_kr_ownership: '0x70cc10A15FAa9e78793D3a39689b50daDf91951e',
+    mdl_kr_age:       '0x445A13a435F152cAf5832275DEd37CeE6d733a02',
     mdl_kr_region:    '0x69caE4adE568cAC0Ba7Bae5b76b232E9538C78fe',
   },
 };

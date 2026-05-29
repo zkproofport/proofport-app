@@ -18,6 +18,7 @@ import {Icon, Badge, Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useLogs} from '../../hooks';
+import {useMdlKr} from '../../hooks/useMdlKr';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfig, getNetworkConfigForCircuit} from '../../config';
 import {findGiwaAttestationTransaction} from '../../utils';
@@ -29,6 +30,11 @@ const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
   'coinbase-kyc': 'Coinbase KYC',
   'coinbase-country': 'Coinbase Country',
   'oidc_domain_attestation': 'OIDC Domain',
+  'giwa-kyc': 'GIWA KYC',
+  'giwa_attestation': 'GIWA KYC',
+  'mdl-kr-ownership': 'Korea Mobile ID — Ownership',
+  'mdl-kr-age': 'Korea Mobile ID — Age',
+  'mdl-kr-region': 'Korea Mobile ID — Region',
 };
 
 export const ProofCompleteScreen: React.FC = () => {
@@ -63,11 +69,23 @@ export const ProofCompleteScreen: React.FC = () => {
   const isCountryCircuit = circuitId === 'coinbase-country';
   const isOidcCircuit = circuitId === 'oidc_domain_attestation';
   const isGiwaCircuit = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
+  const mdlVariant: 'ownership' | 'age' | 'region' | null =
+    circuitId === 'mdl-kr-ownership' ? 'ownership'
+    : circuitId === 'mdl-kr-age' ? 'age'
+    : circuitId === 'mdl-kr-region' ? 'region'
+    : null;
+  const isMdlCircuit = mdlVariant !== null;
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
-  const activeHook = isOidcCircuit
+  // useMdlKr requires a variant at hook init. When this screen is not
+  // serving an mDL proof, the hook still mounts (rules of hooks) but
+  // is never driven.
+  const mdlHook = useMdlKr(mdlVariant ?? 'ownership');
+  const activeHook = isMdlCircuit
+    ? mdlHook
+    : isOidcCircuit
     ? oidcHook
     : isGiwaCircuit
     ? giwaHook
@@ -255,9 +273,10 @@ export const ProofCompleteScreen: React.FC = () => {
         </Card>
 
         <View style={styles.buttonsContainer}>
-          {/* OIDC proofs are wallet-less — there's no attestation address
-              or tx to show, so hide the explorer button entirely. */}
-          {!isOidcCircuit && (
+          {/* OIDC and Korea mDL proofs are wallet-less / EAS-less —
+              there is no attestation address or tx to show, so hide
+              the explorer button entirely. */}
+          {!isOidcCircuit && !isMdlCircuit && (
             <>
               <Button
                 title={t(

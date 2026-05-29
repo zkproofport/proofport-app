@@ -77,13 +77,20 @@ export const MdlKrInputScreen: React.FC = () => {
 
   const currentYear = new Date().getFullYear();
 
-  // ownership state
+  // ownership state — per-attribute toggle + text input. The user types
+  // in the value they expect their mDL to match; the circuit asserts
+  // equality when the corresponding flag bit is set. Blank input with
+  // the flag set is rejected by canContinue below.
   const [discloseBits, setDiscloseBits] = useState<Record<string, boolean>>({
     name: false,
     birth: false,
     sex: false,
     telno: false,
   });
+  const [expectedName, setExpectedName] = useState('');
+  const [expectedBirth, setExpectedBirth] = useState('');
+  const [expectedSex, setExpectedSex] = useState('');
+  const [expectedTelno, setExpectedTelno] = useState('');
 
   // age state
   const [ageThresholdText, setAgeThresholdText] = useState('19');
@@ -106,11 +113,19 @@ export const MdlKrInputScreen: React.FC = () => {
   }, [ageThresholdText]);
 
   const canContinue = useMemo(() => {
-    if (variant === 'ownership') return true; // 0x00 (anonymous) is allowed
+    if (variant === 'ownership') {
+      // For each flagged attribute, the text input must be non-empty.
+      // Anonymous (flags == 0) is also allowed.
+      if (discloseBits.name  && expectedName.trim().length === 0) return false;
+      if (discloseBits.birth && expectedBirth.trim().length === 0) return false;
+      if (discloseBits.sex   && expectedSex.trim().length === 0) return false;
+      if (discloseBits.telno && expectedTelno.trim().length === 0) return false;
+      return true;
+    }
     if (variant === 'age') return parsedAgeThreshold !== null;
     if (variant === 'region') return selectedRegion !== null;
     return false;
-  }, [variant, parsedAgeThreshold, selectedRegion]);
+  }, [variant, parsedAgeThreshold, selectedRegion, discloseBits, expectedName, expectedBirth, expectedSex, expectedTelno]);
 
   const handleContinue = () => {
     if (!canContinue) return;
@@ -118,7 +133,14 @@ export const MdlKrInputScreen: React.FC = () => {
     if (variant === 'ownership') {
       navigation.navigate('ProofGeneration', {
         circuitId,
-        mdlKrInputs: {variant: 'ownership', discloseFlags},
+        mdlKrInputs: {
+          variant: 'ownership',
+          discloseFlags,
+          expectedName:  discloseBits.name  ? expectedName.trim()  : undefined,
+          expectedBirth: discloseBits.birth ? expectedBirth.trim() : undefined,
+          expectedSex:   discloseBits.sex   ? expectedSex.trim()   : undefined,
+          expectedTelno: discloseBits.telno ? expectedTelno.trim() : undefined,
+        },
       });
     } else if (variant === 'age') {
       navigation.navigate('ProofGeneration', {
@@ -176,17 +198,32 @@ export const MdlKrInputScreen: React.FC = () => {
             <Text style={[styles.sectionLabel, {color: themeColors.text.tertiary}]}>
               공개할 속성 (disclose_flags = 0x{discloseFlags.toString(16).padStart(2, '0')})
             </Text>
+            <Text style={{marginTop: 8, fontSize: 13, color: themeColors.text.tertiary}}>
+              체크한 항목에 직접 값을 입력하세요. 회로는 입력값과 mDL의 실제 값이 같은지 검증합니다.
+            </Text>
             <View style={{marginTop: 12}}>
               {DISCLOSE_OPTIONS.map((opt) => {
                 const checked = discloseBits[opt.key];
+                const value =
+                  opt.key === 'name'  ? expectedName
+                  : opt.key === 'birth' ? expectedBirth
+                  : opt.key === 'sex'   ? expectedSex
+                  : expectedTelno;
+                const onChange = (txt: string) => {
+                  if (opt.key === 'name')  setExpectedName(txt);
+                  else if (opt.key === 'birth') setExpectedBirth(txt);
+                  else if (opt.key === 'sex')   setExpectedSex(txt);
+                  else if (opt.key === 'telno') setExpectedTelno(txt);
+                };
+                const keyboard =
+                  opt.key === 'birth' || opt.key === 'telno' ? 'number-pad' : 'default';
+                const maxLen =
+                  opt.key === 'birth' ? 8 : opt.key === 'sex' ? 1 : opt.key === 'telno' ? 16 : 32;
                 return (
-                  <TouchableOpacity
+                  <View
                     key={opt.key}
-                    onPress={() =>
-                      setDiscloseBits((prev) => ({...prev, [opt.key]: !prev[opt.key]}))
-                    }
                     style={[
-                      styles.row,
+                      styles.ownershipRow,
                       {
                         borderColor: checked
                           ? themeColors.info[400]
@@ -194,18 +231,61 @@ export const MdlKrInputScreen: React.FC = () => {
                         backgroundColor: themeColors.background.secondary,
                       },
                     ]}>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: '600',
-                        color: themeColors.text.primary,
-                      }}>
-                      {opt.label}
-                    </Text>
-                    <Text style={{fontSize: 12, color: themeColors.text.tertiary}}>
-                      {opt.hint}
-                    </Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        setDiscloseBits((prev) => ({...prev, [opt.key]: !prev[opt.key]}))
+                      }
+                      style={styles.ownershipRowHeader}>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            borderColor: checked ? themeColors.info[400] : themeColors.border.primary,
+                            backgroundColor: checked ? themeColors.info[400] : 'transparent',
+                          },
+                        ]}>
+                        {checked && (
+                          <Text style={{color: 'white', fontWeight: '700', fontSize: 14}}>✓</Text>
+                        )}
+                      </View>
+                      <Text
+                        style={{
+                          flex: 1,
+                          marginLeft: 12,
+                          fontSize: 16,
+                          fontWeight: '600',
+                          color: themeColors.text.primary,
+                        }}>
+                        {opt.label}
+                      </Text>
+                      <Text style={{fontSize: 12, color: themeColors.text.tertiary}}>
+                        {opt.hint}
+                      </Text>
+                    </TouchableOpacity>
+                    {checked && (
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder={
+                          opt.key === 'birth' ? 'YYYYMMDD'
+                          : opt.key === 'sex' ? 'M / F'
+                          : opt.key === 'telno' ? '01012345678'
+                          : '홍길동'
+                        }
+                        placeholderTextColor={themeColors.text.tertiary}
+                        keyboardType={keyboard}
+                        maxLength={maxLen}
+                        autoCapitalize={opt.key === 'sex' ? 'characters' : 'none'}
+                        style={[
+                          styles.expectedInput,
+                          {
+                            color: themeColors.text.primary,
+                            borderColor: themeColors.border.primary,
+                          },
+                        ]}
+                      />
+                    )}
+                  </View>
                 );
               })}
             </View>
@@ -305,6 +385,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     marginBottom: 8,
+  },
+  ownershipRow: {
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  ownershipRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 2,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  expectedInput: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    backgroundColor: 'transparent',
   },
   numberInput: {
     marginTop: 12,

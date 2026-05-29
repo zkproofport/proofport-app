@@ -24,6 +24,10 @@ export type ProofStackParamList = {
     mdlKrInputs?: {
       variant: 'ownership' | 'age' | 'region';
       discloseFlags?: number;
+      expectedName?: string;
+      expectedBirth?: string;
+      expectedSex?: string;
+      expectedTelno?: string;
       ageThreshold?: number;
       currentYear?: number;
       targetRegion?: string;

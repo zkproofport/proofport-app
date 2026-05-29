@@ -78,6 +78,14 @@ export interface MdlKrOwnershipProofInputs {
   scopeString: string;
   /** Bitmask 0x00..0x0F (DISCLOSE_NAME|BIRTH|SEX|TELNO). 0 = anonymous. */
   discloseFlags: number;
+  /** Expected name (user-typed or dApp-supplied). Defaults to mDL name. */
+  expectedName?: string;
+  /** Expected birth_date "YYYYMMDD". */
+  expectedBirth?: string;
+  /** Expected sex char ('M' / 'F' / ''). */
+  expectedSex?: string;
+  /** Expected telno digits. */
+  expectedTelno?: string;
 }
 
 export interface MdlKrAgeProofInputs {
@@ -144,14 +152,22 @@ const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'cleanup', label: 'Clean up cache', status: 'pending'},
 ];
 
-// Per-instance proof cache (closed-over so each variant has its own).
-function makeCache() {
-  return {
-    vk: null as ArrayBuffer | null,
-    fullProof: null as ArrayBuffer | null,
-    parsedProof: null as ParsedProofData | null,
-  };
+// Module-level proof cache per variant. The previous design kept the
+// vk/proof in a useRef on the hook instance, but ProofCompleteScreen
+// instantiates a *new* `useMdlKr` after navigation, so a per-instance
+// cache lost the just-generated proof and the verify calls fell back
+// to the wrong (Coinbase) hook entirely. Module scope is fine here
+// because the data is non-secret and bounded to a single user session.
+interface MdlKrCache {
+  vk: ArrayBuffer | null;
+  fullProof: ArrayBuffer | null;
+  parsedProof: ParsedProofData | null;
 }
+const moduleCaches: Record<MdlKrVariant, MdlKrCache> = {
+  ownership: {vk: null, fullProof: null, parsedProof: null},
+  age:       {vk: null, fullProof: null, parsedProof: null},
+  region:    {vk: null, fullProof: null, parsedProof: null},
+};
 
 // --------------------------------------------------------------------------
 // Hook
@@ -171,7 +187,6 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
   const [proofSteps, setProofSteps] = useState<Step[]>(INITIAL_PROOF_STEPS);
 
   const isRunningRef = useRef(false);
-  const cacheRef = useRef(makeCache());
 
   const updateStep = useCallback((stepId: string, updates: Partial<Step>) => {
     setProofSteps((prev) =>
@@ -223,7 +238,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
         currentVk = await loadVkFromAssets(CIRCUIT_NAME, addLog);
         const vkElapsed = Date.now() - vkStart;
         setVk(currentVk);
-        cacheRef.current.vk = currentVk;
+        moduleCaches[variant].vk = currentVk;
         updateStep('vk', {
           status: 'completed',
           detail: `${currentVk.byteLength} bytes (${vkElapsed}ms)`,
@@ -266,6 +281,10 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
             const p = prepareMdlKrOwnershipInputs(cxRaw, {
               scopeString: inputs.scopeString,
               discloseFlags: inputs.discloseFlags,
+              expectedName:  inputs.expectedName,
+              expectedBirth: inputs.expectedBirth,
+              expectedSex:   inputs.expectedSex,
+              expectedTelno: inputs.expectedTelno,
             });
             prepared = p;
             flat = flattenMdlKrOwnershipInputs(p);
@@ -321,7 +340,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
         );
         const proofElapsed = Date.now() - proofStart;
         setFullProof(currentProof);
-        cacheRef.current.fullProof = currentProof;
+        moduleCaches[variant].fullProof = currentProof;
         updateStep('proof', {
           status: 'completed',
           detail: `${currentProof!.byteLength} bytes (${proofElapsed}ms)`,
@@ -344,7 +363,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
           numPublicInputs,
         };
         setParsedProof(parsedData);
-        cacheRef.current.parsedProof = parsedData;
+        moduleCaches[variant].parsedProof = parsedData;
         setProof(parsed.proof);
         updateStep('parse', {
           status: 'completed',
@@ -379,8 +398,8 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
 
   const verifyProofOffChain = useCallback(
     async (addLog: (msg: string) => void): Promise<boolean> => {
-      const useVk = vk || cacheRef.current.vk;
-      const useFullProof = fullProof || cacheRef.current.fullProof;
+      const useVk = vk || moduleCaches[variant].vk;
+      const useFullProof = fullProof || moduleCaches[variant].fullProof;
       if (!useVk || !useFullProof) {
         addLog('Please generate proof first');
         return false;
@@ -410,7 +429,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
 
   const verifyProofOnChain = useCallback(
     async (addLog: (msg: string) => void): Promise<boolean> => {
-      const useParsed = parsedProof || cacheRef.current.parsedProof;
+      const useParsed = parsedProof || moduleCaches[variant].parsedProof;
       if (!useParsed) {
         addLog('Please generate proof first');
         return false;
@@ -458,7 +477,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
   );
 
   const resetProofCache = useCallback(() => {
-    cacheRef.current = makeCache();
+    moduleCaches[variant] = {vk: null, fullProof: null, parsedProof: null};
     setVk(null);
     setFullProof(null);
     setParsedProof(null);
