@@ -49,6 +49,19 @@ function isInsideOpenStoa(route: any): boolean {
   return focused === 'OpenStoaRoot';
 }
 
+// Full-screen modal routes — webviews and similar overlays that should
+// cover the viewport. Listed once here so every stack inherits the same
+// policy without per-screen setOptions hacks (which trigger cleanup races
+// that leave the tab bar painted with the navigator's default style on
+// dismiss). Add a route name here when you register a new modal that
+// should hide the tab bar.
+const MODAL_ROUTES = new Set(['OacxWebView', 'InAppBrowser']);
+
+function isFullScreenModalRoute(route: any): boolean {
+  const focused = getFocusedRouteNameFromRoute(route);
+  return !!focused && MODAL_ROUTES.has(focused);
+}
+
 const TabNavigator: React.FC = () => {
   const { mode, colors: themeColors } = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -71,13 +84,21 @@ const TabNavigator: React.FC = () => {
     <Tab.Navigator
       key={lang}
       initialRouteName="ProofTab"
-      screenOptions={{
+      // screenOptions runs per-route on every focus change so we can
+      // dynamically swap tabBarStyle when a full-screen modal route is
+      // focused. This is the canonical pattern — doing it from inside a
+      // screen via setOptions+cleanup leaves the navigator with no idea
+      // what the prior style was and falls back to the platform default
+      // (white) on dismiss.
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: baseTabBarStyle,
+        tabBarStyle: isFullScreenModalRoute(route)
+          ? { display: 'none' }
+          : baseTabBarStyle,
         tabBarActiveTintColor: themeColors.text.primary,
         tabBarInactiveTintColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
         tabBarLabelStyle: styles.tabBarLabel,
-      }}
+      })}
     >
       <Tab.Screen
         name="ProofTab"
@@ -119,9 +140,13 @@ const TabNavigator: React.FC = () => {
           tabBarIcon: ({ size, color }) => (
             <OpenStoaMarkIcon size={size} color={color} />
           ),
-          tabBarStyle: isInsideOpenStoa(route)
-            ? { display: 'none' }
-            : baseTabBarStyle,
+          // Hide host tab bar while the mini-app owns its own; otherwise
+          // fall through to the screenOptions selector so a modal route
+          // focused INSIDE OpenStoa also hides the bar correctly.
+          tabBarStyle:
+            isInsideOpenStoa(route) || isFullScreenModalRoute(route)
+              ? { display: 'none' }
+              : baseTabBarStyle,
         })}
       />
       <Tab.Screen

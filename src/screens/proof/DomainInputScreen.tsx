@@ -1,9 +1,9 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, TouchableOpacity} from 'react-native';
+import {Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTranslation} from 'react-i18next';
-import {Button, Card} from '../../components/ui';
+import {Button, Card, KeyboardSafeScroll} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 
@@ -55,7 +55,7 @@ export const DomainInputScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
-      <ScrollView
+      <KeyboardSafeScroll
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}>
@@ -178,7 +178,7 @@ export const DomainInputScreen: React.FC = () => {
           size="large"
           style={styles.continueButton}
         />
-      </ScrollView>
+      </KeyboardSafeScroll>
     </SafeAreaView>
   );
 };

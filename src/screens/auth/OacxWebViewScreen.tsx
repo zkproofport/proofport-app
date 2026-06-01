@@ -22,15 +22,16 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {WebView} from 'react-native-webview';
 import type {WebViewMessageEvent} from 'react-native-webview';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {useTranslation} from 'react-i18next';
 import {useThemeColors} from '../../context';
 import {publishResult} from '../../utils/oacxResultBus';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -143,6 +144,7 @@ function buildHtml(provider: string, scope: string): string {
 }
 
 export const OacxWebViewScreen: React.FC = () => {
+  const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
@@ -182,12 +184,23 @@ export const OacxWebViewScreen: React.FC = () => {
   const html = buildHtml(provider, scope);
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
-      <View style={[styles.header, {borderBottomColor: themeColors.border.primary}]}>
+    <SafeAreaView
+      style={[styles.container, {backgroundColor: themeColors.background.primary}]}
+      edges={['top', 'left', 'right']}
+    >
+      <View
+        style={[
+          styles.header,
+          {
+            borderBottomColor: themeColors.border.primary,
+            backgroundColor: themeColors.background.primary,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
-          <Text style={[styles.cancelText, {color: themeColors.info[500]}]}>취소</Text>
+          <Text style={[styles.cancelText, {color: themeColors.info[500]}]}>{t('common.cancel')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, {color: themeColors.text.primary}]}>모바일 신분증 인증</Text>
+        <Text style={[styles.title, {color: themeColors.text.primary}]}>{t('shared.webView.mobileIdAuth')}</Text>
         <View style={styles.cancelButton} />
       </View>
       <WebView

@@ -17,7 +17,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   TextInput,
 } from 'react-native';
@@ -25,7 +24,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
 import {useTranslation} from 'react-i18next';
-import {Button, Card} from '../../components/ui';
+import {Button, Card, KeyboardSafeScroll} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {
@@ -166,7 +165,7 @@ export const MdlKrInputScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: themeColors.background.primary}}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+      <KeyboardSafeScroll style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         <Card style={styles.heroCard}>
           <Text style={{fontSize: 11, fontWeight: '600', color: themeColors.info[400], letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8}}>
             {heroLabel}
@@ -344,7 +343,7 @@ export const MdlKrInputScreen: React.FC = () => {
           disabled={!canContinue}
           style={styles.continueButton}
         />
-      </ScrollView>
+      </KeyboardSafeScroll>
     </SafeAreaView>
   );
 };

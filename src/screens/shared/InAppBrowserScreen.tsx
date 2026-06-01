@@ -23,6 +23,7 @@ import {
 import {WebView} from 'react-native-webview';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
+import {useTranslation} from 'react-i18next';
 import {useThemeColors} from '../../context';
 
 // Route param shape — used by all stacks that register this screen.
@@ -34,6 +35,7 @@ export type InAppBrowserParams = {
 type Route = RouteProp<{InAppBrowser: InAppBrowserParams}, 'InAppBrowser'>;
 
 export const InAppBrowserScreen: React.FC = () => {
+  const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
   const navigation = useNavigation();
   const route = useRoute<Route>();
@@ -49,7 +51,7 @@ export const InAppBrowserScreen: React.FC = () => {
     <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
       <View style={[styles.header, {borderBottomColor: themeColors.border.primary}]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={[styles.backText, {color: themeColors.info[500]}]}>{'< 뒤로'}</Text>
+          <Text style={[styles.backText, {color: themeColors.info[500]}]}>{t('common.cancel')}</Text>
         </TouchableOpacity>
         <Text
           style={[styles.title, {color: themeColors.text.primary}]}

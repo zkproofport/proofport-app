@@ -103,24 +103,24 @@ android {
         manifestPlaceholders = [appAuthRedirectScheme: "msalcd5404cc-d313-431c-8112-725e629dad28"]
     }
     flavorDimensions = ["environment"]
+    // All flavors share the same applicationId (`com.zkproofport.app`) so
+    // there is a single Google OAuth Android client / single Play Console
+    // listing across dev / staging / production. Differentiation between
+    // environments is carried by app_env (and the visible app_name) rather
+    // than by package suffix.
     productFlavors {
         development {
             dimension "environment"
-            applicationIdSuffix ".dev"
             resValue "string", "app_name", "ZKProofport DEV"
             resValue "string", "app_env", "development"
         }
         staging {
             dimension "environment"
-            applicationIdSuffix ".staging"
             resValue "string", "app_name", "ZKProofport STG"
             resValue "string", "app_env", "staging"
         }
         production {
             dimension "environment"
-            if (project.hasProperty('APP_ID_SUFFIX')) {
-                applicationIdSuffix project.property('APP_ID_SUFFIX')
-            }
             resValue "string", "app_name", "ZKProofport"
             resValue "string", "app_env", "production"
         }

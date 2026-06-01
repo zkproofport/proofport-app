@@ -1,6 +1,7 @@
 export {Icon} from './atoms/Icon';
 export {Badge} from './atoms/Badge';
 export {Divider} from './atoms/Divider';
+export {KeyboardSafeScroll} from './atoms/KeyboardSafeScroll';
 
 export {Button} from './molecules/Button';
 export {Card} from './molecules/Card';

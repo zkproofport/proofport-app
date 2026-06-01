@@ -46,6 +46,15 @@ export interface CreateZkProofportHostApiOptions {
    * Subscribe to host theme changes. Returns an unsubscribe function.
    */
   subscribeTheme: (cb: (mode: 'light' | 'dark') => void) => () => void;
+
+  /** Returns the host's current Developer Mode toggle synchronously. */
+  getDeveloperMode: () => boolean;
+
+  /**
+   * Subscribe to host Developer Mode toggle changes. Returns an
+   * unsubscribe function.
+   */
+  subscribeDeveloperMode: (cb: (enabled: boolean) => void) => () => void;
 }
 
 /**
@@ -57,7 +66,16 @@ export interface CreateZkProofportHostApiOptions {
 export function createZkProofportHostApi(
   opts: CreateZkProofportHostApiOptions,
 ): HostApi {
-  const { getNavigation, baseUrl, showError, haptic, getTheme, subscribeTheme } = opts;
+  const {
+    getNavigation,
+    baseUrl,
+    showError,
+    haptic,
+    getTheme,
+    subscribeTheme,
+    getDeveloperMode,
+    subscribeDeveloperMode,
+  } = opts;
 
   const env: HostEnvironmentInfo = {
     isEmbedded: true,
@@ -235,6 +253,16 @@ export function createZkProofportHostApi(
       await AsyncStorage.setItem(LOGGED_OUT_KEY, '1');
     },
 
+    setOpenStoaToken: async (token: string) => {
+      // Replace the cached Bearer with a freshly-reissued JWT (e.g. after
+      // a nickname change). Clears the logged-out flag because possessing a
+      // fresh token implies the user is logged in. Does NOT touch userId /
+      // nickname / expiresAt caches — those are derived from API responses
+      // by the mini-app and refreshed via /api/auth/session as usual.
+      await AsyncStorage.setItem(TOKEN_KEY, token);
+      await AsyncStorage.removeItem(LOGGED_OUT_KEY);
+    },
+
     generateProof: async (_inputs: ProofInputs): Promise<ProofResult> => {
       // TODO: bridge into the existing host proof-generation hooks
       // (useCoinbaseKyc, useCoinbaseCountry, useOidcDomain) so that the
@@ -270,6 +298,10 @@ export function createZkProofportHostApi(
     getTheme: () => getTheme(),
 
     onThemeChange: (listener: (mode: 'light' | 'dark') => void) => subscribeTheme(listener),
+
+    getDeveloperMode: () => getDeveloperMode(),
+
+    onDeveloperModeChange: (listener: (enabled: boolean) => void) => subscribeDeveloperMode(listener),
   };
 }
 

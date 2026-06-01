@@ -5,6 +5,7 @@ import { HostProvider, OpenStoaApp } from 'openstoa-mobile';
 import { createZkProofportHostApi } from '../../openstoa-host/zkProofportHostApi';
 import { useThemeColors } from '../../context';
 import { getEnvironment } from '../../config';
+import { useSettings } from '../../hooks';
 
 // Mirror the host's 3-way environment split so the mini-app and the host
 // always point at the same backend tier:
@@ -22,6 +23,8 @@ const OpenStoaRootScreen: React.FC = () => {
   const navigation = useNavigation();
   const rootRef = useNavigationContainerRef();
   const { mode, colors } = useThemeColors();
+  const { settings } = useSettings();
+  const developerMode = settings?.developerMode ?? false;
 
   // Keep a stable ref to the current mode so getTheme() is always synchronous.
   const modeRef = useRef<'light' | 'dark'>(mode);
@@ -41,6 +44,24 @@ const OpenStoaRootScreen: React.FC = () => {
     };
   }, []);
 
+  // Same pattern for Developer Mode — mini-app uses it to gate experimental
+  // affordances (e.g. mDL sign-in) so they only appear when the host user
+  // has explicitly opted in.
+  const developerModeRef = useRef<boolean>(developerMode);
+  const developerModeListenersRef = useRef<Set<(enabled: boolean) => void>>(new Set());
+
+  useEffect(() => {
+    developerModeRef.current = developerMode;
+    developerModeListenersRef.current.forEach((cb) => cb(developerMode));
+  }, [developerMode]);
+
+  const subscribeDeveloperMode = useCallback((cb: (enabled: boolean) => void) => {
+    developerModeListenersRef.current.add(cb);
+    return () => {
+      developerModeListenersRef.current.delete(cb);
+    };
+  }, []);
+
   const hostApi = useMemo(
     () =>
       createZkProofportHostApi({
@@ -56,9 +77,11 @@ const OpenStoaRootScreen: React.FC = () => {
         },
         getTheme: () => modeRef.current,
         subscribeTheme,
+        getDeveloperMode: () => developerModeRef.current,
+        subscribeDeveloperMode,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigation, subscribeTheme],
+    [navigation, subscribeTheme, subscribeDeveloperMode],
   );
 
   return (

@@ -42,11 +42,18 @@ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size
 
 cmake_path(
   SET MY_RUST_LIB
-  ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libproofport.a
+  ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libproofport.so
   NORMALIZE
 )
-add_library(my_rust_lib STATIC IMPORTED)
-set_target_properties(my_rust_lib PROPERTIES IMPORTED_LOCATION ${MY_RUST_LIB})
+add_library(my_rust_lib SHARED IMPORTED)
+# Cargo's cdylib output has no DT_SONAME entry. Without IMPORTED_NO_SONAME,
+# CMake propagates the absolute IMPORTED_LOCATION path into libmopro-ffi.so's
+# DT_NEEDED, and at runtime Android's dynamic linker (which looks up by file
+# name in /lib/<abi>/) fails dlopen. IMPORTED_NO_SONAME makes CMake emit a
+# bare "libproofport.so" in DT_NEEDED — the standard NDK pattern.
+set_target_properties(my_rust_lib PROPERTIES
+  IMPORTED_LOCATION ${MY_RUST_LIB}
+  IMPORTED_NO_SONAME TRUE)
 
 # Add ReactAndroid libraries, being careful to account for different versions.
 find_package(ReactAndroid REQUIRED CONFIG)

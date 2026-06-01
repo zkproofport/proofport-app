@@ -60,16 +60,27 @@ target 'ProofportApp' do
         end
       end
 
-      # Workaround for fmt + clang 21 (Xcode 26.x) consteval mismatch in
-      # format-inl.h. Disabling FMT_USE_CONSTEVAL forces fmt to fall back
-      # to the constexpr path, which compiles cleanly under newer clang.
-      target.build_configurations.each do |config|
-        defs = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
-        defs = [defs] unless defs.is_a?(Array)
-        unless defs.any? { |d| d.to_s.include?('FMT_USE_CONSTEVAL') }
-          defs << 'FMT_USE_CONSTEVAL=0'
-        end
-        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs
+    end
+
+    # Workaround for fmt 11.0.2 + clang 21 (Xcode 26.x) consteval mismatch in
+    # format-inl.h. fmt's base.h sets FMT_USE_CONSTEVAL via an unconditional
+    # `#define` chain (no `#ifndef` guard), so a `-DFMT_USE_CONSTEVAL=0`
+    # compiler flag is silently overwritten by the header itself. The only
+    # reliable fix is to patch the header so the resulting `#if` evaluates
+    # to false — that drops the `consteval` keyword and makes the format
+    # string constructors plain `constexpr`, which clang 21 accepts. Patch
+    # is idempotent and runs on every `pod install`, so it survives Pods
+    # regeneration.
+    fmt_header = File.join(installer.sandbox.root, 'fmt/include/fmt/base.h')
+    if File.exist?(fmt_header)
+      content = File.read(fmt_header)
+      patched = content.sub(
+        /^#if FMT_USE_CONSTEVAL$/,
+        '#if 0 // patched: force constexpr fallback for Xcode 26.x clang'
+      )
+      if content != patched
+        File.write(fmt_header, patched)
+        Pod::UI.puts "Patched fmt/base.h: forced FMT_USE_CONSTEVAL guard to 0".green
       end
     end
   end

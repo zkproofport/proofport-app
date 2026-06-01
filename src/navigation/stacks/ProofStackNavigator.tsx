@@ -70,13 +70,13 @@ const ProofStackNavigator: React.FC = () => {
         options={{
           title: '모바일 신분증 인증',
           headerShown: false, // OacxWebViewScreen has its own header
-          presentation: 'modal', // slide up from bottom, above the tab bar
+          presentation: 'fullScreenModal', animation: 'slide_from_bottom', // slide up from bottom, above the tab bar
         }}
       />
       <Stack.Screen
         name="InAppBrowser"
         component={InAppBrowserScreen}
-        options={{headerShown: false, presentation: 'modal'}}
+        options={{headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom'}}
       />
     </Stack.Navigator>
   );
