@@ -46,7 +46,13 @@ const MoreStackNavigator: React.FC = () => {
       <Stack.Screen
         name="InAppBrowser"
         component={InAppBrowserScreen}
-        options={{headerShown: false, presentation: 'fullScreenModal', animation: 'slide_from_bottom'}}
+        options={({route}) => ({
+          title: route.params?.title ?? (() => {
+            try { return new URL(route.params.url).host; } catch { return route.params.url; }
+          })(),
+          presentation: 'fullScreenModal',
+          animation: 'slide_from_bottom',
+        })}
       />
     </Stack.Navigator>
   );
