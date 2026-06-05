@@ -1,8 +1,11 @@
 // AppKit config must be imported first
 import './src/config/AppKitConfig';
 
+import 'react-native-gesture-handler';
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {Linking} from 'react-native';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {KeyboardProvider} from 'react-native-keyboard-controller';
 import {
   NavigationContainer,
   NavigationContainerRef,
@@ -260,16 +263,20 @@ const App: React.FC = () => {
   );
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <ErrorProvider>
-          <DeepLinkProvider>
-            {tree}
-          </DeepLinkProvider>
-          <ErrorModal />
-        </ErrorProvider>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{flex: 1}}>
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <ErrorProvider>
+              <DeepLinkProvider>
+                {tree}
+              </DeepLinkProvider>
+              <ErrorModal />
+            </ErrorProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
 };
 
