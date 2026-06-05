@@ -16,6 +16,7 @@ module.exports = {
       },
     },
   },
+  assets: ['./node_modules/react-native-vector-icons/Fonts'],
   // Circuit assets are now downloaded from GitHub at runtime
   // See src/utils/circuitDownload.ts for loading logic
 };

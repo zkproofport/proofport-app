@@ -31,8 +31,6 @@
     "@ethersproject/shims": "^5.8.0",
     "@openstoa/api-types": "file:../openstoa/packages/api-types",
     "@openstoa/miniapp-bridge": "file:../openstoa/packages/miniapp-bridge",
-    "@privy-io/expo": "^0.62.1",
-    "@privy-io/expo-native-extensions": "^0.0.6",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-native-community/netinfo": "^11.4.1",

@@ -1,9 +1,5 @@
 import type {ProofRequest} from '../utils/deeplink';
 
-export type RootStackParamList = {
-  PrivyWallet: undefined;
-};
-
 // Re-export deep link types for convenience
 export type {
   ProofRequest,

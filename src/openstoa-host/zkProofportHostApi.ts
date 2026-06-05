@@ -1,6 +1,6 @@
 // Use AsyncStorage instead of expo-secure-store on the host because the
 // iOS simulator does not have the keychain entitlements that SecureStore
-// requires; host's existing Privy adapter follows the same pattern.
+// requires.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n, { getLanguage } from '../i18n';
 import type { NavigationContainerRef } from '@react-navigation/native';

@@ -34,14 +34,6 @@
 		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>privy</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>privy-cmjdy1g1v01cbjo0c0fajqadz</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleURLName</key>
 			<string>google-signin</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
@@ -99,13 +91,6 @@
 				<key>NSTemporaryExceptionMinimumTLSVersion</key>
 				<string>TLSv1.2</string>
 			</dict>
-			<key>privy.io</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
 		</dict>
 	</dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -141,6 +126,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>Feather.ttf</string>
+		<string>MaterialCommunityIcons.ttf</string>
 	</array>
 </dict>
 </plist>

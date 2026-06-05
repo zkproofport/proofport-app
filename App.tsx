@@ -11,57 +11,7 @@ import {
 } from '@react-navigation/native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppKitProvider, AppKit} from '@reown/appkit-react-native';
-import {PrivyProvider} from '@privy-io/expo';
-import type {Storage} from '@privy-io/js-sdk-core';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {appKit, PRIVY_APP_ID, PRIVY_CLIENT_ID} from './src/config';
-
-// Custom storage adapter using AsyncStorage instead of SecureStore
-// This avoids keychain access issues on simulator without code signing
-const PRIVY_STORAGE_PREFIX = '@privy:';
-
-const privyStorage: Storage = {
-  get: async (key: string) => {
-    try {
-      const value = await AsyncStorage.getItem(PRIVY_STORAGE_PREFIX + key);
-      if (value === null) return undefined;
-      try {
-        return JSON.parse(value);
-      } catch {
-        return value;
-      }
-    } catch (error) {
-      console.warn('[Privy Storage] get error:', error);
-      return undefined;
-    }
-  },
-  put: async (key: string, value: unknown) => {
-    try {
-      const serialized = typeof value === 'string' ? value : JSON.stringify(value);
-      await AsyncStorage.setItem(PRIVY_STORAGE_PREFIX + key, serialized);
-    } catch (error) {
-      console.warn('[Privy Storage] put error:', error);
-    }
-  },
-  del: async (key: string) => {
-    try {
-      await AsyncStorage.removeItem(PRIVY_STORAGE_PREFIX + key);
-    } catch (error) {
-      console.warn('[Privy Storage] del error:', error);
-    }
-  },
-  getKeys: async () => {
-    try {
-      const allKeys = await AsyncStorage.getAllKeys();
-      return allKeys
-        .filter(k => k.startsWith(PRIVY_STORAGE_PREFIX))
-        .map(k => k.slice(PRIVY_STORAGE_PREFIX.length));
-    } catch (error) {
-      console.warn('[Privy Storage] getKeys error:', error);
-      return [];
-    }
-  },
-};
+import {appKit} from './src/config';
 import {LoadingScreen} from './src/screens';
 import {TabNavigator} from './src/navigation';
 import type {TabParamList} from './src/navigation/types';
@@ -290,11 +240,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Auth/wallet providers always mount. The dev-only bypass that lived
-  // here was a workaround for a missing keychain-access-groups entitlement
-  // — that entitlement has since been restored in
-  // ios/ProofportApp/ProofportApp.entitlements, so PrivyProvider now mounts
-  // safely in dev builds too.
   const inner = (
     <NavigationContainer ref={navigationRef}>
       <TabNavigator />
@@ -302,22 +247,16 @@ const App: React.FC = () => {
   );
 
   const tree = (
-    <PrivyProvider
-      appId={PRIVY_APP_ID}
-      clientId={PRIVY_CLIENT_ID}
-      storage={privyStorage}
-    >
-      <AppKitProvider instance={appKit}>
-        {inner}
-        <AppKit />
-        <ProofRequestModal
-          visible={showRequestModal}
-          request={pendingRequest}
-          onAccept={handleAcceptRequest}
-          onReject={handleRejectRequest}
-        />
-      </AppKitProvider>
-    </PrivyProvider>
+    <AppKitProvider instance={appKit}>
+      {inner}
+      <AppKit />
+      <ProofRequestModal
+        visible={showRequestModal}
+        request={pendingRequest}
+        onAccept={handleAcceptRequest}
+        onReject={handleRejectRequest}
+      />
+    </AppKitProvider>
   );
 
   return (

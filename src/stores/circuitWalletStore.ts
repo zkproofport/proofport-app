@@ -34,7 +34,7 @@ const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
   coinbase_country_attestation: 'coinbase',
   giwa_attestation: 'giwa',
   oidc_domain_attestation: 'oidc',
-  // Korea mDL is a web2 (OmniOne CX) flow with no Privy wallet binding.
+  // Korea mDL is a web2 (OmniOne CX) flow with no wallet binding.
   // All three predicate circuits share one group so the wallet gate is
   // a no-op (no wallet is ever stored for them).
   mdl_kr_ownership: 'mdl_kr',

@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {mainnet as viemMainnet, base as viemBase} from 'viem/chains';
 
-const projectId = '9a54a0419fc6c86a2bde3d44c4f1615c';
+const projectId = 'c1194f0c45c964d20fb24a52b2432af4';
 
 const metadata = {
   name: 'ZKProofport',
