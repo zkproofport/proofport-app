@@ -87,6 +87,7 @@ export type MoreStackParamList = {
   HistoryDetail: { proofId: string };
   SettingsLanguage: undefined;
   InAppBrowser: { url: string; title?: string };
+  MlsPoc: undefined; // Phase 0 dev PoC (throwaway)
 };
 
 

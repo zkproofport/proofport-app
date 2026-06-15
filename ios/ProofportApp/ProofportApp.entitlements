@@ -6,5 +6,9 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.zkproofport.app</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:stg-community.zkproofport.app</string>
+	</array>
 </dict>
 </plist>

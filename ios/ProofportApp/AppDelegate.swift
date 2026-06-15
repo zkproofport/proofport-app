@@ -101,6 +101,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   override func bundleURL() -> URL? {
     print("🔵 ReactNativeDelegate: bundleURL called")
 #if DEBUG
+    // Prefer an embedded dev bundle if one was packaged in (Metro-independent
+    // PoC builds — avoids the LAN-IP churn that breaks the Metro connection).
+    // A normal dev build has no embedded main.jsbundle, so this is a no-op and
+    // we fall through to Metro below.
+    if let embedded = Bundle.main.url(forResource: "main", withExtension: "jsbundle") {
+      print("🔵 ReactNativeDelegate: using EMBEDDED main.jsbundle (no Metro)")
+      return embedded
+    }
     // Try RCTBundleURLProvider first
     var url = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: "index")
 
