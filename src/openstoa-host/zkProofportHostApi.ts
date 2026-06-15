@@ -103,6 +103,26 @@ export function createZkProofportHostApi(
     await AsyncStorage.removeItem(EXPIRES_AT_KEY);
   }
 
+  // Dev-only shortcut: skip the real OIDC ZK-proof login (which needs Google
+  // sign-in + relay + on-chain) and mint a local session via the community's
+  // /api/auth/dev-login endpoint (available only when APP_ENV !== production).
+  // Lets the mini-app authenticate against the LOCAL backend on a simulator /
+  // emulator so in-app chat can be exercised end-to-end.
+  async function devLogin(): Promise<AuthResult> {
+    const res = await fetch(`${baseUrl}/api/auth/dev-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      throw new Error(`dev-login failed: HTTP ${res.status} against ${baseUrl}`);
+    }
+    const data = (await res.json()) as { token: string; userId: string };
+    await writeAuth({ token: data.token, userId: data.userId });
+    await AsyncStorage.removeItem(LOGGED_OUT_KEY);
+    return { token: data.token, userId: data.userId, needsNickname: false };
+  }
+
   // Self-relay proof flow: get a proof-request from the OpenStoa server,
   // self-trigger the resulting deep link to drive the host's existing
   // ProofGenerationScreen pipeline (same code path as a 3rd-party dapp
@@ -241,8 +261,13 @@ export function createZkProofportHostApi(
         throw new Error('LOGGED_OUT');
       }
 
-      // Explicit Sign-in (force=true): drive the real self-relay ZK proof
-      // flow via the host's existing ProofGenerationScreen pipeline.
+      // Explicit Sign-in (force=true). In __DEV__ skip the real OIDC ZK-proof
+      // flow (Google sign-in + relay) and mint a local session via dev-login,
+      // so in-app chat can be tested against the local backend on a
+      // simulator/emulator. Production/staging builds always use the real flow.
+      if (__DEV__) {
+        return devLogin();
+      }
       return runSelfRelayLogin(method ?? 'oidc');
     },
 

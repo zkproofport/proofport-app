@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Platform } from 'react-native';
 import { useNavigation, useNavigationContainerRef } from '@react-navigation/native';
 import { HostProvider, OpenStoaApp } from 'openstoa-mobile';
 import { createZkProofportHostApi } from '../../openstoa-host/zkProofportHostApi';
@@ -9,13 +10,21 @@ import { useSettings } from '../../hooks';
 
 // Mirror the host's 3-way environment split so the mini-app and the host
 // always point at the same backend tier:
-//   development → staging community (devs hit staging APIs)
+//   development → LOCAL community (docker on the dev machine) so in-app chat
+//                 exercises the code currently being developed. iOS simulator
+//                 reaches the host via localhost; the Android emulator reaches
+//                 it via the special 10.0.2.2 alias. (A physical device would
+//                 need the host LAN IP instead.)
 //   staging     → staging community
 //   production  → canonical openstoa.xyz
 function resolveOpenStoaBaseUrl(): string {
   const env = getEnvironment();
   if (env === 'production') return 'https://www.openstoa.xyz';
-  return 'https://stg-community.zkproofport.app';
+  if (env === 'staging') return 'https://stg-community.zkproofport.app';
+  // development → local docker community. Use 127.0.0.1 (not "localhost") on
+  // iOS so the request goes over IPv4 — Docker's port publish binds IPv4 only,
+  // and "localhost" resolves to IPv6 ::1 first (connection refused) on the sim.
+  return Platform.OS === 'android' ? 'http://10.0.2.2:3200' : 'http://127.0.0.1:3200';
 }
 const OPENSTOA_BASE_URL = resolveOpenStoaBaseUrl();
 
