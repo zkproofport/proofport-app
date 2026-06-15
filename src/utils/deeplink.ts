@@ -326,8 +326,11 @@ function isPrivateHost(hostname: string): boolean {
  * Uses ethers.js which is always available in React Native.
  */
 async function computeSha256(data: string): Promise<string> {
-  const { sha256 } = require('@noble/hashes/sha256');
-  const { bytesToHex } = require('@noble/hashes/utils');
+  // @noble/hashes v2 subpaths require the `.js` suffix and moved sha256 to
+  // `sha2`. The tree is on v2 (pulled by ts-mls's @noble/curves). See
+  // docs/research/phase0-findings.md — revert with the Phase 0 PoC if v2 is dropped.
+  const { sha256 } = require('@noble/hashes/sha2.js');
+  const { bytesToHex } = require('@noble/hashes/utils.js');
   const encoder = new TextEncoder();
   return bytesToHex(sha256(encoder.encode(data)));
 }
