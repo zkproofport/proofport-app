@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@ethersproject/shims": "^5.8.0",
+    "@noble/hashes": "^2.2.0",
     "@openstoa/api-types": "file:../openstoa/packages/api-types",
     "@openstoa/miniapp-bridge": "file:../openstoa/packages/miniapp-bridge",
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -72,7 +73,9 @@
     "react-native-linear-gradient": "^2.8.3",
     "react-native-markdown-display": "^7.0.2",
     "react-native-modal": "^14.0.0-rc.1",
+    "react-native-nitro-modules": "^0.35.9",
     "react-native-passkeys": "^0.4.0",
+    "react-native-quick-crypto": "^1.1.5",
     "react-native-reanimated": "^3.19.5",
     "react-native-render-html": "^6.3.4",
     "react-native-safe-area-context": "^5.6.2",
@@ -84,6 +87,7 @@
     "react-native-webview": "^13.16.0",
     "react-native-youtube-iframe": "^2.4.1",
     "react-refresh": "^0.18.0",
+    "ts-mls": "^1.6.2",
     "viem": "^2.42.1",
     "zustand": "^4.5.5"
   },

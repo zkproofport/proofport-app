@@ -59,8 +59,12 @@ const config = {
         const browserPath = moduleName.replace('/node/esm', '/browser').replace('/node/cjs', '/browser').replace('/node/', '/browser/');
         return context.resolveRequest(context, browserPath, platform);
       }
-      // Block node crypto/util modules
-      if (moduleName === 'crypto' || moduleName === 'util') {
+      // Block node `crypto` (the app provides WebCrypto via global.crypto;
+      // ts-mls PoC attaches `subtle`). `util` is NO LONGER blocked: it now
+      // resolves to the installed `util` browser-polyfill (0.12.5, has
+      // promisify) because react-native-quick-crypto requires util.promisify.
+      // A real util is strictly safer than an empty module for all consumers.
+      if (moduleName === 'crypto') {
         return {type: 'empty'};
       }
       return context.resolveRequest(context, moduleName, platform);
