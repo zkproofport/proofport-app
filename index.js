@@ -15,7 +15,7 @@ import '@walletconnect/react-native-compat';
 // `subtle` to the existing global.crypto and never replaces getRandomValues,
 // so Privy/ethers/WalletConnect are unaffected. Without this the mini-app chat
 // cannot decrypt. (Installer originated in the Phase 0 PoC.)
-import {ensureSubtleCrypto} from './src/poc/installCryptoPolyfill';
+import {ensureSubtleCrypto} from './src/crypto/installCryptoPolyfill';
 ensureSubtleCrypto();
 
 // i18n — must initialise before any screen renders
