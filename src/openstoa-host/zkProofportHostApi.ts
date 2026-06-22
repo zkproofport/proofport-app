@@ -2,6 +2,13 @@
 // iOS simulator does not have the keychain entitlements that SecureStore
 // requires.
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// Secure storage for the mini-app's E2EE chat MLS state (iOS Keychain /
+// Android Keystore). Unlike the token (kept in AsyncStorage), MLS leaf state is
+// sensitive key material, so it goes in the platform secure store. The
+// keychain-access-groups entitlement (ProofportApp.entitlements) makes this
+// work on the simulator too — verified storing 8KB values round-trip on both
+// iOS sim and Android emulator.
+import * as SecureStore from 'expo-secure-store';
 import i18n, { getLanguage } from '../i18n';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
@@ -118,7 +125,7 @@ export function createZkProofportHostApi(
       throw new Error(`dev-login failed: HTTP ${res.status} against ${baseUrl}`);
     }
     const data = (await res.json()) as { token: string; userId: string };
-    await writeAuth({ token: data.token, userId: data.userId });
+    await writeAuth({ token: data.token, userId: data.userId, needsNickname: false });
     await AsyncStorage.removeItem(LOGGED_OUT_KEY);
     return { token: data.token, userId: data.userId, needsNickname: false };
   }
@@ -286,6 +293,21 @@ export function createZkProofportHostApi(
       // by the mini-app and refreshed via /api/auth/session as usual.
       await AsyncStorage.setItem(TOKEN_KEY, token);
       await AsyncStorage.removeItem(LOGGED_OUT_KEY);
+    },
+
+    // Secure KV used by the mini-app to persist E2EE chat MLS state across
+    // restarts. Keys are `mls.state.<identity>.<topicId>` (only chars in
+    // [A-Za-z0-9._-], which expo-secure-store requires).
+    secureStore: {
+      getItem: (key: string) => SecureStore.getItemAsync(key),
+      setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+    },
+
+    // Non-secure bulk KV (AsyncStorage) for the mini-app's decrypted chat
+    // message cache — many rows, plaintext already on-device, so NOT Keychain.
+    localStore: {
+      getItem: (key: string) => AsyncStorage.getItem(key),
+      setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
     },
 
     generateProof: async (_inputs: ProofInputs): Promise<ProofResult> => {

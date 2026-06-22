@@ -4,7 +4,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { ensureSubtleCrypto, type PolyfillResult } from '../../poc/installCryptoPolyfill';
+import { ensureSubtleCrypto, type PolyfillResult } from '../../crypto/installCryptoPolyfill';
 import { runMlsRoundTrip, type MlsPocResult } from '../../poc/mlsRoundTrip';
 import { runPasskeyPrf, type PrfResult } from '../../poc/passkeyPrf';
 
