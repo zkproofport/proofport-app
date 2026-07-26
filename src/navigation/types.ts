@@ -7,8 +7,18 @@ export type TabParamList = {
   ProofTab: NavigatorScreenParams<ProofStackParamList>;
   WalletTab: NavigatorScreenParams<WalletStackParamList>;
   ScanTab: NavigatorScreenParams<ScanStackParamList>;
+  // Only one of OpenStoaTab / HistoryTab is mounted at a time, gated by the
+  // OPENSTOA_ENABLED build flag (see src/config/features.ts).
   OpenStoaTab: NavigatorScreenParams<OpenStoaStackParamList>;
+  HistoryTab: NavigatorScreenParams<HistoryStackParamList>;
   MoreTab: NavigatorScreenParams<MoreStackParamList>;
+};
+
+// Stack for the History tab (used when OPENSTOA_ENABLED is false). Mirrors the
+// HistoryMain / HistoryDetail routes that also live in MoreStackParamList.
+export type HistoryStackParamList = {
+  HistoryMain: undefined;
+  HistoryDetail: { proofId: string };
 };
 
 export type ProofStackParamList = {
