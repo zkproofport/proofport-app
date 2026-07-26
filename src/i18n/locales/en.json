@@ -15,6 +15,7 @@
   "host": {
     "tabs": {
       "openstoa": "OpenStoa",
+      "history": "History",
       "verify": "Verify",
       "scan": "Scan",
       "wallet": "Wallet",

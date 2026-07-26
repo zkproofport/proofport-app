@@ -15,6 +15,7 @@
   "host": {
     "tabs": {
       "openstoa": "OpenStoa",
+      "history": "기록",
       "verify": "검증",
       "scan": "스캔",
       "wallet": "지갑",

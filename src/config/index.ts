@@ -1,3 +1,4 @@
+export {OPENSTOA_ENABLED} from './features';
 export {appKit, projectId, metadata, networks} from './AppKitConfig';
 export {WALLETCONNECT_PROJECT_ID, appMetadata} from './PrivyConfig';
 export {VERIFIER_ABI, AUTHORIZED_SIGNERS} from './contracts';

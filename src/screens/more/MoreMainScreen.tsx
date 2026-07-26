@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import {Toggle} from '../../components/ui/molecules/Toggle';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {Select} from '../../components/ui/molecules/Select';
-import {USER_FACING_NETWORKS, isNetworkVisible, type NetworkId} from '../../config';
+import {USER_FACING_NETWORKS, isNetworkVisible, OPENSTOA_ENABLED, type NetworkId} from '../../config';
 import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import {useThemeColors} from '../../context';
@@ -104,14 +104,19 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
             <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.language')}</Text>
             <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
-            onPress={() => navigation.navigate('HistoryMain')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.history')}</Text>
-            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
-          </TouchableOpacity>
+          {/* History lives in "More" only when OpenStoa owns the 4th tab.
+              When OPENSTOA_ENABLED is false, History is its own tab, so this
+              row is hidden to avoid a duplicate entry point. */}
+          {OPENSTOA_ENABLED && (
+            <TouchableOpacity
+              style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
+              onPress={() => navigation.navigate('HistoryMain')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.history')}</Text>
+              <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
+            </TouchableOpacity>
+          )}
           <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
             <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.theme')}</Text>
             <View style={styles.themeOptions}>

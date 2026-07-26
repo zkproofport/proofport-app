@@ -11,7 +11,9 @@ import ProofStackNavigator from './stacks/ProofStackNavigator';
 import WalletStackNavigator from './stacks/WalletStackNavigator';
 import ScanStackNavigator from './stacks/ScanStackNavigator';
 import MoreStackNavigator from './stacks/MoreStackNavigator';
+import HistoryStackNavigator from './stacks/HistoryStackNavigator';
 import OpenStoaMarkIcon from '../components/icons/OpenStoaMarkIcon';
+import { OPENSTOA_ENABLED } from '../config';
 import { useThemeColors } from '../context';
 import { useCurrentLanguage } from '../i18n';
 
@@ -129,26 +131,41 @@ const TabNavigator: React.FC = () => {
           tabBarButton: (props) => <ScanTabButton {...props} />,
         }}
       />
-      <Tab.Screen
-        name="OpenStoaTab"
-        component={OpenStoaStackNavigator}
-        options={({ route }) => ({
-          tabBarLabel: t('host.tabs.openstoa'),
-          // OpenStoa brand mark instead of a generic Feather glyph.
-          // Same SVG path as openstoa.xyz / the OG card, so the tab
-          // visually matches the destination's identity.
-          tabBarIcon: ({ size, color }) => (
-            <OpenStoaMarkIcon size={size} color={color} />
-          ),
-          // Hide host tab bar while the mini-app owns its own; otherwise
-          // fall through to the screenOptions selector so a modal route
-          // focused INSIDE OpenStoa also hides the bar correctly.
-          tabBarStyle:
-            isInsideOpenStoa(route) || isFullScreenModalRoute(route)
-              ? { display: 'none' }
-              : baseTabBarStyle,
-        })}
-      />
+      {OPENSTOA_ENABLED ? (
+        <Tab.Screen
+          name="OpenStoaTab"
+          component={OpenStoaStackNavigator}
+          options={({ route }) => ({
+            tabBarLabel: t('host.tabs.openstoa'),
+            // OpenStoa brand mark instead of a generic Feather glyph.
+            // Same SVG path as openstoa.xyz / the OG card, so the tab
+            // visually matches the destination's identity.
+            tabBarIcon: ({ size, color }) => (
+              <OpenStoaMarkIcon size={size} color={color} />
+            ),
+            // Hide host tab bar while the mini-app owns its own; otherwise
+            // fall through to the screenOptions selector so a modal route
+            // focused INSIDE OpenStoa also hides the bar correctly.
+            tabBarStyle:
+              isInsideOpenStoa(route) || isFullScreenModalRoute(route)
+                ? { display: 'none' }
+                : baseTabBarStyle,
+          })}
+        />
+      ) : (
+        // OPENSTOA_ENABLED === false: restore the History (proof log) tab in
+        // the same slot, as it was before the OpenStoa mini-app was added.
+        <Tab.Screen
+          name="HistoryTab"
+          component={HistoryStackNavigator}
+          options={{
+            tabBarLabel: t('host.tabs.history'),
+            tabBarIcon: ({ size, color }) => (
+              <Feather name="clock" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
       <Tab.Screen
         name="MoreTab"
         component={MoreStackNavigator}
