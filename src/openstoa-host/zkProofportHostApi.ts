@@ -9,6 +9,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // work on the simulator too — verified storing 8KB values round-trip on both
 // iOS sim and Android emulator.
 import * as SecureStore from 'expo-secure-store';
+// Phase 6 push (design §13): expo-notifications fronts BOTH APNs + FCM through
+// Expo push tokens; expo-device gates on a physical device (simulators have no
+// push token); expo-crypto mints the stable opaque routing handle; expo-constants
+// reads the EAS projectId needed to obtain an Expo push token.
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import * as Crypto from 'expo-crypto';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import i18n, { getLanguage } from '../i18n';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
@@ -29,6 +38,10 @@ const EXPIRES_AT_KEY = 'openstoa.expiresAt.v1';
 // stays suppressed across OpenStoa tab re-entries until the user explicitly
 // logs in again. Cleared by login.
 const LOGGED_OUT_KEY = 'openstoa.loggedOut.v1';
+// Phase 6 push (design §13): the stable, client-generated opaque routing handle
+// the near-blind gateway maps to this device's push token. Generated once and
+// persisted; NO rotation in Phase A.
+const PUSH_HANDLE_KEY = 'openstoa.push.handle.v1';
 
 export interface CreateZkProofportHostApiOptions {
   /**
@@ -405,17 +418,61 @@ export function createZkProofportHostApi(
     },
 
     // Phase 6 push (design §13, D12-D14): register this device for content-free
-    // chat notifications. `expo-notifications` is NOT yet a dependency of this
-    // host, so we return null (push unavailable) rather than pull in an
-    // unconfirmed native dep + config plugin. The mini-app treats null as
-    // "skip registration". When wiring for real on-device:
-    //   TODO Phase 6 device: add `expo-notifications`, request permission +
-    //     Notifications.getExpoPushTokenAsync(), persist a stable client-
-    //     generated routingHandle (uuid) in AsyncStorage under
-    //     `openstoa.push.routingHandle.v1`, and return { routingHandle,
-    //     pushToken, platform: Platform.OS }. Also add a notification-tap
-    //     handler that deep-links data.topicId → the OpenStoa chat room.
-    registerForPush: async () => null,
+    // chat notifications. Requests notification permission, obtains an Expo push
+    // token (Expo fronts BOTH APNs + FCM), and returns it alongside a stable
+    // client-generated opaque routing handle (persisted; NO rotation in Phase A).
+    // Returns null — graceful skip — on a simulator, when permission is denied,
+    // when no EAS projectId is configured, or on any error, so push registration
+    // never disrupts chat. The server only ever sends a content-free "New
+    // message" (Phase A) or the already-sealed opaque ciphertext (Phase B); no
+    // plaintext leaves the device unencrypted (SI-1).
+    registerForPush: async () => {
+      try {
+        // A real APNs/FCM token only exists on a physical device — a simulator
+        // or emulator has none, so skip rather than error.
+        if (!Device.isDevice) return null;
+
+        const isGranted = (s: Notifications.NotificationPermissionsStatus): boolean =>
+          s.granted ||
+          s.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+
+        let perms = await Notifications.getPermissionsAsync();
+        if (!isGranted(perms)) {
+          perms = await Notifications.requestPermissionsAsync();
+        }
+        if (!isGranted(perms)) return null; // user declined — skip silently
+
+        // Minting an Expo push token requires the EAS project id. It comes from
+        // app config (`expo.extra.eas.projectId`) or the EAS build config. When
+        // absent (not yet configured for this build) we cannot get a token —
+        // skip gracefully (see the device-setup note in withOpenStoaNSE.js).
+        const projectId =
+          (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)
+            ?.eas?.projectId ??
+          (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+        if (!projectId) return null;
+
+        const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+        const pushToken = tokenResponse.data;
+        if (!pushToken) return null;
+
+        // Stable opaque routing handle — generated once, persisted, never rotated
+        // in Phase A. Only chars in [A-Za-z0-9-] (uuid), well under the server cap.
+        let routingHandle = await AsyncStorage.getItem(PUSH_HANDLE_KEY);
+        if (!routingHandle) {
+          routingHandle = Crypto.randomUUID();
+          await AsyncStorage.setItem(PUSH_HANDLE_KEY, routingHandle);
+        }
+
+        const platform: 'ios' | 'android' =
+          Platform.OS === 'android' ? 'android' : 'ios';
+        return { routingHandle, pushToken, platform };
+      } catch {
+        // Best-effort: any failure (permission race, network, native module
+        // missing) degrades to "no push" without breaking chat.
+        return null;
+      }
+    },
 
     generateProof: async (_inputs: ProofInputs): Promise<ProofResult> => {
       // TODO: bridge into the existing host proof-generation hooks

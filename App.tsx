@@ -4,6 +4,10 @@ import './src/config/AppKitConfig';
 import 'react-native-gesture-handler';
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {Linking} from 'react-native';
+// Phase 6 push (design §13): a tapped chat notification deep-links into the
+// OpenStoa chat room for `data.topicId`. The payload is content-free / near-blind
+// (only the topic id) so nothing here handles message content (SI-1).
+import * as Notifications from 'expo-notifications';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {KeyboardProvider} from 'react-native-keyboard-controller';
 import {
@@ -170,6 +174,62 @@ const App: React.FC = () => {
       subscription.remove();
     };
   }, [handleDeepLink]);
+
+  // Deep-link a tapped push into the OpenStoa chat room. The nested payload
+  // mirrors the ProofTab example above: the mini-app's ChatRoom lives at
+  // OpenStoaTab → OpenStoaRoot → ChatTab → ChatRoom, so a flat navigate to the
+  // root tab navigator would not reach it.
+  const openOpenStoaChat = useCallback((topicId: string) => {
+    if (!topicId) return;
+    navigationRef.current?.dispatch(
+      CommonActions.navigate({
+        name: 'OpenStoaTab',
+        params: {
+          screen: 'OpenStoaRoot',
+          params: {
+            screen: 'ChatTab',
+            params: {
+              screen: 'ChatRoom',
+              params: {topicId},
+            },
+          },
+        },
+      }),
+    );
+  }, []);
+
+  // Notification-tap handler (Phase 6). The push carries only { topicId } — no
+  // message content — so this handler is a pure router. For Phase B (ciphertext)
+  // the iOS NSE / Android FCM handler decrypts the preview natively; this JS
+  // handler still only routes on tap.
+  useEffect(() => {
+    const extractTopicId = (
+      resp: Notifications.NotificationResponse | null,
+    ): string | null => {
+      const data = resp?.notification?.request?.content?.data as
+        | {topicId?: unknown}
+        | undefined;
+      return typeof data?.topicId === 'string' && data.topicId
+        ? data.topicId
+        : null;
+    };
+
+    // Cold start: the app was launched by tapping a push.
+    Notifications.getLastNotificationResponseAsync()
+      .then(resp => {
+        const topicId = extractTopicId(resp);
+        // Delay so the navigation container is mounted before we dispatch.
+        if (topicId) setTimeout(() => openOpenStoaChat(topicId), 500);
+      })
+      .catch(() => {});
+
+    // Warm: tapped while the app is running/backgrounded.
+    const sub = Notifications.addNotificationResponseReceivedListener(resp => {
+      const topicId = extractTopicId(resp);
+      if (topicId) openOpenStoaChat(topicId);
+    });
+    return () => sub.remove();
+  }, [openOpenStoaChat]);
 
   const handleAcceptRequest = useCallback(() => {
     if (!pendingRequest) return;

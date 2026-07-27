@@ -1,59 +1,76 @@
 /**
- * withOpenStoaNSE — Expo config plugin scaffold for the E2EE chat Phase 7 /
- * Phase B iOS Notification Service Extension (design §13.5).
+ * withOpenStoaNSE — Expo config plugin for the E2EE chat push wiring (design §13 /
+ * §13.5): the iOS Notification Service Extension (Phase B ciphertext decrypt) and
+ * the SHARED Keychain access group the NSE needs to read the app's E2EE keys.
  *
- * ⚠️ Phase 7 device: proofport-app is a BARE React Native project (it commits
- * `ios/` and `android/`), so this config plugin does NOT run automatically —
- * config plugins only apply during `expo prebuild`, which regenerates the native
- * projects and MUST NOT be run here (it would clobber the committed native
- * config). This file therefore documents the exact native wiring; do the steps
- * once, on a device build, then verify on a real device. Do NOT run
- * `expo prebuild`, `pod install`, or `xcodebuild` as part of the scaffold.
+ * WHAT THIS PLUGIN DOES AUTOMATICALLY (on `expo prebuild -p ios`):
+ *   - Appends the SHARED Keychain access group
+ *     `$(AppIdentifierPrefix)com.zkproofport.app.openstoa` to the HOST app
+ *     entitlements. Prebuild regenerates `ios/ProofportApp/ProofportApp.entitlements`
+ *     from scratch, so without this mod the manually-committed shared group would
+ *     be LOST on every prebuild and the NSE could no longer read the E2EE keys.
  *
- * What the NSE needs (remaining native steps — do in Xcode or a one-off script):
- *   1. Add a new "Notification Service Extension" target named `OpenStoaNSE`
+ * WHAT IS HANDLED ELSEWHERE:
+ *   - `remote-notification` in `UIBackgroundModes` + the expo-notifications runtime
+ *     are added by the `expo-notifications` plugin in app.json
+ *     (`enableBackgroundRemoteNotifications: true`).
+ *   - `aps-environment` (APNs entitlement) is added by enabling the "Push
+ *     Notifications" capability at device-build time (it is environment-specific —
+ *     `development` for debug, `production` for TestFlight/App Store — and is best
+ *     driven by the Xcode capability / EAS credentials rather than hardcoded here).
+ *
+ * REMAINING MANUAL NATIVE STEPS (device build — auto-creating a native Xcode
+ * target from a config plugin needs a dedicated target plugin such as
+ * `@bacons/apple-targets`; that is out of scope here, so the NSE TARGET itself is
+ * still registered by hand once):
+ *   1. Add a "Notification Service Extension" target named `OpenStoaNSE`
  *      (bundle id `com.zkproofport.app.OpenStoaNSE`) to ProofportApp.xcodeproj.
  *      Its sources are the committed `ios/OpenStoaNSE/NotificationService.swift`
  *      + `ios/OpenStoaNSE/Info.plist`.
  *   2. Set the target's Code Signing Entitlements to
- *      `ios/OpenStoaNSE/OpenStoaNSE.entitlements` (already committed) — it
- *      declares the SHARED Keychain access group
- *      `$(AppIdentifierPrefix)com.zkproofport.app.openstoa`.
- *   3. Confirm the HOST app entitlements
- *      (`ios/ProofportApp/ProofportApp.entitlements`) list the SAME shared group
- *      (already appended). Both targets must share it for the NSE to read the
- *      app's E2EE keys.
- *   4. Provisioning profiles for BOTH the app and the NSE must include the shared
- *      Keychain group. Regenerate them in the Apple Developer portal / via
- *      fastlane match at device-build time.
- *   5. Make the mini-app's E2EE key writes target the shared group: pass the
- *      matching `keychainAccessGroup` to expo-secure-store when persisting MLS /
- *      TAK keys (openstoa `mls.state.<identity>.<topicId>`), so the NSE can read
- *      them read-only (design §13.6 — NSE never ratchets/persists).
- *   6. Enable the APNs "remote notification" background mode + push capability on
- *      the host target (adds `aps-environment` + `UIBackgroundModes`), and add
- *      `expo-notifications` (Phase 6 registerForPush wiring) so the device
- *      obtains a token.
+ *      `ios/OpenStoaNSE/OpenStoaNSE.entitlements` (already committed) — it declares
+ *      the SAME shared Keychain access group this plugin appends to the host.
+ *   3. Enable the "Push Notifications" capability on the host target (adds
+ *      `aps-environment`) and regenerate provisioning profiles (host + NSE) so both
+ *      include the shared Keychain group and APNs entitlement.
+ *   4. Point the mini-app's E2EE key writes at the shared group (pass the matching
+ *      `keychainAccessGroup` to expo-secure-store when persisting MLS / TAK keys)
+ *      so the NSE can read them read-only (design §13.6 — NSE never ratchets).
  *
- * When/if proofport-app migrates to Expo prebuild (CNG), THIS plugin becomes the
- * automated form of steps 1-3 via `@config-plugins/ios-widget`-style mods or a
- * custom `withXcodeProject` mod. It is intentionally a no-op passthrough today so
- * that referencing it from app.json neither breaks the JS bundle nor mutates the
- * committed native project.
+ * SAFETY: config plugins run ONLY during `expo prebuild` / `expo config`, never in
+ * the Metro/JS bundle or a plain `react-native run-ios`. So this mod cannot affect
+ * the current bare-workflow build; it only takes effect when the user opts into
+ * prebuild (the documented device path).
  */
+
+const { withEntitlementsPlist } = require('@expo/config-plugins');
 
 const SHARED_KEYCHAIN_GROUP = 'com.zkproofport.app.openstoa';
 const NSE_TARGET_NAME = 'OpenStoaNSE';
 const NSE_BUNDLE_ID = 'com.zkproofport.app.OpenStoaNSE';
 
 /**
+ * Ensure the shared Keychain access group survives prebuild by appending it to the
+ * host app's `keychain-access-groups` entitlement (idempotent — never duplicates).
  * @param {object} config Expo config
- * @returns {object} unchanged config (documented no-op in the bare workflow)
+ * @returns {object} config with the entitlement mod queued
+ */
+function withSharedKeychainGroup(config) {
+  return withEntitlementsPlist(config, (cfg) => {
+    const KEY = 'keychain-access-groups';
+    const existing = Array.isArray(cfg.modResults[KEY]) ? cfg.modResults[KEY] : [];
+    const entry = `$(AppIdentifierPrefix)${SHARED_KEYCHAIN_GROUP}`;
+    cfg.modResults[KEY] = existing.includes(entry) ? existing : [...existing, entry];
+    return cfg;
+  });
+}
+
+/**
+ * @param {object} config Expo config
+ * @returns {object} config
  */
 function withOpenStoaNSE(config) {
-  // Intentionally a passthrough in the bare workflow — see the file header for
-  // the manual native steps this would automate under Expo prebuild.
-  return config;
+  return withSharedKeychainGroup(config);
 }
 
 module.exports = withOpenStoaNSE;
