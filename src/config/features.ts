@@ -14,4 +14,4 @@
  *   - the 4th bottom tab is the History (proof log) tab, as it was originally
  *   - the History row is removed from "More" (it is now a top-level tab)
  */
-export const OPENSTOA_ENABLED = false;
+export const OPENSTOA_ENABLED = true;

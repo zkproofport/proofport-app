@@ -116,11 +116,20 @@ export function createZkProofportHostApi(
   // Lets the mini-app authenticate against the LOCAL backend on a simulator /
   // emulator so in-app chat can be exercised end-to-end.
   async function devLogin(): Promise<AuthResult> {
-    const res = await fetch(`${baseUrl}/api/auth/dev-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/api/auth/dev-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch (e) {
+      // Surface the exact URL we tried so a network failure is diagnosable on
+      // the device (RN 0.81 moved JS console logs to DevTools).
+      throw new Error(
+        `dev-login network error → ${baseUrl}/api/auth/dev-login : ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
     if (!res.ok) {
       throw new Error(`dev-login failed: HTTP ${res.status} against ${baseUrl}`);
     }
@@ -308,6 +317,91 @@ export function createZkProofportHostApi(
     localStore: {
       getItem: (key: string) => AsyncStorage.getItem(key),
       setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+    },
+
+    // WebAuthn PRF (hmac-secret) for Phase 4 E2EE key recovery. Registers/asserts
+    // a synced passkey and evaluates PRF with the mini-app's salt, returning a
+    // deterministic 32-byte output the mini-app derives a master_key wrapping key
+    // from. rpId MUST be the Associated-Domains entitlement domain
+    // (`webcredentials:stg-community.zkproofport.app`, ProofportApp.entitlements)
+    // that serves the AASA — it is independent of the OpenStoa API base URL.
+    // Bypasses the react-native-passkeys 0.4.0 default-export bug (loses native
+    // methods on Expo 54) by calling the Expo native module directly, matching
+    // the Phase 0 PoC (src/poc/passkeyPrf.ts).
+    passkeyPrf: async ({ mode, saltB64, credentialId }) => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { requireNativeModule } = require('expo-modules-core');
+      const passkeys = requireNativeModule('ReactNativePasskeys');
+      const RP_ID = 'stg-community.zkproofport.app';
+
+      const toB64url = (s: string) => s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const saltB64url = toB64url(saltB64);
+      const rand = (n: number): string => {
+        const b = new Uint8Array(n);
+        (globalThis as unknown as { crypto: { getRandomValues: (a: Uint8Array) => void } }).crypto.getRandomValues(b);
+        let s = '';
+        for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+        return toB64url(btoa(s));
+      };
+      // Normalize a PRF result (base64url string or ArrayBuffer) → standard base64
+      // so the mini-app's kb.unb64() (atob) decodes it to the raw 32 bytes.
+      const toStdB64 = (r: unknown): string | null => {
+        if (r == null) return null;
+        if (typeof r === 'string') {
+          const b64 = r.replace(/-/g, '+').replace(/_/g, '/');
+          return b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+        }
+        try {
+          const u = new Uint8Array(r as ArrayBuffer);
+          let s = '';
+          for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+          return btoa(s);
+        } catch {
+          return null;
+        }
+      };
+      const readPrf = (res: { clientExtensionResults?: { prf?: { results?: { first?: unknown } } } }) =>
+        toStdB64(res?.clientExtensionResults?.prf?.results?.first);
+
+      if (mode === 'create') {
+        const reg = await passkeys.create({
+          rp: { id: RP_ID, name: 'OpenStoa' },
+          user: { id: rand(16), name: 'openstoa-user', displayName: 'OpenStoa' },
+          challenge: rand(32),
+          pubKeyCredParams: [
+            { type: 'public-key', alg: -7 },
+            { type: 'public-key', alg: -257 },
+          ],
+          authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+          extensions: { prf: { eval: { first: saltB64url } } },
+        });
+        const credId: string | undefined = reg?.id;
+        let prf = readPrf(reg);
+        if (!prf && credId) {
+          // Some authenticators don't return PRF on create → assert to obtain it.
+          const g = await passkeys.get({
+            rpId: RP_ID,
+            challenge: rand(32),
+            allowCredentials: [{ type: 'public-key', id: credId }],
+            userVerification: 'required',
+            extensions: { prf: { eval: { first: saltB64url } } },
+          });
+          prf = readPrf(g);
+        }
+        if (!credId || !prf) throw new Error('passkey create returned no credential/PRF');
+        return { credentialId: credId, prfOutputB64: prf };
+      }
+
+      const g = await passkeys.get({
+        rpId: RP_ID,
+        challenge: rand(32),
+        allowCredentials: credentialId ? [{ type: 'public-key', id: credentialId }] : undefined,
+        userVerification: 'required',
+        extensions: { prf: { eval: { first: saltB64url } } },
+      });
+      const prf = readPrf(g);
+      if (!prf) throw new Error('passkey get returned no PRF (hmac-secret unsupported or cancelled)');
+      return { credentialId: g?.id ?? credentialId ?? '', prfOutputB64: prf };
     },
 
     generateProof: async (_inputs: ProofInputs): Promise<ProofResult> => {
