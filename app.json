@@ -4,7 +4,13 @@
   "expo": {
     "name": "ZKProofport",
     "plugins": [
-      "./plugins/withOpenStoaNSE"
+      "./plugins/withOpenStoaNSE",
+      [
+        "expo-notifications",
+        {
+          "enableBackgroundRemoteNotifications": true
+        }
+      ]
     ],
     "splash": {
       "backgroundColor": "#FFFFFF"
