@@ -3,6 +3,9 @@
   "displayName": "ZKProofport",
   "expo": {
     "name": "ZKProofport",
+    "plugins": [
+      "./plugins/withOpenStoaNSE"
+    ],
     "splash": {
       "backgroundColor": "#FFFFFF"
     },

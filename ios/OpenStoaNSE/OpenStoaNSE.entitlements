@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OpenStoaNSE entitlements (E2EE chat Phase 7 / §13.5). The NSE shares a
+     Keychain access group with the host app so it can READ the E2EE decrypt keys
+     the app stores. This group MUST match the host's shared group in
+     ios/ProofportApp/ProofportApp.entitlements. Phase 7 device: apply on a device
+     build with a provisioning profile that includes this Keychain group. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.zkproofport.app.openstoa</string>
+	</array>
+</dict>
+</plist>
