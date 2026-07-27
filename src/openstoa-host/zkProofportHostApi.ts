@@ -404,6 +404,19 @@ export function createZkProofportHostApi(
       return { credentialId: g?.id ?? credentialId ?? '', prfOutputB64: prf };
     },
 
+    // Phase 6 push (design §13, D12-D14): register this device for content-free
+    // chat notifications. `expo-notifications` is NOT yet a dependency of this
+    // host, so we return null (push unavailable) rather than pull in an
+    // unconfirmed native dep + config plugin. The mini-app treats null as
+    // "skip registration". When wiring for real on-device:
+    //   TODO Phase 6 device: add `expo-notifications`, request permission +
+    //     Notifications.getExpoPushTokenAsync(), persist a stable client-
+    //     generated routingHandle (uuid) in AsyncStorage under
+    //     `openstoa.push.routingHandle.v1`, and return { routingHandle,
+    //     pushToken, platform: Platform.OS }. Also add a notification-tap
+    //     handler that deep-links data.topicId → the OpenStoa chat room.
+    registerForPush: async () => null,
+
     generateProof: async (_inputs: ProofInputs): Promise<ProofResult> => {
       // TODO: bridge into the existing host proof-generation hooks
       // (useCoinbaseKyc, useCoinbaseCountry, useOidcDomain) so that the
