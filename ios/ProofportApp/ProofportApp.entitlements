@@ -17,5 +17,14 @@
 	<array>
 		<string>webcredentials:stg-community.zkproofport.app</string>
 	</array>
+	<!-- E2EE chat Phase 6/7 push (§13): required for iOS to hand out an APNs
+	     token. Without it getExpoPushTokenAsync throws, registerForPush returns
+	     null, and the device never reaches POST /api/push/register — push is
+	     silently dead. `development` is the sandbox APNs environment used by
+	     locally signed builds; App Store / TestFlight builds are re-signed to
+	     `production` automatically. The APNs key is Team-scoped for Sandbox &
+	     Production, so one key serves both. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

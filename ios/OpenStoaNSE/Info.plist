@@ -16,10 +16,21 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<!-- Both keys MIRROR THE HOST'S ProofportApp/Info.plist exactly. The App Store
+	     rejects a bundle whose extension version differs from its host app
+	     (ITMS-90473), and the two bump paths reach the two keys differently:
+	       - MARKETING_VERSION: scripts/sync-version.js rewrites it in every
+	         pbxproj configuration, and the extension target has the setting, so
+	         `$(MARKETING_VERSION)` stays in step.
+	       - CFBundleVersion: the host carries a LITERAL, bumped by fastlane's
+	         increment_build_number via `agvtool new-version -all`, which rewrites
+	         every Info.plist in the project — hence a literal here too.
+	     `ios/scripts/add_nse_target.rb` re-syncs the literal from the host on
+	     every run, so a hand-edited host version cannot leave this one behind. -->
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>

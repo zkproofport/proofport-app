@@ -19,23 +19,41 @@
  *     `development` for debug, `production` for TestFlight/App Store — and is best
  *     driven by the Xcode capability / EAS credentials rather than hardcoded here).
  *
- * REMAINING MANUAL NATIVE STEPS (device build — auto-creating a native Xcode
- * target from a config plugin needs a dedicated target plugin such as
- * `@bacons/apple-targets`; that is out of scope here, so the NSE TARGET itself is
- * still registered by hand once):
- *   1. Add a "Notification Service Extension" target named `OpenStoaNSE`
- *      (bundle id `com.zkproofport.app.OpenStoaNSE`) to ProofportApp.xcodeproj.
- *      Its sources are the committed `ios/OpenStoaNSE/NotificationService.swift`
- *      + `ios/OpenStoaNSE/Info.plist`.
- *   2. Set the target's Code Signing Entitlements to
- *      `ios/OpenStoaNSE/OpenStoaNSE.entitlements` (already committed) — it declares
- *      the SAME shared Keychain access group this plugin appends to the host.
- *   3. Enable the "Push Notifications" capability on the host target (adds
- *      `aps-environment`) and regenerate provisioning profiles (host + NSE) so both
- *      include the shared Keychain group and APNs entitlement.
- *   4. Point the mini-app's E2EE key writes at the shared group (pass the matching
- *      `keychainAccessGroup` to expo-secure-store when persisting MLS / TAK keys)
- *      so the NSE can read them read-only (design §13.6 — NSE never ratchets).
+ * THE NSE TARGET ITSELF (creating a native Xcode target from a config plugin
+ * would need a dedicated target plugin such as `@bacons/apple-targets`, which is
+ * out of scope here) is registered by a checked-in, idempotent script instead:
+ *
+ *     ruby ios/scripts/add_nse_target.rb
+ *
+ * It creates the `OpenStoaNSE` app-extension target (bundle id
+ * `com.zkproofport.app.OpenStoaNSE`), compiles every `ios/OpenStoaNSE/*.swift`,
+ * points INFOPLIST_FILE / CODE_SIGN_ENTITLEMENTS at the committed files, and
+ * embeds the .appex in the host's PlugIns folder. Re-run it after ANY native
+ * regeneration that rewrites the pbxproj (including `expo prebuild`); re-running
+ * it on an already-wired project is a no-op.
+ *
+ * WHERE THE KEY COMES FROM (no longer a manual step — do not re-add it as one):
+ *   The mini-app mirrors the Topic Archive Key into this shared group itself, in
+ *   `openstoa/packages/mobile/src/crypto/sharedKeychain.ts` (`mirrorTakWith`),
+ *   called from `screens/chat/ChatRoomScreen.tsx`. It writes base64 of the raw
+ *   32-byte TAK under `openstoa.tak.<topicId>.<takVersion>` with accessibility
+ *   AFTER_FIRST_UNLOCK — a push can arrive while the device is locked, so the
+ *   WhenUnlocked default would be unreadable exactly when the NSE needs it. That
+ *   account format and encoding are what `OpenStoaNSE/TakKeychain.swift` reads;
+ *   changing either side alone silently reduces every push to the placeholder.
+ *
+ *   The TAK is mirrored — NOT the MLS group state. Opening a live MLS message
+ *   consumes a forward-secret ratchet key, which would desync the host app; the
+ *   TAK is a stable symmetric key, so the NSE decrypting with it consumes
+ *   nothing (design §13.6 — NSE never ratchets).
+ *
+ * REMAINING MANUAL STEP (distribution builds only):
+ *   Provisioning for `com.zkproofport.app.OpenStoaNSE`. `ios/fastlane/Fastfile`
+ *   already matches + signs both bundle ids, but the App ID must exist in the
+ *   Apple Developer portal carrying the shared Keychain group, and the profile
+ *   must have been generated into the match repo once (`match` runs readonly in
+ *   CI and fails if it is absent). Simulator and local device builds are
+ *   unaffected.
  *
  * SAFETY: config plugins run ONLY during `expo prebuild` / `expo config`, never in
  * the Metro/JS bundle or a plain `react-native run-ios`. So this mod cannot affect

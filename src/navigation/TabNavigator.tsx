@@ -14,6 +14,7 @@ import MoreStackNavigator from './stacks/MoreStackNavigator';
 import HistoryStackNavigator from './stacks/HistoryStackNavigator';
 import OpenStoaMarkIcon from '../components/icons/OpenStoaMarkIcon';
 import { OPENSTOA_ENABLED } from '../config';
+import { setOpenStoaTabNavigation } from '../openstoa-host/pushTapBridge';
 import { useThemeColors } from '../context';
 import { useCurrentLanguage } from '../i18n';
 
@@ -86,6 +87,16 @@ const TabNavigator: React.FC = () => {
     <Tab.Navigator
       key={lang}
       initialRouteName="ProofTab"
+      // Publish this navigator's navigation object to the OpenStoa host bridge
+      // so tapping a chat push can switch to the OpenStoa tab. It has to come
+      // from HERE: the OpenStoa tab mounts lazily, so on the path that matters
+      // most — the app launched by a tap, landing on ProofTab — the mini-app
+      // and its own navigation do not exist yet. A plain idempotent ref
+      // publish, no side effects on the navigator itself.
+      screenListeners={({ navigation }) => {
+        if (OPENSTOA_ENABLED) setOpenStoaTabNavigation(navigation);
+        return {};
+      }}
       // screenOptions runs per-route on every focus change so we can
       // dynamically swap tabBarStyle when a full-screen modal route is
       // focused. This is the canonical pattern — doing it from inside a

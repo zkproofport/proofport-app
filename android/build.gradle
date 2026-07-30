@@ -15,6 +15,10 @@ buildscript {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        // Processes android/app/google-services.json into the FCM resources
+        // (project id / app id / api key) that firebase-messaging reads at runtime.
+        // Version is not managed by the RN or Expo version catalogs, so it is pinned here.
+        classpath("com.google.gms:google-services:4.4.4")
     }
 }
 

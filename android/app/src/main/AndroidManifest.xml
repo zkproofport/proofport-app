@@ -67,5 +67,18 @@
             <data android:scheme="msalcd5404cc-d313-431c-8112-725e629dad28" android:host="auth" />
         </intent-filter>
       </activity>
+      <!--
+        OpenStoa FCM handler. Subclasses expo-notifications' ExpoFirebaseMessagingService
+        (which registers the same action at android:priority="-1"); this declaration wins
+        service resolution at the default priority and delegates non-OpenStoa messages
+        back to Expo via super.onMessageReceived.
+      -->
+      <service
+        android:name=".openstoa.OpenStoaMessagingService"
+        android:exported="false">
+        <intent-filter>
+          <action android:name="com.google.firebase.MESSAGING_EVENT" />
+        </intent-filter>
+      </service>
     </application>
 </manifest>

@@ -22,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
         override fun getPackages(): List<ReactPackage> =
             PackageList(this).packages.apply {
               add(AppEnvPackage())
+              add(com.zkproofport.app.openstoa.OpenStoaPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

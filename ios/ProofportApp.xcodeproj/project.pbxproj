@@ -9,26 +9,64 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3ACB6F6CC9AF691568D423FB /* libPods-ProofportApp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 78523E2192C1DA8B734DDB35 /* libPods-ProofportApp.a */; };
+		481E2FA1EC7378CFCDDBE56D /* PushPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 850BEB51C962E81FA155989A /* PushPayload.swift */; };
 		6319A64F98E2F6BD86C5F3E8 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F33809F85DF055B7544A983B /* ExpoModulesProvider.swift */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		8A3574CEE39A144ED88230D5 /* TakKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321594E24A6233143B679924 /* TakKeychain.swift */; };
+		912FFC340E526142BE59CC2C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A8D8B6D6FBD4B09F360BE42B /* Foundation.framework */; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* AppEnvModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* AppEnvModule.m */; };
+		B558A5FCED2BE62F00587196 /* OpenStoaNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1698125A04E207FDDE5F36F4 /* OpenStoaNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BAA2811CD5B08E4604D083CE /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E3BEDCD2ECEFC3271EB1A4 /* NotificationService.swift */; };
+		DA9F5A994DF2C0AF205F3536 /* ArchiveDecryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9773765DAB1913961F2176D3 /* ArchiveDecryptor.swift */; };
 		F375E371E56193014C2599E8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		59D6A7E9EE317757EACBBA31 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9236155D91E2FCAEEBF078EC;
+			remoteInfo = OpenStoaNSE;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		18EB9D3F1CE4EA557A339C8B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B558A5FCED2BE62F00587196 /* OpenStoaNSE.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* ProofportApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProofportApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ProofportApp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ProofportApp/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = ProofportApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		1698125A04E207FDDE5F36F4 /* OpenStoaNSE.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OpenStoaNSE.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		321594E24A6233143B679924 /* TakKeychain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TakKeychain.swift; sourceTree = "<group>"; };
 		5E89F36D9CA160358622E402 /* Pods-ProofportApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ProofportApp.debug.xcconfig"; path = "Target Support Files/Pods-ProofportApp/Pods-ProofportApp.debug.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ProofportApp/AppDelegate.swift; sourceTree = "<group>"; };
 		78523E2192C1DA8B734DDB35 /* libPods-ProofportApp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ProofportApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ProofportApp/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		81E3BEDCD2ECEFC3271EB1A4 /* NotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		850BEB51C962E81FA155989A /* PushPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushPayload.swift; sourceTree = "<group>"; };
+		9773765DAB1913961F2176D3 /* ArchiveDecryptor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchiveDecryptor.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* AppEnvModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppEnvModule.m; path = ProofportApp/AppEnvModule.m; sourceTree = "<group>"; };
+		A78377E712470CA3BBF55EA4 /* OpenStoaNSE.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = OpenStoaNSE.entitlements; sourceTree = "<group>"; };
+		A8D8B6D6FBD4B09F360BE42B /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		EEA58DF4D7675AA875171AFC /* Pods-ProofportApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ProofportApp.release.xcconfig"; path = "Target Support Files/Pods-ProofportApp/Pods-ProofportApp.release.xcconfig"; sourceTree = "<group>"; };
 		F33809F85DF055B7544A983B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-ProofportApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		FED19287F960BFD072499C9C /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,6 +75,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				3ACB6F6CC9AF691568D423FB /* libPods-ProofportApp.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D35BAC879F974B516DECE9B7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				912FFC340E526142BE59CC2C /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -56,11 +102,20 @@
 			name = ProofportApp;
 			sourceTree = "<group>";
 		};
+		2383A10C0E62269A2C926B42 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				A8D8B6D6FBD4B09F360BE42B /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				78523E2192C1DA8B734DDB35 /* libPods-ProofportApp.a */,
+				2383A10C0E62269A2C926B42 /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -71,6 +126,20 @@
 				CC43C6A6C32AC3CBD449AC98 /* ProofportApp */,
 			);
 			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		51487687F71BDE86D4C93977 /* OpenStoaNSE */ = {
+			isa = PBXGroup;
+			children = (
+				9773765DAB1913961F2176D3 /* ArchiveDecryptor.swift */,
+				81E3BEDCD2ECEFC3271EB1A4 /* NotificationService.swift */,
+				850BEB51C962E81FA155989A /* PushPayload.swift */,
+				321594E24A6233143B679924 /* TakKeychain.swift */,
+				FED19287F960BFD072499C9C /* Info.plist */,
+				A78377E712470CA3BBF55EA4 /* OpenStoaNSE.entitlements */,
+			);
+			name = OpenStoaNSE;
+			path = OpenStoaNSE;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -90,6 +159,7 @@
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
 				A8E8118FD6CE43B1AADD9AEC /* Resources */,
 				35398FBBC33F1B1E68067BFD /* ExpoModulesProviders */,
+				51487687F71BDE86D4C93977 /* OpenStoaNSE */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -100,6 +170,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* ProofportApp.app */,
+				1698125A04E207FDDE5F36F4 /* OpenStoaNSE.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -143,15 +214,34 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				E23AE5BC6405838FFD569C83 /* [CP] Embed Pods Frameworks */,
 				A13F5B7E829313DE88CBD582 /* [CP] Copy Pods Resources */,
+				18EB9D3F1CE4EA557A339C8B /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				246DF59D079B2601BFC598BF /* PBXTargetDependency */,
 			);
 			name = ProofportApp;
 			productName = ProofportApp;
 			productReference = 13B07F961A680F5B00A75B9A /* ProofportApp.app */;
 			productType = "com.apple.product-type.application";
+		};
+		9236155D91E2FCAEEBF078EC /* OpenStoaNSE */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9FEBFDE604F934A40CB958B3 /* Build configuration list for PBXNativeTarget "OpenStoaNSE" */;
+			buildPhases = (
+				313C1AC7A667DDBBB5A0CF65 /* Sources */,
+				D35BAC879F974B516DECE9B7 /* Frameworks */,
+				182AB1D2C633079AF8AC29B6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenStoaNSE;
+			productName = OpenStoaNSE;
+			productReference = 1698125A04E207FDDE5F36F4 /* OpenStoaNSE.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -180,6 +270,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* ProofportApp */,
+				9236155D91E2FCAEEBF078EC /* OpenStoaNSE */,
 			);
 		};
 /* End PBXProject section */
@@ -192,6 +283,13 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				F375E371E56193014C2599E8 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		182AB1D2C633079AF8AC29B6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -307,9 +405,60 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		313C1AC7A667DDBBB5A0CF65 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA9F5A994DF2C0AF205F3536 /* ArchiveDecryptor.swift in Sources */,
+				BAA2811CD5B08E4604D083CE /* NotificationService.swift in Sources */,
+				481E2FA1EC7378CFCDDBE56D /* PushPayload.swift in Sources */,
+				8A3574CEE39A144ED88230D5 /* TakKeychain.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		246DF59D079B2601BFC598BF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = OpenStoaNSE;
+			target = 9236155D91E2FCAEEBF078EC /* OpenStoaNSE */;
+			targetProxy = 59D6A7E9EE317757EACBBA31 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		13082C4B8BE4D177AA74EFAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = OpenStoaNSE/OpenStoaNSE.entitlements;
+				CURRENT_PROJECT_VERSION = 10502;
+				DEVELOPMENT_TEAM = Y9847K5587;
+				ENABLE_BITCODE = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenStoaNSE/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.5.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zkproofport.app.OpenStoaNSE;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5E89F36D9CA160358622E402 /* Pods-ProofportApp.debug.xcconfig */;
@@ -373,6 +522,36 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		167A685DE2BB94DC2CD52862 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = OpenStoaNSE/OpenStoaNSE.entitlements;
+				CURRENT_PROJECT_VERSION = 10502;
+				DEVELOPMENT_TEAM = Y9847K5587;
+				ENABLE_BITCODE = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenStoaNSE/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.5.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zkproofport.app.OpenStoaNSE;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -539,6 +718,15 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9FEBFDE604F934A40CB958B3 /* Build configuration list for PBXNativeTarget "OpenStoaNSE" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				13082C4B8BE4D177AA74EFAA /* Release */,
+				167A685DE2BB94DC2CD52862 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

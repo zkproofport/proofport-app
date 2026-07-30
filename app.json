@@ -3,6 +3,8 @@
   "displayName": "ZKProofport",
   "expo": {
     "name": "ZKProofport",
+    "slug": "zkproofport",
+    "owner": "masselabs",
     "plugins": [
       "./plugins/withOpenStoaNSE",
       [
@@ -23,6 +25,11 @@
     "ios": {
       "splash": {
         "backgroundColor": "#FFFFFF"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "56550b64-c467-4e42-afca-01147b4c06a5"
       }
     }
   }

@@ -1,6 +1,9 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
+// Reads android/app/google-services.json (Firebase project zkproofport-93ffd) and
+// emits the FCM resources consumed by firebase-messaging. Required for Android push.
+apply plugin: "com.google.gms.google-services"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -78,6 +81,31 @@ def enableProguardInReleaseBuilds = false
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+/**
+ * Version of the installed `expo-notifications` npm package. Expo SDK 54 resolves its
+ * modules as prebuilt Maven artifacts (`host.exp.exponent:expo.modules.<name>`) whose
+ * version always equals the npm version, so reading package.json keeps the explicit
+ * app-level dependency in lockstep with autolinking.
+ */
+def resolveExpoNotificationsVersion() {
+    def packageJson = file("../../node_modules/expo-notifications/package.json")
+    if (!packageJson.exists()) {
+        throw new GradleException(
+            "expo-notifications is not installed at ${packageJson}. " +
+            "Run `npm install` before building the Android app."
+        )
+    }
+    return new groovy.json.JsonSlurper().parse(packageJson).version
+}
+
+/**
+ * The cross-implementation known-answer vectors for the OpenStoa TAK archive layer,
+ * sealed by the TypeScript `sealArchive` / `sealPushPreview`
+ * (`openstoa/scripts/gen-archive-vectors.ts`). Shared verbatim with the iOS port so
+ * both platforms are checked against the same bytes.
+ */
+def openStoaArchiveVectors = file("../../ios/scripts/archive_vectors.json")
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -162,11 +190,58 @@ dependencies {
     // Android 12+ Splash Screen API
     implementation("androidx.core:core-splashscreen:1.0.1")
 
+    // --- OpenStoa Android push (FCM) ---
+    // expo-notifications already pulls firebase-messaging, but only onto the RUNTIME
+    // classpath (it is an `implementation` dep of the expo.modules.notifications AAR),
+    // so OpenStoaMessagingService cannot compile against it. Declared here at the exact
+    // version expo-notifications resolves, to avoid introducing any version skew.
+    implementation("com.google.firebase:firebase-messaging:24.0.1")
+    // OpenStoaMessagingService subclasses expo-notifications' ExpoFirebaseMessagingService
+    // so Expo push keeps working alongside the OpenStoa data-message path. The version is
+    // read from the installed npm package so it can never drift from what autolinking
+    // resolves; a missing package is a hard error rather than a silent fallback.
+    implementation("host.exp.exponent:expo.modules.notifications:${resolveExpoNotificationsVersion()}")
+    // Keystore-encrypted SharedPreferences for OpenStoaTakStore — the Topic Archive
+    // Keys the FCM handler needs to decrypt push previews. NOTE: androidx.security
+    // was deprecated in April 2025 at 1.1.0-alpha07; alpha06 is pinned deliberately
+    // as the last release before the deprecation annotations. The stored data is a
+    // regenerable cache (a lost key only costs the preview, never a message), so the
+    // library being unmaintained is a maintenance concern, not a correctness one.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // JVM unit tests for the OpenStoa push crypto/payload logic (:app:test*UnitTest).
+    testImplementation("junit:junit:4.13.2")
+    // Real org.json on the unit-test classpath. Without it every org.json call hits
+    // android.jar's "not mocked" stub and the payload tests fail for the wrong reason.
+    testImplementation("org.json:json:20250107")
+
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
     }
+}
+
+/**
+ * Make the shared archive vectors a declared INPUT of every unit-test task.
+ *
+ * Without this Gradle only tracks sources and the classpath, so regenerating
+ * `archive_vectors.json` leaves the task UP-TO-DATE and the run is silently
+ * skipped — the vectors change, the suite reports green, and nothing was actually
+ * re-checked. Declaring the file both invalidates the task on a content change and
+ * hands the test its exact path (`OpenStoaArchiveVectorsTest.VECTOR_PATH_PROPERTY`),
+ * so the build and the test cannot disagree about which file is under test.
+ *
+ * `inputs.file` (not `inputs.files`) on purpose: a wrong path must fail loudly
+ * rather than degrade to tracking nothing, which is the bug this fixes.
+ * `PathSensitivity.NONE` because only the CONTENT matters — a checkout at a
+ * different absolute path must still hit the build cache.
+ */
+tasks.withType(Test).configureEach {
+    inputs.file(openStoaArchiveVectors)
+        .withPropertyName("openStoaArchiveVectors")
+        .withPathSensitivity(PathSensitivity.NONE)
+    systemProperty "openstoa.archiveVectors", openStoaArchiveVectors.absolutePath
 }
 
 // Fix Gradle 9 implicit task dependency validation for React Native + product flavors.

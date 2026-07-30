@@ -17,8 +17,10 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import i18n, { getLanguage } from '../i18n';
+import { OPENSTOA_ENABLED } from '../config';
+import { startPushTapBridge, subscribeHostPushTap } from './pushTapBridge';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
   HostApi,
@@ -42,6 +44,15 @@ const LOGGED_OUT_KEY = 'openstoa.loggedOut.v1';
 // the near-blind gateway maps to this device's push token. Generated once and
 // persisted; NO rotation in Phase A.
 const PUSH_HANDLE_KEY = 'openstoa.push.handle.v1';
+
+// Notification tap routing (design §13, P-O gap 5) lives in ./pushTapBridge so
+// it can be unit-tested without a react-native runtime. Started at import time
+// rather than on mini-app mount: this module is reached from the host's tab
+// navigator (TabNavigator -> OpenStoaStackNavigator -> OpenStoaRootScreen),
+// which RN evaluates during startup even though the tab itself mounts lazily,
+// so a tap is never missed for want of a listener. Gated on OPENSTOA_ENABLED so
+// a build without the mini-app registers no OS listener at all.
+if (OPENSTOA_ENABLED) startPushTapBridge(Notifications);
 
 export interface CreateZkProofportHostApiOptions {
   /**
@@ -471,6 +482,74 @@ export function createZkProofportHostApi(
         // Best-effort: any failure (permission race, network, native module
         // missing) degrades to "no push" without breaking chat.
         return null;
+      }
+    },
+
+    // Read the OS notification permission WITHOUT prompting, so the mini-app's
+    // notification settings screen can say "blocked in system settings" up
+    // front instead of only discovering it after the user flips the switch.
+    // Deliberately never calls requestPermissionsAsync — registerForPush owns
+    // the prompt; this is a pure read.
+    getPushPermissionStatus: async () => {
+      try {
+        // No APNs/FCM token exists on a simulator, and without the EAS project
+        // id no token can be minted — in both cases the OS answer is moot.
+        if (!Device.isDevice) return 'unavailable';
+        const projectId =
+          (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)
+            ?.eas?.projectId ??
+          (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+        if (!projectId) return 'unavailable';
+
+        const perms = await Notifications.getPermissionsAsync();
+        // iOS provisional delivers quietly but DOES deliver, so it counts as
+        // granted — matching the isGranted() check in registerForPush.
+        if (
+          perms.granted ||
+          perms.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+        ) {
+          return 'granted';
+        }
+        return perms.status === 'undetermined' ? 'undetermined' : 'denied';
+      } catch {
+        return 'unavailable';
+      }
+    },
+
+    // Phase 6 push (design §13, P-O gap 5): hand notification TAPS to the
+    // mini-app so it can open the chat room the push came from. The OS listener
+    // and the cold-start query live in ./pushTapBridge at module scope, because
+    // they must outlive — and pre-date — this mini-app instance; all that
+    // happens here is attaching the mini-app as the subscriber and replaying
+    // whatever was latched while it was not mounted.
+    onPushNotificationTap: (listener) => subscribeHostPushTap(listener),
+
+    // Phase 7 push previews (design §13.6 strategy A): mirror one topic's Topic
+    // Archive Key into storage this platform's BACKGROUND notification handler can
+    // read, so it can decrypt the preview without touching the MLS ratchet.
+    //
+    // Android only. On iOS the mini-app already writes the key itself, straight
+    // into the shared Keychain access group via expo-secure-store — the NSE is a
+    // separate process and that group is the only thing both targets can see. On
+    // Android the FCM service runs in this very package but reads a Keystore-
+    // encrypted store of our own (`OpenStoaTakStore`), because parsing
+    // expo-secure-store's private Android envelope format from Kotlin would break
+    // on any upgrade of that package. `OpenStoaTak` is the write-only door into it.
+    //
+    // Resolves false rather than throwing on every failure: the preview is an
+    // optimisation, and the recipient still gets the content-free "New message".
+    mirrorTopicArchiveKey: async (topicId, takVersion, takB64) => {
+      if (Platform.OS !== 'android') return false;
+      try {
+        const native = NativeModules.OpenStoaTak as
+          | { mirrorTopicArchiveKey(t: string, v: number, k: string): Promise<boolean> }
+          | undefined;
+        // Host binary predating the module (an OTA-updated JS bundle on an older
+        // native build) — nothing to write to.
+        if (!native || typeof native.mirrorTopicArchiveKey !== 'function') return false;
+        return (await native.mirrorTopicArchiveKey(topicId, takVersion, takB64)) === true;
+      } catch {
+        return false;
       }
     },
 

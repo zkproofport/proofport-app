@@ -2,52 +2,35 @@
 //  NotificationService.swift
 //  OpenStoaNSE — Notification Service Extension (E2EE chat Phase 7 / Phase B, design §13.5)
 //
-//  Phase 7 device: NSE requires a device build + Keychain access-group entitlement;
-//  verify on device. This target is NOT built/verified in the scaffolding commit
-//  (no `pod install`, no `expo prebuild`, no `xcodebuild` was run). See
-//  `proofport-app/plugins/withOpenStoaNSE.js` for the target-registration steps.
-//
-//  What this extension does (design §13.5):
+//  What this extension does:
 //    1. APNs delivers the message push with `aps.mutable-content = 1` and a
-//       `data` dict carrying { topicId, messageId, epoch, ct } where `ct` is the
-//       OPAQUE, already-sealed ciphertext (the server never had the plaintext —
-//       SI-1). iOS wakes this NSE before the notification is shown.
-//    2. The NSE loads the topic's decrypt key from the SHARED Keychain access
-//       group the host app writes E2EE keys into (see §13.6 resolution below),
-//       decrypts `ct` READ-ONLY, and rewrites `bestAttemptContent.body` to the
-//       preview (e.g. "Alice: 회의 3시").
+//       payload carrying { topicId, messageId, epoch, ct, act, tv }. The server
+//       never had the plaintext (SI-1) — both `ct` and `act` are opaque to it.
+//       iOS wakes this NSE before the notification is shown.
+//    2. The NSE reads the topic's Topic Archive Key from the SHARED Keychain
+//       access group the host app writes E2EE keys into, decrypts `act`
+//       READ-ONLY, and rewrites `bestAttemptContent.body` to the preview.
 //    3. On ANY failure (no key, decrypt error, budget/time exceeded) it leaves
 //       the Phase A content-free placeholder ("New message") untouched — the
 //       recipient still gets a notification and decrypts in-app on tap.
 //
-//  §13.6 resolution — NSE MLS epoch safety (READ-ONLY, never ratchet):
-//    Decrypting a live MLS application message consumes a forward-secret message
-//    key from the ratchet's secret tree. If the NSE advanced/persisted that
-//    ratcheted state it would DESYNC the main app (the app could no longer derive
-//    the same key). Therefore the NSE MUST NOT write any mutated MLS state back
-//    to the Keychain. Two safe strategies, in order of preference:
-//      (A) PREFERRED — decrypt the TAK-archived copy. The Topic Archive Key is a
-//          STABLE symmetric key (non-ratcheting), so decrypting the archived
-//          ciphertext consumes nothing and can never desync the live group. The
-//          push should carry (or the NSE should be able to reconstruct) the
-//          TAK-sealed copy; when it is absent (message not yet archived) the NSE
-//          falls back to the dummy.
-//      (B) FALLBACK — load a READ-ONLY snapshot of the MLS group state, derive
-//          the message key in memory, show the preview, and DISCARD the mutated
-//          snapshot without persisting. The main app re-derives the key itself
-//          from its own persisted epoch secret when the user opens the message.
-//    This scaffold implements the *shape* (read key → decrypt → rewrite, else
-//    leave dummy); the concrete GroupCipher/TAK binding is wired at device time.
+//  §13.6 — WHY `act` AND NOT `ct`:
+//    `ct` is the live MLS application ciphertext. Decrypting it consumes a
+//    forward-secret message key from the ratchet's secret tree; if this
+//    extension advanced that state the main app could no longer derive the same
+//    key and the group would DESYNC. The NSE therefore NEVER touches `ct` — it
+//    decrypts `act`, the TAK-archived copy. The Topic Archive Key is a STABLE
+//    symmetric key (non-ratcheting, design §5.2), so opening the archived
+//    ciphertext consumes nothing and cannot desync the live group. When `act` is
+//    absent (message not archived yet) the NSE falls back to the placeholder.
 //
-//  §13.6 resolution — single OS token ↔ multiple nullifiers:
+//  §13.6 — single OS token ↔ multiple nullifiers:
 //    The host owns ONE APNs token but the mini-app may hold several session
 //    nullifiers. The server keys push_tokens on (user_id=nullifier, routing_handle),
 //    so the same OS token registered under different nullifiers produces distinct
 //    rows and the topic-member fan-out selects only the row whose nullifier is a
-//    member. The NSE then uses `data.topicId` to pick the correct per-(nullifier,
-//    topic) key from the shared Keychain — keys are stored under
-//    `mls.state.<identity>.<topicId>` (see openstoa mlsSession.ts). The Keychain
-//    access group scopes which identities' keys this NSE may read.
+//    member. The NSE then uses `topicId` + `tv` to pick the correct TAK from the
+//    shared Keychain. The access group scopes which identities' keys it may read.
 //
 
 import UserNotifications
@@ -74,31 +57,11 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    // Pull the opaque ciphertext envelope from the push payload. Any missing
-    // field => leave the Phase A placeholder ("New message") and return.
-    let userInfo = request.content.userInfo
-    guard
-      let topicId = userInfo["topicId"] as? String,
-      let ct = userInfo["ct"] as? String,
-      !ct.isEmpty
-    else {
-      contentHandler(bestAttemptContent)
-      return
+    if let preview = Self.decryptPreview(userInfo: request.content.userInfo) {
+      bestAttemptContent.body = preview
     }
-
-    // Phase 7 device TODO: wire the real read-only decrypt here.
-    //   let key = KeychainReader.readTopicKey(topicId: topicId,
-    //                                         accessGroup: kSharedKeychainAccessGroup)
-    //   guard let key = key,
-    //         let preview = OpenStoaDecryptor.previewReadOnly(ct: ct, key: key)
-    //   else { contentHandler(bestAttemptContent); return }
-    //   bestAttemptContent.body = preview   // e.g. "Alice: 회의 3시"
-    //
-    // Until the decryptor is bound at device-build time, we DELIBERATELY leave
-    // the content-free placeholder so behavior degrades to Phase A rather than
-    // shipping a broken preview.
-    _ = topicId
-    _ = kSharedKeychainAccessGroup
+    // Any nil above leaves the Phase A placeholder in place. The notification is
+    // ALWAYS delivered — a failed decrypt must never swallow the message.
     contentHandler(bestAttemptContent)
   }
 
@@ -108,5 +71,33 @@ class NotificationService: UNNotificationServiceExtension {
     if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
       contentHandler(bestAttemptContent)
     }
+  }
+
+  /// Resolve the archived-ciphertext preview for a push payload, or nil to keep
+  /// the placeholder. Read-only: it opens the stable TAK-archived copy and never
+  /// writes Keychain or MLS state.
+  ///
+  /// Note the deliberate absence of any `userInfo["ct"]` read: the live MLS
+  /// ciphertext is off limits here (see §13.6 above).
+  ///
+  /// An empty plaintext is treated as a failure — a blank notification body is
+  /// less useful than the "New message" placeholder it would replace.
+  static func decryptPreview(userInfo: [AnyHashable: Any]) -> String? {
+    guard
+      let push = PushPayload.parse(userInfo),
+      let tak = TakKeychain.readTak(
+        topicId: push.topicId,
+        takVersion: push.takVersion,
+        accessGroup: kSharedKeychainAccessGroup
+      ),
+      let plaintext = OpenStoaArchive.openPushPreview(
+        tak: tak,
+        messageId: push.messageId,
+        sealedBase64: push.archivedCiphertext
+      ),
+      !plaintext.isEmpty
+    else { return nil }
+
+    return Preview.truncateForDisplay(plaintext)
   }
 }
