@@ -1,0 +1,80 @@
+# READ-ONLY backup of every App Store Connect and Developer Portal registration
+# that has to be re-typed by hand when the app record is recreated on the
+# corporate Apple team (docs/migration/mobile-apps.md §A).
+#
+# Nothing in this workflow writes to Apple. It runs `fastlane backup_appstore`,
+# which only issues GET requests and only ever invokes `deliver` in its
+# download_metadata / download_screenshots modes. See ios/scripts/asc_backup.rb.
+name: Backup App Store Connect (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_identifier:
+        description: 'Bundle identifier to back up'
+        required: false
+        default: 'com.zkproofport.app'
+
+jobs:
+  backup:
+    # ubuntu-latest on purpose: this job never touches Xcode, a simulator, a
+    # provisioning profile or a binary. It is pure App Store Connect API traffic
+    # plus asset downloads, so a Linux runner is faster and cheaper than macOS.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Decode App Store Connect API key
+        env:
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+        run: |
+          echo "$ASC_API_KEY" | base64 -d > /tmp/asc_api_key_pkcs8.p8
+          openssl ec -in /tmp/asc_api_key_pkcs8.p8 -out /tmp/asc_api_key.p8 2>/dev/null
+
+      - name: Run read-only backup
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_PATH: /tmp/asc_api_key.p8
+          ASC_BACKUP_OUTPUT: ${{ github.workspace }}/asc-backup
+        run: |
+          cd ios
+          bundle exec fastlane backup_appstore app_identifier:"${{ inputs.app_identifier }}"
+
+      - name: Show summary in the run log
+        if: always()
+        run: |
+          if [ -f asc-backup/SUMMARY.md ]; then
+            cat asc-backup/SUMMARY.md
+          else
+            echo "SUMMARY.md was not produced — check the step above."
+          fi
+
+      - name: Show recorded errors
+        if: always()
+        run: |
+          if [ -f asc-backup/errors.json ]; then
+            cat asc-backup/errors.json
+          else
+            echo "errors.json was not produced."
+          fi
+
+      - name: Upload backup artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asc-backup-${{ github.run_id }}
+          path: asc-backup
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Remove decoded API key
+        if: always()
+        run: rm -f /tmp/asc_api_key.p8 /tmp/asc_api_key_pkcs8.p8

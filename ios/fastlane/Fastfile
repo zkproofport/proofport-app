@@ -24,18 +24,35 @@ platform :ios do
     end
 
     if ENV['CI'] && api_key
+      # The OpenStoaNSE notification-service extension is embedded in the host
+      # app, so distribution signing needs BOTH profiles — an unsigned .appex
+      # fails ValidateEmbeddedBinary at export.
       match(
         type: "appstore",
-        app_identifier: "com.zkproofport.app",
+        app_identifier: ["com.zkproofport.app", "com.zkproofport.app.OpenStoaNSE"],
         readonly: true,
+      )
+
+      # `targets:` is required now that the project has two targets: without it
+      # update_code_signing_settings writes the host bundle id onto the
+      # extension as well.
+      update_code_signing_settings(
+        use_automatic_signing: false,
+        path: "ProofportApp.xcodeproj",
+        team_id: "Y9847K5587",
+        targets: ["ProofportApp"],
+        bundle_identifier: "com.zkproofport.app",
+        profile_name: "match AppStore com.zkproofport.app",
+        code_sign_identity: "iPhone Distribution",
       )
 
       update_code_signing_settings(
         use_automatic_signing: false,
         path: "ProofportApp.xcodeproj",
         team_id: "Y9847K5587",
-        bundle_identifier: "com.zkproofport.app",
-        profile_name: "match AppStore com.zkproofport.app",
+        targets: ["OpenStoaNSE"],
+        bundle_identifier: "com.zkproofport.app.OpenStoaNSE",
+        profile_name: "match AppStore com.zkproofport.app.OpenStoaNSE",
         code_sign_identity: "iPhone Distribution",
       )
     end
@@ -92,9 +109,11 @@ platform :ios do
       )
     end
 
+    # Both ids: the embedded OpenStoaNSE .appex needs its own distribution
+    # profile or ValidateEmbeddedBinary rejects the export.
     match(
       type: "appstore",
-      app_identifier: "com.zkproofport.app",
+      app_identifier: ["com.zkproofport.app", "com.zkproofport.app.OpenStoaNSE"],
       readonly: ENV['CI'] == 'true',
     )
 
@@ -120,6 +139,57 @@ platform :ios do
       submit_for_review: false,
       force: true,
     )
+  end
+
+  desc "READ-ONLY backup of App Store Connect + Developer Portal registrations"
+  lane :backup_appstore do |options|
+    # Captures everything that has to be re-typed by hand when the app record is
+    # recreated on the corporate team (docs/migration/mobile-apps.md §A). This
+    # lane NEVER writes to Apple: scripts/asc_backup.rb prepends a guard onto
+    # Spaceship's HTTP client that raises on POST/PATCH/DELETE, and the only
+    # deliver subcommands it shells out to are download_metadata /
+    # download_screenshots, run from a scratch cwd so the repo's Deliverfile
+    # (force true / overwrite_screenshots true) is never loaded.
+    #
+    # Deliberately absent: match (would issue certificates), build_app,
+    # upload_to_testflight, upload_to_app_store, deliver run.
+
+    if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+      api_key = app_store_connect_api_key(
+        key_id: ENV['ASC_KEY_ID'],
+        issuer_id: ENV['ASC_ISSUER_ID'],
+        key_filepath: ENV['ASC_API_KEY_PATH'],
+      )
+    elsif ENV['ASC_KEY_ID']
+      api_key = app_store_connect_api_key(
+        key_id: ENV['ASC_KEY_ID'],
+        issuer_id: ENV['ASC_ISSUER_ID'],
+        key_content: ENV['ASC_API_KEY'],
+        is_key_content_base64: true,
+      )
+    end
+
+    UI.user_error!("ASC_KEY_ID / ASC_ISSUER_ID and ASC_API_KEY_PATH or ASC_API_KEY are required") unless api_key
+
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
+
+    script = ["../scripts/asc_backup.rb", "scripts/asc_backup.rb"]
+             .map { |rel| File.expand_path(rel, FastlaneCore::FastlaneFolder.path || ".") }
+             .find { |path| File.exist?(path) }
+    UI.user_error!("Could not locate scripts/asc_backup.rb") unless script
+    require script
+
+    output_dir = options[:output] || ENV['ASC_BACKUP_OUTPUT']
+    output_dir ||= File.expand_path("./build/asc-backup/#{Time.now.utc.strftime('%Y%m%dT%H%M%SZ')}")
+
+    result = AscBackup.run!(
+      output_dir: output_dir,
+      app_identifier: options[:app_identifier] || "com.zkproofport.app",
+    )
+
+    UI.success("App Store Connect backup written to #{result}")
+    UI.important("Read #{File.join(result, 'SUMMARY.md')} before deleting anything.")
+    result
   end
 
   desc "Build IPA only (no upload)"
