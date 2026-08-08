@@ -25,6 +25,23 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="cbwallet" />
         </intent>
+        <!--
+            Korea mDL (모바일 신분증). Android 11+ hides other packages unless they
+            are declared here, so `Linking.canOpenURL` returned false and the flow
+            reported "Mobile ID app is not installed" on a device where it WAS
+            installed. Declared by package, not just by scheme: the server hands
+            back either `mobileid://` or an https app link depending on the stage,
+            and naming the package covers both.
+        -->
+        <package android:name="kr.go.mobileid" />
+        <!-- The Android branch prefers `ssPayLink`, which hands off to Samsung
+             Wallet rather than to 모바일 신분증. Both targets have to be visible
+             or `canOpenURL` fails on whichever one the server returns. -->
+        <package android:name="com.samsung.android.spay" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="mobileid" />
+        </intent>
     </queries>
 
     <application

@@ -19,6 +19,7 @@
  */
 import React, {useCallback, useRef} from 'react';
 import {
+  Linking,
   View,
   Text,
   StyleSheet,
@@ -206,6 +207,34 @@ export const OacxWebViewScreen: React.FC = () => {
       <WebView
         source={{html, baseUrl: OACX_UX_BASE}}
         onMessage={handleMessage}
+        /*
+         * Hand APP-SCHEME navigations to the OS. The RAON widget switches to the
+         * mobile-ID app by navigating the page to `mobileid://…`, and a WebView
+         * cannot load that itself — with no interceptor it dropped the request
+         * silently, so tapping the button did nothing at all. No error, no
+         * reaction, nothing to search for. iOS papers over this because WKWebView
+         * forwards some app-scheme navigations to the system on its own; Android
+         * does not, which is why only Android looked broken.
+         */
+        onShouldStartLoadWithRequest={(request) => {
+          const {url: target} = request;
+          // Let the WebView keep everything it can render itself. The first cut
+          // allowed only http(s) and about:blank, which would also have diverted
+          // `data:`/`blob:`/`file:` URLs the widget may use internally — and this
+          // handler runs on iOS too, where the flow already worked. Divert only
+          // what is unmistakably an app hand-off.
+          if (/^(https?|about|data|blob|file):/i.test(target)) return true;
+          Linking.openURL(target).catch(() => {
+            publishResult({
+              ok: false,
+              error:
+                `모바일 신분증 앱을 열지 못했습니다 (${target.split(':')[0]}:). ` +
+                `앱이 설치되어 있는지 확인해 주세요.`,
+            });
+            navigation.goBack();
+          });
+          return false;
+        }}
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState

@@ -199,9 +199,27 @@ export async function launchMobileIdApp(
   if (!url) {
     throw new Error(`No deep link available for platform ${Platform.OS}`);
   }
+  // WHICH link, and to what scheme. Android prefers `ssPayLink` (Samsung Wallet)
+  // over `androidLink` (모바일 신분증), so "the deep link failed" was ambiguous
+  // about which app was even being addressed. Scheme + source field only — the
+  // rest of the URL carries a transaction token.
+  const chosenField =
+    Platform.OS === 'ios' ? 'iosLink' : ssPayLink ? 'ssPayLink' : 'androidLink';
+  console.log(`[OACX] deep link via ${chosenField}, scheme "${url.split(':')[0]}:"`);
   const can = await Linking.canOpenURL(url);
   if (!can) {
-    throw new Error('Mobile ID app is not installed (cannot open deep link)');
+    // Name the SCHEME. "not installed" was wrong on a device where the app was
+    // installed — the real cause was that the platform hides apps this one has
+    // not declared (Android <queries>, iOS LSApplicationQueriesSchemes), and
+    // the message sent the reader off to reinstall instead of to the manifest.
+    // The scheme alone is safe to surface; the rest of the URL carries a
+    // transaction token.
+    const scheme = url.split(':')[0];
+    throw new Error(
+      `Cannot open the mobile ID app: nothing handles "${scheme}:" links, ` +
+        `or this app has not declared that scheme. Install 모바일 신분증, ` +
+        `or add "${scheme}" to the platform's app-query declarations.`,
+    );
   }
   await Linking.openURL(url);
 }
