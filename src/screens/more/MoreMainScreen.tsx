@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  NativeModules,
   Share,
   ActivityIndicator,
   Pressable,
@@ -27,6 +28,18 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
 }) => {
   const { t } = useTranslation();
   const {settings, loading, updateSettings} = useSettings();
+  // Seeded from the value the app BOOTED with, so the switch shows what is
+  // actually in effect right now — not the pending choice.
+  const [openStoaOverride, setOpenStoaOverride] = React.useState(OPENSTOA_ENABLED);
+
+  const handleOpenStoaOverride = React.useCallback((next: boolean) => {
+    setOpenStoaOverride(next);
+    NativeModules.AppEnv?.setOpenStoaOverride?.(next);
+    Alert.alert(
+      t('host.more.openStoaEnabled'),
+      t('host.more.openStoaRestartRequired'),
+    );
+  }, [t]);
   const {exportToJSON, clearAll} = useProofHistory();
   const {mode, colors: themeColors, setThemeMode} = useThemeColors();
 
@@ -215,6 +228,23 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
                 label={t('host.more.useOmniOneCxUi')}
               />
             </View>
+            {/*
+              Overrides the BUILD's OpenStoa flag. Written natively, not to
+              AsyncStorage: JS reads the flag at module load — the push-tap
+              bridge starts at import time — so the value has to be settled
+              before the first line of JS runs. That is why this applies on the
+              next launch and says so, rather than half-switching the app now.
+            */}
+            <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
+              <Toggle
+                value={openStoaOverride}
+                onValueChange={handleOpenStoaOverride}
+                label={t('host.more.openStoaEnabled')}
+              />
+            </View>
+            <Text style={[styles.toggleHint, {color: themeColors.text.tertiary}]}>
+              {t('host.more.openStoaEnabledHint')}
+            </Text>
           </View>
         )}
 
@@ -306,6 +336,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
+    marginBottom: 8,
+  },
+  // Sits under a toggle whose effect is deferred, so the switch flipping is not
+  // mistaken for the change having happened.
+  toggleHint: {
+    fontSize: 12,
+    lineHeight: 16,
+    paddingHorizontal: 16,
+    marginTop: -4,
     marginBottom: 8,
   },
   separator: {

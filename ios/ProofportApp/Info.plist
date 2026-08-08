@@ -60,6 +60,11 @@
 		<string>cbwallet</string>
 		<string>zerion</string>
 		<string>imtokenv2</string>
+		<!-- Korea mDL (모바일 신분증). iOS `canOpenURL` returns false for any
+		     scheme not listed here, which is the same class of failure Android
+		     hit through <queries>: the app is installed and the flow still
+		     reports it missing. -->
+		<string>mobileid</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
@@ -121,6 +126,10 @@
 	<string>ZKProofport needs permission to save proofs and screenshots to your photo library</string>
 	<key>AppEnv</key>
 	<string>$(APP_ENV)</string>
+	<!-- Set per build (xcargs / build setting), mirroring APP_ENV. Empty or
+	     absent means enabled — see AppEnvModule. -->
+	<key>OpenStoaEnabled</key>
+	<string>$(OPENSTOA_ENABLED)</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<key>UIAppFonts</key>

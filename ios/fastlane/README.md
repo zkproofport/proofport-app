@@ -31,6 +31,14 @@ Build IPA for local install or TestFlight
 
 Build and submit to App Store
 
+### ios backup_appstore
+
+```sh
+[bundle exec] fastlane ios backup_appstore
+```
+
+READ-ONLY backup of App Store Connect + Developer Portal registrations
+
 ### ios build_ipa
 
 ```sh

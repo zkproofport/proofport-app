@@ -136,21 +136,29 @@ android {
     // listing across dev / staging / production. Differentiation between
     // environments is carried by app_env (and the visible app_name) rather
     // than by package suffix.
+    // `openstoa_enabled` travels the same road as `app_env` — flavor → string
+    // resource → AppEnvModule → JS. It used to be a constant in
+    // `src/config/features.ts`, so shipping an Android build without the mini-app
+    // meant editing source, building, and remembering to put it back. Forgetting
+    // that step silently changed the NEXT build of the other platform.
     productFlavors {
         development {
             dimension "environment"
             resValue "string", "app_name", "ZKProofport DEV"
             resValue "string", "app_env", "development"
+            resValue "string", "openstoa_enabled", "true"
         }
         staging {
             dimension "environment"
             resValue "string", "app_name", "ZKProofport STG"
             resValue "string", "app_env", "staging"
+            resValue "string", "openstoa_enabled", "false"
         }
         production {
             dimension "environment"
             resValue "string", "app_name", "ZKProofport"
             resValue "string", "app_env", "production"
+            resValue "string", "openstoa_enabled", "false"
         }
     }
     signingConfigs {

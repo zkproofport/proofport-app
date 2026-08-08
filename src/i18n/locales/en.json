@@ -52,7 +52,10 @@
       "clear": "Clear",
       "clearSuccess": "Local data cleared",
       "clearError": "Failed to clear local data",
-      "versionSupport": "Version, Support"
+      "versionSupport": "Version, Support",
+      "openStoaEnabled": "OpenStoa mini-app",
+      "openStoaEnabledHint": "Overrides what this build shipped with. Applies on the next launch.",
+      "openStoaRestartRequired": "Restart the app to apply this change."
     },
     "about": {
       "tagline": "Privacy-first zero-knowledge proof generation",

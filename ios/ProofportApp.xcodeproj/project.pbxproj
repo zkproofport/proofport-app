@@ -464,6 +464,7 @@
 			baseConfigurationReference = 5E89F36D9CA160358622E402 /* Pods-ProofportApp.debug.xcconfig */;
 			buildSettings = {
 				APP_ENV = development;
+				OPENSTOA_ENABLED = true;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;
@@ -497,6 +498,7 @@
 			baseConfigurationReference = EEA58DF4D7675AA875171AFC /* Pods-ProofportApp.release.xcconfig */;
 			buildSettings = {
 				APP_ENV = production;
+				OPENSTOA_ENABLED = true;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;

@@ -52,7 +52,10 @@
       "clear": "삭제",
       "clearSuccess": "로컬 데이터가 삭제됐어요",
       "clearError": "로컬 데이터 삭제에 실패했어요",
-      "versionSupport": "버전, 지원"
+      "versionSupport": "버전, 지원",
+      "openStoaEnabled": "OpenStoa 미니앱",
+      "openStoaEnabledHint": "이 빌드의 설정을 덮어씁니다. 앱을 다시 시작하면 적용됩니다.",
+      "openStoaRestartRequired": "앱을 다시 시작하면 적용됩니다."
     },
     "about": {
       "tagline": "개인정보 보호 최우선 영지식 증명 생성",
