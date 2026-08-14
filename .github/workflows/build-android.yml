@@ -20,7 +20,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      # See build-ios.yml for the full rationale: proofport-app depends on
+      # three sibling OpenStoa packages via `file:../openstoa/packages/*`.
+      # `npm install` does not fail when that sibling is missing — it creates
+      # a broken symlink and exits 0 — so this checkout is required, not
+      # optional, and its absence would previously have surfaced only much
+      # later as a Metro "Unable to resolve module 'openstoa-mobile'" error
+      # inside the Gradle/Metro bundle step.
       - uses: actions/checkout@v4
+        with:
+          path: proofport-app
+
+      # Fails fast on a malformed/unresolvable/rewritten pin, and warns
+      # loudly (run summary + ::warning) when the pin is a valid but
+      # outdated ancestor of openstoa main — see the action itself for the
+      # fail-vs-warn reasoning.
+      - name: Check OpenStoa pin staleness
+        id: openstoa-pin
+        uses: ./proofport-app/.github/actions/openstoa-pin-check
+        with:
+          pin-file: proofport-app/.openstoa-commit
+
+      - name: Checkout OpenStoa (sibling mini-app source)
+        uses: actions/checkout@v4
+        with:
+          repository: zkproofport/openstoa
+          ref: ${{ steps.openstoa-pin.outputs.sha }}
+          path: openstoa
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -33,6 +59,7 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
+          working-directory: proofport-app
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -51,16 +78,19 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-            android/.gradle
-          key: gradle-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/app/build.gradle', 'android/build.gradle') }}
+            proofport-app/android/.gradle
+          key: gradle-${{ hashFiles('proofport-app/android/gradle/wrapper/gradle-wrapper.properties', 'proofport-app/android/app/build.gradle', 'proofport-app/android/build.gradle') }}
           restore-keys: gradle-
 
       - name: Cache node_modules
         id: cache-node
         uses: actions/cache@v4
         with:
-          path: node_modules
-          key: node-${{ hashFiles('package-lock.json') }}
+          path: proofport-app/node_modules
+          # Includes the OpenStoa pin: bumping .openstoa-commit must bust this
+          # cache, or a stale node_modules could keep a broken/outdated
+          # `openstoa-mobile` symlink alive across the change that fixed it.
+          key: node-${{ hashFiles('proofport-app/package-lock.json', 'proofport-app/.openstoa-commit') }}
 
       - name: Free disk space
         run: |
@@ -74,12 +104,13 @@ jobs:
           gh release download mopro-binaries-v0.3.2 \
             --pattern 'android-jniLibs-arm64-v8a.tar.gz' \
             --dir /tmp
-          mkdir -p mopro_bindings/android/src/main/jniLibs
-          tar xzf /tmp/android-jniLibs-arm64-v8a.tar.gz -C mopro_bindings/android/src/main/jniLibs/
+          mkdir -p proofport-app/mopro_bindings/android/src/main/jniLibs
+          tar xzf /tmp/android-jniLibs-arm64-v8a.tar.gz -C proofport-app/mopro_bindings/android/src/main/jniLibs/
           rm /tmp/android-jniLibs-arm64-v8a.tar.gz
 
       - name: Install dependencies
         if: steps.cache-node.outputs.cache-hit != 'true'
+        working-directory: proofport-app
         run: npm install --legacy-peer-deps
 
       - name: Decode keystore
@@ -95,11 +126,11 @@ jobs:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
           ORG_GRADLE_PROJECT_APP_ENV_OVERRIDE: ${{ inputs.app_env }}
         run: |
-          cd android
+          cd proofport-app/android
           bundle exec fastlane beta flavor:staging
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-staging-release.aab
-          path: android/app/build/outputs/bundle/stagingRelease/*.aab
+          path: proofport-app/android/app/build/outputs/bundle/stagingRelease/*.aab

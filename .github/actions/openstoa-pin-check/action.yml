@@ -1,0 +1,98 @@
+name: 'Check OpenStoa pin staleness'
+description: >-
+  Validates that .openstoa-commit is a well-formed 40-char commit SHA and
+  that it is an ancestor of (or equal to) zkproofport/openstoa's `main`
+  branch. Fails fast — before any expensive setup/build step — on a
+  malformed or unresolvable/diverged pin, since that means the build would
+  otherwise fail much later and confusingly (Metro cannot resolve
+  `openstoa-mobile`). Warns, with a banner in the run's step summary, when
+  the pin is a valid but outdated ancestor of main, so staleness is visible
+  in every run instead of building silently against old mini-app code —
+  this is exactly the failure mode the pin file itself cannot self-report
+  (a bare SHA has no way to say "and here's how old I am").
+  Uses ONLY the automatic `github.token` against the PUBLIC openstoa repo's
+  read API (`compare` + no clone) — it never touches the private parent
+  monorepo, so it needs no extra secret and no checkout of anything beyond
+  what the caller already did for `proofport-app`.
+inputs:
+  pin-file:
+    description: 'Path to the .openstoa-commit file, relative to the workspace.'
+    required: true
+    default: proofport-app/.openstoa-commit
+outputs:
+  sha:
+    description: 'The validated 40-char pin SHA.'
+    value: ${{ steps.format.outputs.sha }}
+runs:
+  using: composite
+  steps:
+    - name: Validate pin format
+      id: format
+      shell: bash
+      run: |
+        PIN=$(tr -d '[:space:]' < "${{ inputs.pin-file }}")
+        if ! [[ "$PIN" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::${{ inputs.pin-file }} is missing or malformed — expected exactly 40 lowercase hex characters, got: '$PIN'"
+          exit 1
+        fi
+        echo "sha=$PIN" >> "$GITHUB_OUTPUT"
+
+    - name: Compare pin against openstoa main
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PIN: ${{ steps.format.outputs.sha }}
+      run: |
+        # Written to a file rather than a shell variable (`RESULT=$(gh api ...)`)
+        # on purpose: a JSON body round-tripped through a shell variable and
+        # `echo` is one interactive-shell config away from having its escaped
+        # `\n`/`\t` sequences unescaped into real control characters before jq
+        # ever sees them, which breaks jq with a cryptic "control characters
+        # ... must be escaped" error — hit exactly this locally under zsh
+        # while writing this check (bash, which is what `shell: bash` actually
+        # runs here, does not do this — but reading straight from a file needs
+        # no shell-echo-behavior assumption at all).
+        if ! gh api "repos/zkproofport/openstoa/compare/${PIN}...main" > /tmp/openstoa-compare.json 2>/tmp/openstoa-compare-err; then
+          echo "::error::Could not compare pin ${PIN} against zkproofport/openstoa main — the SHA may not exist in that repo, or the GitHub API call failed. $(cat /tmp/openstoa-compare-err)"
+          exit 1
+        fi
+
+        STATUS=$(jq -r '.status' /tmp/openstoa-compare.json)
+        AHEAD=$(jq -r '.ahead_by' /tmp/openstoa-compare.json)
+        PIN_DATE=$(jq -r '.base_commit.commit.committer.date' /tmp/openstoa-compare.json)
+
+        case "$STATUS" in
+          identical)
+            echo "OpenStoa pin $PIN is current — matches main exactly."
+            ;;
+          ahead)
+            # main has moved AHEAD of the pin — the pin is a real, valid
+            # ancestor, just outdated. Legitimate (reproducing a release,
+            # bisecting, or simply not needing today's mini-app changes),
+            # so this warns rather than fails — a hard fail here on ordinary
+            # staleness is exactly the shape of check that gets deleted the
+            # first time it blocks a legitimate build.
+            # Day math via python3 (preinstalled on both ubuntu-latest and
+            # macos-15 runner images) rather than `date -d`, which is a GNU
+            # coreutils flag this same check must also run under BSD date on
+            # the macOS iOS-build runners.
+            DAYS=$(python3 -c "import datetime, sys; pin = datetime.datetime.fromisoformat(sys.argv[1].replace('Z', '+00:00')); print((datetime.datetime.now(datetime.timezone.utc) - pin).days)" "$PIN_DATE")
+            SUMMARY="OpenStoa pin **${PIN}** is **${AHEAD} commit(s)** / **${DAYS} day(s)** behind \`main\` (pinned commit dated ${PIN_DATE}). This build uses the pinned commit, not the latest mini-app code. If it should ship the newer OpenStoa code, bump \`${{ inputs.pin-file }}\` in the same PR."
+            {
+              echo "### ⚠️ OpenStoa pin is stale"
+              echo "$SUMMARY"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::$SUMMARY"
+            ;;
+          *)
+            # "diverged" (pin is not reachable from main at all — a rewritten
+            # or force-pushed history) or "behind" (the pin is AHEAD of
+            # main's current tip — main itself moved backward, or the pin
+            # names a commit off the mainline). Either way this is not
+            # ordinary staleness: the pin cannot be validated as a real
+            # ancestor of what CI would otherwise build against, so this
+            # fails rather than warns.
+            echo "::error::OpenStoa pin ${PIN} is NOT a valid ancestor of main (compare status: '${STATUS}'). This is a broken or rewritten pin, not ordinary staleness — investigate zkproofport/openstoa's history before building. Bump ${{ inputs.pin-file }} to a real commit reachable from main."
+            exit 1
+            ;;
+        esac
