@@ -21,7 +21,7 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 [bundle exec] fastlane android beta
 ```
 
-Build release AAB
+Build release AAB and upload to Play Console alpha track
 
 ### android build_apk
 

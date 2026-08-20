@@ -72,22 +72,46 @@ enum OpenStoaArchive {
   static func open(tak: Data, messageId: String, sealedBase64: String) -> String? {
     guard !sealedBase64.isEmpty,
           let raw = Data(base64Encoded: sealedBase64),
-          raw.count >= nonceLength + tagLength,
-          let key = archiveKey(tak: tak, messageId: messageId)
+          let plaintext = openBytes(tak: tak, contextId: messageId, sealed: raw)
+    else { return nil }
+    return String(data: plaintext, encoding: .utf8)
+  }
+
+  /// The same open, over RAW BYTES and returning bytes.
+  ///
+  /// Two callers, two shapes of the one operation: a message body arrives
+  /// base64-encoded inside a push payload and decodes to text, while an
+  /// attachment arrives as bytes from the media route and stays bytes. Splitting
+  /// them here rather than round-tripping an image through base64 and a String
+  /// matters in an extension with a ~24MB ceiling — and a UTF-8 decode of a JPEG
+  /// would fail anyway, which is how a shared String path would have silently
+  /// broken every attachment.
+  ///
+  /// `contextId` is whatever was bound into the HKDF info: a message id for an
+  /// archived body, the fixed `push-preview` label for a push copy, or
+  /// `media:<mediaId>` for an attachment (`ChatMedia.mediaContextId`). Passing
+  /// the wrong one derives a different key and fails authentication — which is
+  /// the intended outcome, not a bug to work around.
+  ///
+  /// Returns nil on EVERY failure: a body too short to hold a nonce + tag, a
+  /// wrong or corrupt TAK, or GCM authentication failure. Consumes no ratchet
+  /// state whatsoever (design §13.6).
+  static func openBytes(tak: Data, contextId: String, sealed: Data) -> Data? {
+    guard sealed.count >= nonceLength + tagLength,
+          let key = archiveKey(tak: tak, messageId: contextId)
     else { return nil }
 
     // Data slices keep the parent's indices, so re-base them before handing the
     // bytes to CryptoKit (which reads from index 0).
-    let nonceBytes = Data(raw.prefix(nonceLength))
-    let body = Data(raw.dropFirst(nonceLength))
+    let nonceBytes = Data(sealed.prefix(nonceLength))
+    let body = Data(sealed.dropFirst(nonceLength))
     let ciphertext = Data(body.dropLast(tagLength))
     let tag = Data(body.suffix(tagLength))
 
     do {
       let nonce = try AES.GCM.Nonce(data: nonceBytes)
       let box = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
-      let plaintext = try AES.GCM.open(box, using: key)
-      return String(data: plaintext, encoding: .utf8)
+      return try AES.GCM.open(box, using: key)
     } catch {
       return nil
     }

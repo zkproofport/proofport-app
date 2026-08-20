@@ -31,6 +31,25 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>2</string>
+	<!-- App Transport Security is per BUNDLE, and this extension is its own
+	     bundle: the host's exceptions in ProofportApp/Info.plist do not reach it.
+	     Since P-1 the extension makes a real network request (fetching an
+	     encrypted attachment so the notification can show the picture), so it
+	     needs its own policy.
+
+	     Only NSAllowsLocalNetworking, deliberately — NOT the host's
+	     NSAllowsArbitraryLoads. Production is HTTPS and needs no exception at
+	     all; the one case that breaks without this is a developer pointing the
+	     mini-app at `http://<LAN IP>:3200`, where the extension would refuse the
+	     fetch and every attachment would silently show a caption with no
+	     thumbnail — a confusing "it works on the web but not on the phone". This
+	     key permits local/private-network HTTP and nothing else, so no insecure
+	     load to the public internet becomes possible. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>

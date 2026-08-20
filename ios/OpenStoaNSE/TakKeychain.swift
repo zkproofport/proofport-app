@@ -68,6 +68,40 @@ enum TakKeychain {
     return tak
   }
 
+  /// Keychain account key for the session the extension fetches ATTACHMENTS
+  /// with. Mirrors `sharedPushSessionKey` in
+  /// `openstoa/packages/mobile/src/crypto/sharedKeychain.ts`.
+  static func pushSessionAccount(topicId: String) -> String {
+    return "openstoa.push.session.\(topicId)"
+  }
+
+  /**
+   Read the mirrored `{ baseUrl, token }` for one topic, or nil.
+
+   Why a bearer token lives here at all: the attachment read route is
+   membership-gated (a public object URL would outlive every membership check),
+   so the extension has to present a session, and it cannot ask the app for one
+   — different process, app not running. Same access group, same
+   `AFTER_FIRST_UNLOCK` protection and the same read-only rule as the TAK it
+   sits beside; the group is scoped by the app identifier prefix, so nothing
+   outside this app's own binaries can read either.
+
+   Per TOPIC, not global, because the host owns one APNs token while the
+   mini-app may hold several session nullifiers and the push carries none — the
+   entry mirrored under a topic is by construction a session that is a member of
+   it. An expired or missing entry is not an error: the fetch is skipped and the
+   notification arrives with its caption and no thumbnail.
+   */
+  static func readPushSession(topicId: String, accessGroup: String) -> PushSession? {
+    guard !topicId.isEmpty else { return nil }
+    let key = pushSessionAccount(topicId: topicId)
+    // Same two spellings of one account key as `readTak` — see the header.
+    guard let stored = copyValue(account: Data(key.utf8), accessGroup: accessGroup)
+      ?? copyValue(account: key, accessGroup: accessGroup)
+    else { return nil }
+    return PushSession.parse(stored)
+  }
+
   /// One read-only Keychain lookup. `account` is `Any` so the caller can pass
   /// either the `Data` or the `String` spelling of the same account key.
   private static func copyValue(account: Any, accessGroup: String) -> Data? {

@@ -25,6 +25,7 @@ trap 'rm -rf "$(dirname "$OUT")"' EXIT
 # the three files below and IS covered here.
 swiftc -O \
   "$NSE_DIR/ArchiveDecryptor.swift" \
+  "$NSE_DIR/ChatMediaEnvelope.swift" \
   "$NSE_DIR/PushPayload.swift" \
   "$NSE_DIR/TakKeychain.swift" \
   "$SCRIPT_DIR/VerifyArchiveVectors.swift" \

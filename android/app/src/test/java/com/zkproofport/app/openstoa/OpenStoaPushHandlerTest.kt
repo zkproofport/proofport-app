@@ -126,6 +126,107 @@ class OpenStoaPushHandlerTest {
         )
     }
 
+    // ── attachments: a caption, never the envelope (P-1) ──────────────────────
+
+    /** A body exactly as `buildChatMediaBody` produces it. */
+    private fun mediaBody(
+        mediaId: String = "a0b1c2d3e4f5061728394a5b6c7d8e9f",
+        mime: String = "image/png",
+        size: Int = 4096,
+        takVersion: Int = 0,
+    ): String =
+        OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX +
+            """{"v":1,"key":"topics/$topicId/chat/u1/$mediaId.bin","mediaId":"$mediaId",""" +
+            """"takVersion":$takVersion,"mime":"$mime","size":$size}"""
+
+    private fun previewOf(plaintext: String): OpenStoaPushDecision {
+        val push = expoPush(
+            "topicId" to topicId,
+            "messageId" to messageId,
+            "act" to sealPreview(tak, plaintext),
+            "tv" to 0,
+        )
+        return OpenStoaPushHandler.decide(push, store((topicId to 0L) to tak))
+    }
+
+    @Test
+    fun `an attachment shows a caption, never the envelope JSON`() {
+        val decision = previewOf(mediaBody()) as OpenStoaPushDecision.Preview
+        assertEquals(OpenStoaPushHandler.MEDIA_PREVIEW_TEXT, decision.text)
+        assertFalse(decision.text.contains(OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX))
+        assertFalse(decision.text.contains("{"))
+        assertFalse(decision.text.contains("topics/"))
+    }
+
+    @Test
+    fun `every envelope shape gets the caption, including malformed ones`() {
+        /*
+         * The guard is the PREFIX, not a successful parse. A body that is an
+         * envelope but broken — a future version, a truncated JSON, a hostile
+         * key — is still not text, and a check that only caught the ones it
+         * could fully parse would let exactly the broken ones onto a lock
+         * screen. That is the wrong way round, so it is pinned here.
+         */
+        val bodies = listOf(
+            mediaBody(),
+            mediaBody(mime = "image/gif", size = 1),
+            mediaBody(size = 10 * 1024 * 1024),
+            // Malformed / hostile, all still prefixed:
+            OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX,
+            OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX + "not json",
+            OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX + "{}",
+            OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX + """{"v":2}""",
+            OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX + """{"key":"../../etc/passwd"}""",
+            mediaBody().dropLast(3),
+        )
+        for (body in bodies) {
+            val decision = previewOf(body)
+            assertEquals(
+                "body=$body",
+                OpenStoaPushDecision.Preview(OpenStoaPushHandler.MEDIA_PREVIEW_TEXT),
+                decision,
+            )
+        }
+    }
+
+    @Test
+    fun `text that merely resembles an envelope is still shown as text`() {
+        // A member can type any of these into the composer. Treating them as
+        // attachments would hide a real message behind a photo caption.
+        val texts = listOf(
+            "openstoa:media:v2:{\"v\":1}",
+            "openstoa:media:v1{\"v\":1}",
+            "look at this openstoa:media:v1:{\"v\":1}",
+            """{"v":1,"key":"topics/x/chat/u/y.bin"}""",
+            "openstoa:media",
+            "📷 Photo",
+        )
+        for (text in texts) {
+            assertEquals("text=$text", OpenStoaPushDecision.Preview(text), previewOf(text))
+        }
+    }
+
+    @Test
+    fun `the media prefix matches the one chatMedia ts defines`() {
+        // Mirrored by `nativeChatMediaConstants.test.ts` on the TypeScript side,
+        // which reads this file; this is the assertion a Kotlin-only reader sees.
+        assertEquals("openstoa:media:v1:", OpenStoaPushHandler.CHAT_MEDIA_BODY_PREFIX)
+    }
+
+    @Test
+    fun `an attachment with no key held keeps the content-free placeholder`() {
+        // No preview key → nothing is decrypted at all, so the caption is never
+        // reached. The recipient still gets "New message" and the picture in the
+        // app on tap.
+        val push = expoPush(
+            "topicId" to topicId,
+            "messageId" to messageId,
+            "act" to sealPreview(tak, mediaBody()),
+            "tv" to 0,
+        )
+        assertSame(OpenStoaPushDecision.Delegate, OpenStoaPushHandler.decide(push, emptyStore))
+    }
+
     // ── every guard: must delegate, never preview ─────────────────────────────
 
     /**

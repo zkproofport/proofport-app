@@ -21,6 +21,13 @@ private struct VectorFile: Decodable {
     let kdfSize: Int
     let nonceLength: Int
     let aeadKeyLength: Int
+    /// `CHAT_MEDIA_BODY_PREFIX` / `MAX_CHAT_MEDIA_BYTES` as chatMedia.ts spells
+    /// them. Swift restates both; these are what catch it drifting.
+    let mediaBodyPrefix: String
+    let maxChatMediaBytes: Int
+    /// The `{userId}` segment the media object keys in this file were built
+    /// with, so a key can be rebuilt here the way the port rebuilds it.
+    let mediaUserSegment: String
   }
   struct Vector: Decodable {
     let name: String
@@ -33,12 +40,40 @@ private struct VectorFile: Decodable {
     let messageId: String
     let sealed: String
   }
+  /// An envelope from `buildChatMediaBody` plus the bytes it references, sealed
+  /// by `sealMediaBytes`. Swift must parse the one and open the other.
+  struct Media: Decodable {
+    struct Envelope: Decodable {
+      let key: String
+      let mediaId: String
+      let takVersion: Int
+      let mime: String
+      let size: Int
+    }
+    let name: String
+    let topicId: String
+    let body: String
+    let envelope: Envelope
+    let sealed: String
+    let plaintextBase64: String
+  }
+  /// Bodies with the outcome the REAL `parseChatMediaBody` produced for them.
+  struct MediaBody: Decodable {
+    let name: String
+    let topicId: String
+    let body: String
+    let isMediaBody: Bool
+    let valid: Bool
+    let envelope: Media.Envelope?
+  }
   let meta: Meta
   let takBase64: String
   let vectors: [Vector]
   /// Sealed under the fixed `push-preview` context, not under `messageId`.
   let pushPreviews: [Vector]
   let negatives: [Negative]
+  let media: [Media]
+  let mediaBodies: [MediaBody]
 }
 
 private var failures: [String] = []
@@ -231,6 +266,204 @@ private func run() -> Int32 {
   let flags = String(repeating: "🇰🇷", count: Preview.maxCharacters + 10)
   check("truncate/does_not_split_emoji",
         Preview.truncateForDisplay(flags).unicodeScalars.count == Preview.maxCharacters * 2 + 1)
+
+  print("")
+  print("[chat media — constants restated from chatMedia.ts]")
+  // The whole reason this section exists: a `v2` bump in TypeScript would not
+  // fail to compile in Swift, it would just stop matching, and every attachment
+  // push would degrade to a placeholder with nothing to say why.
+  check("media/prefix_matches_typescript",
+        file.meta.mediaBodyPrefix == ChatMedia.bodyPrefix,
+        "json=\"\(file.meta.mediaBodyPrefix)\" swift=\"\(ChatMedia.bodyPrefix)\"")
+  check("media/max_bytes_matches_typescript",
+        file.meta.maxChatMediaBytes == ChatMedia.maxPlaintextBytes,
+        "json=\(file.meta.maxChatMediaBytes) swift=\(ChatMedia.maxPlaintextBytes)")
+
+  print("")
+  print("[chat media — envelope + bytes round-trip]")
+  for m in file.media {
+    guard let want = Data(base64Encoded: m.plaintextBase64), let sealed = Data(base64Encoded: m.sealed) else {
+      check("media/\(m.name)/fixture_decodes", false, "vector file is not valid base64")
+      continue
+    }
+    let parsed = ChatMedia.parse(body: m.body, topicId: m.topicId)
+    check("media/\(m.name)/body_parses", parsed != nil, "Swift refused a body TypeScript built")
+    check("media/\(m.name)/key", parsed?.key == m.envelope.key)
+    check("media/\(m.name)/mediaId", parsed?.mediaId == m.envelope.mediaId)
+    check("media/\(m.name)/takVersion", parsed?.takVersion == m.envelope.takVersion)
+    check("media/\(m.name)/mime", parsed?.mime == m.envelope.mime)
+    check("media/\(m.name)/size", parsed?.size == m.envelope.size)
+    check("media/\(m.name)/is_media_body", ChatMedia.isMediaBody(m.body))
+
+    // The key is rebuilt, never prefix-matched — same rule as
+    // `isChatMediaKeyForTopic`, so the two cannot disagree about where a topic's
+    // objects live.
+    check("media/\(m.name)/object_key_rebuilds",
+          ChatMedia.objectKey(
+            topicId: m.topicId,
+            userId: file.meta.mediaUserSegment,
+            mediaId: m.envelope.mediaId
+          ) == m.envelope.key)
+
+    let opened = OpenStoaArchive.openBytes(
+      tak: tak,
+      contextId: ChatMedia.mediaContextId(m.envelope.mediaId),
+      sealed: sealed
+    )
+    check("media/\(m.name)/bytes_open",
+          opened == want,
+          opened == nil ? "decrypt returned nil" : "got \(opened!.count) bytes, want \(want.count)")
+
+    // Sealed under `media:<mediaId>`, so the MESSAGE-id context must fail. A
+    // port that reuses the message-id open here silently shows no picture — and
+    // "no picture" is indistinguishable from a slow network, so it would never
+    // be reported as a bug.
+    check("media/\(m.name)/wrong_context_fails",
+          OpenStoaArchive.openBytes(tak: tak, contextId: m.envelope.mediaId, sealed: sealed) == nil,
+          "opening media bytes under the message-id context unexpectedly succeeded")
+
+    // The plaintext is arbitrary bytes: a String-shaped path would have mangled
+    // or dropped it. `media_all_byte_values` is the one that proves it.
+    check("media/\(m.name)/bytes_not_utf8_dependent",
+          opened.map { $0.elementsEqual(want) } ?? false)
+  }
+
+  print("")
+  print("[chat media — bodies TypeScript accepts and rejects, verbatim]")
+  for b in file.mediaBodies {
+    // `isMediaBody` is the check that decides a body may never be shown as text.
+    // It is deliberately SEPARATE from parsing: a malformed envelope is still
+    // not text, and rendering it would put JSON on a lock screen.
+    check("mediaBody/\(b.name)/is_media_body",
+          ChatMedia.isMediaBody(b.body) == b.isMediaBody,
+          "swift=\(ChatMedia.isMediaBody(b.body)) typescript=\(b.isMediaBody)")
+
+    let parsed = ChatMedia.parse(body: b.body, topicId: b.topicId)
+    check("mediaBody/\(b.name)/accepted==\(b.valid)",
+          (parsed != nil) == b.valid,
+          parsed == nil ? "Swift rejected what TypeScript accepted" : "Swift accepted what TypeScript rejected")
+    if let want = b.envelope, let got = parsed {
+      check("mediaBody/\(b.name)/fields",
+            got.key == want.key && got.mediaId == want.mediaId && got.takVersion == want.takVersion
+              && got.mime == want.mime && got.size == want.size)
+    }
+  }
+
+  print("")
+  print("[chat media — extension budget]")
+  // The ceiling is what stops a large attachment from killing the extension
+  // outright (~24MB), which would deliver NO notification at all.
+  func envelope(size: Int, mime: String = "image/png") -> ChatMediaEnvelope {
+    return ChatMediaEnvelope(
+      key: "topics/3f2504e0-4f89-11d3-9a0c-0305e82c3301/chat/u/a0b1c2d3e4f5061728394a5b6c7d8e9f.bin",
+      mediaId: "a0b1c2d3e4f5061728394a5b6c7d8e9f",
+      takVersion: 0,
+      mime: mime,
+      size: size
+    )
+  }
+  check("budget/one_byte", ChatMedia.isWithinPreviewBudget(envelope(size: 1)))
+  check("budget/at_ceiling", ChatMedia.isWithinPreviewBudget(envelope(size: ChatMedia.maxPreviewPlaintextBytes)))
+  check("budget/over_ceiling", !ChatMedia.isWithinPreviewBudget(envelope(size: ChatMedia.maxPreviewPlaintextBytes + 1)))
+  check("budget/sender_maximum_is_over_ceiling",
+        !ChatMedia.isWithinPreviewBudget(envelope(size: ChatMedia.maxPlaintextBytes)),
+        "the 10MB a sender may attach must not be fetched inside a 24MB extension")
+  check("budget/ceiling_below_sender_max", ChatMedia.maxPreviewPlaintextBytes < ChatMedia.maxPlaintextBytes)
+  // The response cap is what actually bounds memory: `size` is written by the
+  // SENDER, so an envelope claiming 4KB may name a 10MB object. It has to leave
+  // room for base64 (~1.34x) over an honest ceiling-sized attachment, and still
+  // refuse a dishonest one that names the largest object the upload route takes.
+  check("budget/response_cap_covers_base64_of_ceiling",
+        ChatMedia.maxResponseBytes >= (ChatMedia.maxPreviewPlaintextBytes * 4) / 3 + 1024)
+  check("budget/response_cap_refuses_sender_max",
+        ChatMedia.maxResponseBytes < ChatMedia.maxPlaintextBytes,
+        "a lying envelope must not be able to pull the full 10MB into a 24MB extension")
+
+  print("")
+  print("[chat media — file extension per mime]")
+  check("ext/jpeg", ChatMedia.fileExtension(forMime: "image/jpeg") == "jpg")
+  check("ext/png", ChatMedia.fileExtension(forMime: "image/png") == "png")
+  check("ext/gif", ChatMedia.fileExtension(forMime: "image/gif") == "gif")
+  check("ext/webp", ChatMedia.fileExtension(forMime: "image/webp") == "webp")
+  check("ext/bmp", ChatMedia.fileExtension(forMime: "image/bmp") == "bmp")
+  check("ext/unknown_is_nil", ChatMedia.fileExtension(forMime: "image/heic") == nil)
+  check("ext/empty_is_nil", ChatMedia.fileExtension(forMime: "") == nil)
+  // Every allowlisted type must have one, or an attachment the sender was
+  // allowed to send could never be written to disk here.
+  for mime in ChatMedia.mimeAllowlist {
+    check("ext/allowlisted_\(mime)", ChatMedia.fileExtension(forMime: mime) != nil)
+  }
+  check("body/caption_is_not_json", !ChatMedia.isMediaBody(ChatMedia.attachmentBody))
+  check("body/caption_is_not_empty", !ChatMedia.attachmentBody.isEmpty)
+
+  print("")
+  print("[chat media — read route URL]")
+  let mediaKey = "topics/3f2504e0-4f89-11d3-9a0c-0305e82c3301/chat/u/a0b1c2d3e4f5061728394a5b6c7d8e9f.bin"
+  let url = ChatMedia.mediaURL(baseUrl: "https://openstoa.xyz", topicId: "t1", key: mediaKey)
+  check("url/path", url?.path == "/api/topics/t1/chat/media")
+  /*
+   * The property that matters is not WHICH characters got escaped — `/` is legal
+   * unescaped in a query and `URLQueryItem` leaves it alone — but that the
+   * server reads back exactly the key we asked for. `&`, `#` and `+` are the
+   * ones that would silently truncate or alter it, so the round trip is checked
+   * with those present even though `ChatMedia.parse` would already have refused
+   * such a key: the URL builder must not be the layer that is merely lucky.
+   */
+  func roundTrip(_ key: String) -> String? {
+    guard let u = ChatMedia.mediaURL(baseUrl: "https://openstoa.xyz", topicId: "t1", key: key),
+          let items = URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems
+    else { return nil }
+    return items.first(where: { $0.name == "key" })?.value
+  }
+  check("url/key_round_trips", roundTrip(mediaKey) == mediaKey, "got \(roundTrip(mediaKey) ?? "nil")")
+  check("url/key_round_trips_with_ampersand", roundTrip("a&b=c") == "a&b=c")
+  check("url/key_round_trips_with_fragment", roundTrip("a#b") == "a#b")
+  check("url/key_round_trips_with_plus", roundTrip("a+b") == "a+b")
+  check("url/key_round_trips_with_space", roundTrip("a b") == "a b")
+  check("url/trailing_slash_is_absorbed",
+        ChatMedia.mediaURL(baseUrl: "https://openstoa.xyz/", topicId: "t1", key: mediaKey)?.absoluteString
+          == url?.absoluteString)
+  check("url/http_allowed_for_local_dev",
+        ChatMedia.mediaURL(baseUrl: "http://192.168.0.2:3200", topicId: "t1", key: mediaKey) != nil)
+  // A corrupted mirror entry must never send a bearer token somewhere else.
+  check("url/reject_empty_base", ChatMedia.mediaURL(baseUrl: "", topicId: "t1", key: mediaKey) == nil)
+  check("url/reject_relative_base", ChatMedia.mediaURL(baseUrl: "/api", topicId: "t1", key: mediaKey) == nil)
+  check("url/reject_no_host", ChatMedia.mediaURL(baseUrl: "https://", topicId: "t1", key: mediaKey) == nil)
+  check("url/reject_file_scheme", ChatMedia.mediaURL(baseUrl: "file:///etc", topicId: "t1", key: mediaKey) == nil)
+  check("url/reject_javascript_scheme",
+        ChatMedia.mediaURL(baseUrl: "javascript:alert(1)", topicId: "t1", key: mediaKey) == nil)
+
+  print("")
+  print("[chat media — read route response]")
+  check("response/ok", ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":"AAEC"}"#.utf8))
+          == Data([0x00, 0x01, 0x02]))
+  check("response/reject_error_json",
+        ChatMedia.ciphertext(fromResponseBody: Data(#"{"error":"Not a member of this topic"}"#.utf8)) == nil)
+  check("response/reject_empty_string",
+        ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":""}"#.utf8)) == nil)
+  check("response/reject_non_base64",
+        ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":"!!!!"}"#.utf8)) == nil)
+  check("response/reject_number",
+        ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":123}"#.utf8)) == nil)
+  check("response/reject_html", ChatMedia.ciphertext(fromResponseBody: Data("<html>502</html>".utf8)) == nil)
+  check("response/reject_empty_body", ChatMedia.ciphertext(fromResponseBody: Data()) == nil)
+  check("response/reject_array", ChatMedia.ciphertext(fromResponseBody: Data("[]".utf8)) == nil)
+
+  print("")
+  print("[chat media — mirrored session credential]")
+  check("session/ok",
+        PushSession.parse(Data(#"{"baseUrl":"https://openstoa.xyz","token":"jwt"}"#.utf8))
+          == PushSession(baseUrl: "https://openstoa.xyz", token: "jwt"))
+  check("session/reject_missing_token",
+        PushSession.parse(Data(#"{"baseUrl":"https://openstoa.xyz"}"#.utf8)) == nil)
+  check("session/reject_empty_token",
+        PushSession.parse(Data(#"{"baseUrl":"https://openstoa.xyz","token":""}"#.utf8)) == nil)
+  check("session/reject_empty_base_url",
+        PushSession.parse(Data(#"{"baseUrl":"","token":"jwt"}"#.utf8)) == nil)
+  check("session/reject_garbage", PushSession.parse(Data("not json".utf8)) == nil)
+  check("session/reject_empty", PushSession.parse(Data()) == nil)
+  check("session/account_key",
+        TakKeychain.pushSessionAccount(topicId: "01JQZ8T") == "openstoa.push.session.01JQZ8T")
 
   print("")
   if failures.isEmpty {

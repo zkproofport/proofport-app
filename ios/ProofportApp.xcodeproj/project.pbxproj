@@ -16,6 +16,7 @@
 		8A3574CEE39A144ED88230D5 /* TakKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321594E24A6233143B679924 /* TakKeychain.swift */; };
 		912FFC340E526142BE59CC2C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A8D8B6D6FBD4B09F360BE42B /* Foundation.framework */; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* AppEnvModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* AppEnvModule.m */; };
+		B4520EFD8F92C2025F44D46B /* ChatMediaEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A529CE78FD5DADCE5E8738 /* ChatMediaEnvelope.swift */; };
 		B558A5FCED2BE62F00587196 /* OpenStoaNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1698125A04E207FDDE5F36F4 /* OpenStoaNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BAA2811CD5B08E4604D083CE /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E3BEDCD2ECEFC3271EB1A4 /* NotificationService.swift */; };
 		DA9F5A994DF2C0AF205F3536 /* ArchiveDecryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9773765DAB1913961F2176D3 /* ArchiveDecryptor.swift */; };
@@ -47,6 +48,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		12A529CE78FD5DADCE5E8738 /* ChatMediaEnvelope.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatMediaEnvelope.swift; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* ProofportApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProofportApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ProofportApp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ProofportApp/Info.plist; sourceTree = "<group>"; };
@@ -137,6 +139,7 @@
 				321594E24A6233143B679924 /* TakKeychain.swift */,
 				FED19287F960BFD072499C9C /* Info.plist */,
 				A78377E712470CA3BBF55EA4 /* OpenStoaNSE.entitlements */,
+				12A529CE78FD5DADCE5E8738 /* ChatMediaEnvelope.swift */,
 			);
 			name = OpenStoaNSE;
 			path = OpenStoaNSE;
@@ -413,6 +416,7 @@
 				BAA2811CD5B08E4604D083CE /* NotificationService.swift in Sources */,
 				481E2FA1EC7378CFCDDBE56D /* PushPayload.swift in Sources */,
 				8A3574CEE39A144ED88230D5 /* TakKeychain.swift in Sources */,
+				B4520EFD8F92C2025F44D46B /* ChatMediaEnvelope.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -464,7 +468,6 @@
 			baseConfigurationReference = 5E89F36D9CA160358622E402 /* Pods-ProofportApp.debug.xcconfig */;
 			buildSettings = {
 				APP_ENV = development;
-				OPENSTOA_ENABLED = true;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;
@@ -478,6 +481,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.5.2;
+				OPENSTOA_ENABLED = true;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -498,7 +502,6 @@
 			baseConfigurationReference = EEA58DF4D7675AA875171AFC /* Pods-ProofportApp.release.xcconfig */;
 			buildSettings = {
 				APP_ENV = production;
-				OPENSTOA_ENABLED = true;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;
@@ -511,6 +514,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.5.2;
+				OPENSTOA_ENABLED = true;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

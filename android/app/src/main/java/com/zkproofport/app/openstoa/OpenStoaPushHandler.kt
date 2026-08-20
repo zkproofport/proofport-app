@@ -40,6 +40,37 @@ object OpenStoaPushHandler {
     const val EXPO_BODY_TEXT_KEY = "message"
 
     /**
+     * `CHAT_MEDIA_BODY_PREFIX`, restated from `openstoa/src/lib/chatMedia.ts`.
+     *
+     * SOURCE OF TRUTH IS THAT TYPESCRIPT FILE. This is the third native language
+     * the constant exists in (TypeScript → Swift `ChatMedia.bodyPrefix` → here),
+     * and a bump to `v2` there would not fail to compile here — it would just
+     * stop matching, and this handler would start posting JSON on lock screens.
+     * `openstoa/src/__tests__/nativeChatMediaConstants.test.ts` reads THIS file
+     * and fails if the two ever disagree.
+     */
+    const val CHAT_MEDIA_BODY_PREFIX = "openstoa:media:v1:"
+
+    /**
+     * What an attachment's notification says on Android.
+     *
+     * TEXT ONLY, by decision, and the reason is the one in
+     * `OpenStoaMessagingService`'s header: this handler does not build the
+     * notification. It rewrites one data key and lets expo-notifications build
+     * it, because expo's `addNotificationResponseReceivedListener` only fires
+     * for intents its own delegate created — so a hand-rolled
+     * `NotificationCompat.BigPictureStyle` would arrive with a picture and be
+     * DEAD ON TAP, or force a second routing mechanism next to `pushTapBridge.ts`.
+     *
+     * The iOS extension can show the thumbnail because iOS's model is to hand an
+     * extension the notification and take it back; Android's is to hand the whole
+     * job to whoever posts it. Trading working tap routing for a thumbnail is the
+     * wrong side of that trade, so Android shows the same caption the iOS
+     * fallback shows and the picture is one tap away.
+     */
+    const val MEDIA_PREVIEW_TEXT = "📷 Photo"
+
+    /**
      * Decide what to do with one FCM data payload.
      *
      * [Delegate][OpenStoaPushDecision.Delegate] is returned for every payload that
@@ -63,10 +94,21 @@ object OpenStoaPushHandler {
             )
             // An empty plaintext is treated as a failure: a blank notification body
             // is less useful than the "New message" placeholder it would replace.
-            if (plaintext.isNullOrEmpty()) {
-                OpenStoaPushDecision.Delegate
-            } else {
-                OpenStoaPushDecision.Preview(Preview.truncateForDisplay(plaintext))
+            when {
+                plaintext.isNullOrEmpty() -> OpenStoaPushDecision.Delegate
+                /*
+                 * An ATTACHMENT's body is a JSON envelope, not text (P-1).
+                 * Showing it would put `openstoa:media:v1:{"v":1,…}` on a lock
+                 * screen, so it gets a caption instead.
+                 *
+                 * Checked with the PREFIX alone, deliberately: a malformed or
+                 * future-version envelope is still not text, and a check that
+                 * only caught envelopes it could fully parse would let exactly
+                 * the broken ones through — the opposite of the safe direction.
+                 */
+                plaintext.startsWith(CHAT_MEDIA_BODY_PREFIX) ->
+                    OpenStoaPushDecision.Preview(MEDIA_PREVIEW_TEXT)
+                else -> OpenStoaPushDecision.Preview(Preview.truncateForDisplay(plaintext))
             }
         } catch (_: Throwable) {
             OpenStoaPushDecision.Delegate
