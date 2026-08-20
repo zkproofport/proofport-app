@@ -117,6 +117,60 @@ export const ErrorCodes = {
     title: 'Data Load Failed',
     description: 'Failed to load saved data.',
   },
+
+  // OpenStoa mini-app errors.
+  //
+  // The mini-app cannot import this file — it is a separate package that talks
+  // to the host only through `HostApi.showError(code, details)` — so these are
+  // the host's half of a contract kept by a test rather than by the compiler.
+  // Every code the mini-app raises MUST have an entry here: an unregistered one
+  // used to produce a modal with no title and no text at all.
+  E9000: {
+    code: 'E9000',
+    title: "Couldn't Turn On the Domain Badge",
+    description: 'Your workspace badge was not enabled. Please try again.',
+  },
+  E9001: {
+    code: 'E9001',
+    title: "Couldn't Turn Off the Domain Badge",
+    description: 'Your workspace badge is still showing. Please try again.',
+  },
+  E9002: {
+    code: 'E9002',
+    title: "Couldn't Upload the Photo",
+    description: 'Your profile photo was not changed. Please try again.',
+  },
+  E9003: {
+    code: 'E9003',
+    title: "Couldn't Save the Nickname",
+    description: 'Your nickname was not changed.',
+  },
+  E9004: {
+    code: 'E9004',
+    title: "Couldn't Remove the Domain Badge",
+    description: 'Your workspace badge is still showing. Please try again.',
+  },
+  E9005: {
+    code: 'E9005',
+    title: "Couldn't Delete the Account",
+    description: 'Your account is still active. Please try again.',
+  },
+  E9006: {
+    code: 'E9006',
+    title: "Couldn't Remove the Photo",
+    description: 'Your profile photo is still there. Please try again.',
+  },
+  E9998: {
+    code: 'E9998',
+    title: 'No Connection',
+    description:
+      'The request could not reach the server. Check your connection and try again — nothing was changed.',
+  },
+  E9999: {
+    code: 'E9999',
+    title: 'Something Went Wrong',
+    description: 'The action did not complete.',
+  },
 } as const;
 
 export type ErrorCode = keyof typeof ErrorCodes;
@@ -128,7 +182,29 @@ export interface AppError {
   details?: string; // Technical details for developers (shown in smaller text)
 }
 
-export function createAppError(code: ErrorCode, details?: string): AppError {
-  const errorDef = ErrorCodes[code];
+/**
+ * The modal's content for a code.
+ *
+ * Takes `string`, not `ErrorCode`, on purpose. The compiler cannot police the
+ * OpenStoa mini-app: it is a separate package whose only channel to the host is
+ * `HostApi.showError(code: string, …)`, so an unregistered code reaches this
+ * function as a plain string at runtime no matter what the signature says. It
+ * used to spread `ErrorCodes[code]` blindly — `undefined` spreads to nothing,
+ * so the modal opened with no title and no description, which reads to the
+ * person using the app as "the button did nothing".
+ *
+ * An unknown code now falls back to E9999 and carries the original code in the
+ * details line, so the failure is still visible AND still diagnosable. The
+ * registry stays the place to fix it; this is only the floor.
+ */
+export function createAppError(code: string, details?: string): AppError {
+  const errorDef = (ErrorCodes as Record<string, AppError | undefined>)[code];
+  if (!errorDef) {
+    const fallback = ErrorCodes.E9999;
+    return {
+      ...fallback,
+      details: details ? `${code}: ${details}` : code,
+    };
+  }
   return {...errorDef, details};
 }

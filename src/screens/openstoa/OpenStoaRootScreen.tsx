@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { useNavigation, useNavigationContainerRef } from '@react-navigation/native';
 import { HostProvider, OpenStoaApp } from 'openstoa-mobile';
 import { createZkProofportHostApi } from '../../openstoa-host/zkProofportHostApi';
-import { useThemeColors } from '../../context';
+import { useError, useThemeColors } from '../../context';
 import { getEnvironment } from '../../config';
 import { useSettings } from '../../hooks';
 
@@ -49,10 +49,38 @@ function resolveOpenStoaBaseUrl(): string {
 }
 const OPENSTOA_BASE_URL = resolveOpenStoaBaseUrl();
 
+/**
+ * The one line of technical text the error modal shows, out of the mini-app's
+ * free-form `details` record.
+ *
+ * `detail` is the key every mini-app call site uses today, and it holds the
+ * thing worth reading — usually the server's own sentence. Anything else is
+ * JSON-encoded rather than discarded: a detail nobody anticipated is still
+ * better in front of the person than gone.
+ */
+function describeErrorDetails(details?: Record<string, unknown>): string | undefined {
+  if (!details) return undefined;
+  const {detail} = details;
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  const keys = Object.keys(details);
+  if (keys.length === 0) return undefined;
+  try {
+    return JSON.stringify(details);
+  } catch {
+    // A cyclic or otherwise unserialisable payload must not replace the modal
+    // with a crash — the modal is what the user is waiting for.
+    return keys.join(', ');
+  }
+}
+
 const OpenStoaRootScreen: React.FC = () => {
   const navigation = useNavigation();
   const rootRef = useNavigationContainerRef();
   const { mode, colors } = useThemeColors();
+  // The host's real error modal. This screen sits inside <ErrorProvider> (see
+  // App.tsx), so the mini-app's failures can reach the same modal every native
+  // screen already uses, instead of the console.
+  const { showError } = useError();
   const { settings } = useSettings();
   const developerMode = settings?.developerMode ?? false;
 
@@ -101,9 +129,22 @@ const OpenStoaRootScreen: React.FC = () => {
         // tab navigator.
         getNavigation: () => navigation as any,
         showError: (code, details) => {
-          // Proxy to the host's ErrorContext when wired; fall back to console.
-          // eslint-disable-next-line no-console
-          console.warn('[openstoa]', code, details);
+          /*
+           * This was a `console.warn` with a comment promising it would be
+           * wired to the ErrorContext "when wired", and it never was. Every
+           * failure the mini-app reported — a nickname it refused to save, a
+           * photo that would not upload, an account that would not delete —
+           * went to a log nobody on a device can read, so the app looked like
+           * it was ignoring the button. It is the single reason a whole family
+           * of errors was invisible in the product.
+           *
+           * `details` is the host contract's free-form record; the modal shows
+           * one line of technical text, so anything the mini-app put under
+           * `detail` is preferred and the rest is serialised rather than
+           * dropped — a reason the server gave ("That name is reserved.") is
+           * exactly what the person needs and must not be swallowed here.
+           */
+          showError(code, describeErrorDetails(details));
         },
         getTheme: () => modeRef.current,
         subscribeTheme,
@@ -111,7 +152,7 @@ const OpenStoaRootScreen: React.FC = () => {
         subscribeDeveloperMode,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigation, subscribeTheme, subscribeDeveloperMode],
+    [navigation, subscribeTheme, subscribeDeveloperMode, showError],
   );
 
   return (

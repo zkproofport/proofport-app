@@ -20,7 +20,11 @@ import Constants from 'expo-constants';
 import { NativeModules, Platform } from 'react-native';
 import i18n, { getLanguage } from '../i18n';
 import { OPENSTOA_ENABLED } from '../config';
-import { startPushTapBridge, subscribeHostPushTap } from './pushTapBridge';
+import {
+  startPushTapBridge,
+  subscribeHostPushTap,
+  subscribeHostPushReceived,
+} from './pushTapBridge';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
   HostApi,
@@ -523,6 +527,12 @@ export function createZkProofportHostApi(
     // happens here is attaching the mini-app as the subscriber and replaying
     // whatever was latched while it was not mounted.
     onPushNotificationTap: (listener) => subscribeHostPushTap(listener),
+
+    // Notifications that were DELIVERED but not tapped. The mini-app uses this
+    // for `key-needed`: a device holding a scoped topic's keys can hand them to
+    // whoever just joined without its owner doing anything, which is the point
+    // of sending that notification at all. It never navigates.
+    onPushNotificationReceived: (listener) => subscribeHostPushReceived(listener),
 
     // Phase 7 push previews (design §13.6 strategy A): mirror one topic's Topic
     // Archive Key into storage this platform's BACKGROUND notification handler can

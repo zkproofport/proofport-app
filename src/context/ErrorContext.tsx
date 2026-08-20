@@ -5,7 +5,6 @@
 import React, {createContext, useContext, useState, useCallback} from 'react';
 import {
   createAppError,
-  type ErrorCode,
   type AppError,
 } from '../constants/errorCodes';
 import {registerErrorHandler} from '../utils/errorBridge';
@@ -13,8 +12,15 @@ import {registerErrorHandler} from '../utils/errorBridge';
 interface ErrorContextValue {
   /** Current error to display */
   error: AppError | null;
-  /** Show an error modal by error code */
-  showError: (code: ErrorCode, details?: string) => void;
+  /**
+   * Show an error modal by error code.
+   *
+   * `string`, not `ErrorCode`: the OpenStoa mini-app is a separate package that
+   * reaches this through `HostApi.showError(code: string, …)`, so the compiler
+   * cannot guarantee the code is registered. `createAppError` gives an
+   * unregistered one a real title and description rather than an empty modal.
+   */
+  showError: (code: string, details?: string) => void;
   /** Dismiss the error modal */
   clearError: () => void;
 }
@@ -26,7 +32,7 @@ export const ErrorProvider: React.FC<{children: React.ReactNode}> = ({
 }) => {
   const [error, setError] = useState<AppError | null>(null);
 
-  const showError = useCallback((code: ErrorCode, details?: string) => {
+  const showError = useCallback((code: string, details?: string) => {
     console.log(`[ErrorModal] ${code}: ${details || ''}`);
     setError(createAppError(code, details));
   }, []);

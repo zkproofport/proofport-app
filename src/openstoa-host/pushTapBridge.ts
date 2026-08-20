@@ -33,6 +33,13 @@ export interface PushTapNotificationsApi {
     listener: (response: unknown) => void,
   ): { remove(): void };
   getLastNotificationResponseAsync(): Promise<unknown>;
+  /**
+   * Notifications DELIVERED without being tapped. Optional so an older
+   * expo-notifications — or a stub in a test — degrades to taps only.
+   */
+  addNotificationReceivedListener?(
+    listener: (notification: unknown) => void,
+  ): { remove(): void };
 }
 
 /** Just enough of a React Navigation navigation object to switch host tabs. */
@@ -45,6 +52,18 @@ let listenerStarted = false;
 let subscriber: ((tap: HostPushTap) => void) | null = null;
 /** Most recent tap nobody was around to receive. Replayed on next subscribe. */
 let latchedTap: HostPushTap | null = null;
+/** The mini-app's subscriber for notifications that were NOT tapped. */
+let receivedSubscriber: ((tap: HostPushTap) => void) | null = null;
+/**
+ * Deliveries nobody was around to receive, replayed on next subscribe.
+ *
+ * A QUEUE rather than the single slot taps use: taps compete for one navigation
+ * so only the last matters, whereas each delivery names a different topic that
+ * may need a key handed over, and dropping the earlier ones leaves those rooms
+ * locked. Bounded because it is filled by a remote party.
+ */
+const latchedDeliveries: HostPushTap[] = [];
+const MAX_LATCHED_DELIVERIES = 16;
 let navigateToOpenStoa: (() => void) | null = null;
 /** Guards the deferred jump below against the navigator's re-renders. */
 let jumpScheduled = false;
@@ -76,6 +95,33 @@ export function toHostPushTap(response: unknown): HostPushTap | null {
         ? (data as Record<string, unknown>)
         : {},
   };
+}
+
+/**
+ * Normalise one DELIVERED notification — the object the OS handed over without
+ * the user touching it. It is the same `request` shape a tap carries, one level
+ * shallower, so the tap normaliser does the work.
+ */
+export function toHostPushDelivery(notification: unknown): HostPushTap | null {
+  return toHostPushTap({ notification });
+}
+
+/**
+ * Hand a delivery to the mini-app. Deliberately does NOT navigate: nobody asked
+ * to go anywhere — a notification arrived while the user was doing something
+ * else, and yanking them to another tab for it would be a bug, not a feature.
+ */
+function deliverReceived(tap: HostPushTap): void {
+  if (receivedSubscriber) {
+    try {
+      receivedSubscriber(tap);
+      return;
+    } catch {
+      // Subscriber threw — fall through and latch so a remount can retry.
+    }
+  }
+  latchedDeliveries.push(tap);
+  if (latchedDeliveries.length > MAX_LATCHED_DELIVERIES) latchedDeliveries.shift();
 }
 
 function deliver(tap: HostPushTap): void {
@@ -110,6 +156,14 @@ export function startPushTapBridge(api: PushTapNotificationsApi): void {
     api.addNotificationResponseReceivedListener((response) => {
       const tap = toHostPushTap(response);
       if (tap) deliver(tap);
+    });
+    // Deliveries the user never touched. This is the whole point of the
+    // key-needed notification: the device holding a topic's keys can hand them
+    // over the moment it is told they are wanted, without its owner having to
+    // notice the banner. Guarded because the member is optional on the API.
+    api.addNotificationReceivedListener?.((notification) => {
+      const tap = toHostPushDelivery(notification);
+      if (tap) deliverReceived(tap);
     });
     // The tap that LAUNCHED the app. Queried once per process; overlapping with
     // the OS listener is harmless because the mini-app de-duplicates on the
@@ -177,6 +231,30 @@ export function subscribeHostPushTap(
   };
 }
 
+/**
+ * Attach the mini-app as the DELIVERY subscriber and replay everything latched
+ * while it was unmounted, oldest first. Separate from the tap subscriber
+ * because the two mean different things: a tap is a request to go somewhere, a
+ * delivery is only information.
+ */
+export function subscribeHostPushReceived(
+  listener: (tap: HostPushTap) => void,
+): () => void {
+  receivedSubscriber = listener;
+  const replay = latchedDeliveries.splice(0, latchedDeliveries.length);
+  for (const tap of replay) {
+    try {
+      listener(tap);
+    } catch {
+      // Never let a mini-app error escape into host code — and never let one
+      // bad payload stop the rest of the queue from being replayed.
+    }
+  }
+  return () => {
+    if (receivedSubscriber === listener) receivedSubscriber = null;
+  };
+}
+
 /** Test seam: forget the listener, the latch and the published navigation. */
 export function __resetPushTapBridge(): void {
   listenerStarted = false;
@@ -184,4 +262,6 @@ export function __resetPushTapBridge(): void {
   latchedTap = null;
   navigateToOpenStoa = null;
   jumpScheduled = false;
+  receivedSubscriber = null;
+  latchedDeliveries.length = 0;
 }

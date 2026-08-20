@@ -24,6 +24,7 @@ import {
   setOpenStoaTabNavigation,
   startPushTapBridge,
   subscribeHostPushTap,
+  subscribeHostPushReceived,
   toHostPushTap,
   type HostPushTap,
   type PushTapNotificationsApi,
@@ -35,11 +36,18 @@ function response(data: unknown, identifier = 'n-1'): unknown {
   return { notification: { request: { identifier, content: { data } } } };
 }
 
-/** An expo-notifications stand-in the test drives by hand. */
-function fakeApi(launchResponse: unknown = null) {
+/**
+ * An expo-notifications stand-in the test drives by hand.
+ *
+ * `withReceived` is opt-out because the member is optional on the API: an older
+ * expo-notifications does not have it, and the bridge must still start.
+ */
+function fakeApi(launchResponse: unknown = null, withReceived = true) {
   const state = {
     listeners: [] as Array<(r: unknown) => void>,
+    receivedListeners: [] as Array<(n: unknown) => void>,
     addCalls: 0,
+    addReceivedCalls: 0,
     lastCalls: 0,
     removed: 0,
   };
@@ -58,10 +66,19 @@ function fakeApi(launchResponse: unknown = null) {
       return launchResponse;
     },
   };
+  if (withReceived) {
+    api.addNotificationReceivedListener = (listener) => {
+      state.addReceivedCalls += 1;
+      state.receivedListeners.push(listener);
+      return { remove: () => undefined };
+    };
+  }
   return {
     api,
     state,
     emit: (r: unknown) => state.listeners.forEach((l) => l(r)),
+    /** One notification DELIVERED but not tapped — one level shallower. */
+    deliver: (n: unknown) => state.receivedListeners.forEach((l) => l(n)),
   };
 }
 
@@ -283,5 +300,207 @@ describe('tap delivery', () => {
     }
     expect(seen).toEqual([]);
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The DELIVERY channel — notifications the OS handed over that nobody tapped.
+ *
+ * This exists for `key-needed`: the device holding a scoped topic's keys is
+ * usually the one in a pocket, so a grant that waits for somebody to press a
+ * banner is a grant that mostly does not happen. It shares nothing with the tap
+ * channel deliberately — a delivery is information, not a request to go
+ * somewhere, and the one thing it must never do is move the user.
+ *
+ * Edge-case matrix rows covered here:
+ *   contract        — the received listener is registered once; deliveries reach
+ *                     the subscriber; teardown detaches
+ *   integrity       — a delivery NEVER navigates, and never feeds the tap latch
+ *   inactive tab    — deliveries with no subscriber are latched and replayed in
+ *                     arrival order
+ *   boundary        — the latch is bounded; the oldest is dropped, not the newest
+ *   empty/hostile   — malformed notifications are ignored
+ *   failure         — an API with no received support still starts; a subscriber
+ *                     that throws gets its delivery re-latched
+ *   race            — a remount attaching before the old teardown keeps the new
+ *                     subscriber
+ */
+describe('push delivery (untapped)', () => {
+  /** One delivered notification — the tap shape minus the response wrapper. */
+  function notification(data: unknown, identifier = 'd-1'): unknown {
+    return { request: { identifier, content: { data } } };
+  }
+
+  it('CONTRACT: registers exactly one received listener, and only once', async () => {
+    const { api, state } = fakeApi();
+    startPushTapBridge(api);
+    startPushTapBridge(api);
+    await flush();
+
+    expect(state.addReceivedCalls).toBe(1);
+  });
+
+  it('CONTRACT: a delivery reaches the subscriber with its payload', async () => {
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    const seen: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => seen.push(tap));
+
+    deliver(notification({ kind: 'key-needed', topicId: TOPIC }, 'd-9'));
+
+    expect(seen).toEqual([{ id: 'd-9', data: { kind: 'key-needed', topicId: TOPIC } }]);
+  });
+
+  it('INTEGRITY: a delivery never navigates', async () => {
+    // Yanking somebody to another tab because a notification arrived while they
+    // were doing something else is a bug, not a feature.
+    const { api, deliver } = fakeApi();
+    const navigate = jest.fn();
+    startPushTapBridge(api);
+    await flush();
+    setOpenStoaTabNavigation({ navigate });
+    subscribeHostPushReceived(() => {});
+
+    deliver(notification({ kind: 'key-needed', topicId: TOPIC }));
+
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('INTEGRITY: the two channels do not cross', async () => {
+    const { api, emit, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    const taps: HostPushTap[] = [];
+    const deliveries: HostPushTap[] = [];
+    subscribeHostPushTap((t) => taps.push(t));
+    subscribeHostPushReceived((t) => deliveries.push(t));
+
+    deliver(notification({ topicId: TOPIC }, 'd-1'));
+    emit(response({ topicId: TOPIC }, 'n-1'));
+
+    expect(taps.map((t) => t.id)).toEqual(['n-1']);
+    expect(deliveries.map((t) => t.id)).toEqual(['d-1']);
+  });
+
+  it('INACTIVE TAB: deliveries with no subscriber are replayed in arrival order', async () => {
+    // Each delivery names a DIFFERENT topic that may need a key handed over, so
+    // unlike a tap they do not supersede one another.
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+
+    deliver(notification({ topicId: TOPIC }, 'd-1'));
+    deliver(notification({ topicId: TOPIC }, 'd-2'));
+
+    const seen: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => seen.push(tap));
+    expect(seen.map((t) => t.id)).toEqual(['d-1', 'd-2']);
+  });
+
+  it('CONTRACT: the latch is consumed once, not replayed to the next subscriber', async () => {
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    deliver(notification({ topicId: TOPIC }, 'd-1'));
+
+    const first: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => first.push(tap))();
+    const second: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => second.push(tap));
+
+    expect(first).toHaveLength(1);
+    expect(second).toEqual([]);
+  });
+
+  it('BOUNDARY: the latch is bounded, dropping the OLDEST', async () => {
+    // Filled by a remote party, so it cannot be unbounded. Keeping the newest
+    // is the right end to keep: those are the joins still waiting.
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    for (let i = 0; i < 20; i++) deliver(notification({ topicId: TOPIC }, `d-${i}`));
+
+    const seen: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => seen.push(tap));
+
+    expect(seen).toHaveLength(16);
+    expect(seen[0].id).toBe('d-4');
+    expect(seen[15].id).toBe('d-19');
+  });
+
+  it('EMPTY/HOSTILE: a malformed notification is ignored, not latched', async () => {
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    for (const bad of [null, undefined, {}, 'x', 7]) {
+      expect(() => deliver(bad)).not.toThrow();
+    }
+
+    const seen: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => seen.push(tap));
+    expect(seen).toEqual([]);
+  });
+
+  it('FAILURE: an API with no received support still starts, and taps still work', async () => {
+    // An older expo-notifications. Losing the delivery path costs a fallback;
+    // taking the whole bridge down with it would cost tap routing too.
+    const { api, state, emit } = fakeApi(null, false);
+    expect(() => startPushTapBridge(api)).not.toThrow();
+    await flush();
+
+    const seen: HostPushTap[] = [];
+    subscribeHostPushTap((tap) => seen.push(tap));
+    emit(response({ topicId: TOPIC }, 'n-1'));
+
+    expect(state.addCalls).toBe(1);
+    expect(seen).toHaveLength(1);
+  });
+
+  it('FAILURE: a subscriber that throws gets its delivery re-latched, not dropped', async () => {
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    subscribeHostPushReceived(() => {
+      throw new Error('mini-app blew up');
+    });
+
+    expect(() => deliver(notification({ topicId: TOPIC }, 'd-1'))).not.toThrow();
+
+    const seen: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => seen.push(tap));
+    expect(seen.map((t) => t.id)).toEqual(['d-1']);
+  });
+
+  it('FAILURE: one throwing replay does not stop the rest of the queue', async () => {
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    deliver(notification({ topicId: TOPIC }, 'd-1'));
+    deliver(notification({ topicId: TOPIC }, 'd-2'));
+
+    const seen: string[] = [];
+    expect(() =>
+      subscribeHostPushReceived((tap) => {
+        seen.push(tap.id ?? '');
+        if (tap.id === 'd-1') throw new Error('first one blew up');
+      }),
+    ).not.toThrow();
+
+    expect(seen).toEqual(['d-1', 'd-2']);
+  });
+
+  it('RACE: a remount attaching before the old teardown keeps the NEW subscriber', async () => {
+    const { api, deliver } = fakeApi();
+    startPushTapBridge(api);
+    await flush();
+    const unsubscribeFirst = subscribeHostPushReceived(() => {});
+    const second: HostPushTap[] = [];
+    subscribeHostPushReceived((tap) => second.push(tap));
+
+    unsubscribeFirst(); // the old effect's cleanup, running late
+
+    deliver(notification({ topicId: TOPIC }, 'd-1'));
+    expect(second).toHaveLength(1);
   });
 });
