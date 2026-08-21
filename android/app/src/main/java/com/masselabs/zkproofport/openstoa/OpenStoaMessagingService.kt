@@ -45,7 +45,7 @@
  *   router.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import android.os.Bundle
 import com.google.firebase.messaging.RemoteMessage

@@ -27,7 +27,7 @@
  * the TypeScript `sealArchive`) via `OpenStoaArchiveVectorsTest`.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException

@@ -27,7 +27,7 @@
  * first unlock anyway, and credential-encrypted storage is readable from then on.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import android.content.Context
 import android.content.SharedPreferences

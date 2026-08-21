@@ -367,17 +367,22 @@ private func run() -> Int32 {
   check("budget/over_ceiling", !ChatMedia.isWithinPreviewBudget(envelope(size: ChatMedia.maxPreviewPlaintextBytes + 1)))
   check("budget/sender_maximum_is_over_ceiling",
         !ChatMedia.isWithinPreviewBudget(envelope(size: ChatMedia.maxPlaintextBytes)),
-        "the 10MB a sender may attach must not be fetched inside a 24MB extension")
+        "the full sender cap must not be fetched inside a 24MB extension")
   check("budget/ceiling_below_sender_max", ChatMedia.maxPreviewPlaintextBytes < ChatMedia.maxPlaintextBytes)
   // The response cap is what actually bounds memory: `size` is written by the
-  // SENDER, so an envelope claiming 4KB may name a 10MB object. It has to leave
-  // room for base64 (~1.34x) over an honest ceiling-sized attachment, and still
-  // refuse a dishonest one that names the largest object the upload route takes.
-  check("budget/response_cap_covers_base64_of_ceiling",
-        ChatMedia.maxResponseBytes >= (ChatMedia.maxPreviewPlaintextBytes * 4) / 3 + 1024)
+  // SENDER, so an envelope claiming 4KB may name an object at the full upload
+  // cap. The response IS the ciphertext now, so an honest ceiling-sized
+  // attachment weighs exactly the ceiling plus the AEAD frame — the cap must
+  // clear that and still refuse the largest object the upload route takes.
+  check("budget/response_cap_covers_honest_ceiling",
+        ChatMedia.maxResponseBytes >= ChatMedia.maxPreviewPlaintextBytes + ChatMedia.aeadOverheadBytes)
   check("budget/response_cap_refuses_sender_max",
         ChatMedia.maxResponseBytes < ChatMedia.maxPlaintextBytes,
-        "a lying envelope must not be able to pull the full 10MB into a 24MB extension")
+        "a lying envelope must not be able to pull the full sender cap into a 24MB extension")
+  // The base64 framing is gone: a cap still sized for its 4/3 expansion would be
+  // 33% of slack a hostile envelope could spend.
+  check("budget/response_cap_has_no_base64_slack",
+        ChatMedia.maxResponseBytes < (ChatMedia.maxPreviewPlaintextBytes * 4) / 3)
 
   print("")
   print("[chat media — file extension per mime]")
@@ -435,19 +440,18 @@ private func run() -> Int32 {
 
   print("")
   print("[chat media — read route response]")
-  check("response/ok", ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":"AAEC"}"#.utf8))
+  // The body IS the ciphertext (`application/octet-stream`). The JSON wrapper
+  // it used to arrive in is gone, so the only thing left to reject is nothing
+  // at all: a non-200 never reaches this function, and a body that is not the
+  // ciphertext fails to authenticate under the AEAD rather than being mistaken
+  // for a picture.
+  check("response/ok", ChatMedia.ciphertext(fromResponseBody: Data([0x00, 0x01, 0x02]))
           == Data([0x00, 0x01, 0x02]))
-  check("response/reject_error_json",
-        ChatMedia.ciphertext(fromResponseBody: Data(#"{"error":"Not a member of this topic"}"#.utf8)) == nil)
-  check("response/reject_empty_string",
-        ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":""}"#.utf8)) == nil)
-  check("response/reject_non_base64",
-        ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":"!!!!"}"#.utf8)) == nil)
-  check("response/reject_number",
-        ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":123}"#.utf8)) == nil)
-  check("response/reject_html", ChatMedia.ciphertext(fromResponseBody: Data("<html>502</html>".utf8)) == nil)
+  check("response/passes_bytes_through_verbatim",
+        ChatMedia.ciphertext(fromResponseBody: Data(#"{"ciphertext":"AAEC"}"#.utf8))
+          == Data(#"{"ciphertext":"AAEC"}"#.utf8),
+        "no unwrapping: a JSON body from a stale server is bytes that will fail the AEAD, not a payload")
   check("response/reject_empty_body", ChatMedia.ciphertext(fromResponseBody: Data()) == nil)
-  check("response/reject_array", ChatMedia.ciphertext(fromResponseBody: Data("[]".utf8)) == nil)
 
   print("")
   print("[chat media — mirrored session credential]")

@@ -13,7 +13,7 @@
  * through the bridge. The reader is the FCM service, in Kotlin.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext

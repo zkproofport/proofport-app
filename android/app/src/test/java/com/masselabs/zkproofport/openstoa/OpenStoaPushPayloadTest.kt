@@ -6,7 +6,7 @@
  * divergence between the two platforms shows up as a failing test on one of them.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

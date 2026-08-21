@@ -1,4 +1,4 @@
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

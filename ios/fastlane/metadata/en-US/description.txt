@@ -1,0 +1,68 @@
+ZKProofport is a privacy-preserving identity verification tool that puts you in control of your personal data. Using zero-knowledge proofs, you can prove facts about your identity to decentralized applications without revealing sensitive information.
+
+KEY FEATURES
+
+Proof Generation on Device
+All proof computation happens locally on your phone. Your private data never leaves your device, never touches our servers, and never goes to the internet. Complete privacy by design.
+
+Coinbase KYC Verification
+Prove your identity has been verified by Coinbase without revealing your wallet address, transaction history, or personal details. The dApp only sees cryptographic proof of verification.
+
+Coinbase Country Verification
+Prove your country of residence without disclosing your exact location, home address, or other identifying information. Perfect for jurisdiction-specific services and compliance.
+
+Nullifier Registry Protection
+Prevent double-proving with on-chain nullifier verification. Once you generate a proof, the system prevents creating duplicate proofs for the same attestation. Secure against replay attacks.
+
+QR Code Scanning
+Scan QR codes from dApps to instantly initiate proof requests. Seamless integration with web3 applications and services.
+
+Deep Link Integration
+dApps can launch proof requests directly from your browser or application using secure deep links. Frictionless workflow from any web3 service.
+
+Wallet Connection
+Connect your wallet via Privy or WalletConnect to complete on-chain actions. Supports MetaMask, Coinbase Wallet, Trust Wallet, Rainbow, Zerion, and more.
+
+Theme Support
+Choose dark or light theme based on your preference. Comfortable viewing in any lighting condition.
+
+Base Network
+Built for the Base network and Ethereum ecosystem. Works with decentralized services across the EVM ecosystem.
+
+HOW IT WORKS
+
+1. Connect your wallet using Privy or WalletConnect
+2. Scan a QR code or follow a deep link from a dApp
+3. Review the proof request and required verifications
+4. Generate the zero-knowledge proof locally on your phone
+5. Submit the proof for on-chain verification
+6. Access the dApp with your proof
+
+PRIVACY COMMITMENT
+
+We take privacy seriously. Your personal data remains encrypted on your device. Zero-knowledge proofs allow you to prove facts about yourself without revealing the underlying information. Even if someone intercepts your proof, they cannot reverse it to discover your personal details.
+
+TECHNOLOGY
+
+ZKProofport uses Noir circuits and the mopro library for efficient mobile zero-knowledge proof generation. Proofs are verified on-chain using the Nullifier Registry smart contract, ensuring no double-proving and full transparency.
+
+SUPPORTED FEATURES
+
+- Coinbase KYC attestation
+- Coinbase country attestation
+- Secure wallet connection
+- On-chain proof verification
+- Proof history and management
+
+NETWORK SUPPORT
+
+- Base network
+- Ethereum ecosystem
+
+PERMISSIONS
+
+The app requests camera access for QR code scanning. No other device permissions required. You control which permissions to grant.
+
+FEEDBACK AND SUPPORT
+
+Have feedback or encountered an issue? Visit our website or contact our support team. We are committed to improving ZKProofport based on user feedback.

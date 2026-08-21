@@ -1,6 +1,12 @@
-app_identifier "com.zkproofport.app"
+app_identifier "com.masselabs.zkproofport"
 screenshots_path "./fastlane/screenshots"
-skip_metadata true
+# Metadata IS uploaded now. This used to be `skip_metadata true`, from when the
+# only thing being refreshed was screenshots on an app whose listing already
+# existed. The corporate app is a NEW listing with an empty one, and
+# fastlane/metadata/ now holds the real copy (en-US + ko, description, keywords,
+# promotional text, review information) — skipping it would leave the listing
+# blank and put the whole thing back in the web console by hand.
+skip_metadata false
 skip_binary_upload true
 force true
 overwrite_screenshots true

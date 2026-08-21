@@ -112,7 +112,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.zkproofport.app"
+    namespace "com.masselabs.zkproofport"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -123,15 +123,22 @@ android {
         jvmTarget = "17"
     }
     defaultConfig {
-        applicationId "com.zkproofport.app"
+        applicationId "com.masselabs.zkproofport"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() + 2000 : 2001
-        versionName "1.5.2"
+        // Reset for the Masse Labs 1.0.0 listing. The old `+ 2000` offset existed
+        // to clear the personal-account listing's existing codes; the corporate
+        // Play listing is brand new and has no history to climb over, so the
+        // offset would only ship 1.0.0 as build 2001 for no reason.
+        // Still driven by BUILD_NUMBER (CI passes github.run_number) because Play
+        // rejects a versionCode that does not strictly increase — a hardcoded
+        // constant would make the second upload impossible.
+        versionCode System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() : 1
+        versionName "1.0.0"
         manifestPlaceholders = [appAuthRedirectScheme: "msalcd5404cc-d313-431c-8112-725e629dad28"]
     }
     flavorDimensions = ["environment"]
-    // All flavors share the same applicationId (`com.zkproofport.app`) so
+    // All flavors share the same applicationId (`com.masselabs.zkproofport`) so
     // there is a single Google OAuth Android client / single Play Console
     // listing across dev / staging / production. Differentiation between
     // environments is carried by app_env (and the visible app_name) rather

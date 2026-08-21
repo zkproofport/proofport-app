@@ -4,12 +4,13 @@
 //
 //  ⚠️ SOURCE OF TRUTH FOR EVERYTHING IN THIS FILE IS TYPESCRIPT ⚠️
 //
-//      openstoa/src/lib/chatMedia.ts
+//      openstoa/packages/mls/src/chatMedia.ts
 //
-//  That file is compiled by the web app, the mini-app and the SDK — three
-//  clients, one implementation, with a test asserting the mini-app's copy is
-//  BYTE-IDENTICAL to it. This file is the FOURTH language the same rules exist
-//  in, and it cannot import them. Everything restated below is therefore a
+//  That is ONE file, compiled by the web app, the mini-app and the SDK —
+//  three clients, one implementation, reached through re-export files at
+//  `src/lib/chatMedia.ts`, `packages/mobile/src/lib/chatMedia.ts` and
+//  `packages/sdk/src/chatMedia.ts`. This file is the FOURTH language the same
+//  rules exist in, and it cannot import them. Everything restated below is therefore a
 //  hand-carried constant, which is precisely the kind of duplication that
 //  silently rots: a prefix bumped to `v2` in TypeScript would not fail to
 //  compile here, it would just stop matching, and every attachment push would
@@ -57,7 +58,18 @@ enum ChatMedia {
   static let bodyPrefix = "openstoa:media:v1:"
 
   /// `MAX_CHAT_MEDIA_BYTES` — the plaintext cap both senders enforce.
-  static let maxPlaintextBytes = 10 * 1024 * 1024
+  ///
+  /// Not a round 10MB: the framework caps a buffered request body at 10MB, so
+  /// the reachable plaintext maximum is that ceiling minus the AEAD frame and a
+  /// 5% margin. It rose from 7_471_076 when the transport stopped being base64
+  /// inside JSON — that framing spent a third of the ceiling on the 4/3
+  /// expansion. Kept in step with `chatMedia.ts` by `nativeChatMediaConstants`.
+  static let maxPlaintextBytes = 9_961_444
+
+  /// `CHAT_MEDIA_AEAD_OVERHEAD_BYTES` — 12-byte AES-GCM nonce + 16-byte tag.
+  /// Restated because `maxResponseBytes` below is derived from it now that a
+  /// response is the ciphertext itself rather than a JSON wrapper around it.
+  static let aeadOverheadBytes = 28
 
   /// `CHAT_MEDIA_MIME_ALLOWLIST`.
   static let mimeAllowlist = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"]
@@ -90,13 +102,16 @@ enum ChatMedia {
    line. So the ceiling here is not a preference, it is what keeps a large
    attachment from turning a working text notification into no notification.
 
-   The transport is base64 in JSON (the read route answers that shape so the two
-   clients share one code path), so a plaintext of N bytes costs roughly
-   1.34N (the JSON string) + N (the decoded ciphertext) + N (the plaintext)
-   ≈ 3.4N resident before anything is written to disk. At 2MB that is ~7MB of
-   peak, which leaves the rest of the budget for URLSession and the runtime.
-   4MB would already be ~14MB and too close to a limit whose breach costs the
-   whole notification.
+   The transport is now the raw ciphertext, so a plaintext of N bytes costs
+   roughly N (the bytes read off disk) + N (the plaintext) ≈ 2N resident, down
+   from ~3.4N when the response was base64 inside JSON and the string had to
+   exist before the bytes did. At 2MB that is ~4MB of peak, which leaves the
+   rest of the budget for URLSession and the runtime.
+
+   The ceiling stays at 2MB rather than rising with the saving. It is a budget
+   for an extension that is KILLED on breach — delivering no notification at
+   all — and spending a newly-won margin on a bigger thumbnail is the wrong
+   trade for it.
 
    Above the ceiling the fetch is SKIPPED — not attempted and abandoned — and
    the recipient still gets the "📷 Photo" notification and the picture in the
@@ -120,13 +135,14 @@ enum ChatMedia {
    notification, so a hostile member would have a one-line way to silence
    someone's phone.
 
-   The transport is base64 in JSON (~1.34x) plus a small wrapper, so twice the
-   plaintext ceiling covers every honest response with room to spare while still
-   bounding a dishonest one. Enforced against the file on DISK before any of it
-   is read into memory, which is what makes it a real bound rather than a check
-   that runs after the damage.
+   The transport is the ciphertext itself, so an honest response for a plaintext
+   at the preview ceiling is exactly that ceiling plus the AEAD frame — which
+   makes this bound EXACT rather than the 2x slack the base64-in-JSON framing
+   needed. Enforced against the file on DISK before any of it is read into
+   memory, which is what makes it a real bound rather than a check that runs
+   after the damage.
    */
-  static let maxResponseBytes = maxPreviewPlaintextBytes * 2
+  static let maxResponseBytes = maxPreviewPlaintextBytes + aeadOverheadBytes
 
   // MARK: - Parsing
 
@@ -201,19 +217,27 @@ enum ChatMedia {
     return components?.url
   }
 
-  /// The ciphertext out of the read route's `{ "ciphertext": "<base64>" }` body.
-  /// nil for any other shape — an error JSON, an HTML error page, a truncated
-  /// response — so only bytes that are actually there reach the decryptor.
+  /**
+   The ciphertext out of the read route's response body.
+
+   The body IS the ciphertext now — `application/octet-stream`, no wrapper. It
+   used to be `{ "ciphertext": "<base64>" }`, a shape that existed because React
+   Native could not receive binary over `fetch`; this extension never needed it
+   and paid for it anyway, in a JSON parse and a base64 decode over megabytes
+   inside a ~24MB memory budget.
+
+   Still a function rather than an inline `Data(contentsOf:)` at the call site,
+   for two reasons: the emptiness check is the one that stops a zero-length
+   "success" reaching the decryptor, and there is exactly one place to change if
+   the framing ever moves again.
+
+   nil for an empty body. A non-200 is refused by the caller before this runs,
+   so an error JSON or an HTML error page never reaches here — and if one did,
+   it would fail to authenticate under the AEAD rather than be mistaken for a
+   picture.
+   */
   static func ciphertext(fromResponseBody data: Data) -> Data? {
-    guard
-      let parsed = try? JSONSerialization.jsonObject(with: data),
-      let object = parsed as? [String: Any],
-      let b64 = object["ciphertext"] as? String,
-      !b64.isEmpty,
-      let bytes = Data(base64Encoded: b64),
-      !bytes.isEmpty
-    else { return nil }
-    return bytes
+    return data.isEmpty ? nil : data
   }
 
   /// Filename extension for a decrypted attachment. iOS decides an attachment's

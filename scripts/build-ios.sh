@@ -10,7 +10,7 @@ set -euo pipefail
 #
 # 1. Apple Developer Account:
 #
-#    - Team ID: Y9847K5587 (configured in ios/fastlane/Appfile)
+#    - Team ID: R4G32CVY29 — Masse Labs Inc. (configured in ios/fastlane/Appfile)
 #    - Ensure signing certificates and provisioning profiles are set up
 #
 # 2. For TestFlight upload (optional), create .env.ios with:

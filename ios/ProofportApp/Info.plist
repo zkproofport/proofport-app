@@ -26,7 +26,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.zkproofport.app</string>
+			<string>com.masselabs.zkproofport</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>zkproofport</string>
@@ -102,6 +102,27 @@
 	<false/>
 	<key>RCTNewArchEnabled</key>
 	<true/>
+	<!-- APNs BACKGROUND DELIVERY. Maintained BY HAND, on purpose.
+	     This is a bare (prebuild-less) project: `ios/` is committed and neither
+	     `npm run ios` nor .github/workflows/build-ios.yml ever runs
+	     `expo prebuild`, so the `expo-notifications` config plugin declared in
+	     app.json — `{ "enableBackgroundRemoteNotifications": true }` — NEVER
+	     executes and can never add this key for us. It was silently absent from
+	     both the source plist and the shipped .app until 2026-08-21.
+	     Without `remote-notification`, iOS refuses to wake the app for
+	     `aps.content-available = 1`, which is exactly what the OpenStoa server
+	     sets on every chat push (openstoa/src/lib/pushProvider.ts,
+	     `_contentAvailable: true`), so the background `key-needed` auto-grant in
+	     src/openstoa-host/pushTapBridge.ts never fires.
+	     The OpenStoaNSE extension needs NO counterpart: a
+	     UNNotificationServiceExtension is woken by `aps.mutable-content = 1`, and
+	     UIBackgroundModes is a host-app-only key that Apple ignores in an
+	     appex bundle. Both halves are pinned by
+	     src/openstoa-host/__tests__/iosPushBackgroundModes.test.ts. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

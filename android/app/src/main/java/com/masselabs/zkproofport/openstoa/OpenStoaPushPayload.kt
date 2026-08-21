@@ -7,7 +7,7 @@
  * plain JVM unit test alongside the crypto.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import org.json.JSONObject
 

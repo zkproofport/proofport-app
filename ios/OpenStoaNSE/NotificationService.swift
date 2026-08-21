@@ -52,8 +52,8 @@ import UserNotifications
 
 // The shared Keychain access group the host app must ALSO write E2EE keys into so
 // this NSE can read them. Kept in sync with `withOpenStoaNSE.js` and the host
-// entitlements (`$(AppIdentifierPrefix)com.zkproofport.app.openstoa`).
-private let kSharedKeychainAccessGroup = "com.zkproofport.app.openstoa"
+// entitlements (`$(AppIdentifierPrefix)com.masselabs.zkproofport.openstoa`).
+private let kSharedKeychainAccessGroup = "com.masselabs.zkproofport.openstoa"
 
 /**
  How long the attachment fetch may take.
@@ -196,11 +196,16 @@ class NotificationService: UNNotificationServiceExtension {
      * measured there before a byte of it is read into memory.
      *
      * `envelope.size` is written by the sender, so it cannot bound anything. A
-     * body claiming 4KB may name an object holding the 10MB the upload route
+     * body claiming 4KB may name an object holding the ~9.5MB the upload route
      * accepts, and a data task would have that in memory before anyone could
      * object — in an extension that is killed at ~24MB, which delivers NO
      * notification at all. That would hand a hostile member a one-line way to
      * silence someone's phone. On disk the size is a fact, checked first.
+     *
+     * The response is the raw ciphertext, so what lands in that file is exactly
+     * what gets decrypted — `maxResponseBytes` bounds it to the preview ceiling
+     * plus the AEAD frame, with none of the slack the old base64-in-JSON
+     * framing forced.
      */
     session.downloadTask(with: request) { fileURL, response, _ in
       defer { session.finishTasksAndInvalidate() }

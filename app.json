@@ -20,12 +20,14 @@
     "android": {
       "splash": {
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "package": "com.masselabs.zkproofport"
     },
     "ios": {
       "splash": {
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "bundleIdentifier": "com.masselabs.zkproofport"
     },
     "extra": {
       "eas": {

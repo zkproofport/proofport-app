@@ -1,4 +1,4 @@
-package com.zkproofport.app
+package com.masselabs.zkproofport
 
 import android.content.Context
 import com.facebook.react.bridge.ReactApplicationContext

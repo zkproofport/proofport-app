@@ -7,7 +7,7 @@
  * service, which is a thin adapter with no branching of its own.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import java.util.Base64
 import javax.crypto.Cipher

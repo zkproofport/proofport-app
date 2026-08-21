@@ -86,8 +86,8 @@ npm install
 #### Apple Developer Account
 
 - Apple Developer Program membership required ($99/year)
-- **Team ID**: `Y9847K5587`
-- **Bundle ID**: `com.zkproofport.app`
+- **Team ID**: `R4G32CVY29` (Masse Labs Inc.)
+- **Bundle ID**: `com.masselabs.zkproofport`
 
 #### App Store Connect API Key
 
@@ -126,7 +126,7 @@ bundle exec fastlane match appstore
 
 #### TestFlight Initial Setup
 
-1. Register the app in App Store Connect (Bundle ID: `com.zkproofport.app`)
+1. Register the app in App Store Connect (Bundle ID: `com.masselabs.zkproofport`)
 2. Fill in app name, category, screenshots, and basic info
 3. Create an internal testing group in TestFlight
 
@@ -158,7 +158,7 @@ keytool -genkeypair \
 #### Google Play Console Setup
 
 1. Register a developer account at [Google Play Console](https://play.google.com/console) ($25 one-time)
-2. Create a new app (package name: `com.zkproofport.app`)
+2. Create a new app (package name: `com.masselabs.zkproofport`)
 3. Set up internal testing track
 
 ---

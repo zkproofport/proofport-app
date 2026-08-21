@@ -11,7 +11,7 @@
 //  The writer is `openstoa/packages/mobile/src/crypto/sharedKeychain.ts`
 //  (`mirrorTakWith`), called from the mini-app's ChatRoomScreen. Storage contract:
 //    class        kSecClassGenericPassword
-//    accessGroup  $(AppIdentifierPrefix)com.zkproofport.app.openstoa
+//    accessGroup  $(AppIdentifierPrefix)com.masselabs.zkproofport.openstoa
 //                 (OpenStoaNSE.entitlements + ProofportApp.entitlements)
 //    account      openstoa.tak.<topicId>.<takVersion>
 //                 takVersion 0 = the topic's public archive root key,

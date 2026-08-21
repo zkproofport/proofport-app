@@ -19,9 +19,9 @@ platform :android do
 
     suffix = ENV['ORG_GRADLE_PROJECT_APP_ID_SUFFIX']
     if suffix
-      pkg = "com.zkproofport.app#{suffix}"
+      pkg = "com.masselabs.zkproofport#{suffix}"
     else
-      pkg = flavor == "staging" ? "com.zkproofport.app.staging" : "com.zkproofport.app"
+      pkg = flavor == "staging" ? "com.masselabs.zkproofport.staging" : "com.masselabs.zkproofport"
     end
 
     if ENV['GOOGLE_APPLICATION_CREDENTIALS']

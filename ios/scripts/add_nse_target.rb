@@ -17,7 +17,7 @@
 #
 # What it wires:
 #   - a `com.apple.product-type.app-extension` target named OpenStoaNSE,
-#     bundle id com.zkproofport.app.OpenStoaNSE
+#     bundle id com.masselabs.zkproofport.OpenStoaNSE
 #   - every *.swift under ios/OpenStoaNSE as its sources
 #   - INFOPLIST_FILE / CODE_SIGN_ENTITLEMENTS pointing at the committed files
 #   - deployment target, Swift version and team copied FROM THE HOST so the two
@@ -31,7 +31,7 @@
 #     host -> extension target dependency, so the .appex ends up in PlugIns/
 #
 # Signing note: the target is left on automatic signing. A CI distribution build
-# additionally needs a provisioning profile for com.zkproofport.app.OpenStoaNSE
+# additionally needs a provisioning profile for com.masselabs.zkproofport.OpenStoaNSE
 # that includes the shared Keychain access group.
 
 require 'xcodeproj'
@@ -40,7 +40,7 @@ PROJECT_PATH = File.expand_path('../ProofportApp.xcodeproj', __dir__)
 NSE_DIR = File.expand_path('../OpenStoaNSE', __dir__)
 HOST_TARGET_NAME = 'ProofportApp'
 NSE_TARGET_NAME = 'OpenStoaNSE'
-NSE_BUNDLE_ID = 'com.zkproofport.app.OpenStoaNSE'
+NSE_BUNDLE_ID = 'com.masselabs.zkproofport.OpenStoaNSE'
 EMBED_PHASE_NAME = 'Embed Foundation Extensions'
 
 abort "project not found: #{PROJECT_PATH}" unless File.directory?(PROJECT_PATH)

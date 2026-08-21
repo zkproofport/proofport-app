@@ -1,4 +1,4 @@
-package com.zkproofport.app
+package com.masselabs.zkproofport
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

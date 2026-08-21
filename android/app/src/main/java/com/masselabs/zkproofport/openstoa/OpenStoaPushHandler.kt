@@ -8,7 +8,7 @@
  * `rewriteData`.
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 /** What the FCM service should do with one incoming message. */
 sealed interface OpenStoaPushDecision {

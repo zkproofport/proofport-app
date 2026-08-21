@@ -1,0 +1,10 @@
+ZKProofport generates zero-knowledge proofs on-device.
+
+To test the app:
+1. Tap "Connect Wallet" and sign in via Privy (email or social login)
+2. The app requires a Coinbase-issued EAS attestation on Base network to generate proofs
+3. Without a valid attestation, the proof generation screen will show but cannot complete a proof
+
+Note: This app performs cryptographic proof generation locally on the device.
+No server-side processing is involved for proof generation. The app communicates
+with blockchain networks (Base/Ethereum) for attestation verification only.

@@ -23,7 +23,7 @@ if command -v adb &> /dev/null; then
 
         # Uninstall app to free space
         echo "Uninstalling app..."
-        adb uninstall com.zkproofport.app 2>/dev/null && echo "App uninstalled" || echo "App not installed"
+        adb uninstall com.masselabs.zkproofport 2>/dev/null && echo "App uninstalled" || echo "App not installed"
 
         # Clear download provider cache
         adb shell pm clear com.android.providers.downloads 2>/dev/null || true

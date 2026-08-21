@@ -1,6 +1,6 @@
 {
   "name": "zkproofport",
-  "version": "1.5.2",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -17,7 +17,7 @@
     "ios:device:clean": "./scripts/clear-ios-cache.sh && npm run pod-install && react-native run-ios --device",
     "ios:build": "cd ios && xcodebuild -workspace ProofportApp.xcworkspace -scheme ProofportApp -configuration Debug -sdk iphonesimulator -arch arm64 build ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO",
     "ios:install": "xcrun simctl install booted /Users/nhn/Library/Developer/Xcode/DerivedData/ProofportApp-*/Build/Products/Debug-iphonesimulator/ProofportApp.app",
-    "ios:launch": "xcrun simctl launch booted com.zkproofport.app",
+    "ios:launch": "xcrun simctl launch booted com.masselabs.zkproofport",
     "ios:run": "npm run ios:build && npm run ios:install && npm run ios:launch",
     "lint": "eslint .",
     "start": "react-native start",
@@ -54,6 +54,7 @@
     "expo-constants": "^18.0.12",
     "expo-crypto": "^15.0.8",
     "expo-device": "~8.0.10",
+    "expo-file-system": "~19.0.21",
     "expo-image-picker": "^55.0.20",
     "expo-linking": "^8.0.11",
     "expo-notifications": "~0.32.17",

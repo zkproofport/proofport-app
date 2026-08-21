@@ -25,6 +25,7 @@ import {
   subscribeHostPushTap,
   subscribeHostPushReceived,
 } from './pushTapBridge';
+import { registerForPushWithDeps } from './pushRegistration';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
   HostApi,
@@ -441,53 +442,28 @@ export function createZkProofportHostApi(
     // never disrupts chat. The server only ever sends a content-free "New
     // message" (Phase A) or the already-sealed opaque ciphertext (Phase B); no
     // plaintext leaves the device unencrypted (SI-1).
-    registerForPush: async () => {
-      try {
-        // A real APNs/FCM token only exists on a physical device — a simulator
-        // or emulator has none, so skip rather than error.
-        if (!Device.isDevice) return null;
-
-        const isGranted = (s: Notifications.NotificationPermissionsStatus): boolean =>
-          s.granted ||
-          s.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-
-        let perms = await Notifications.getPermissionsAsync();
-        if (!isGranted(perms)) {
-          perms = await Notifications.requestPermissionsAsync();
-        }
-        if (!isGranted(perms)) return null; // user declined — skip silently
-
-        // Minting an Expo push token requires the EAS project id. It comes from
-        // app config (`expo.extra.eas.projectId`) or the EAS build config. When
-        // absent (not yet configured for this build) we cannot get a token —
-        // skip gracefully (see the device-setup note in withOpenStoaNSE.js).
-        const projectId =
+    //
+    // The decision logic lives in ./pushRegistration so the host's plain-node
+    // jest config can reach the failure paths, which are otherwise only
+    // reachable on a physical device. Every exit there emits one greppable
+    // `[openstoa-push] registerForPush outcome=...` line; this wrapper only
+    // supplies the expo/react-native bindings.
+    registerForPush: () =>
+      registerForPushWithDeps({
+        isDevice: Device.isDevice,
+        getPermissions: () => Notifications.getPermissionsAsync(),
+        requestPermissions: () => Notifications.requestPermissionsAsync(),
+        provisionalIosStatus: Notifications.IosAuthorizationStatus.PROVISIONAL,
+        projectId:
           (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)
             ?.eas?.projectId ??
-          (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
-        if (!projectId) return null;
-
-        const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-        const pushToken = tokenResponse.data;
-        if (!pushToken) return null;
-
-        // Stable opaque routing handle — generated once, persisted, never rotated
-        // in Phase A. Only chars in [A-Za-z0-9-] (uuid), well under the server cap.
-        let routingHandle = await AsyncStorage.getItem(PUSH_HANDLE_KEY);
-        if (!routingHandle) {
-          routingHandle = Crypto.randomUUID();
-          await AsyncStorage.setItem(PUSH_HANDLE_KEY, routingHandle);
-        }
-
-        const platform: 'ios' | 'android' =
-          Platform.OS === 'android' ? 'android' : 'ios';
-        return { routingHandle, pushToken, platform };
-      } catch {
-        // Best-effort: any failure (permission race, network, native module
-        // missing) degrades to "no push" without breaking chat.
-        return null;
-      }
-    },
+          (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId,
+        getExpoPushToken: (projectId) => Notifications.getExpoPushTokenAsync({ projectId }),
+        readHandle: () => AsyncStorage.getItem(PUSH_HANDLE_KEY),
+        writeHandle: (handle) => AsyncStorage.setItem(PUSH_HANDLE_KEY, handle),
+        newUuid: () => Crypto.randomUUID(),
+        platform: Platform.OS === 'android' ? 'android' : 'ios',
+      }),
 
     // Read the OS notification permission WITHOUT prompting, so the mini-app's
     // notification settings screen can say "blocked in system settings" up

@@ -5,7 +5,7 @@
  *
  * WHAT THIS PLUGIN DOES AUTOMATICALLY (on `expo prebuild -p ios`):
  *   - Appends the SHARED Keychain access group
- *     `$(AppIdentifierPrefix)com.zkproofport.app.openstoa` to the HOST app
+ *     `$(AppIdentifierPrefix)com.masselabs.zkproofport.openstoa` to the HOST app
  *     entitlements. Prebuild regenerates `ios/ProofportApp/ProofportApp.entitlements`
  *     from scratch, so without this mod the manually-committed shared group would
  *     be LOST on every prebuild and the NSE could no longer read the E2EE keys.
@@ -26,7 +26,7 @@
  *     ruby ios/scripts/add_nse_target.rb
  *
  * It creates the `OpenStoaNSE` app-extension target (bundle id
- * `com.zkproofport.app.OpenStoaNSE`), compiles every `ios/OpenStoaNSE/*.swift`,
+ * `com.masselabs.zkproofport.OpenStoaNSE`), compiles every `ios/OpenStoaNSE/*.swift`,
  * points INFOPLIST_FILE / CODE_SIGN_ENTITLEMENTS at the committed files, and
  * embeds the .appex in the host's PlugIns folder. Re-run it after ANY native
  * regeneration that rewrites the pbxproj (including `expo prebuild`); re-running
@@ -48,7 +48,7 @@
  *   nothing (design §13.6 — NSE never ratchets).
  *
  * REMAINING MANUAL STEP (distribution builds only):
- *   Provisioning for `com.zkproofport.app.OpenStoaNSE`. `ios/fastlane/Fastfile`
+ *   Provisioning for `com.masselabs.zkproofport.OpenStoaNSE`. `ios/fastlane/Fastfile`
  *   already matches + signs both bundle ids, but the App ID must exist in the
  *   Apple Developer portal carrying the shared Keychain group, and the profile
  *   must have been generated into the match repo once (`match` runs readonly in
@@ -63,9 +63,9 @@
 
 const { withEntitlementsPlist } = require('@expo/config-plugins');
 
-const SHARED_KEYCHAIN_GROUP = 'com.zkproofport.app.openstoa';
+const SHARED_KEYCHAIN_GROUP = 'com.masselabs.zkproofport.openstoa';
 const NSE_TARGET_NAME = 'OpenStoaNSE';
-const NSE_BUNDLE_ID = 'com.zkproofport.app.OpenStoaNSE';
+const NSE_BUNDLE_ID = 'com.masselabs.zkproofport.OpenStoaNSE';
 
 /**
  * Ensure the shared Keychain access group survives prebuild by appending it to the

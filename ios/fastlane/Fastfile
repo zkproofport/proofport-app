@@ -29,7 +29,7 @@ platform :ios do
       # fails ValidateEmbeddedBinary at export.
       match(
         type: "appstore",
-        app_identifier: ["com.zkproofport.app", "com.zkproofport.app.OpenStoaNSE"],
+        app_identifier: ["com.masselabs.zkproofport", "com.masselabs.zkproofport.OpenStoaNSE"],
         readonly: true,
       )
 
@@ -39,20 +39,20 @@ platform :ios do
       update_code_signing_settings(
         use_automatic_signing: false,
         path: "ProofportApp.xcodeproj",
-        team_id: "Y9847K5587",
+        team_id: "R4G32CVY29",
         targets: ["ProofportApp"],
-        bundle_identifier: "com.zkproofport.app",
-        profile_name: "match AppStore com.zkproofport.app",
+        bundle_identifier: "com.masselabs.zkproofport",
+        profile_name: "match AppStore com.masselabs.zkproofport",
         code_sign_identity: "iPhone Distribution",
       )
 
       update_code_signing_settings(
         use_automatic_signing: false,
         path: "ProofportApp.xcodeproj",
-        team_id: "Y9847K5587",
+        team_id: "R4G32CVY29",
         targets: ["OpenStoaNSE"],
-        bundle_identifier: "com.zkproofport.app.OpenStoaNSE",
-        profile_name: "match AppStore com.zkproofport.app.OpenStoaNSE",
+        bundle_identifier: "com.masselabs.zkproofport.OpenStoaNSE",
+        profile_name: "match AppStore com.masselabs.zkproofport.OpenStoaNSE",
         code_sign_identity: "iPhone Distribution",
       )
     end
@@ -113,7 +113,7 @@ platform :ios do
     # profile or ValidateEmbeddedBinary rejects the export.
     match(
       type: "appstore",
-      app_identifier: ["com.zkproofport.app", "com.zkproofport.app.OpenStoaNSE"],
+      app_identifier: ["com.masselabs.zkproofport", "com.masselabs.zkproofport.OpenStoaNSE"],
       readonly: ENV['CI'] == 'true',
     )
 
@@ -184,7 +184,7 @@ platform :ios do
 
     result = AscBackup.run!(
       output_dir: output_dir,
-      app_identifier: options[:app_identifier] || "com.zkproofport.app",
+      app_identifier: options[:app_identifier] || "com.masselabs.zkproofport",
     )
 
     UI.success("App Store Connect backup written to #{result}")

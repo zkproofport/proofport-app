@@ -54,7 +54,7 @@ module AscBackup
 
   Spaceship::ConnectAPI::APIClient.prepend(ReadOnlyGuard)
 
-  APP_IDENTIFIER = 'com.zkproofport.app'
+  APP_IDENTIFIER = 'com.masselabs.zkproofport'
 
   # Build "what to test" notes only for the most recent builds — older ones
   # cannot be restored into a new app record anyway (see SUMMARY.md gaps).

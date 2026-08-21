@@ -1,4 +1,4 @@
-package com.zkproofport.app
+package com.masselabs.zkproofport
 
 import android.content.Intent
 import android.os.Bundle

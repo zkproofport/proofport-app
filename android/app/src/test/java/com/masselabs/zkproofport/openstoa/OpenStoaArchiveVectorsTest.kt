@@ -13,7 +13,7 @@
  *     > ../proofport-app/ios/scripts/archive_vectors.json
  */
 
-package com.zkproofport.app.openstoa
+package com.masselabs.zkproofport.openstoa
 
 import java.io.File
 import java.util.Base64

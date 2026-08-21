@@ -1,4 +1,4 @@
-package com.zkproofport.app
+package com.masselabs.zkproofport
 import android.content.res.Configuration
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
@@ -22,7 +22,7 @@ class MainApplication : Application(), ReactApplication {
         override fun getPackages(): List<ReactPackage> =
             PackageList(this).packages.apply {
               add(AppEnvPackage())
-              add(com.zkproofport.app.openstoa.OpenStoaPackage())
+              add(com.masselabs.zkproofport.openstoa.OpenStoaPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"
