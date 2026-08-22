@@ -345,6 +345,18 @@
         "signInGoogle": "Google로 로그인 후 증명하기",
         "signInMicrosoft": "Microsoft로 로그인 후 증명하기",
         "stackTitle": "도메인 인증"
+      },
+      "returnNotice": {
+        "delivered": {
+          "title": "증명 전달 완료",
+          "description": "요청한 앱으로 증명을 보냈습니다. 시작했던 곳으로 돌아가 계속 진행해 주세요."
+        },
+        "declined": {
+          "title": "요청 거절됨",
+          "description": "요청한 앱에 거절 사실을 전달했습니다. 시작했던 곳으로 돌아가 계속 진행해 주세요."
+        },
+        "hint": "왼쪽 위의 ‹ 돌아가기를 누르거나, 사용하던 앱 또는 브라우저 탭으로 돌아가세요.",
+        "dismiss": "확인"
       }
     }
   },

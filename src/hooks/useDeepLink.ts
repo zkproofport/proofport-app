@@ -2,6 +2,7 @@
 import {useCallback} from 'react';
 import {
   sendProofResponse,
+  sendProofResponseAndReturn,
   type ProofRequest,
   type ProofResponse,
   type VerificationType,
@@ -53,11 +54,20 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
         inputs: request.inputs,
       };
 
-      return sendProofResponse(response, request.callbackUrl);
+      // Success path: deliver the proof, then hand the user back to wherever
+      // they came from. Never a no-op — when the request carried no
+      // returnScheme the app backgrounds itself on Android so the browser
+      // resumes, and on iOS raises the "proof delivered, switch back" notice.
+      return sendProofResponseAndReturn(response, request);
     },
     [],
   );
 
+  // NOTE: sendError deliberately does NOT switch back. The failure is shown
+  // here as an ErrorModal / inline error and is usually actionable inside this
+  // app (retry, connect a wallet, no attestation found). Backgrounding the app
+  // the instant the error appears would hide the only explanation the user
+  // gets, and would drop them into the requesting app with no idea what broke.
   const sendError = useCallback(
     async (request: ProofRequest, error: string): Promise<boolean> => {
       console.log('[DeepLink] Sending error for request:', request.requestId);

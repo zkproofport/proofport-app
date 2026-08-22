@@ -23,6 +23,39 @@ platform :ios do
       )
     end
 
+    # Local `ipa` builds need signing configured too. This used to run only
+    # under CI, so a local build reached `archive` with no
+    # PROVISIONING_PROFILE_SPECIFIER at all and left Xcode to guess from the
+    # bundle id. It guessed right for the host and wrong for the extension —
+    # match's profiles are named "match Development <id>", which its matching
+    # rules do not find — so every local build died on the .appex with
+    # "No profiles for 'com.masselabs.zkproofport.OpenStoaNSE' were found".
+    #
+    # Distribution profiles are for CI (TestFlight/App Store); a local install
+    # onto a registered device is signed with the Development pair.
+    local_signing = !ENV['CI'] && api_key
+    if local_signing
+      match(
+        type: "development",
+        app_identifier: ["com.masselabs.zkproofport", "com.masselabs.zkproofport.OpenStoaNSE"],
+        readonly: true,
+      )
+      [
+        ["ProofportApp", "com.masselabs.zkproofport"],
+        ["OpenStoaNSE",  "com.masselabs.zkproofport.OpenStoaNSE"],
+      ].each do |target, bundle_id|
+        update_code_signing_settings(
+          use_automatic_signing: false,
+          path: "ProofportApp.xcodeproj",
+          team_id: "R4G32CVY29",
+          targets: [target],
+          bundle_identifier: bundle_id,
+          profile_name: "match Development #{bundle_id}",
+          code_sign_identity: "Apple Development",
+        )
+      end
+    end
+
     if ENV['CI'] && api_key
       # The OpenStoaNSE notification-service extension is embedded in the host
       # app, so distribution signing needs BOTH profiles — an unsigned .appex
@@ -196,6 +229,51 @@ platform :ios do
   lane :build_ipa do |options|
     env = options[:env] || "production"
     app_env = env
+
+    # Signing has to be pinned here, not left to Xcode. The project signs
+    # manually (no CODE_SIGN_STYLE = Automatic) and carried no
+    # PROVISIONING_PROFILE_SPECIFIER, so Xcode fell back to matching profiles by
+    # bundle id. That found the host app and did NOT find the extension —
+    # match names its profiles "match Development <id>", which that matching
+    # does not recognise — and every local build died with "No profiles for
+    # 'com.masselabs.zkproofport.OpenStoaNSE' were found". The profiles were on
+    # disk the whole time; nothing pointed at them.
+    #
+    # It only surfaced with the corporate team because the old personal-team
+    # profiles happened to satisfy Xcode's guess.
+    #
+    # Development, not appstore: this lane builds for a local install onto a
+    # registered device. The appstore pair belongs to `beta`.
+    if ENV['ASC_KEY_ID'] || ENV['ASC_API_KEY_PATH']
+      api_key =
+        if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+          app_store_connect_api_key(
+            key_id: ENV['ASC_KEY_ID'],
+            issuer_id: ENV['ASC_ISSUER_ID'],
+            key_filepath: ENV['ASC_API_KEY_PATH'],
+          )
+        end
+      match(
+        type: "development",
+        app_identifier: ["com.masselabs.zkproofport", "com.masselabs.zkproofport.OpenStoaNSE"],
+        readonly: true,
+        api_key: api_key,
+      )
+      [
+        ["ProofportApp", "com.masselabs.zkproofport"],
+        ["OpenStoaNSE",  "com.masselabs.zkproofport.OpenStoaNSE"],
+      ].each do |target, bundle_id|
+        update_code_signing_settings(
+          use_automatic_signing: false,
+          path: "ProofportApp.xcodeproj",
+          team_id: "R4G32CVY29",
+          targets: [target],
+          bundle_identifier: bundle_id,
+          profile_name: "match Development #{bundle_id}",
+          code_sign_identity: "Apple Development",
+        )
+      end
+    end
 
     build_app(
       workspace: "ProofportApp.xcworkspace",

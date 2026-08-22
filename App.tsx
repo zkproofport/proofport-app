@@ -14,7 +14,6 @@ import {
   NavigationContainer,
   NavigationContainerRef,
   CommonActions,
-  StackActions,
 } from '@react-navigation/native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppKitProvider, AppKit} from '@reown/appkit-react-native';
@@ -22,7 +21,7 @@ import {appKit} from './src/config';
 import {LoadingScreen} from './src/screens';
 import {TabNavigator} from './src/navigation';
 import type {TabParamList} from './src/navigation/types';
-import {ProofRequestModal, ErrorModal} from './src/components';
+import {ProofRequestModal, ErrorModal, ReturnNoticeModal} from './src/components';
 import {DeepLinkProvider, ErrorProvider, ThemeProvider} from './src/context';
 import {showGlobalError} from './src/utils/errorBridge';
 import {
@@ -30,6 +29,7 @@ import {
   validateProofRequest,
   validateRequestWithRelay,
   sendProofResponse,
+  returnToRequester,
   isProofportDeepLink,
 } from './src/utils/deeplink';
 import type {ProofRequest} from './src/types';
@@ -288,6 +288,13 @@ const App: React.FC = () => {
       pendingRequest.callbackUrl,
     );
 
+    // The user has explicitly said "not now" and we show them nothing further,
+    // so hand them straight back to where they came from. Best effort, and it
+    // now has three endings: open the requester's scheme, background ourselves
+    // on Android so the previous app resumes, or — when neither is possible —
+    // raise the notice telling them to switch back themselves.
+    await returnToRequester(pendingRequest.returnScheme, 'declined');
+
     // Clear active request so new requests can be processed
     activeRequestId.current = null;
     setPendingRequest(null);
@@ -332,6 +339,11 @@ const App: React.FC = () => {
                 {tree}
               </DeepLinkProvider>
               <ErrorModal />
+              {/* Success-side sibling of ErrorModal: shown when the proof was
+                  delivered but the app could not hand the user back on its own.
+                  Mounted here, inside ThemeProvider, so it can be raised from
+                  the utility layer at any point in the deep-link flow. */}
+              <ReturnNoticeModal />
             </ErrorProvider>
           </ThemeProvider>
         </SafeAreaProvider>

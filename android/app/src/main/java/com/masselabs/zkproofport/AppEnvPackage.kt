@@ -5,9 +5,14 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
+/**
+ * Hosts the app's small first-party native modules. Named after its first
+ * occupant; `AppSwitcher` lives here too rather than earning a second
+ * ReactPackage and a second registration in MainApplication.
+ */
 class AppEnvPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(AppEnvModule(reactContext))
+        return listOf(AppEnvModule(reactContext), AppSwitcherModule(reactContext))
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {

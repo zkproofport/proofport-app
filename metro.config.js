@@ -16,6 +16,14 @@ const openstoaWatchFolders = [
   path.join(openstoaPackagesRoot, 'mobile'),
   path.join(openstoaPackagesRoot, 'miniapp-bridge'),
   path.join(openstoaPackagesRoot, 'api-types'),
+  // `mls` holds the ONE copy of the MLS/TAK crypto; the mini-app's
+  // `src/crypto/*` are thin re-exports that reach into it with a relative path
+  // (`../../../mls/src/...`). Metro will not resolve a path outside every
+  // watch folder, so leaving it off this list fails the bundle with
+  // "Unable to resolve module ../../../mls/src/keyManager" — while vitest,
+  // which resolves from the filesystem directly, passes. Adding a package
+  // under packages/ means adding it here.
+  path.join(openstoaPackagesRoot, 'mls'),
 ];
 
 const config = {

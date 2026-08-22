@@ -8,10 +8,11 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import type {
-  ProofRequest,
-  CoinbaseKycInputs,
-  OidcDomainInputs,
+import {
+  normalizeReturnScheme,
+  type ProofRequest,
+  type CoinbaseKycInputs,
+  type OidcDomainInputs,
 } from '../utils/deeplink';
 
 interface ProofRequestModalProps {
@@ -69,6 +70,11 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
 
   const circuitInfo = CIRCUIT_INFO[request.circuit];
   const inputs = request.inputs as CoinbaseKycInputs;
+  // Shown so the user consents to the app switch as part of consenting to the
+  // proof — a request can name any app, and "the proof app opened this" should
+  // never be a surprise. Runs through the same normaliser the switch uses, so
+  // what is displayed is exactly what will be opened.
+  const returnTarget = normalizeReturnScheme(request.returnScheme);
 
   function formatTime(timestamp?: number): string {
     if (!timestamp) return 'No expiry';
@@ -150,6 +156,15 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
                       {(request.inputs as CoinbaseKycInputs).userAddress
                         ? `${(request.inputs as CoinbaseKycInputs).userAddress!.slice(0, 10)}...${(request.inputs as CoinbaseKycInputs).userAddress!.slice(-8)}`
                         : 'Will connect wallet'}
+                    </Text>
+                  </View>
+                )}
+
+                {returnTarget && (
+                  <View style={styles.inputRow}>
+                    <Text style={styles.inputLabel}>Returns to</Text>
+                    <Text style={styles.inputValue} numberOfLines={1}>
+                      {returnTarget}
                     </Text>
                   </View>
                 )}

@@ -187,7 +187,7 @@ We cannot guarantee security against:
 
 The ZKProofport App is not directed to children under 13 years of age. We do not knowingly collect information from children under 13. If we learn that we have collected information from a child under 13, we will delete such information and the child's account immediately.
 
-If you are a parent or guardian and believe your child has provided information to ZKProofport, please contact us at support@zkproofport.app.
+If you are a parent or guardian and believe your child has provided information to ZKProofport, please contact us at support@masselabs.com.
 
 **Users must be at least 13 years old to use this App (or the minimum digital age of majority in your jurisdiction, if higher).**
 
@@ -203,7 +203,7 @@ We may update this Privacy Policy from time to time to reflect changes in our pr
 
 If you have questions, concerns, or requests regarding this Privacy Policy or our privacy practices, please contact us:
 
-**Email:** support@zkproofport.app
+**Email:** support@masselabs.com
 
 **Developer:** ZKProofport Team
 
@@ -221,7 +221,7 @@ Depending on your jurisdiction, you may have the right to:
 - Data portability
 - Object to processing
 
-To exercise any of these rights, please contact support@zkproofport.app with "Privacy Request" in the subject line.
+To exercise any of these rights, please contact support@masselabs.com with "Privacy Request" in the subject line.
 
 ---
 

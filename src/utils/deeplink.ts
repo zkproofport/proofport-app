@@ -1,3 +1,5 @@
+import {showReturnNotice, type ReturnNoticeKind} from './returnNoticeBridge';
+
 
 export type CircuitType =
   | 'coinbase_attestation'
@@ -41,6 +43,16 @@ export interface ProofRequest {
   message?: string;
   dappName?: string;
   dappIcon?: string;
+  /**
+   * Optional: the app to bring back to the foreground once this request is
+   * finished. A bare custom scheme (`mydapp://`) — never a URL, and never an
+   * https origin, which would open a new browser tab rather than return
+   * anyone anywhere. Set by the
+   * requester and validated by the relay, but re-validated here before use:
+   * the top-level deep-link fields are not covered by the relay's inputsHash,
+   * so nothing that arrives in a deep link is trusted on arrival.
+   */
+  returnScheme?: string;
   createdAt: number;
   expiresAt?: number;
 }
@@ -158,6 +170,7 @@ export function parseProofRequestUrl(url: string): ProofRequest | null {
       message: params.get('message') || undefined,
       dappName: params.get('dappName') || undefined,
       dappIcon: params.get('dappIcon') || undefined,
+      returnScheme: params.get('returnScheme') || undefined,
       createdAt: Date.now(),
       expiresAt: params.get('expiresAt')
         ? parseInt(params.get('expiresAt')!, 10)
@@ -303,6 +316,237 @@ export async function sendProofResponse(response: ProofResponse, callbackUrl: st
     console.error(`[DeepLink] Failed to send response to ${callbackUrl}:`, error);
     return false;
   }
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * Returning to the requesting app
+ * ---------------------------------------------------------------------------
+ *
+ * There is no system API for "go back to whichever app sent me here". The only
+ * way to move the user is to open a URL, so the requester has to tell us which
+ * app to open, and that answer rides along in the proof request as
+ * `returnScheme`. This is the same contract we are already on the other side
+ * of: our AppKit metadata carries `redirect: { native: 'zkproofport://' }`
+ * (src/config/AppKitConfig.ts) and MetaMask opens that when it is done. It does
+ * not know or need our result page, and we do not need the requester's.
+ *
+ * The value is deliberately not a URL. One form is accepted, nothing else:
+ *   bare custom scheme   `mydapp://`
+ *
+ * An https origin was accepted once and no longer is. Opening `https://host`
+ * does not return the user to the page that sent the request — it hands the URL
+ * to the browser, which opens a NEW tab on a fresh page, leaving the original
+ * tab and all of its state behind. That is not a return, so the form is gone.
+ * A web requester has no app to switch to and omits the field entirely.
+ *
+ * Refusing paths and query strings is the guard that matters. Anyone can obtain
+ * a requestId from the relay, so anyone can put a `returnScheme` on a request —
+ * the trusted-host check in validateRequestWithRelay() constrains WHICH RELAY
+ * issued the request, not WHO asked it to. Restricting the value to "an app,
+ * at its front door" means a hostile requester can at most launch an installed
+ * app's default entry point, never drive it to an action such as
+ * `bankapp://transfer?to=0xattacker`.
+ *
+ * Kept in sync with proofport-relay `src/returnScheme.ts` (the authority) and
+ * proofport-app-sdk `src/deeplink.ts` (fail-fast for integrators).
+ */
+
+/** Longest accepted `returnScheme` value. */
+export const MAX_RETURN_SCHEME_LENGTH = 128;
+
+/** RFC 3986 scheme (`ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )`) followed by exactly `://`. */
+const BARE_SCHEME_RE = /^[a-z][a-z0-9+.-]*:\/\/$/;
+
+const DENIED_RETURN_SCHEMES = new Set([
+  'about',
+  'blob',
+  'content',
+  'data',
+  'facetime',
+  'facetime-audio',
+  'file',
+  'ftp',
+  'http',
+  'https',
+  'intent',
+  'javascript',
+  'jar',
+  'mailto',
+  'sms',
+  'tel',
+  'vbscript',
+]);
+
+/**
+ * Normalises a `returnScheme` that arrived in a deep link.
+ *
+ * Returns the lowercased value when it is safe to open, or `null` for anything
+ * else — including absent, empty and malformed values. A bad value is NOT an
+ * error: the proof still runs, the user simply stays in this app afterwards.
+ * Failing the whole request over a cosmetic field would turn a typo into a
+ * broken proof flow, and would hand a hostile requester a denial-of-service.
+ */
+export function normalizeReturnScheme(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  if (value.length === 0) return null;
+  // Length first: a huge string must never reach the regexes.
+  if (value.length > MAX_RETURN_SCHEME_LENGTH) return null;
+  if (/\s/.test(value)) return null;
+
+  const normalized = value.toLowerCase();
+
+  if (!BARE_SCHEME_RE.test(normalized)) return null;
+
+  const schemeName = normalized.slice(0, normalized.indexOf(':'));
+  if (DENIED_RETURN_SCHEMES.has(schemeName)) return null;
+
+  return normalized;
+}
+
+/**
+ * What happened to the user after the proof was delivered.
+ *
+ * Exactly three ways this can end, and the caller has to be able to tell them
+ * apart — the third is the only one where the user needs to be told anything.
+ */
+export type ReturnOutcome =
+  /** A scheme was opened and the OS accepted it: the requesting app is coming forward. */
+  | 'switched'
+  /** Android only: we sent ourselves to the back, so whatever was behind us resumed. */
+  | 'backgrounded'
+  /** Nothing automatic was possible. The user has been told to switch back themselves. */
+  | 'stay';
+
+/**
+ * Hands the user back to wherever they came from.
+ *
+ * Best effort by design. The proof is already generated and already delivered
+ * by the time this runs, so nothing here may throw, reject, or otherwise reach
+ * the caller as a proof failure.
+ *
+ * Three strategies, in order:
+ *
+ * 1. A `returnScheme` was supplied -> open it. That is a native integrator
+ *    naming its own app, or the SDK naming `googlechrome://` / `firefox://`
+ *    because the requesting page was running in Chrome or Firefox for iOS.
+ *
+ *    Note the deliberate absence of a `canOpenURL()` pre-check: on iOS
+ *    `canOpenURL` returns false for any scheme not listed in
+ *    `LSApplicationQueriesSchemes` (see ios/ProofportApp/Info.plist), and we
+ *    obviously cannot enumerate every integrator's scheme there. Gating on it
+ *    would make this feature fail for everyone. `openURL` itself carries no
+ *    such restriction, so we call it and swallow the rejection when no
+ *    installed app claims the scheme.
+ *
+ * 2. Android, with no scheme or after a failed one -> `moveTaskToBack(true)`.
+ *    Public API since API 1, and strictly better than opening a URL: the task
+ *    behind us comes forward exactly as the user left it — same browser, same
+ *    tab, same scroll position, same JavaScript state, no reload. It needs no
+ *    detection and no `returnScheme` at all, which is why a web page on Android
+ *    sends nothing. This is what MetaMask, Rainbow and Kraken all ship.
+ *
+ * 3. Everything else -> tell the user. iOS has no equivalent of
+ *    `moveTaskToBack`: Apple provides no public API for an app to background
+ *    itself (QA1561), and the private `_systemNavigationAction` trick wallets
+ *    once shipped has been dead since iOS 17 as well as being an App Review
+ *    2.5.1 violation. So when the requester named nothing and we are not on
+ *    Android, the honest move is a notice — the system "< Back to X" breadcrumb
+ *    is still at the top left, which is exactly what Apple DTS recommends.
+ *
+ * The "every outbound URL opens in the in-app WebView" rule does not apply
+ * here: the only accepted value is a custom scheme, which is an app handoff
+ * rather than a link, and a WebView cannot load one. Routing it through
+ * InAppBrowser would keep the user inside ZKProofport, the exact opposite of
+ * what this function exists to do.
+ *
+ * @param returnScheme - the app to open, from the proof request. Absent for
+ *   every web requester except Chrome for iOS.
+ * @param noticeKind - what to say if we end up having to tell the user to
+ *   switch back themselves. `declined` on the reject path, so the notice cannot
+ *   claim a proof was delivered when the user refused to make one.
+ * @returns which of the three things happened
+ */
+export async function returnToRequester(
+  returnScheme?: string,
+  noticeKind: ReturnNoticeKind = 'delivered',
+): Promise<ReturnOutcome> {
+  const target = normalizeReturnScheme(returnScheme);
+
+  if (target) {
+    try {
+      const {Linking} = require('react-native');
+      await Linking.openURL(target);
+      console.log('[DeepLink] Returned to requester:', target);
+      return 'switched';
+    } catch (error: any) {
+      // No installed app claims the scheme, or the OS refused. Fall through to
+      // the platform fallback rather than stranding the user here.
+      console.log(
+        `[DeepLink] Could not return to ${target}:`,
+        error?.message ?? error,
+      );
+    }
+  } else if (returnScheme !== undefined && returnScheme !== null) {
+    console.log('[DeepLink] Ignoring unusable returnScheme:', returnScheme);
+  }
+
+  if (await moveSelfToBack()) {
+    return 'backgrounded';
+  }
+
+  // Nothing automatic is possible. Say so rather than silently doing nothing,
+  // or the user sits there waiting for a switch that is never coming.
+  showReturnNotice(noticeKind);
+  return 'stay';
+}
+
+/**
+ * Android: send this app to the back so the previous task resumes.
+ *
+ * Returns false everywhere else, and false on Android when the native module is
+ * missing (an older build, or a JS bundle running against a native binary that
+ * predates it). Handing the user back must never become a crash on the success
+ * path.
+ */
+async function moveSelfToBack(): Promise<boolean> {
+  try {
+    const {Platform, NativeModules} = require('react-native');
+    if (Platform?.OS !== 'android') {
+      return false;
+    }
+    const appSwitcher = NativeModules?.AppSwitcher;
+    if (!appSwitcher?.moveTaskToBack) {
+      console.log('[DeepLink] AppSwitcher native module unavailable');
+      return false;
+    }
+    const moved = await appSwitcher.moveTaskToBack();
+    console.log('[DeepLink] moveTaskToBack ->', moved);
+    return moved === true;
+  } catch (error: any) {
+    console.log('[DeepLink] moveTaskToBack failed:', error?.message ?? error);
+    return false;
+  }
+}
+
+/**
+ * Delivers a proof result to the relay and then hands the user back to the
+ * requesting app.
+ *
+ * Order matters: the callback POST is awaited first, because opening another
+ * app — or backgrounding this one — suspends us, and an in-flight fetch can be
+ * cut off.
+ *
+ * @returns whether the callback POST succeeded. How the user was handed back is
+ *   best effort and never changes this value.
+ */
+export async function sendProofResponseAndReturn(
+  response: ProofResponse,
+  request: Pick<ProofRequest, 'callbackUrl' | 'returnScheme'>,
+): Promise<boolean> {
+  const delivered = await sendProofResponse(response, request.callbackUrl);
+  await returnToRequester(request.returnScheme);
+  return delivered;
 }
 
 export function isProofportDeepLink(url: string): boolean {

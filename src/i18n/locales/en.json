@@ -345,6 +345,18 @@
         "signInGoogle": "Sign in with Google & Prove",
         "signInMicrosoft": "Sign in with Microsoft & Prove",
         "stackTitle": "Domain Verification"
+      },
+      "returnNotice": {
+        "delivered": {
+          "title": "Proof Delivered",
+          "description": "Your proof has been sent to the app that asked for it. Switch back to where you started to continue."
+        },
+        "declined": {
+          "title": "Request Declined",
+          "description": "The app that asked has been told you declined. Switch back to where you started to continue."
+        },
+        "hint": "Tap the ‹ Back link at the top left, or reopen the app or tab you came from.",
+        "dismiss": "Got it"
       }
     }
   },
