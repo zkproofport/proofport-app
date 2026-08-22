@@ -14,7 +14,7 @@ We are committed to protecting your privacy. Our App is designed with privacy as
 
 ### 1.1 Wallet Address
 
-When you authenticate using wallet connection (via Privy or WalletConnect), your wallet address is used for:
+When you authenticate using wallet connection (via WalletConnect / Reown AppKit), your wallet address is used for:
 - Authenticating your identity within the App
 - On-chain verification of proof submissions (when applicable)
 - Correlating proof requests and completions
@@ -125,25 +125,17 @@ If you have a dashboard account, you can request deletion of your account and as
 
 ## 4. Third-Party Services
 
-### 4.1 Privy (Wallet Authentication)
+### 4.1 WalletConnect / Reown AppKit (Wallet Connection)
 
-We use **Privy** (privy.io) as a third-party authentication provider. Privy:
-- Handles secure wallet connection and authentication
-- Never accesses your seed phrase or private keys
-- May collect analytics on authentication events (see Privy's Privacy Policy: https://www.privy.io/privacy-policy)
-
-**Your private keys remain on your device and under your control at all times.**
-
-### 4.2 WalletConnect (Wallet Integration)
-
-We integrate **WalletConnect** (walletconnect.com) for optional wallet connection:
+Wallet connection is handled by **Reown AppKit**, built on the **WalletConnect**
+protocol (walletconnect.com). It:
 - Enables communication between the App and your external wallet (MetaMask, Trust Wallet, etc.)
 - Operates as a relay for wallet signing requests only
 - See WalletConnect's Privacy Policy: https://walletconnect.com/privacy
 
 **Your wallet never exposes private keys to ZKProofport; all signing happens within your wallet application.**
 
-### 4.3 Microsoft Entra ID (Work Email Domain Proof)
+### 4.2 Microsoft Entra ID (Work Email Domain Proof)
 
 If you choose to prove ownership of a work email address, the App signs you in
 through **Microsoft Entra ID** (formerly Azure AD). In that flow:
@@ -156,11 +148,11 @@ through **Microsoft Entra ID** (formerly Azure AD). In that flow:
 **This flow is optional.** It runs only when you start a work-domain proof, and
 declining it leaves every other feature of the App unaffected.
 
-### 4.4 Third-Party Verification Services
+### 4.3 Third-Party Verification Services
 
 When you approve a proof request, the requesting application (dApp) may independently submit your proof for verification. Any on-chain verification is performed by the requesting application, not by ZKProofport. ZKProofport does not initiate, process, or facilitate any blockchain transactions or cryptocurrency transfers.
 
-### 4.5 Callback Services
+### 4.4 Callback Services
 
 When you approve a proof request, the completed proof is transmitted to a callback URL specified by the requesting application. ZKProofport:
 - Does not control or monitor the receiving service
