@@ -1,4 +1,9 @@
-git_url("https://github.com/zkproofport/ios-certificates.git")
+# masselabs/, NOT zkproofport/. The old repository is shared with other
+# projects (Recipiary, RetroZ profiles are in it), so `match nuke` against it
+# would revoke their certificates too. The corporate team gets its own storage
+# rather than sharing one that cannot be safely reset.
+git_url("https://github.com/masselabs/ios-certificates.git")
+team_id("R4G32CVY29")
 
 storage_mode("git")
 
