@@ -73,8 +73,12 @@ describe('error code registry', () => {
   });
 
   it('CONTRACT: the shared network code the mini-app falls back to is registered', () => {
-    // `api/failure.ts` names this one directly rather than at a `showError`
-    // call site, so the scan above cannot see it.
+    // `api/failure.ts` names these directly rather than at a `showError`
+    // call site, so the scan above cannot see them. E9997 (the request deadline
+    // expired) is a THIRD outcome next to E9998 (never reached the server) and
+    // E9999 (it failed): the server took it and never answered, which is the
+    // one case where nobody knows whether the write landed.
+    expect(ErrorCodes).toHaveProperty('E9997');
     expect(ErrorCodes).toHaveProperty('E9998');
     expect(ErrorCodes).toHaveProperty('E9999');
   });

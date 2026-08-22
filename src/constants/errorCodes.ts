@@ -160,6 +160,17 @@ export const ErrorCodes = {
     title: "Couldn't Remove the Photo",
     description: 'Your profile photo is still there. Please try again.',
   },
+  // Distinct from E9998 on purpose. E9998 means the request never left the
+  // device, so nothing changed and retrying is free. This one means the server
+  // took the request and never answered — whether it landed is UNKNOWN, and a
+  // modal that claimed otherwise would send someone off to post the same thing
+  // twice. Raised by the mini-app's `api/failure.ts` (TIMEOUT_ERROR_CODE).
+  E9997: {
+    code: 'E9997',
+    title: 'The Server Did Not Answer',
+    description:
+      'The request timed out before the server replied. It may or may not have gone through — check before trying again.',
+  },
   E9998: {
     code: 'E9998',
     title: 'No Connection',

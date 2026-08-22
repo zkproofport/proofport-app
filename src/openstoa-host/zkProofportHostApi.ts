@@ -26,6 +26,7 @@ import {
   subscribeHostPushReceived,
 } from './pushTapBridge';
 import { registerForPushWithDeps } from './pushRegistration';
+import { fetchWithDeadline } from './fetchWithDeadline';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
   HostApi,
@@ -147,11 +148,15 @@ export function createZkProofportHostApi(
   async function devLogin(): Promise<AuthResult> {
     let res: Response;
     try {
-      res = await fetch(`${baseUrl}/api/auth/dev-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
+      res = await fetchWithDeadline(
+        `${baseUrl}/api/auth/dev-login`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        },
+        { label: 'dev-login' },
+      );
     } catch (e) {
       // Surface the exact URL we tried so a network failure is diagnosable on
       // the device (RN 0.81 moved JS console logs to DevTools).
@@ -192,17 +197,21 @@ export function createZkProofportHostApi(
     // proof. Sending `provider: 'google'` here previously caused the relay
     // to compose a "Verify Google Workspace affiliation" message which made
     // the modal demand a Workspace-bound account.
-    const reqRes = await fetch(`${baseUrl}/api/auth/proof-request`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        circuitType,
-      }),
-      // Skip the iOS shared cookie store — we authenticate via headers
-      // (or no auth at all). Sending stale cookies caused the server to
-      // treat logged-out users as still-signed-in.
-      credentials: 'omit',
-    });
+    const reqRes = await fetchWithDeadline(
+      `${baseUrl}/api/auth/proof-request`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          circuitType,
+        }),
+        // Skip the iOS shared cookie store — we authenticate via headers
+        // (or no auth at all). Sending stale cookies caused the server to
+        // treat logged-out users as still-signed-in.
+        credentials: 'omit',
+      },
+      { label: 'proof-request' },
+    );
     if (!reqRes.ok) {
       throw new Error(`proof-request failed (${reqRes.status}): ${await reqRes.text()}`);
     }
@@ -223,12 +232,28 @@ export function createZkProofportHostApi(
       await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
       let pollRes: Response;
       try {
-        pollRes = await fetch(
+        /*
+         * DEADLINED, and this is the important one.
+         *
+         * It was a bare `await fetch(...)`, and `fetch` has no timeout — so a
+         * single request the server accepted and never answered stopped this
+         * loop where it stood. Not for six minutes: forever. `i` never
+         * advanced, the "timed out waiting for relay" throw below was never
+         * reached, and `loginToOpenStoa` never settled — which is exactly what
+         * the mini-app cannot recover from with a `catch`, and exactly what
+         * left a device on "Preparing your anonymous identity…" until it was
+         * force-quit.
+         *
+         * With a deadline the same stall costs one attempt out of 240, because
+         * the `catch` below already treats a failed attempt as "keep trying".
+         */
+        pollRes = await fetchWithDeadline(
           `${baseUrl}/api/auth/poll/${encodeURIComponent(reqData.requestId)}?format=token`,
           { credentials: 'omit' },
+          { label: 'auth-poll' },
         );
       } catch {
-        // transient network — keep retrying
+        // transient network, or an attempt that ran out of time — keep retrying
         continue;
       }
       if (pollRes.status === 404) {
