@@ -33,6 +33,20 @@
  * optional so a host build with an older expo-notifications degrades to
  * dismissal only.
  */
+/**
+ * The Android notification channel every chat push is delivered on.
+ *
+ * It has to exist BEFORE a message arrives, or Firebase displays that message
+ * itself on its own fallback channel — and a Firebase-built notification
+ * carries none of the extras expo-notifications stamps, so
+ * `getPresentedNotificationsAsync()` returns an empty list for it and nothing
+ * below can ever match or dismiss it. The server names the same string in its
+ * push payload (`openstoa/src/lib/pushProvider.ts`); a disagreement between the
+ * two is silent, because a mismatch just puts the notification back on the
+ * fallback channel and the tray stops clearing again.
+ */
+export const CHAT_CHANNEL_ID = 'chat';
+
 export interface PushClearingApi {
   getPresentedNotificationsAsync(): Promise<unknown[]>;
   dismissNotificationAsync(identifier: string): Promise<void>;

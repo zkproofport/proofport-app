@@ -26,7 +26,7 @@ import {
   subscribeHostPushReceived,
 } from './pushTapBridge';
 import { registerForPushWithDeps } from './pushRegistration';
-import { clearDeliveredForTopic } from './pushClearing';
+import { clearDeliveredForTopic, CHAT_CHANNEL_ID } from './pushClearing';
 import { fetchWithDeadline } from './fetchWithDeadline';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
@@ -481,8 +481,41 @@ export function createZkProofportHostApi(
     // reachable on a physical device. Every exit there emits one greppable
     // `[openstoa-push] registerForPush outcome=...` line; this wrapper only
     // supplies the expo/react-native bindings.
-    registerForPush: () =>
-      registerForPushWithDeps({
+    registerForPush: async () => {
+      /*
+       * DECLARE THE CHANNEL FIRST, on Android, before asking for a token.
+       *
+       * Without one, Firebase displays an arriving message itself on its own
+       * `fcm_fallback_notification_channel`. That notification is built by the
+       * Firebase SDK, not by expo-notifications, so it carries none of the
+       * extras expo stamps on its own — and `ExpoPresentationDelegate`
+       * reconstructs a notification ONLY from `EXTRAS_MARSHALLED_NOTIFICATION_
+       * REQUEST_KEY`, dropping everything else via `mapNotNull`.
+       *
+       * The consequence is not cosmetic: `getPresentedNotificationsAsync()`
+       * returns an EMPTY list for those, so `clearDeliveredForTopic` has
+       * nothing to match and nothing to dismiss, whatever it reads the topic
+       * id from. Opening the room could never empty the tray.
+       *
+       * With a channel the message is routed through expo-notifications, which
+       * builds it, stamps the request, and makes it both readable and
+       * dismissible. Idempotent — creating an existing channel updates it.
+       */
+      if (Platform.OS === 'android') {
+        try {
+          await Notifications.setNotificationChannelAsync(CHAT_CHANNEL_ID, {
+            name: 'Chat',
+            importance: Notifications.AndroidImportance.HIGH,
+            // The room decides what it shows; the channel only has to exist and
+            // be visible enough that a message is not silently binned.
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+          });
+        } catch {
+          // An older OS or a revoked permission. Registration still proceeds:
+          // no channel is the behaviour that shipped, not a broken app.
+        }
+      }
+      return registerForPushWithDeps({
         isDevice: Device.isDevice,
         getPermissions: () => Notifications.getPermissionsAsync(),
         requestPermissions: () => Notifications.requestPermissionsAsync(),
@@ -496,7 +529,8 @@ export function createZkProofportHostApi(
         writeHandle: (handle) => AsyncStorage.setItem(PUSH_HANDLE_KEY, handle),
         newUuid: () => Crypto.randomUUID(),
         platform: Platform.OS === 'android' ? 'android' : 'ios',
-      }),
+      });
+    },
 
     // Read the OS notification permission WITHOUT prompting, so the mini-app's
     // notification settings screen can say "blocked in system settings" up
