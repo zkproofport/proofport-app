@@ -39,6 +39,38 @@ function presentedAndroid(identifier: string, data: Record<string, unknown>) {
   };
 }
 
+/**
+ * Android as it arrives NOW: straight from FCM, with no Expo service in front.
+ *
+ * The difference from `presentedAndroid` is the whole point of this shape. Going
+ * through Expo's push service, the developer's data is nested under `body` as a
+ * JSON string, because Expo wraps it. Sending the data message ourselves — which
+ * is the only way `expo-notifications` builds the notification on Android, and
+ * therefore the only way one room's notifications can be dismissed — there is no
+ * wrapper: `serialiseData` writes the keys FLAT, every value a string, because
+ * `FirebaseRemoteMessage.data` has no other type.
+ *
+ * So the payload carries `topicId` beside `tag`, `channelId` and a stringified
+ * `epoch`. If that shape does not parse, the room opens and clears nothing, and
+ * the failure looks exactly like a broken dismiss.
+ */
+function presentedDirectFcm(identifier: string, data: Record<string, unknown>) {
+  const flat: Record<string, string> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v === undefined || v === null) continue;
+    flat[k] = typeof v === 'string' ? v : JSON.stringify(v);
+  }
+  if (flat.topicId) flat.tag = flat.topicId;
+  flat.channelId = 'chat';
+  return {
+    request: {
+      identifier,
+      content: { data: undefined },
+      trigger: { remoteMessage: { data: flat } },
+    },
+  };
+}
+
 /** iOS, where the APNs userInfo rides on `trigger.payload`. */
 function presentedIos(identifier: string, data: Record<string, unknown>) {
   return {
@@ -132,6 +164,39 @@ describe('presentedIdentifier / presentedTopicId', () => {
 
   it('reads a topic id nested under the Expo envelope', () => {
     expect(presentedTopicId(presented('n1', { body: { topicId: A } }))).toBe(A);
+  });
+
+  it('DIRECT FCM: reads the topic from the FLAT string map, with no body wrapper', () => {
+    /*
+     * The shape the server sends today. Through Expo the data was nested under
+     * `body`; sending the data message ourselves there is no wrapper at all, and
+     * a reader that only understood the nested form would find no topic and
+     * clear nothing.
+     */
+    const entry = presentedDirectFcm('n1', { topicId: A, title: 'OpenStoa', message: 'New message' });
+    expect(presentedTopicId(entry)).toBe(A);
+  });
+
+  it('DIRECT FCM: a stringified number beside the topic does not confuse it', () => {
+    // Phase B carries `epoch`, which is a NUMBER in the payload type and a
+    // string on the wire — `FirebaseRemoteMessage.data` has no other type.
+    const entry = presentedDirectFcm('n1', {
+      topicId: A,
+      messageId: '9f0a1b2c-0000-4000-8000-000000000000',
+      epoch: 7,
+      kind: 'key-needed',
+    });
+    expect(presentedTopicId(entry)).toBe(A);
+  });
+
+  it('DIRECT FCM: the tag mirrors the topic, which is what makes dismissal possible', () => {
+    // `expo-notifications` uses `data["tag"]` as the notification identifier,
+    // so a payload whose tag disagreed with its topic would be dismissible only
+    // by a name nothing on this side knows.
+    const entry = presentedDirectFcm('n1', { topicId: A });
+    const data = (entry.request.trigger.remoteMessage as { data: Record<string, string> }).data;
+    expect(data.tag).toBe(A);
+    expect(presentedTopicId(entry)).toBe(data.tag);
   });
 
   it('ANDROID: reads the topic off trigger.remoteMessage.data', () => {
