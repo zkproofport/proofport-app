@@ -525,6 +525,7 @@ export function createZkProofportHostApi(
             ?.eas?.projectId ??
           (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId,
         getExpoPushToken: (projectId) => Notifications.getExpoPushTokenAsync({ projectId }),
+        getDevicePushToken: () => Notifications.getDevicePushTokenAsync(),
         readHandle: () => AsyncStorage.getItem(PUSH_HANDLE_KEY),
         writeHandle: (handle) => AsyncStorage.setItem(PUSH_HANDLE_KEY, handle),
         newUuid: () => Crypto.randomUUID(),

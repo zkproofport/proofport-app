@@ -74,6 +74,22 @@ export interface PushRegistrationDeps {
   projectId?: string;
   /** `Notifications.getExpoPushTokenAsync`. */
   getExpoPushToken(projectId: string): Promise<{ data?: string }>;
+  /**
+   * `Notifications.getDevicePushTokenAsync` — the RAW OS token.
+   *
+   * Android only, and it is what lets the server talk to FCM directly instead
+   * of through Expo's push service. That indirection is what broke per-room
+   * dismissal and the lock-screen preview: measured on a device, an Expo push
+   * to Android arrives as an FCM *notification* message, so Firebase displays
+   * it itself and `expo-notifications` never sees it — its `onMessageReceived`
+   * does not log a single line even in a debug build. A notification Firebase
+   * built carries none of the extras expo stamps, so the app can neither tell
+   * which room it belongs to nor rewrite its body.
+   *
+   * iOS stays on the Expo token: it works there, Expo holds the APNs key, and
+   * moving it would mean signing our own APNs JWTs for no present gain.
+   */
+  getDevicePushToken?(): Promise<{ type?: string; data?: unknown }>;
   /** Persisted routing handle, or null on first run. */
   readHandle(): Promise<string | null>;
   /** Persist a freshly minted routing handle. */
@@ -163,8 +179,24 @@ export async function registerForPushWithDeps(
       return null;
     }
 
-    const tokenResponse = await deps.getExpoPushToken(deps.projectId);
-    const pushToken = tokenResponse?.data;
+    /*
+     * Android takes the raw FCM registration token; iOS keeps the Expo one.
+     *
+     * The server routes on `push_tokens.platform`, so the two shapes never meet
+     * — see `pushProvider.ts`. A device that cannot produce a raw token falls
+     * back to the Expo one rather than registering nothing: a push that arrives
+     * and cannot be dismissed is still better than no push.
+     */
+    let pushToken: string | undefined;
+    if (deps.platform === 'android' && typeof deps.getDevicePushToken === 'function') {
+      const device = await deps.getDevicePushToken().catch(() => null);
+      const raw = device?.data;
+      if (typeof raw === 'string' && raw.length > 0) pushToken = raw;
+    }
+    if (!pushToken) {
+      const tokenResponse = await deps.getExpoPushToken(deps.projectId);
+      pushToken = tokenResponse?.data;
+    }
     if (!pushToken) {
       reportPushRegistration('skipped-empty-token', {
         platform: deps.platform,
