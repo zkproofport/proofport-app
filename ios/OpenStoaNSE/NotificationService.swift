@@ -90,9 +90,42 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
+    /*
+     * GROUPING, before anything that can fail.
+     *
+     * `threadIdentifier` is the only thing iOS groups Notification Center by:
+     * banners sharing one are stacked as a single conversation, banners without
+     * one pile up as N unrelated rows (UNNotificationContent.threadIdentifier —
+     * "for remote notifications, the system sets this property to the value of
+     * the thread-id key in the aps dictionary"). Expo's push API has no field
+     * for `thread-id`, so this extension is the only place it can be set.
+     *
+     * Set here, above the decrypt guard, so it also applies on the placeholder
+     * path: a notification this device holds no key for still belongs to its
+     * conversation, and grouping it is the one thing we can do for it.
+     *
+     * It is NOT what per-conversation CLEARING keys off — that matches on
+     * `data.topicId`, which every payload carries whether or not the NSE ran
+     * (see ../../src/openstoa-host/pushClearing.ts). Grouping and clearing are
+     * independent; this improves the former only.
+     *
+     * Read straight off `dataDictionary` and NOT via `PushPayload.parse`: that
+     * parse also demands `messageId`, `act` and `tv`, and returns nil without
+     * them. `act` is documented as optional (a message not archived yet), so
+     * going through it would drop grouping on exactly the notifications that
+     * already fall back to the placeholder — the ones a grouped stack helps
+     * most.
+     */
+    let pushData = PushPayload.dataDictionary(request.content.userInfo)
+    if let topicId = pushData["topicId"] as? String, !topicId.isEmpty {
+      bestAttemptContent.threadIdentifier = topicId
+    }
+
+    let parsedPush = PushPayload.parse(request.content.userInfo)
+
     // No payload, no key, no plaintext → the Phase A placeholder stands.
     guard
-      let push = PushPayload.parse(request.content.userInfo),
+      let push = parsedPush,
       let previewTak = TakKeychain.readTak(
         topicId: push.topicId,
         takVersion: push.takVersion,

@@ -1,0 +1,227 @@
+/**
+ * Delivered-notification clearing (see ../pushClearing).
+ *
+ * The property under test is NOT "some notifications were dismissed" — it is
+ * WHICH ones. Every case here is written so that a clear-everything
+ * implementation fails it, because clearing everything is the plausible wrong
+ * answer and the one this design deliberately rejects.
+ */
+import {
+  clearDeliveredForTopic,
+  flattenPushData,
+  presentedIdentifier,
+  presentedTopicId,
+} from '../pushClearing';
+
+const A = '11111111-1111-4111-8111-111111111111';
+const B = '22222222-2222-4222-8222-222222222222';
+
+/** One entry as `getPresentedNotificationsAsync` returns it. */
+function presented(identifier: string, data: unknown) {
+  return { request: { identifier, content: { data } } };
+}
+
+interface FakeApiOptions {
+  badge?: number;
+  /** Identifiers whose dismissal should reject, modelling a stubborn one. */
+  failing?: string[];
+  /** Make the tray read itself reject. */
+  listThrows?: boolean;
+}
+
+function fakeApi(entries: unknown[], options: FakeApiOptions = {}) {
+  const dismissed: string[] = [];
+  let badge = options.badge ?? 0;
+  const badgeWrites: number[] = [];
+  /**
+   * How many times the tray was READ. Counted because for a blank topic id the
+   * only observable difference between "guarded" and "unguarded" is whether the
+   * OS is asked at all — the match itself can never succeed either way, so an
+   * assertion about `dismissed` alone passes with the guard deleted and is
+   * decoration rather than a test.
+   */
+  let listReads = 0;
+  return {
+    dismissed,
+    badgeWrites,
+    get listReads() {
+      return listReads;
+    },
+    get badge() {
+      return badge;
+    },
+    api: {
+      getPresentedNotificationsAsync: async () => {
+        listReads += 1;
+        if (options.listThrows) throw new Error('no permission');
+        return entries;
+      },
+      dismissNotificationAsync: async (id: string) => {
+        if (options.failing?.includes(id)) throw new Error('stubborn');
+        dismissed.push(id);
+      },
+      getBadgeCountAsync: async () => badge,
+      setBadgeCountAsync: async (value: number) => {
+        badgeWrites.push(value);
+        badge = value;
+        return true;
+      },
+    },
+  };
+}
+
+describe('flattenPushData', () => {
+  it('accepts an already-flat payload', () => {
+    expect(flattenPushData({ topicId: A })).toEqual({ topicId: A });
+  });
+
+  it('unwraps the Expo `body` envelope', () => {
+    expect(flattenPushData({ body: { topicId: A } })).toEqual({ topicId: A });
+  });
+
+  it('unwraps a `body` that arrived as a JSON string', () => {
+    expect(flattenPushData({ body: JSON.stringify({ topicId: A }) })).toEqual({ topicId: A });
+  });
+
+  it('keeps the top level when `body` is not a payload', () => {
+    expect(flattenPushData({ topicId: A, body: 7 })).toEqual({ topicId: A, body: 7 });
+    expect(flattenPushData({ topicId: A, body: 'not json' })).toEqual({
+      topicId: A,
+      body: 'not json',
+    });
+  });
+
+  it('returns an empty record for anything unusable', () => {
+    for (const input of [null, undefined, 42, [], 'nope']) {
+      expect(flattenPushData(input)).toEqual({});
+    }
+  });
+});
+
+describe('presentedIdentifier / presentedTopicId', () => {
+  it('reads both fields off a well-formed entry', () => {
+    const entry = presented('n1', { topicId: A });
+    expect(presentedIdentifier(entry)).toBe('n1');
+    expect(presentedTopicId(entry)).toBe(A);
+  });
+
+  it('reads a topic id nested under the Expo envelope', () => {
+    expect(presentedTopicId(presented('n1', { body: { topicId: A } }))).toBe(A);
+  });
+
+  it('returns null rather than throwing on junk', () => {
+    for (const entry of [null, undefined, {}, { request: {} }, 5]) {
+      expect(presentedIdentifier(entry)).toBeNull();
+      expect(presentedTopicId(entry)).toBeNull();
+    }
+    expect(presentedIdentifier(presented('', { topicId: A }))).toBeNull();
+    expect(presentedTopicId(presented('n1', { topicId: '   ' }))).toBeNull();
+    expect(presentedTopicId(presented('n1', { topicId: 42 }))).toBeNull();
+  });
+});
+
+describe('clearDeliveredForTopic', () => {
+  it('dismisses only the notifications of the named conversation', async () => {
+    const f = fakeApi([
+      presented('a1', { topicId: A }),
+      presented('b1', { topicId: B }),
+      presented('a2', { topicId: A }),
+    ]);
+    await expect(clearDeliveredForTopic(f.api, A)).resolves.toBe(2);
+    expect(f.dismissed).toEqual(['a1', 'a2']);
+  });
+
+  it('leaves another conversation alone even when it is the only one there', async () => {
+    const f = fakeApi([presented('b1', { topicId: B })]);
+    await expect(clearDeliveredForTopic(f.api, A)).resolves.toBe(0);
+    expect(f.dismissed).toEqual([]);
+  });
+
+  it('matches through the Expo `body` envelope', async () => {
+    const f = fakeApi([presented('a1', { body: { topicId: A } })]);
+    await expect(clearDeliveredForTopic(f.api, A)).resolves.toBe(1);
+    expect(f.dismissed).toEqual(['a1']);
+  });
+
+  it('clears a `key-needed` notification for the same conversation too', async () => {
+    // Same room, different `kind`. Being in the room is being in the room.
+    const f = fakeApi([presented('k1', { topicId: A, kind: 'key-needed', epoch: 3 })]);
+    await expect(clearDeliveredForTopic(f.api, A)).resolves.toBe(1);
+  });
+
+  it('trims the caller-supplied id before matching', async () => {
+    const f = fakeApi([presented('a1', { topicId: A })]);
+    await expect(clearDeliveredForTopic(f.api, `  ${A}  `)).resolves.toBe(1);
+  });
+
+  it('is a no-op — NOT a whole-tray wipe — for a missing or blank topic id', async () => {
+    for (const bad of [undefined, null, '', '   ', 42, {}, []]) {
+      const f = fakeApi([presented('a1', { topicId: A }), presented('b1', { topicId: B })]);
+      await expect(clearDeliveredForTopic(f.api, bad)).resolves.toBe(0);
+      expect(f.dismissed).toEqual([]);
+      // Rejected before the OS is even asked — see `listReads` above.
+      expect(f.listReads).toBe(0);
+    }
+  });
+
+  it('never dismisses a notification carrying no topic id', async () => {
+    const f = fakeApi([presented('x1', {}), presented('x2', null), presented('a1', { topicId: A })]);
+    await expect(clearDeliveredForTopic(f.api, A)).resolves.toBe(1);
+    expect(f.dismissed).toEqual(['a1']);
+  });
+
+  it('survives a tray read that rejects', async () => {
+    const f = fakeApi([presented('a1', { topicId: A })], { listThrows: true });
+    await expect(clearDeliveredForTopic(f.api, A)).resolves.toBe(0);
+    expect(f.dismissed).toEqual([]);
+  });
+
+  it('keeps going when one dismissal rejects', async () => {
+    const f = fakeApi([presented('a1', { topicId: A }), presented('a2', { topicId: A })], {
+      failing: ['a1'],
+    });
+    await expect(clearDeliveredForTopic(f.api, A)).resolves.toBe(1);
+    expect(f.dismissed).toEqual(['a2']);
+  });
+
+  it('degrades to a no-op on a host with no notifications API at all', async () => {
+    await expect(clearDeliveredForTopic(null, A)).resolves.toBe(0);
+    await expect(clearDeliveredForTopic(undefined, A)).resolves.toBe(0);
+    await expect(clearDeliveredForTopic({} as never, A)).resolves.toBe(0);
+  });
+
+  it('clears a stale badge once the tray is empty', async () => {
+    const f = fakeApi([presented('a1', { topicId: A })], { badge: 3 });
+    await clearDeliveredForTopic(f.api, A);
+    expect(f.badgeWrites).toEqual([0]);
+  });
+
+  it('leaves the badge alone while another conversation still has a notification', async () => {
+    const f = fakeApi([presented('a1', { topicId: A }), presented('b1', { topicId: B })], {
+      badge: 3,
+    });
+    await clearDeliveredForTopic(f.api, A);
+    expect(f.badgeWrites).toEqual([]);
+    expect(f.badge).toBe(3);
+  });
+
+  it('never WRITES a badge that was already zero', async () => {
+    // The server sends no badge today, so this is the live case: one pointless
+    // native call per room entry is exactly what this guard exists to avoid.
+    const f = fakeApi([presented('a1', { topicId: A })], { badge: 0 });
+    await clearDeliveredForTopic(f.api, A);
+    expect(f.badgeWrites).toEqual([]);
+  });
+
+  it('works on an older expo-notifications with no badge members', async () => {
+    const dismissed: string[] = [];
+    const api = {
+      getPresentedNotificationsAsync: async () => [presented('a1', { topicId: A })],
+      dismissNotificationAsync: async (id: string) => {
+        dismissed.push(id);
+      },
+    };
+    await expect(clearDeliveredForTopic(api, A)).resolves.toBe(1);
+    expect(dismissed).toEqual(['a1']);
+  });
+});

@@ -26,6 +26,7 @@ import {
   subscribeHostPushReceived,
 } from './pushTapBridge';
 import { registerForPushWithDeps } from './pushRegistration';
+import { clearDeliveredForTopic } from './pushClearing';
 import { fetchWithDeadline } from './fetchWithDeadline';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
@@ -534,6 +535,20 @@ export function createZkProofportHostApi(
     // whoever just joined without its owner doing anything, which is the point
     // of sending that notification at all. It never navigates.
     onPushNotificationReceived: (listener) => subscribeHostPushReceived(listener),
+
+    // Remove the notifications a conversation already delivered, now that the
+    // user is reading it. Nothing cleared these before: a chat push sat in
+    // Notification Center until its own banner was tapped, so opening the app
+    // — or the very room the push came from — left the tray full of messages
+    // already read.
+    //
+    // Scoped to ONE conversation on purpose. Clearing the whole tray on
+    // foreground would take room B's unread banner away because the user
+    // opened room A, and that banner is their only record that B is waiting.
+    // The decision logic and its edge cases live in ./pushClearing.
+    clearTopicNotifications: async (topicId: string) => {
+      await clearDeliveredForTopic(Notifications, topicId);
+    },
 
     // Phase 7 push previews (design §13.6 strategy A): mirror one topic's Topic
     // Archive Key into storage this platform's BACKGROUND notification handler can
