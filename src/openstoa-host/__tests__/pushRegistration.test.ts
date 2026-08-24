@@ -93,6 +93,73 @@ function deps(over: Partial<PushRegistrationDeps> = {}): PushRegistrationDeps {
   };
 }
 
+describe('a non-device: iOS skips, Android tries anyway', () => {
+  /*
+   * THE CORRECTION, and why it is worth a block of its own.
+   *
+   * This used to return `skipped-no-device` for anything `expo-device` calls a
+   * non-device, on the stated grounds that "a real APNs/FCM token only exists on
+   * a physical device". That holds for APNs — an iOS simulator has no APNs
+   * registration to give — and does not hold for FCM: an Android emulator with
+   * Google Play services mints an ordinary registration token.
+   *
+   * Verified, not reasoned about. On a Play-enabled Android 16 emulator the
+   * real flow produced `outcome=registered` with a 142-byte raw FCM token —
+   * the same length the physical device registers — and a push sent to it
+   * arrived and was dismissed by room.
+   *
+   * The old guard had a real cost: per-room dismissal could only be exercised
+   * on physical hardware, so an unreachable phone stopped the work outright.
+   * And nothing downstream needed it — the token paths already end in
+   * `skipped-empty-token` when nothing comes back, which is the honest answer
+   * for a simulator without having to predict in advance which devices can
+   * mint one.
+   */
+  it('ANDROID: an emulator that CAN mint a token registers', async () => {
+    const out = await registerForPushWithDeps(
+      deps({
+        isDevice: false,
+        platform: 'android',
+        getDevicePushToken: async () => ({ data: 'd'.repeat(142) }),
+      }),
+    );
+    expect(out?.pushToken).toBe('d'.repeat(142));
+    expect(outcome()).toBe('registered');
+  });
+
+  it('ANDROID: an emulator that cannot mint one ends as empty-token, not as no-device', async () => {
+    // The honest outcome for a simulator: it was asked, and it had nothing.
+    const out = await registerForPushWithDeps(
+      deps({
+        isDevice: false,
+        platform: 'android',
+        getDevicePushToken: async () => ({ data: '' }),
+        getExpoPushToken: async () => ({ data: '' }) as never,
+      }),
+    );
+    expect(out).toBeNull();
+    expect(outcome()).toBe('skipped-empty-token');
+  });
+
+  it('iOS: a simulator still skips before asking — there is no APNs registration to get', async () => {
+    const getPermissions = jest.fn(async () => ({ granted: true, status: 'granted' }));
+    const out = await registerForPushWithDeps(deps({ isDevice: false, platform: 'ios', getPermissions }));
+    expect(out).toBeNull();
+    expect(outcome()).toBe('skipped-no-device');
+    // Skipped EARLY: a simulator must not be prompted for a permission that
+    // cannot lead anywhere.
+    expect(getPermissions).not.toHaveBeenCalled();
+  });
+
+  it('a real device is unaffected on both platforms', async () => {
+    const out = await registerForPushWithDeps(
+      deps({ isDevice: true, platform: 'android', getDevicePushToken: async () => ({ data: 'raw-fcm' }) }),
+    );
+    expect(out?.pushToken).toBe('raw-fcm');
+    expect(outcome()).toBe('registered');
+  });
+});
+
 describe('registerForPushWithDeps — the happy path still works', () => {
   it('returns the registration and logs outcome=registered exactly once', async () => {
     const out = await registerForPushWithDeps(deps());

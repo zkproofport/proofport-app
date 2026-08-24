@@ -146,9 +146,28 @@ export async function registerForPushWithDeps(
   deps: PushRegistrationDeps,
 ): Promise<PushRegistration | null> {
   try {
-    // A real APNs/FCM token only exists on a physical device — a simulator or
-    // emulator has none, so skip rather than error.
-    if (!deps.isDevice) {
+    /*
+     * ANDROID DOES NOT SKIP ON `isDevice`, and that is a correction.
+     *
+     * This used to return here for anything `expo-device` calls a non-device,
+     * on the stated grounds that "a real APNs/FCM token only exists on a
+     * physical device". For APNs that holds — an iOS simulator has no APNs
+     * registration to give. For FCM it does not: an Android emulator with
+     * Google Play services mints a perfectly ordinary registration token, and
+     * this was verified rather than assumed. On a Play-enabled Android 16
+     * emulator the flow below produced `outcome=registered` with a 142-byte raw
+     * FCM token — the same length the physical device registers — and a push
+     * sent to it arrived and was dismissed by room.
+     *
+     * The cost of the old guard was not theoretical. Per-room dismissal could
+     * only ever be exercised on physical hardware, so when the phone was
+     * unreachable the work stopped; an emulator would have settled it in
+     * minutes. Nothing downstream needed the guard either: the token paths
+     * below already end in `skipped-empty-token` when nothing comes back, which
+     * is the honest answer for a simulator and does not require guessing in
+     * advance which devices can mint one.
+     */
+    if (!deps.isDevice && deps.platform !== 'android') {
       reportPushRegistration('skipped-no-device', { platform: deps.platform });
       return null;
     }
