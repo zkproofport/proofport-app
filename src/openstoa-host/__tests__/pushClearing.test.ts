@@ -21,6 +21,31 @@ function presented(identifier: string, data: unknown) {
   return { request: { identifier, content: { data } } };
 }
 
+/**
+ * Android, as `expo-notifications` really hands it over.
+ *
+ * The FCM payload is on `trigger.remoteMessage.data`, NOT on `content.data` —
+ * and every value in it is a STRING, because that is what
+ * `FirebaseRemoteMessage.data: Record<string, string>` is. Expo nests the
+ * message's own data under `body`, so what arrives is a JSON string.
+ */
+function presentedAndroid(identifier: string, data: Record<string, unknown>) {
+  return {
+    request: {
+      identifier,
+      content: { data: undefined },
+      trigger: { remoteMessage: { data: { body: JSON.stringify(data) } } },
+    },
+  };
+}
+
+/** iOS, where the APNs userInfo rides on `trigger.payload`. */
+function presentedIos(identifier: string, data: Record<string, unknown>) {
+  return {
+    request: { identifier, content: { data: undefined }, trigger: { payload: { body: data } } },
+  };
+}
+
 interface FakeApiOptions {
   badge?: number;
   /** Identifiers whose dismissal should reject, modelling a stubborn one. */
@@ -109,6 +134,23 @@ describe('presentedIdentifier / presentedTopicId', () => {
     expect(presentedTopicId(presented('n1', { body: { topicId: A } }))).toBe(A);
   });
 
+  it('ANDROID: reads the topic off trigger.remoteMessage.data', () => {
+    // THE DEFECT. Only `content.data` was read, which on Android is empty for a
+    // pushed notification — so nothing ever matched, the tray never emptied,
+    // and iOS working made it look like nothing was wrong.
+    expect(presentedTopicId(presentedAndroid('n1', { topicId: A }))).toBe(A);
+  });
+
+  it('IOS: reads the topic off trigger.payload', () => {
+    expect(presentedTopicId(presentedIos('n1', { topicId: A }))).toBe(A);
+  });
+
+  it('INTEGRITY: an Android notification for another room is not matched', () => {
+    // The widened read must not turn into "match anything with a topicId".
+    expect(presentedTopicId(presentedAndroid('n1', { topicId: B }))).toBe(B);
+    expect(presentedTopicId(presentedAndroid('n1', {}))).toBeNull();
+  });
+
   it('returns null rather than throwing on junk', () => {
     for (const entry of [null, undefined, {}, { request: {} }, 5]) {
       expect(presentedIdentifier(entry)).toBeNull();
@@ -117,6 +159,21 @@ describe('presentedIdentifier / presentedTopicId', () => {
     expect(presentedIdentifier(presented('', { topicId: A }))).toBeNull();
     expect(presentedTopicId(presented('n1', { topicId: '   ' }))).toBeNull();
     expect(presentedTopicId(presented('n1', { topicId: 42 }))).toBeNull();
+  });
+
+  it('a trigger that names no topic is null, not a wildcard', () => {
+    // These all have a perfectly good IDENTIFIER — only the topic is missing.
+    // A null here means "not this conversation"; anything else would let one
+    // room's notification be dismissed by opening another.
+    for (const entry of [
+      { request: { identifier: 'n1', trigger: {} } },
+      { request: { identifier: 'n1', trigger: { remoteMessage: {} } } },
+      { request: { identifier: 'n1', trigger: { remoteMessage: { data: 'not json' } } } },
+      { request: { identifier: 'n1', trigger: { payload: { body: { other: 'field' } } } } },
+    ]) {
+      expect(presentedIdentifier(entry)).toBe('n1');
+      expect(presentedTopicId(entry)).toBeNull();
+    }
   });
 });
 

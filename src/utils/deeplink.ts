@@ -53,8 +53,46 @@ export interface ProofRequest {
    * so nothing that arrives in a deep link is trusted on arrival.
    */
   returnScheme?: string;
+  /**
+   * Where this request came into the app from. NOT parsed from the URL — the
+   * entry point that received it sets this, and overwrites whatever a `data`
+   * blob may have carried under the same name. See `ProofRequestOrigin`.
+   */
+  origin?: ProofRequestOrigin;
   createdAt: number;
   expiresAt?: number;
+}
+
+/**
+ * How a proof request reached this app, which is the only thing that decides
+ * whether there is anywhere to hand the user back to when it finishes.
+ *
+ * - `link` — another app on this device opened our scheme (`Linking`). It is
+ *   still in the task stack behind us, so returning to it is meaningful.
+ * - `scan` — we read a QR code off someone else's screen. The requester is on
+ *   a different machine entirely; nothing on this device is waiting.
+ * - `self` — this app issued the request to itself, which is how the OpenStoa
+ *   mini-app logs in: it asks the OpenStoa server for a proof request and
+ *   feeds the resulting deep link straight back into our own pipeline
+ *   (`runSelfRelayLogin`). "Return to the requester" here means backgrounding
+ *   the app the user is actively using.
+ *
+ * Only `link` has an app behind it. The other two must stay put — see
+ * `requesterIsAnotherApp`.
+ */
+export type ProofRequestOrigin = 'link' | 'scan' | 'self';
+
+/**
+ * Is there another app on this device to hand the user back to?
+ *
+ * Absence is deliberately NOT treated as `link`. A request that reached us
+ * through a path nobody classified is a request we know nothing about, and the
+ * cost of guessing wrong is asymmetric: guessing "stay" leaves the user on a
+ * success screen they can leave themselves, while guessing "return" can
+ * background the app mid-flow with no way to tell that is what happened.
+ */
+export function requesterIsAnotherApp(origin?: ProofRequestOrigin): boolean {
+  return origin === 'link';
 }
 
 export type VerificationType = 'on-chain' | 'off-chain';
@@ -116,7 +154,10 @@ function decodeData<T>(encoded: string): T {
   return JSON.parse(json) as T;
 }
 
-export function parseProofRequestUrl(url: string): ProofRequest | null {
+export function parseProofRequestUrl(
+  url: string,
+  origin: ProofRequestOrigin,
+): ProofRequest | null {
   try {
     const urlObj = new URL(url);
     const params = urlObj.searchParams;
@@ -137,6 +178,12 @@ export function parseProofRequestUrl(url: string): ProofRequest | null {
         (request.inputs as any).scope = decoded.scope;
       }
       // requestId and other relay fields stay at top level, do NOT merge into inputs
+      //
+      // `origin` is assigned LAST and unconditionally. This branch decodes a
+      // whole object out of an attacker-suppliable base64 blob, so an `origin`
+      // field can arrive from outside; overwriting it is what stops a remote
+      // request from claiming it came from an app on this device.
+      request.origin = origin;
       console.log('[DeepLink] Parsed request (format 1):', request.requestId);
       return request;
     }
@@ -171,6 +218,8 @@ export function parseProofRequestUrl(url: string): ProofRequest | null {
       dappName: params.get('dappName') || undefined,
       dappIcon: params.get('dappIcon') || undefined,
       returnScheme: params.get('returnScheme') || undefined,
+      // Not read from the URL — see ProofRequestOrigin.
+      origin,
       createdAt: Date.now(),
       expiresAt: params.get('expiresAt')
         ? parseInt(params.get('expiresAt')!, 10)
@@ -542,10 +591,19 @@ async function moveSelfToBack(): Promise<boolean> {
  */
 export async function sendProofResponseAndReturn(
   response: ProofResponse,
-  request: Pick<ProofRequest, 'callbackUrl' | 'returnScheme'>,
+  request: Pick<ProofRequest, 'callbackUrl' | 'returnScheme' | 'origin'>,
 ): Promise<boolean> {
   const delivered = await sendProofResponse(response, request.callbackUrl);
-  await returnToRequester(request.returnScheme);
+  if (requesterIsAnotherApp(request.origin)) {
+    await returnToRequester(request.returnScheme);
+  } else {
+    // Nobody is waiting outside. Leaving the user on the completion screen is
+    // the whole behaviour here, so say so rather than returning silently.
+    console.log(
+      '[DeepLink] Request originated in-app (%s) — staying put',
+      request.origin ?? 'unclassified',
+    );
+  }
   return delivered;
 }
 

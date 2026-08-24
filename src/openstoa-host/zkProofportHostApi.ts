@@ -223,7 +223,14 @@ export function createZkProofportHostApi(
 
     // Self-trigger the deep link via the in-process bridge — this avoids
     // bouncing through Linking.openURL and keeps the URL exactly as issued.
-    triggerDeepLink(reqData.deepLink);
+    //
+    // 'self' is load-bearing, not documentation: the request that comes back
+    // out of this pipeline finishes by handing the user back to "the
+    // requester", and the requester is this app. On Android that used to mean
+    // moveTaskToBack() the moment the proof was delivered — the app dropped
+    // out from under the user mid-login, and only re-entering it revealed that
+    // the poll below had carried on and succeeded.
+    triggerDeepLink(reqData.deepLink, 'self');
 
     // Poll the OpenStoa server for completion. The server polls its relay
     // and verifies the proof on-chain before returning a session token.

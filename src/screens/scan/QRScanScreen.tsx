@@ -58,7 +58,10 @@ const QRScanScreen: React.FC = () => {
             navigation.goBack();
           }
           setTimeout(() => {
-            triggerDeepLink(value);
+            // 'scan': the requester is on whatever screen we just read this
+            // code off — another machine. Nothing on this device is waiting
+            // behind us, so the completion screen is where the user stays.
+            triggerDeepLink(value, 'scan');
           }, 300);
         } else if (value.startsWith('http://') || value.startsWith('https://')) {
           Alert.alert(

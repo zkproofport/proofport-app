@@ -32,7 +32,9 @@ import {
   returnToRequester,
   sendProofResponseAndReturn,
   parseProofRequestUrl,
+  requesterIsAnotherApp,
   MAX_RETURN_SCHEME_LENGTH,
+  type ProofRequestOrigin,
   type ProofResponse,
 } from '../deeplink';
 import {
@@ -396,7 +398,7 @@ describe('sendProofResponseAndReturn — completion contract', () => {
     });
 
     await expect(
-      sendProofResponseAndReturn(response, {callbackUrl, returnScheme: 'mydapp://'}),
+      sendProofResponseAndReturn(response, {origin: 'link', callbackUrl, returnScheme: 'mydapp://'}),
     ).resolves.toBe(true);
 
     // Removing the returnToRequester() call from the success path fails here.
@@ -417,7 +419,7 @@ describe('sendProofResponseAndReturn — completion contract', () => {
       return true;
     });
 
-    await expect(sendProofResponseAndReturn(response, {callbackUrl})).resolves.toBe(true);
+    await expect(sendProofResponseAndReturn(response, {origin: 'link', callbackUrl})).resolves.toBe(true);
     expect(order).toEqual(['callback', 'moveTaskToBack']);
   });
 
@@ -425,7 +427,7 @@ describe('sendProofResponseAndReturn — completion contract', () => {
   it('delivers the proof and shows the notice when no returnScheme was supplied', async () => {
     const fetchMock = mockCallbackOk();
 
-    await expect(sendProofResponseAndReturn(response, {callbackUrl})).resolves.toBe(true);
+    await expect(sendProofResponseAndReturn(response, {origin: 'link', callbackUrl})).resolves.toBe(true);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(mockOpenURL).not.toHaveBeenCalled();
@@ -438,7 +440,7 @@ describe('sendProofResponseAndReturn — completion contract', () => {
     mockOpenURL.mockRejectedValue(new Error('No app handles mydapp://'));
 
     await expect(
-      sendProofResponseAndReturn(response, {callbackUrl, returnScheme: 'mydapp://'}),
+      sendProofResponseAndReturn(response, {origin: 'link', callbackUrl, returnScheme: 'mydapp://'}),
     ).resolves.toBe(true);
   });
 
@@ -446,7 +448,7 @@ describe('sendProofResponseAndReturn — completion contract', () => {
     (global as any).fetch = jest.fn().mockResolvedValue({ok: false, status: 500, statusText: 'err'});
 
     await expect(
-      sendProofResponseAndReturn(response, {callbackUrl, returnScheme: 'mydapp://'}),
+      sendProofResponseAndReturn(response, {origin: 'link', callbackUrl, returnScheme: 'mydapp://'}),
     ).resolves.toBe(false);
     expect(mockOpenURL).toHaveBeenCalledWith('mydapp://');
   });
@@ -461,7 +463,7 @@ describe('sendProofResponseAndReturn — completion contract', () => {
     mockCallbackOk();
 
     await expect(
-      sendProofResponseAndReturn(response, {callbackUrl, returnScheme: value}),
+      sendProofResponseAndReturn(response, {origin: 'link', callbackUrl, returnScheme: value}),
     ).resolves.toBe(true);
     expect(mockOpenURL).not.toHaveBeenCalled();
   });
@@ -486,19 +488,20 @@ describe('deep link round trip', () => {
   };
 
   it('carries returnScheme through the relay data payload', () => {
-    const parsed = parseProofRequestUrl(buildRelayDeepLink({...base, returnScheme: 'mydapp://'}));
+    const parsed = parseProofRequestUrl(buildRelayDeepLink({...base, returnScheme: 'mydapp://'}), 'link');
     expect(parsed?.returnScheme).toBe('mydapp://');
   });
 
   it('carries googlechrome:// through the relay data payload', () => {
     const parsed = parseProofRequestUrl(
       buildRelayDeepLink({...base, returnScheme: 'googlechrome://'}),
+      'link',
     );
     expect(parsed?.returnScheme).toBe('googlechrome://');
   });
 
   it('leaves returnScheme undefined when the relay did not set it', () => {
-    const parsed = parseProofRequestUrl(buildRelayDeepLink(base));
+    const parsed = parseProofRequestUrl(buildRelayDeepLink(base), 'link');
     expect(parsed?.returnScheme).toBeUndefined();
   });
 
@@ -507,6 +510,6 @@ describe('deep link round trip', () => {
       'zkproofport://proof-request?circuit=coinbase_attestation&requestId=req-1' +
       '&callbackUrl=https%3A%2F%2Frelay.zkproofport.app%2Fapi%2Fv1%2Fproof%2Fcallback' +
       '&returnScheme=mydapp%3A%2F%2F';
-    expect(parseProofRequestUrl(url)?.returnScheme).toBe('mydapp://');
+    expect(parseProofRequestUrl(url, 'link')?.returnScheme).toBe('mydapp://');
   });
 });

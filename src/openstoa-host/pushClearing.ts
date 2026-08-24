@@ -75,9 +75,31 @@ export function flattenPushData(data: unknown): Record<string, unknown> {
   return nested ?? top;
 }
 
-/** One delivered notification, as `getPresentedNotificationsAsync` returns it. */
+/**
+ * One delivered notification, as `getPresentedNotificationsAsync` returns it.
+ *
+ * THREE places the data can be, and which one is populated depends on the
+ * platform. From `expo-notifications`' own typings:
+ *
+ *   PushNotificationTrigger = {
+ *     type: 'push';
+ *     payload?: Record<string, unknown>;        // @platform ios
+ *     remoteMessage?: FirebaseRemoteMessage;    // @platform android
+ *   }
+ *
+ * `content.data` is what a notification SCHEDULED by the app carries, and on
+ * iOS it is also filled in for a remote one. On Android the FCM payload lands
+ * on `trigger.remoteMessage.data` instead — so reading only `content.data`
+ * found nothing to match, every notification counted as "not this topic", and
+ * the tray stayed full however many times the room was opened. iOS worked, so
+ * nothing looked broken.
+ */
 interface PresentedShape {
-  request?: { identifier?: unknown; content?: { data?: unknown } };
+  request?: {
+    identifier?: unknown;
+    content?: { data?: unknown };
+    trigger?: { payload?: unknown; remoteMessage?: { data?: unknown } };
+  };
 }
 
 /** The identifier `dismissNotificationAsync` needs, or null if there is none. */
@@ -86,13 +108,29 @@ export function presentedIdentifier(notification: unknown): string | null {
   return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
-/** The topic a delivered notification belongs to, or null when it names none. */
+/**
+ * The topic a delivered notification belongs to, or null when it names none.
+ *
+ * Tries every place the payload can be, first hit wins. Order is not
+ * significant — a notification only ever populates one of them — but checking
+ * all three is, because which one it is depends on the platform AND on whether
+ * the notification was scheduled locally or pushed.
+ */
 export function presentedTopicId(notification: unknown): string | null {
-  const data = (notification as PresentedShape | null | undefined)?.request?.content?.data;
-  const topicId = flattenPushData(data).topicId;
-  if (typeof topicId !== 'string') return null;
-  const trimmed = topicId.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  const request = (notification as PresentedShape | null | undefined)?.request;
+  const candidates = [
+    request?.content?.data,
+    request?.trigger?.remoteMessage?.data,
+    request?.trigger?.payload,
+  ];
+  for (const candidate of candidates) {
+    if (candidate === undefined || candidate === null) continue;
+    const topicId = flattenPushData(candidate).topicId;
+    if (typeof topicId !== 'string') continue;
+    const trimmed = topicId.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return null;
 }
 
 /**

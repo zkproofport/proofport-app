@@ -30,7 +30,9 @@ import {
   validateRequestWithRelay,
   sendProofResponse,
   returnToRequester,
+  requesterIsAnotherApp,
   isProofportDeepLink,
+  type ProofRequestOrigin,
 } from './src/utils/deeplink';
 import type {ProofRequest} from './src/types';
 import {setActiveProofRequest, clearActiveProofRequest} from './src/stores/activeProofRequestStore';
@@ -61,7 +63,10 @@ const App: React.FC = () => {
   // Auto-reset when app returns from background after 10 minutes
   useAppStateReset({onReset: handleAppReset});
 
-  const handleDeepLink = useCallback(async (url: string | null) => {
+  const handleDeepLink = useCallback(async (
+    url: string | null,
+    origin: ProofRequestOrigin,
+  ) => {
     if (!url) {
       console.log('[App] handleDeepLink called with null URL');
       return;
@@ -75,13 +80,13 @@ const App: React.FC = () => {
       return;
     }
 
-    const request = parseProofRequestUrl(url);
+    const request = parseProofRequestUrl(url, origin);
     if (!request) {
       showGlobalError('E1001', 'Failed to parse deep link URL');
       return;
     }
 
-    console.log('[App] Parsed requestId:', request.requestId);
+    console.log('[App] Parsed requestId:', request.requestId, 'origin:', origin);
 
     // Only skip if we're currently processing this exact request
     if (activeRequestId.current === request.requestId) {
@@ -159,7 +164,7 @@ const App: React.FC = () => {
       if (url) {
         console.log('[App] Initial URL:', url);
         // Delay to ensure navigation is ready
-        setTimeout(() => handleDeepLink(url), 500);
+        setTimeout(() => handleDeepLink(url, 'link'), 500);
       }
     };
 
@@ -167,7 +172,7 @@ const App: React.FC = () => {
 
     // Listen for incoming links
     const subscription = Linking.addEventListener('url', event => {
-      handleDeepLink(event.url);
+      handleDeepLink(event.url, 'link');
     });
 
     return () => {
@@ -293,7 +298,14 @@ const App: React.FC = () => {
     // now has three endings: open the requester's scheme, background ourselves
     // on Android so the previous app resumes, or — when neither is possible —
     // raise the notice telling them to switch back themselves.
-    await returnToRequester(pendingRequest.returnScheme, 'declined');
+    //
+    // Only when they actually came from somewhere. Declining the OpenStoa
+    // mini-app's own login request has the same shape as declining a dapp's,
+    // and backgrounding the app on that path is the same defect as on the
+    // success path.
+    if (requesterIsAnotherApp(pendingRequest.origin)) {
+      await returnToRequester(pendingRequest.returnScheme, 'declined');
+    }
 
     // Clear active request so new requests can be processed
     activeRequestId.current = null;
