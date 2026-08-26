@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform, StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
@@ -15,6 +16,13 @@ import HistoryStackNavigator from './stacks/HistoryStackNavigator';
 import OpenStoaMarkIcon from '../components/icons/OpenStoaMarkIcon';
 import { OPENSTOA_ENABLED } from '../config';
 import { setOpenStoaTabNavigation } from '../openstoa-host/pushTapBridge';
+import { readOpenStoaToken } from '../openstoa-host/zkProofportHostApi';
+import { resolveOpenStoaBaseUrl } from '../openstoa-host/openStoaBaseUrl';
+import {
+  refreshUnreadBadgeFromServer,
+  subscribeUnreadBadge,
+  unreadBadgeCount,
+} from '../openstoa-host/unreadBadge';
 import { useThemeColors } from '../context';
 import { useCurrentLanguage } from '../i18n';
 
@@ -24,6 +32,8 @@ const ScanTabButton: React.FC<any> = ({ onPress, accessibilityState }) => {
   const focused = accessibilityState?.selected;
   const { mode, colors: themeColors } = useThemeColors();
   const { t } = useTranslation();
+
+
   const inactiveTintColor = mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
 
   return (
@@ -66,6 +76,49 @@ function isFullScreenModalRoute(route: any): boolean {
 }
 
 const TabNavigator: React.FC = () => {
+  /*
+   * The mini-app's unread total, mirrored onto this tab.
+   *
+   * Subscribed rather than polled: `unreadBadge` calls back the moment the
+   * mini-app reports, and immediately on mount with whatever it last said — so
+   * a tab bar that remounts does not blank a badge that is still correct.
+   */
+  const [openStoaUnread, setOpenStoaUnread] = useState(unreadBadgeCount());
+  useEffect(() => subscribeUnreadBadge(setOpenStoaUnread), []);
+
+  /*
+   * Refresh the count WITHOUT opening the mini-app.
+   *
+   * The mini-app owns the number while it is running, and it only runs once
+   * someone opens the OpenStoa tab — which is the moment a badge stops being
+   * useful. Verified on the device: three unread on the server, the app
+   * relaunched, and this tab carried nothing until the mini-app was opened. A
+   * badge that appears only after you have gone looking is not a badge.
+   *
+   * So the host asks for itself: once on mount, and again whenever the app
+   * comes back to the foreground, which is when a person looks at the tab bar.
+   * The two writers do not fight — both go through `setUnreadBadge`, which
+   * ignores an unchanged value, and while the mini-app is running its number is
+   * the fresher of the two.
+   */
+  useEffect(() => {
+    const refresh = () => {
+      void (async () => {
+        await refreshUnreadBadgeFromServer({
+          baseUrl: resolveOpenStoaBaseUrl(),
+          token: await readOpenStoaToken(),
+        });
+      })();
+    };
+    refresh();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => sub.remove();
+  }, []);
+  const openStoaBadge =
+    openStoaUnread > 0 ? (openStoaUnread > 99 ? '99+' : String(openStoaUnread)) : undefined;
+
   const { mode, colors: themeColors } = useThemeColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -154,6 +207,37 @@ const TabNavigator: React.FC = () => {
             tabBarIcon: ({ size, color }) => (
               <OpenStoaMarkIcon size={size} color={color} />
             ),
+            /*
+             * Waiting messages, on the tab.
+             *
+             * The count comes from the mini-app over the bridge — it is the
+             * only side that knows what has been read — and the same number
+             * goes on the app icon, so the two cannot disagree. Before this
+             * there was no badge anywhere: a push that arrived while the app
+             * was closed left nothing behind once its notification was swiped
+             * away, and opening the app said nothing.
+             *
+             * `undefined` when there is nothing: React Navigation draws a
+             * literal "0" otherwise, and a badge with nothing behind it is
+             * worse than no badge.
+             */
+            tabBarBadge: openStoaBadge,
+            /*
+             * The badge draws "99+" past a hundred waiting messages, and React
+             * Navigation's default badge is a fixed-width circle sized for one or two
+             * digits — so it clipped that to "9…" here and on the mini-app's own Chat
+             * tab, while the room row two taps away read "99+". Measured on the device
+             * at 103 unread (2026-08-26); the mini-app's twin carries the same style
+             * for the same reason.
+             *
+             * `minWidth` + padding, not a wider fixed size: one digit keeps its circle.
+             */
+            tabBarBadgeStyle: {
+              minWidth: 20,
+              paddingHorizontal: 5,
+              fontSize: 11,
+              lineHeight: 16,
+            },
             // Hide host tab bar while the mini-app owns its own; otherwise
             // fall through to the screenOptions selector so a modal route
             // focused INSIDE OpenStoa also hides the bar correctly.
