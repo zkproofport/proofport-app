@@ -23,6 +23,7 @@
  * `pendingBindTarget` is non-null), the binding is written immediately —
  * binding happens at connect time, NOT at proof-success time.
  */
+import {useTranslation} from 'react-i18next';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Card} from '../../components/ui';
@@ -87,6 +88,7 @@ function rowStatus(entry: Entry | null, account: string | null): Status {
 
 export const CircuitWalletsCard: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
+  const {t} = useTranslation();
   const {account, connect, disconnect} = usePrivyWallet();
   const {settings} = useSettings();
   const developerMode = settings?.developerMode ?? false;
@@ -223,12 +225,10 @@ export const CircuitWalletsCard: React.FC = () => {
           textTransform: 'uppercase',
           marginBottom: 8,
         }}>
-        Circuit wallets
+        {t('host.wallet.circuitWallets')}
       </Text>
       <Text style={{fontSize: 13, color: themeColors.text.secondary, marginBottom: 16}}>
-        Each circuit binds to its own wallet at connect time. Tap Connect to
-        link a wallet to a circuit; Clear unbinds. A wallet shows as Connected
-        only while it is the currently active session.
+        {t('host.wallet.circuitWalletsHint')}
       </Text>
       {visibleCircuits.map((c) => {
         const e = entries[c] ?? null;
@@ -259,7 +259,7 @@ export const CircuitWalletsCard: React.FC = () => {
                 </>
               ) : (
                 <Text style={{fontSize: 12, color: themeColors.text.tertiary, marginTop: 2}}>
-                  not bound — tap Connect to link a wallet
+                  {t('host.wallet.notBoundHint')}
                 </Text>
               )}
             </View>
@@ -268,7 +268,7 @@ export const CircuitWalletsCard: React.FC = () => {
               {status === 'unbound' && (
                 <ActionButton
                   variant="primary"
-                  label={isBusy ? 'Connecting…' : 'Connect'}
+                  label={isBusy ? t('host.wallet.connecting') : t('host.wallet.connect')}
                   disabled={isBusy}
                   onPress={() => handleConnect(c)}
                 />
@@ -277,13 +277,13 @@ export const CircuitWalletsCard: React.FC = () => {
                 <>
                   <ActionButton
                     variant="primary"
-                    label={isBusy ? 'Connecting…' : 'Reconnect'}
+                    label={isBusy ? t('host.wallet.connecting') : t('host.wallet.reconnect')}
                     disabled={isBusy}
                     onPress={() => handleConnect(c)}
                   />
                   <ActionButton
                     variant="ghost-red"
-                    label="Clear"
+                    label={t('host.wallet.clear')}
                     disabled={isBusy}
                     onPress={() => handleClear(c, false)}
                   />
@@ -293,13 +293,13 @@ export const CircuitWalletsCard: React.FC = () => {
                 <>
                   <ActionButton
                     variant="primary"
-                    label="Disconnect"
+                    label={t('host.wallet.disconnect')}
                     disabled={isBusy}
                     onPress={() => handleDisconnectOnly(c)}
                   />
                   <ActionButton
                     variant="ghost-red"
-                    label="Clear"
+                    label={t('host.wallet.clear')}
                     disabled={isBusy}
                     onPress={() => handleClear(c, true)}
                   />
@@ -314,12 +314,13 @@ export const CircuitWalletsCard: React.FC = () => {
 };
 
 const StatusPill: React.FC<{status: Status}> = ({status}) => {
+  const {t} = useTranslation();
   const style =
     status === 'connected'
-      ? {bg: 'rgba(34, 197, 94, 0.16)', fg: '#22C55E', text: 'Connected'}
+      ? {bg: 'rgba(34, 197, 94, 0.16)', fg: '#22C55E', text: t('host.wallet.connected')}
       : status === 'inactive'
-      ? {bg: 'rgba(234, 179, 8, 0.16)', fg: '#EAB308', text: 'Inactive'}
-      : {bg: 'rgba(148, 163, 184, 0.16)', fg: '#94A3B8', text: 'Not bound'};
+      ? {bg: 'rgba(234, 179, 8, 0.16)', fg: '#EAB308', text: t('host.wallet.inactive')}
+      : {bg: 'rgba(148, 163, 184, 0.16)', fg: '#94A3B8', text: t('host.wallet.notBound')};
   return (
     <View style={{paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: style.bg}}>
       <Text style={{fontSize: 10, fontWeight: '700', color: style.fg, letterSpacing: 0.5, textTransform: 'uppercase'}}>

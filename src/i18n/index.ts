@@ -11,19 +11,10 @@ const LANGUAGE_KEY = 'proofport.language';
 
 type Language = 'en' | 'ko';
 
-function getDeviceLanguage(): Language {
-  try {
-    const locale: string | undefined =
-      Platform.OS === 'ios'
-        ? NativeModules.SettingsManager?.settings?.AppleLocale ||
-          NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
-        : NativeModules.I18nManager?.localeIdentifier;
-    if (locale && locale.startsWith('ko')) return 'ko';
-  } catch {
-    // ignore
-  }
-  return 'en';
-}
+import { getDeviceLanguage } from './deviceLanguage';
+
+
+
 
 // Initialize synchronously with the device locale as default; AsyncStorage
 // override is applied as soon as we read it (before any render matters).

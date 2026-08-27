@@ -161,7 +161,7 @@ export const ProofCompleteScreen: React.FC = () => {
         if (result?.attestation.txHash) {
           navigation.navigate('InAppBrowser', {
             url: `${explorer}/tx/${result.attestation.txHash}`,
-            title: 'Transaction',
+            title: t('host.proof.txTitle'),
           });
           return;
         }
@@ -170,7 +170,7 @@ export const ProofCompleteScreen: React.FC = () => {
       }
       navigation.navigate('InAppBrowser', {
         url: `${explorer}/address/${addr}`,
-        title: 'Explorer',
+        title: t('host.proof.explorerTitle'),
       });
       return;
     }

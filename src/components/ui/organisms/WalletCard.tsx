@@ -1,3 +1,4 @@
+import {useTranslation} from 'react-i18next';
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Icon} from '../atoms/Icon';
@@ -28,6 +29,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
   isActive = false,
   onDisconnect,
 }) => {
+  const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
 
   return (
@@ -60,7 +62,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
           onPress={onDisconnect}
           style={styles.disconnectButton}
           activeOpacity={0.7}>
-          <Text style={[styles.disconnectText, {color: themeColors.error[500]}]}>Disconnect</Text>
+          <Text style={[styles.disconnectText, {color: themeColors.error[500]}]}>{t('host.wallet.disconnect')}</Text>
         </TouchableOpacity>
       )}
     </View>

@@ -1,3 +1,4 @@
+import {useTranslation} from 'react-i18next';
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Icon} from '../atoms/Icon';
@@ -47,6 +48,7 @@ export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
   onPress,
   onDelete,
 }) => {
+  const {t} = useTranslation();
   const {colors: themeColors} = useThemeColors();
 
   const cardStyle = {
@@ -75,19 +77,19 @@ export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
       <View style={[styles.divider, {backgroundColor: themeColors.border.primary}]} />
       <View style={styles.details}>
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Status</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.statusLabel')}</Text>
           {getStatusBadge(status)}
         </View>
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Date</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.dateLabel')}</Text>
           <Text style={[styles.detailValue, {color: themeColors.text.secondary}]}>{date}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Network</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.networkLabel')}</Text>
           <Text style={[styles.detailValue, {color: themeColors.text.secondary}]}>{network}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>Proof Hash</Text>
+          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.proofHashLabel')}</Text>
           <Text style={[styles.detailValue, styles.hash, {color: themeColors.text.secondary}]}>
             {truncateHash(proofHash)}
           </Text>
@@ -102,7 +104,7 @@ export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
             activeOpacity={0.7}
             hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
             <Icon name="trash-2" size="xs" color={themeColors.error[500]} />
-            <Text style={[styles.deleteText, {color: themeColors.error[500]}]}>Delete</Text>
+            <Text style={[styles.deleteText, {color: themeColors.error[500]}]}>{t('common.delete')}</Text>
           </TouchableOpacity>
         </>
       )}

@@ -1,3 +1,4 @@
+import {useTranslation} from 'react-i18next';
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import type {ProofStatus} from '../types';
@@ -7,10 +8,11 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({status}) => {
+  const {t} = useTranslation();
   return (
     <View style={styles.container}>
       <Text style={styles.title}>ZKProofport</Text>
-      <Text style={styles.subtitle}>Zero-Knowledge Proof Generation</Text>
+      <Text style={styles.subtitle}>{t('shared.tagline')}</Text>
       <Text style={styles.status}>{status}</Text>
     </View>
   );

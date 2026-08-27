@@ -1,11 +1,27 @@
 import React from 'react';
 import {Modal, View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useError} from '../context/ErrorContext';
 
 export const ErrorModal: React.FC = () => {
   const {error, clearError} = useError();
+  const {t} = useTranslation();
 
   if (!error) return null;
+
+  /*
+   * TRANSLATED BY CODE, not by the words the registry happens to hold.
+   *
+   * Every error reaches this modal through `showError(code)`, so the title and
+   * description always come from `errorCodes.ts` — a caller never supplies its
+   * own. Looking the code up is therefore exact. The registry's English stays
+   * as the fallback so a code added without a translation still reads as an
+   * error rather than as a missing key.
+   */
+  const title = t(`host.errors.${error.code}.title`, {defaultValue: error.title});
+  const description = t(`host.errors.${error.code}.description`, {
+    defaultValue: error.description,
+  });
 
   return (
     <Modal
@@ -23,10 +39,10 @@ export const ErrorModal: React.FC = () => {
           </View>
 
           {/* Error Title */}
-          <Text style={styles.title}>{error.title}</Text>
+          <Text style={styles.title}>{title}</Text>
 
           {/* Error Description */}
-          <Text style={styles.description}>{error.description}</Text>
+          <Text style={styles.description}>{description}</Text>
 
           {/* Technical Details (for developers) */}
           {error.details && (
@@ -36,11 +52,11 @@ export const ErrorModal: React.FC = () => {
           )}
 
           {/* Error Code */}
-          <Text style={styles.errorCode}>Error Code: {error.code}</Text>
+          <Text style={styles.errorCode}>{t('host.errors.codeLine', {code: error.code})}</Text>
 
           {/* Dismiss Button */}
           <TouchableOpacity style={styles.button} onPress={clearError}>
-            <Text style={styles.buttonText}>OK</Text>
+            <Text style={styles.buttonText}>{t('common.ok')}</Text>
           </TouchableOpacity>
         </View>
       </View>

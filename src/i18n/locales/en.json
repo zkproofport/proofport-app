@@ -10,7 +10,8 @@
   "shared": {
     "webView": {
       "mobileIdAuth": "Mobile ID Auth"
-    }
+    },
+    "tagline": "Zero-Knowledge Proof Generation"
   },
   "host": {
     "tabs": {
@@ -94,7 +95,16 @@
       "active": "Active",
       "inactive": "Inactive",
       "copied": "Copied!",
-      "selectWallet": "Select a wallet to connect:"
+      "selectWallet": "Select a wallet to connect:",
+      "connected": "Connected",
+      "notBound": "Not bound",
+      "circuitWallets": "Circuit wallets",
+      "circuitWalletsHint": "Each circuit binds to its own wallet at connect time. Tap Connect to link a wallet to a circuit; Clear unbinds. A wallet shows as Connected only while it is the currently active session.",
+      "notBoundHint": "not bound — tap Connect to link a wallet",
+      "connect": "Connect",
+      "reconnect": "Reconnect",
+      "connecting": "Connecting…",
+      "clear": "Clear"
     },
     "privy": {
       "title": "Privy Wallet",
@@ -151,7 +161,11 @@
         "proofHash": "Proof Hash",
         "walletAddress": "Wallet Address",
         "title": "Proof Detail"
-      }
+      },
+      "statusLabel": "Status",
+      "dateLabel": "Date",
+      "networkLabel": "Network",
+      "proofHashLabel": "Proof Hash"
     },
     "scan": {
       "permissionTitle": "Camera Access Required",
@@ -357,6 +371,131 @@
         },
         "hint": "Tap the ‹ Back link at the top left, or reopen the app or tab you came from.",
         "dismiss": "Got it"
+      },
+      "txTitle": "Transaction",
+      "explorerTitle": "Explorer"
+    },
+    "errors": {
+      "codeLine": "Error Code: {{code}}",
+      "E1001": {
+        "title": "Invalid Proof Request",
+        "description": "The proof request URL could not be parsed."
+      },
+      "E1002": {
+        "title": "Invalid Proof Request",
+        "description": "The proof request failed validation."
+      },
+      "E1003": {
+        "title": "Expired Request",
+        "description": "This proof request has expired."
+      },
+      "E1004": {
+        "title": "Missing Required Input",
+        "description": "Required fields are missing from the proof request."
+      },
+      "E1005": {
+        "title": "Unsupported Circuit",
+        "description": "This proof type is not supported."
+      },
+      "E1006": {
+        "title": "Unregistered Request",
+        "description": "This proof request is not registered with the relay server. Only requests from authorized applications are accepted."
+      },
+      "E2001": {
+        "title": "Proof Generation Failed",
+        "description": "An error occurred while generating the proof."
+      },
+      "E2002": {
+        "title": "Circuit Download Failed",
+        "description": "Failed to download the required circuit files."
+      },
+      "E2003": {
+        "title": "Verification Failed",
+        "description": "The generated proof could not be verified."
+      },
+      "E2004": {
+        "title": "Missing Inputs",
+        "description": "Required proof inputs are missing."
+      },
+      "E2005": {
+        "title": "Attestation Not Found",
+        "description": "No valid attestation was found for your wallet."
+      },
+      "E3001": {
+        "title": "Network Error",
+        "description": "Unable to connect to the server. Please check your internet connection."
+      },
+      "E3002": {
+        "title": "Server Error",
+        "description": "The server returned an unexpected error."
+      },
+      "E3003": {
+        "title": "Callback Failed",
+        "description": "Failed to send the proof result back to the requesting app."
+      },
+      "E3004": {
+        "title": "Request Timeout",
+        "description": "The request timed out. Please try again."
+      },
+      "E4001": {
+        "title": "Wallet Not Connected",
+        "description": "Please connect your wallet first."
+      },
+      "E4002": {
+        "title": "Signing Failed",
+        "description": "Failed to sign the message with your wallet."
+      },
+      "E4003": {
+        "title": "Wallet Connection Failed",
+        "description": "Could not connect to your wallet."
+      },
+      "E5001": {
+        "title": "Storage Error",
+        "description": "Failed to save data locally."
+      },
+      "E5002": {
+        "title": "Data Load Failed",
+        "description": "Failed to load saved data."
+      },
+      "E9997": {
+        "title": "The Server Did Not Answer",
+        "description": "The request timed out before the server replied. It may or may not have gone through — check before trying again."
+      },
+      "E9998": {
+        "title": "No Connection",
+        "description": "The request could not reach the server. Check your connection and try again — nothing was changed."
+      },
+      "E9999": {
+        "title": "Something Went Wrong",
+        "description": "The action did not complete."
+      },
+      "E9000": {
+        "title": "Couldn't Turn On the Domain Badge",
+        "description": "Your workspace badge was not enabled. Please try again."
+      },
+      "E9001": {
+        "title": "Couldn't Turn Off the Domain Badge",
+        "description": "Your workspace badge is still showing. Please try again."
+      },
+      "E9002": {
+        "title": "Couldn't Upload the Photo",
+        "description": "Your profile photo was not changed. Please try again."
+      },
+      "E9003": {
+        "title": "Couldn't Save the Nickname",
+        "description": "Your nickname was not changed."
+      },
+      "E9004": {
+        "title": "Couldn't Remove the Domain Badge",
+        "description": "Your workspace badge is still showing. Please try again."
+      },
+      "E9005": {
+        "title": "Couldn't Delete the Account",
+        "description": "Your account is still active. Please try again."
+      },
+      "E9006": {
+        "title": "Couldn't Remove the Photo",
+        "description": "Your profile photo is still there. Please try again."
       }
     }
   },
