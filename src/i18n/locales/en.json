@@ -496,6 +496,10 @@
       "E9006": {
         "title": "Couldn't Remove the Photo",
         "description": "Your profile photo is still there. Please try again."
+      },
+      "E3005": {
+        "title": "Circuit Files Missing",
+        "description": "The proof files could not be downloaded. Reopen the app once you are back online."
       }
     }
   },

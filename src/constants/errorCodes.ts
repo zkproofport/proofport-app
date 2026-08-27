@@ -88,6 +88,12 @@ export const ErrorCodes = {
     title: 'Request Timeout',
     description: 'The request timed out. Please try again.',
   },
+  E3005: {
+    code: 'E3005',
+    title: 'Circuit Files Missing',
+    description:
+      'The proof files could not be downloaded. Reopen the app once you are back online.',
+  },
 
   // Wallet errors
   E4001: {

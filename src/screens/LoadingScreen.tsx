@@ -1,5 +1,7 @@
+import {bootstrapCircuits} from '../utils/circuitBootstrap';
+import {showGlobalError} from '../utils/errorBridge';
 import React, {useEffect, useState, useCallback, useRef} from 'react';
-import {View, Text, StyleSheet, Image, Animated, ActivityIndicator, Alert} from 'react-native';
+import {View, Text, StyleSheet, Image, Animated, ActivityIndicator} from 'react-native';
 import {useTranslation} from 'react-i18next';
 
 import {
@@ -92,38 +94,20 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       ),
     );
 
-    // Race: all downloads complete OR max loading timeout
-    const timeoutPromise = new Promise<'timeout'>((resolve) =>
-      setTimeout(() => resolve('timeout'), MAX_LOADING_DURATION),
-    );
-
-    const result = await Promise.race([
-      downloadPromise.then(() => 'done' as const),
-      timeoutPromise,
-    ]);
-
-    if (result === 'timeout') {
-      console.log('Loading timeout reached, entering app. Downloads continue in background.');
-      finishLoading();
-
-      // Continue downloads in background, handle errors
-      downloadPromise.then((results) => {
-        const failed = results.filter((r) => r.status === 'rejected');
-        if (failed.length > 0) {
-          const reasons = failed.map((r) => (r as PromiseRejectedResult).reason?.message || 'Unknown error');
-          console.error('Background circuit download failed:', reasons);
-          Alert.alert(
-            t('host.loading.downloadFailedTitle'),
-            t('host.loading.downloadFailedMessage'),
-            [{text: t('common.ok')}],
-          );
-        } else {
-          console.log('Background circuit downloads completed successfully.');
-        }
-      });
-    } else {
-      finishLoading();
-    }
+    await bootstrapCircuits({
+      downloads: downloadPromise,
+      maxLoadingMs: MAX_LOADING_DURATION,
+      wait: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+      finishLoading,
+      /*
+       * The modal, not `Alert.alert` — every user-facing error in this app goes
+       * through one place. It is raised through the bridge because
+       * `ErrorProvider` wraps the MAIN tree and this screen returns before it;
+       * the bridge holds the error until the modal exists.
+       */
+      onFailed: (reasons) => showGlobalError('E3005', reasons.join('; ')),
+      log: (m) => console.log(m),
+    });
   }, [handleProgress, finishLoading]);
 
   useEffect(() => {
