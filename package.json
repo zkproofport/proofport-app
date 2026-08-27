@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "patch-package",
     "android": "react-native run-android",
     "android:clean": "./scripts/clear-android-cache.sh && react-native run-android",
     "android:device": "react-native run-android --deviceId",

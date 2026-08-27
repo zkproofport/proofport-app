@@ -1,0 +1,30 @@
+diff --git a/node_modules/react-native-fs/android/src/main/java/com/rnfs/RNFSManager.java b/node_modules/react-native-fs/android/src/main/java/com/rnfs/RNFSManager.java
+index 351ac06..a4e802d 100755
+--- a/node_modules/react-native-fs/android/src/main/java/com/rnfs/RNFSManager.java
++++ b/node_modules/react-native-fs/android/src/main/java/com/rnfs/RNFSManager.java
+@@ -975,7 +975,24 @@ public class RNFSManager extends ReactContextBaseJavaModule {
+       return;
+     }
+ 
+-    promise.reject(null, ex.getMessage());
++    // PATCHED (patches/react-native-fs+*.patch): `reject(null, ...)` KILLS THE APP.
++    //
++    // React Native's PromiseImpl.reject declares `code` as non-null, so passing
++    // null throws a NullPointerException on the NATIVE thread — which no JS
++    // try/catch can catch, and which takes the whole process down. Any exception
++    // that is neither FileNotFoundException nor IORejectionException lands here,
++    // and `UnknownHostException` — a phone with no network — is exactly one of
++    // them. Observed 2026-08-27: three circuit downloads started at boot with the
++    // device offline, three native threads threw, app dead on the splash screen.
++    //
++    // A generic code loses nothing: callers read `.message`, and the two cases
++    // that carry a meaningful code are handled above.
++    String code = ex.getClass().getSimpleName();
++    String message = ex.getMessage();
++    promise.reject(
++      code == null || code.isEmpty() ? "EUNSPECIFIED" : code,
++      message == null || message.isEmpty() ? ex.toString() : message
++    );
+   }
+ 
+   private void rejectFileNotFound(Promise promise, String filepath) {

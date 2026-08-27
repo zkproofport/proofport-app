@@ -1,4 +1,8 @@
 import RNFS from 'react-native-fs';
+import {
+  parseSha256Manifest,
+  verifyCircuitFile,
+} from './circuitIntegrity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW} from '../config/contracts';
@@ -204,12 +208,22 @@ async function downloadCircuitFileFromGitHub(
 
   const DOWNLOAD_TIMEOUT_MS = 120000;
 
+  /*
+   * `Content-Length`, captured from the progress callback because that is the
+   * only place RNFS exposes it — `DownloadResult` carries `statusCode` and
+   * `bytesWritten` and no headers at all. Chunked responses report 0 here, and
+   * `verifyCircuitFile` treats that as "nothing to compare against" rather than
+   * as a zero-length file.
+   */
+  let declaredLength = 0;
+
   const downloadResult = RNFS.downloadFile({
     fromUrl: url,
     toFile: destPath,
     connectionTimeout: 10000,
     readTimeout: 30000,
     progress: (res) => {
+      if (res.contentLength > declaredLength) declaredLength = res.contentLength;
       const percent = res.contentLength > 0
         ? Math.round((res.bytesWritten / res.contentLength) * 100)
         : 0;
@@ -241,10 +255,107 @@ async function downloadCircuitFileFromGitHub(
   }
 
   const stat = await RNFS.stat(destPath);
+
+  /*
+   * VERIFY, AND DELETE WHAT DOES NOT VERIFY.
+   *
+   * HTTP 200 says the request was understood. It does not say the body arrived.
+   * A connection that drops after the headers leaves a 200, a partial file and
+   * no error — and until this block existed the partial file STAYED, because
+   * `allCircuitFilesExist` asks only whether the path exists. Every later launch
+   * saw three files, skipped the download, and handed truncated bytes to the
+   * prover; the person got a proof failure that pointed nowhere.
+   *
+   * Deleting is the part that matters. A thrown error alone would leave the bad
+   * file behind for the next launch to trust, so the download would never be
+   * retried and the failure would be permanent.
+   */
+  const verdict = verifyCircuitFile({
+    size: stat.size,
+    declaredLength: declaredLength ?? null,
+    digest: await digestOrNull(destPath, log),
+    expectedDigest: await expectedDigestFor(circuitName, fileName, env, log),
+  });
+
+  if (!verdict.ok) {
+    await RNFS.unlink(destPath).catch(() => {});
+    throw new Error(
+      `Downloaded ${fileName} failed verification (${verdict.reason}): ${verdict.detail}`,
+    );
+  }
+
   const sizeMB = (stat.size / (1024 * 1024)).toFixed(2);
-  log(`Downloaded ${fileName}: ${sizeMB} MB`);
+  log(`Downloaded ${fileName}: ${sizeMB} MB (verified: ${verdict.level})`);
 
   return destPath;
+}
+
+/**
+ * The file's sha256, or null when it could not be computed.
+ *
+ * Hashing a 100MB srs can fail on a device that is short of memory, and that is
+ * a reason to fall back to the length check — not a reason to reject a file
+ * that may be perfectly good. `verifyCircuitFile` handles the null.
+ */
+async function digestOrNull(path: string, log: (m: string) => void): Promise<string | null> {
+  try {
+    const h = await RNFS.hash(path, 'sha256');
+    return typeof h === 'string' ? h.toLowerCase() : null;
+  } catch (e) {
+    log(`Could not hash ${path}: ${String(e)}`);
+    return null;
+  }
+}
+
+/*
+ * The published digests for one base URL, fetched once per launch.
+ *
+ * Keyed by URL rather than by circuit because the manifest covers every file at
+ * that tag — and because the dev-only circuits deliberately read from `main`
+ * while the rest read from a release tag, so two manifests can be live at once.
+ *
+ * `null` is a REMEMBERED ABSENCE: a release cut before the manifest existed has
+ * no such file, and re-requesting a 404 for every one of the three downloads is
+ * three round trips to learn the same thing.
+ */
+const manifestCache = new Map<string, Record<string, string> | null>();
+
+/** Test seam. A module-level cache outlives a test file otherwise. */
+export function __resetCircuitManifestCache(): void {
+  manifestCache.clear();
+}
+
+async function expectedDigestFor(
+  circuitName: string,
+  fileName: string,
+  env: Environment,
+  log: (m: string) => void,
+): Promise<string | null> {
+  try {
+    const fileUrl = await getCircuitFileUrl(circuitName, fileName.split('.').pop() ?? '', env);
+    const base = fileUrl.slice(0, fileUrl.lastIndexOf('/'));
+    const manifestUrl = `${base}/SHA256SUMS`;
+
+    if (!manifestCache.has(manifestUrl)) {
+      const res = await fetch(manifestUrl);
+      if (!res.ok) {
+        /*
+         * Not an error. Tags cut before the manifest existed must stay
+         * installable — and the verdict still says `length` rather than
+         * pretending a digest was checked.
+         */
+        log(`No SHA256SUMS at ${manifestUrl} (HTTP ${res.status}); falling back to length`);
+        manifestCache.set(manifestUrl, null);
+      } else {
+        manifestCache.set(manifestUrl, parseSha256Manifest(await res.text()));
+      }
+    }
+
+    return manifestCache.get(manifestUrl)?.[fileName] ?? null;
+  } catch (e) {
+    log(`Could not read the circuit manifest: ${String(e)}`);
+    return null;
+  }
 }
 
 export async function downloadCircuitFile(
