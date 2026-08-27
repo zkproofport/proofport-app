@@ -1,6 +1,7 @@
 // Use AsyncStorage instead of expo-secure-store on the host because the
 // iOS simulator does not have the keychain entitlements that SecureStore
 // requires.
+import { setUnreadBadge } from './unreadBadge';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Secure storage for the mini-app's E2EE chat MLS state (iOS Keychain /
 // Android Keystore). Unlike the token (kept in AsyncStorage), MLS leaf state is
@@ -24,6 +25,7 @@ import {
   startPushTapBridge,
   subscribeHostPushTap,
   subscribeHostPushReceived,
+  jumpToOpenStoaTab,
 } from './pushTapBridge';
 import { registerForPushWithDeps } from './pushRegistration';
 import { clearDeliveredForTopic, CHAT_CHANNEL_ID } from './pushClearing';
@@ -101,6 +103,21 @@ export interface CreateZkProofportHostApiOptions {
  * <HostProvider api={...}>; nothing in openstoa-mobile imports React Native
  * native modules directly — they all flow through here.
  */
+/**
+ * The signed-in OpenStoa token, or null.
+ *
+ * Lifted out of the host-API factory so the tab bar can refresh the unread
+ * badge without constructing a whole host — the badge has to work BEFORE the
+ * mini-app is opened, which is the one time the factory has not run. Applies
+ * the same explicit logged-out check the factory does: `clearAuth` removes the
+ * token, but a crash between `removeItem` and `setItem` could leave one alive.
+ */
+export async function readOpenStoaToken(): Promise<string | null> {
+  const loggedOut = await AsyncStorage.getItem(LOGGED_OUT_KEY);
+  if (loggedOut === '1') return null;
+  return (await AsyncStorage.getItem(TOKEN_KEY)) ?? null;
+}
+
 export function createZkProofportHostApi(
   opts: CreateZkProofportHostApiOptions,
 ): HostApi {
@@ -153,7 +170,22 @@ export function createZkProofportHostApi(
         `${baseUrl}/api/auth/dev-login`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          /*
+           * DECLARE THE DEVICE HERE TOO.
+           *
+           * Without it the server minted a `web` session for a phone, and the
+           * middleware — which keeps chat off the web — then refused every
+           * chat, MLS and TAK request from the app itself. The failure looked
+           * nothing like its cause: the room rendered, and only the key
+           * requests came back "Chat is available in the ZKProofport app".
+           *
+           * Every login path has to say what it is, or the one that forgets
+           * silently produces a session the app cannot use.
+           */
+          headers: {
+            'Content-Type': 'application/json',
+            ...(await deviceHeaders()),
+          },
           body: JSON.stringify({}),
         },
         { label: 'dev-login' },
@@ -171,7 +203,123 @@ export function createZkProofportHostApi(
     const data = (await res.json()) as { token: string; userId: string };
     await writeAuth({ token: data.token, userId: data.userId, needsNickname: false });
     await AsyncStorage.removeItem(LOGGED_OUT_KEY);
+    /*
+     * Same return as the proof path, and it was missing here entirely.
+     *
+     * `dev-login` is the debug-build sign-in. It skips the proof, so it usually
+     * never leaves the OpenStoa tab — but it is reachable from the HOST's own
+     * sign-in entry too, and on 2026-08-27 that is exactly how a test device
+     * ended up needing the tab tapped by hand. One sign-in, one place the person
+     * ends up; a branch that quietly differs is how "it works on my build"
+     * happens.
+     */
+    jumpToOpenStoaTab();
     return { token: data.token, userId: data.userId, needsNickname: false };
+  }
+
+  /**
+   * Another phone is already signed in to this account.
+   *
+   * Carries the server's answer about whether a restorable backup exists, so
+   * the mini-app can say something true rather than a generic "did you back
+   * up?" — a question the person cannot check from the phone in their hand.
+   * The shape is deliberately loose: a 409 whose body could not be read still
+   * has to produce a warning, and the notice falls back to its most cautious
+   * form when fields are missing.
+   */
+  class DeviceConflictError extends Error {
+    readonly conflict: unknown;
+    constructor(conflict: unknown) {
+      super('DEVICE_CONFLICT');
+      this.name = 'DeviceConflictError';
+      this.conflict = conflict;
+    }
+  }
+
+  /**
+   * This install's id — stable for the life of the install, distinct for every
+   * physical device even when two are the same model.
+   *
+   * NOT a MAC address: both platforms return the fixed constant
+   * `02:00:00:00:00:00` to apps (iOS 7+, Android 10+), so it would make two
+   * iPhones look like one device — the exact failure this exists to avoid. Not
+   * `identifierForVendor` or `ANDROID_ID` either: both reset in ways that mint
+   * a new id for the SAME phone, which under a one-device rule locks someone
+   * out of their own account for a reason they cannot see.
+   *
+   * A random value in the OS keystore is as unique as a hardware id, survives
+   * restarts and updates, and discloses nothing about the hardware. Deleting
+   * the app ends it — correct, because that IS a new install and the keys went
+   * with the old one.
+   */
+  const INSTALL_ID_KEY = 'openstoa.device.id';
+  /*
+   * The mini-app's device signing key, read here so the SIGN-IN request can
+   * present it.
+   *
+   * It is made and owned by the mini-app (`crypto/deviceKey.ts`), but sign-in
+   * happens in the host, before the mini-app has loaded — so the host is the
+   * only thing that can put it on the request that needs it. Reading the same
+   * SecureStore entry is the whole of the coupling; no crypto happens here.
+   *
+   * ABSENT ON A FIRST SIGN-IN, which is correct rather than a gap: the key does
+   * not exist until the mini-app has run once, and the server falls back to the
+   * install id alone — what it did before keys existed. The sign-in that
+   * benefits is the SECOND one, which is exactly the one that was falsely
+   * warning about "your other device".
+   */
+  const DEVICE_KEY_KEY = 'openstoa.device.key.v1';
+  async function devicePublicKey(): Promise<string | null> {
+    try {
+      const raw = await SecureStore.getItemAsync(DEVICE_KEY_KEY);
+      if (!raw) return null;
+      const v = JSON.parse(raw) as { publicKey?: unknown };
+      return typeof v.publicKey === 'string' && v.publicKey ? v.publicKey : null;
+    } catch {
+      // Unreadable, or not written yet. Omitting the header costs a fallback to
+      // the id; inventing a value would corrupt the grouping it feeds.
+      return null;
+    }
+  }
+
+  /** Headers for a sign-in request, carrying the key only when there is one. */
+  async function deviceHeaders(): Promise<Record<string, string>> {
+    const pk = await devicePublicKey();
+    return {
+      'x-openstoa-device-kind': 'mobile',
+      'x-openstoa-device-id': await installDeviceId(),
+      ...(pk ? { 'x-openstoa-device-key': pk } : {}),
+    };
+  }
+  let installIdPromise: Promise<string> | null = null;
+  function installDeviceId(): Promise<string> {
+    if (installIdPromise) return installIdPromise;
+    installIdPromise = (async () => {
+      const mint = () => {
+        const b = new Uint8Array(16);
+        globalThis.crypto.getRandomValues(b);
+        return Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('');
+      };
+      try {
+        const saved = await SecureStore.getItemAsync(INSTALL_ID_KEY);
+        if (saved) return saved;
+        const fresh = mint();
+        await SecureStore.setItemAsync(INSTALL_ID_KEY, fresh);
+        /*
+         * Re-read rather than trusting the write: two processes can both miss
+         * and both write, and the value that survived is what the next launch
+         * reads. Returning what we wrote would give this launch an id no
+         * future launch agrees with.
+         */
+        return (await SecureStore.getItemAsync(INSTALL_ID_KEY)) || fresh;
+      } catch {
+        // No keystore (an older host, a device that refuses it): a per-process
+        // value keeps the request working. The cost is honest and small — the
+        // install looks new after each launch, so the one-device rule nags.
+        return mint();
+      }
+    })();
+    return installIdPromise;
   }
 
   // Self-relay proof flow: get a proof-request from the OpenStoa server,
@@ -180,6 +328,8 @@ export function createZkProofportHostApi(
   // request), then poll for the resulting JWT.
   async function runSelfRelayLogin(
     method: 'oidc' | 'mdl' = 'oidc',
+    /** True only after the person has been warned and chose to continue. */
+    takeover = false,
   ): Promise<AuthResult> {
     // Map the high-level method to the circuit-type the relay accepts.
     // Both branches converge in the same proof-request -> deeplink -> poll
@@ -256,8 +406,19 @@ export function createZkProofportHostApi(
          * the `catch` below already treats a failed attempt as "keep trying".
          */
         pollRes = await fetchWithDeadline(
-          `${baseUrl}/api/auth/poll/${encodeURIComponent(reqData.requestId)}?format=token`,
-          { credentials: 'omit' },
+          `${baseUrl}/api/auth/poll/${encodeURIComponent(reqData.requestId)}?format=token` +
+            (takeover ? '&takeover=1' : ''),
+          {
+            credentials: 'omit',
+            /*
+             * WHICH DEVICE IS ASKING. The server keeps one phone session per
+             * person; without this it cannot tell "the same phone again" from
+             * "a second device", and it decides chat availability from the
+             * kind. Set on the login request specifically, because that is
+             * where the session is minted and the kind is fixed for its life.
+             */
+            headers: await deviceHeaders(),
+          },
           { label: 'auth-poll' },
         );
       } catch {
@@ -266,6 +427,30 @@ export function createZkProofportHostApi(
       }
       if (pollRes.status === 404) {
         throw new Error('Proof request expired or not found');
+      }
+      /*
+       * ANOTHER PHONE IS SIGNED IN — ask before ending it.
+       *
+       * The chat keys are on that phone and do not travel with the account, so
+       * signing in here without a backup makes its private rooms unreadable on
+       * both devices, permanently. The only machine that can still make that
+       * backup is the one signed in AT THIS MOMENT, which is why the question
+       * comes before the takeover rather than after.
+       *
+       * Thrown rather than handled here: this function's job is to obtain a
+       * session, and the decision is the person's. The mini-app catches
+       * `DeviceConflictError`, renders the notice from `deviceTakeover`, and
+       * calls back in with `takeover: true` if they choose to continue.
+       */
+      if (pollRes.status === 409) {
+        let body: unknown = null;
+        try {
+          body = await pollRes.json();
+        } catch {
+          // A 409 whose body we cannot read is still a 409; the notice falls
+          // back to its most cautious form rather than the sign-in failing.
+        }
+        throw new DeviceConflictError(body);
       }
       if (!pollRes.ok) {
         // 5xx etc — keep retrying
@@ -296,13 +481,32 @@ export function createZkProofportHostApi(
           expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
         });
         await AsyncStorage.removeItem(LOGGED_OUT_KEY);
-        // Return the user back to the OpenStoa tab once login completes.
-        const nav = getNavigation();
-        try {
-          nav?.navigate('OpenStoaTab' as never);
-        } catch {
-          // navigation may not be ready yet; the OpenStoaApp re-render will
-          // pick up the token regardless.
+        /*
+         * Return the person to the OpenStoa tab now that the sign-in is done.
+         *
+         * THROUGH THE HOST'S HANDLE, not the mini-app's — that is the whole fix.
+         * This used to call `getNavigation()`, which `OpenStoaRootScreen`
+         * publishes, so it only existed while the OpenStoa tab was MOUNTED. A
+         * sign-in deep-links the app to its own proof screen on the Verify tab,
+         * and the OpenStoa tab is lazy: at this exact moment it is not mounted,
+         * `getNavigation()` is null, and `nav?.navigate(...)` did nothing at all.
+         * Silently — the optional chain meant even the `catch` never ran.
+         * Reported on iOS; reproduced on Android 2026-08-27.
+         *
+         * `pushTapBridge` had already learned this for notification taps and
+         * says so in its own comment ("the mini-app and its own navigation do
+         * not exist yet"); the sign-in path had never been moved over.
+         *
+         * NOT `returnScheme`: that names another APP to bring forward and is the
+         * right answer for an external integrator (implemented, and documented
+         * in the SDK README). OpenStoa is a tab in this same binary — asking the
+         * OS to open our own scheme is a no-op on iOS and still selects no tab.
+         */
+        if (!jumpToOpenStoaTab()) {
+          // The host navigator has not published itself yet. Rare, and not a
+          // reason to fail a sign-in that succeeded: the token is written either
+          // way and the mini-app reads it when it does mount.
+          console.log('[OpenStoaHost] sign-in done but the tab jump found no navigator');
         }
         return auth;
       }
@@ -327,7 +531,8 @@ export function createZkProofportHostApi(
     loginToOpenStoa: async ({
       force,
       method,
-    }: { force?: boolean; method?: 'oidc' | 'mdl' } = {}) => {
+      takeover,
+    }: { force?: boolean; method?: 'oidc' | 'mdl'; takeover?: boolean } = {}) => {
       if (!force) {
         const existing = await readToken();
         if (existing) {
@@ -346,10 +551,83 @@ export function createZkProofportHostApi(
       if (__DEV__) {
         return devLogin();
       }
-      return runSelfRelayLogin(method ?? 'oidc');
+      return runSelfRelayLogin(method ?? 'oidc', takeover === true);
     },
 
     logoutFromOpenStoa: async () => {
+      /*
+       * TELL THE SERVER FIRST, while the token still exists.
+       *
+       * Clearing locally only ends the session on THIS phone. The record stays
+       * live in Redis, and the next sign-in finds it through `liveDeviceSessions`
+       * and calls it another device — so the person is asked to sign out a phone
+       * that is not there, and told their chat keys went with it. Every
+       * logout/login cycle added one more ghost.
+       *
+       * `/api/auth/logout` existed the whole time and revokes correctly. Nobody
+       * called it.
+       *
+       * Order matters: the route authenticates with the Bearer, so the token has
+       * to still be readable when it runs.
+       *
+       * Failure is swallowed on purpose. A logout must not leave a person signed
+       * in because the network was down — the local clear below happens either
+       * way, and a session left live is bounded by its own expiry.
+       *
+       * `fetchWithDeadline`, not bare `fetch`, for the same reason every other
+       * call here uses it: a hung socket would otherwise stop the person from
+       * signing out at all, which is worse than the ghost this is removing.
+       */
+      const token = await AsyncStorage.getItem(TOKEN_KEY);
+      /*
+       * STOP THE NOTIFICATIONS TOO, and before the session is revoked.
+       *
+       * Signing out ended the session and left the push registration behind.
+       * The row is keyed on (account, routing handle) and the fan-out finds it
+       * by the ACCOUNT, so a phone that had been signed out kept being pinged
+       * about new messages for every topic that account was still a member of.
+       *
+       * The pings carry no content — `OpenStoa` / `New message` and a topic id
+       * — so nothing readable leaks. What leaks is that the account is active,
+       * on a phone whose owner said they were done with it. On a handed-on or
+       * shared phone that is somebody else's activity showing up.
+       *
+       * ORDER: this route authenticates with the Bearer and scopes the delete
+       * to the session's own account, so it has to run BEFORE the logout that
+       * revokes that session. Swallowed the same way and for the same reason —
+       * a dead network must not keep a person signed in.
+       *
+       * The handle itself is deliberately NOT deleted. It identifies this
+       * INSTALL rather than the account (`PUSH_HANDLE_KEY` above says so), and
+       * keeping it means the next sign-in re-registers the same one instead of
+       * leaving a second row nobody will ever clean up.
+       */
+      if (token) {
+        try {
+          const handle = await AsyncStorage.getItem(PUSH_HANDLE_KEY);
+          if (handle) {
+            await fetchWithDeadline(
+              `${baseUrl}/api/push/register?routingHandle=${encodeURIComponent(handle)}`,
+              { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+              { label: 'openstoa-push-unregister' },
+            );
+          }
+        } catch {
+          // Same reasoning as the logout below: never block signing out.
+        }
+      }
+      if (token) {
+        try {
+          await fetchWithDeadline(
+            `${baseUrl}/api/auth/logout`,
+            { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
+            { label: 'openstoa-logout' },
+          );
+        } catch {
+          // Offline, timed out, or the server refused. Signing out locally still proceeds.
+        }
+      }
+
       await clearAuth();
       // Mark as explicitly logged out so the next OpenStoa tab entry
       // does not silently re-authenticate via the dev shortcut.
@@ -372,6 +650,16 @@ export function createZkProofportHostApi(
     secureStore: {
       getItem: (key: string) => SecureStore.getItemAsync(key),
       setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+      /*
+       * Deleting one entry, for the mini-app's "erase this device's data".
+       *
+       * There is deliberately no `getAllKeys` beside it: the Keychain has no
+       * enumeration worth the name, so the mini-app NAMES every key it intends
+       * to destroy (`lib/deviceData.ts`) rather than sweeping. That is the safer
+       * shape regardless — a sweep here would reach entries the WALLET owns,
+       * which sit in the same Keychain.
+       */
+      removeItem: (key: string) => SecureStore.deleteItemAsync(key),
     },
 
     // Non-secure bulk KV (AsyncStorage) for the mini-app's decrypted chat
@@ -379,7 +667,25 @@ export function createZkProofportHostApi(
     localStore: {
       getItem: (key: string) => AsyncStorage.getItem(key),
       setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+      removeItem: (key: string) => AsyncStorage.removeItem(key),
+      /*
+       * Enumeration, which the message cache needs: its keys carry topic and
+       * message ids, so "clear the chat cache" cannot be a list of names known
+       * ahead of time.
+       *
+       * IT RETURNS THE WHOLE APP'S KEYS, wallet entries included — this IS the
+       * host's AsyncStorage, not a namespace inside it. The mini-app filters by
+       * prefix and treats an unrecognised key as KEEP (`deviceData.ts`), which
+       * is the only reason handing it the full list is safe.
+       */
+      getAllKeys: async () => [...(await AsyncStorage.getAllKeys())],
     },
+
+    // How many messages are waiting. The mini-app owns the number — it is the
+    // only side that knows what has been read — and the host draws it on the
+    // two surfaces the mini-app cannot reach: the OpenStoa tab and the app
+    // icon. See `unreadBadge.ts`.
+    setUnreadBadge,
 
     // WebAuthn PRF (hmac-secret) for Phase 4 E2EE key recovery. Registers/asserts
     // a synced passkey and evaluates PRF with the mini-app's salt, returning a

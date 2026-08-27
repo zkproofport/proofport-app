@@ -188,6 +188,40 @@ export function startPushTapBridge(api: PushTapNotificationsApi): void {
  * app launched by a tap, landing on ProofTab — the OpenStoa tab is lazy and the
  * mini-app's own navigation does not exist yet.
  */
+/**
+ * Bring the OpenStoa tab to the front, if the host navigator has published
+ * itself yet.
+ *
+ * WHY THIS IS EXPORTED — the sign-in return path, which had nothing.
+ * A sign-in deep-links the app to its own proof screen (`triggerDeepLink(...,
+ * 'self')`), so when the proof finishes the person is standing on Verify, not in
+ * OpenStoa. Reported on iOS; reproduced on Android on 2026-08-27, where the tab
+ * had to be tapped by hand every time.
+ *
+ * NOT `returnScheme`, and the difference is worth stating because the two look
+ * interchangeable. `returnScheme` names ANOTHER APP to bring forward and is the
+ * right answer for an external integrator — it is implemented, documented in the
+ * SDK README, and unchanged. OpenStoa is not another app: it is a tab in this
+ * binary. Asking the OS to open our own scheme would be a no-op on iOS and would
+ * still not select a tab. This is the in-process equivalent, and it is the same
+ * handle a push tap already uses.
+ *
+ * Returns whether the jump was made, so a caller can tell "sent" from "the
+ * navigator was not ready" instead of assuming.
+ */
+export function jumpToOpenStoaTab(): boolean {
+  if (!navigateToOpenStoa) return false;
+  try {
+    navigateToOpenStoa();
+    return true;
+  } catch {
+    // The navigator exists but refused the action (mid-transition). The caller
+    // is a sign-in that has already succeeded; a failed tab jump must not turn
+    // that into an error.
+    return false;
+  }
+}
+
 export function setOpenStoaTabNavigation(navigation: HostTabNavigation): void {
   navigateToOpenStoa = () => navigation.navigate('OpenStoaTab' as never);
   if (!latchedTap || jumpScheduled) return;

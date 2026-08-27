@@ -4,49 +4,11 @@ import { Platform } from 'react-native';
 import { useNavigation, useNavigationContainerRef } from '@react-navigation/native';
 import { HostProvider, OpenStoaApp } from 'openstoa-mobile';
 import { createZkProofportHostApi } from '../../openstoa-host/zkProofportHostApi';
+import { resolveOpenStoaBaseUrl } from '../../openstoa-host/openStoaBaseUrl';
 import { useError, useThemeColors } from '../../context';
 import { getEnvironment } from '../../config';
 import { useSettings } from '../../hooks';
 
-// Mirror the host's 3-way environment split so the mini-app and the host
-// always point at the same backend tier:
-//   development → LOCAL community (docker on the dev machine) so in-app chat
-//                 exercises the code currently being developed. iOS simulator
-//                 reaches the host via localhost; the Android emulator reaches
-//                 it via the special 10.0.2.2 alias. (A physical device would
-//                 need the host LAN IP instead.)
-//   staging     → staging community
-//   production  → canonical openstoa.xyz
-function resolveOpenStoaBaseUrl(): string {
-  const env = getEnvironment();
-  // A Metro-connected debug build (__DEV__) ALWAYS targets the LOCAL community
-  // backend so in-app chat / key-recovery exercises the code under development —
-  // even on a physical device, where getEnvironment() reports 'production'. We
-  // derive the dev machine's address from Metro's bundle URL: on a physical
-  // device that host is the Mac's LAN IP (127.0.0.1 would be the phone itself);
-  // the Android emulator uses the 10.0.2.2 alias; the iOS simulator is 127.0.0.1.
-  if (__DEV__) {
-    if (Platform.OS === 'android') return 'http://10.0.2.2:3200';
-    // RN 0.81 New Architecture (bridgeless): NativeModules.SourceCode is
-    // unreliable/undefined, so use getDevServer() (TurboModule-backed) to learn
-    // the Metro host. On a physical device that is the Mac's LAN IP; 127.0.0.1
-    // only works on the simulator.
-    let host = '127.0.0.1';
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const getDevServer = require('react-native/Libraries/Core/Devtools/getDevServer').default;
-      const url: string | undefined = getDevServer?.()?.url;
-      const m = url ? url.match(/^https?:\/\/([^:/]+)/) : null;
-      if (m && m[1] && m[1] !== 'localhost') host = m[1];
-    } catch {
-      // fall back to 127.0.0.1 (simulator)
-    }
-    return `http://${host}:3200`;
-  }
-  if (env === 'production') return 'https://www.openstoa.xyz';
-  if (env === 'staging') return 'https://stg-community.zkproofport.app';
-  return Platform.OS === 'android' ? 'http://10.0.2.2:3200' : 'http://127.0.0.1:3200';
-}
 const OPENSTOA_BASE_URL = resolveOpenStoaBaseUrl();
 
 /**
