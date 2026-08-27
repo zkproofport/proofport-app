@@ -1,0 +1,93 @@
+# The host app's own tests, run on every push and pull request.
+#
+# WHY THIS FILE EXISTS. Until 2026-08-27 these cases ran nowhere — 190 of them
+# then, 370 by the end of the same day. The parent
+# monorepo's CI covers the web server and the container E2E suite; OpenStoa's own
+# CI covers the web app and, since today, the mini-app. The host app had four
+# workflows and all four were builds and releases — nothing ran `jest`.
+#
+# That is not a small gap. The guards living here are the ones about the SEAM
+# between the host app and the mini-app, which is exactly where this project's
+# defects keep appearing:
+#
+#   returning to the OpenStoa tab after a sign-in
+#   a sign-out actually ending the server session
+#   every login declaring what kind of device it is
+#   the unread badge
+#   which language the device is in
+#   a downloaded circuit file being the file the server meant to send
+#
+# Every one of those was found on a phone, by a person, after passing whatever
+# automation existed. Leaving their guards unrun means the next regression is
+# found the same way.
+#
+# WHY THE SIBLING CHECKOUT IS NOT OPTIONAL. `package.json` depends on three
+# OpenStoa packages through `file:../openstoa/packages/*`. `npm install` does
+# NOT fail when that sibling is missing — it creates a broken symlink and exits
+# 0 — so the failure surfaces much later as "Unable to resolve module". Same
+# reasoning, and the same pin check, as the build workflows.
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  jest:
+    name: host app (jest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: proofport-app
+
+      # A stale or unresolvable pin breaks the install in a way that reads as a
+      # module-resolution error pages later. Fail here instead.
+      #
+      # THE PIN'S AGE DOES NOT AFFECT WHAT IS TESTED, and that is worth stating
+      # because it is not obvious. Checked on 2026-08-27: the pin was 109
+      # commits behind, and no test under `src/**/__tests__` imports
+      # `openstoa-mobile` or any `@openstoa/*` package — verified by scanning
+      # them, not assumed. The sibling exists so `npm ci` can resolve the three
+      # `file:` dependencies at all; the cases themselves exercise host code.
+      #
+      # If a case ever DOES reach into the mini-app, this stops being true: the
+      # run would then be testing whatever the pin points at, which is a
+      # different question from "does the current tree work". Move to checking
+      # out openstoa `main` at that point, and say so here.
+      - name: Check OpenStoa pin staleness
+        id: openstoa-pin
+        uses: ./proofport-app/.github/actions/openstoa-pin-check
+        with:
+          pin-file: proofport-app/.openstoa-commit
+
+      - name: Checkout OpenStoa (sibling mini-app source)
+        uses: actions/checkout@v4
+        with:
+          repository: zkproofport/openstoa
+          ref: ${{ steps.openstoa-pin.outputs.sha }}
+          path: openstoa
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install
+        working-directory: proofport-app
+        # `--legacy-peer-deps` for the same reason the mini-app's own root needs
+        # it: react-native-keyboard-controller peers on a newer react-native
+        # than this app pins, and the peer graph is not meaningful for a test run.
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      - name: Tests
+        working-directory: proofport-app
+        # `--ci` so a missing snapshot fails instead of being written, and
+        # `--runInBand` because the RN preset's module registry is not cheap to
+        # fork per worker on a 2-core runner.
+        run: npx jest --ci --runInBand
