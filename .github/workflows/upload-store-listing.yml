@@ -1,12 +1,16 @@
 name: Upload the Play store listing
 
 # The store text only. No build is produced and none is uploaded, so this can
-# never cut a release on any track — the fastlane lane it calls sets both
-# skip_upload_aab and skip_upload_apk.
+# never cut a release on any track — the script it calls talks to the Play
+# listings API and never touches a track or a release at all.
 #
 # It is a separate workflow, and manual, for the same reason the build lane
 # skips metadata: shipping a build must not rewrite the store page, and
 # rewriting the store page must not need a build.
+#
+# This used to call `fastlane supply`, which cannot do the job: supply looks up
+# a track release before it will write any listing, and this app has none. See
+# the header of android/play/upload-listing.py for the full diagnosis.
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +19,9 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: read
+
 jobs:
   upload:
     name: Upload the listing
@@ -22,39 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: false
-
-      - name: Install fastlane
-        run: gem install fastlane --no-document
-
-      - name: Show what is about to be sent
-        working-directory: android
-        run: |
-          # Read the files themselves rather than trusting the folder listing:
-          # an empty file uploads an empty store page and reports success.
-          for f in $(find fastlane/metadata/android -name '*.txt' | sort); do
-            printf '%-56s %5s chars\n' "$f" "$(wc -m < "$f" | tr -d ' ')"
-          done
-
       - name: Upload
         working-directory: android
         env:
-          SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            fastlane run supply \
-              package_name:com.masselabs.zkproofport \
-              track:internal \
-              metadata_path:./fastlane/metadata/android \
-              json_key_data:"$SUPPLY_JSON_KEY_DATA" \
-              skip_upload_aab:true skip_upload_apk:true \
-              skip_upload_metadata:false \
-              skip_upload_images:true skip_upload_screenshots:true \
-              skip_upload_changelogs:true \
-              validate_only:true
-          else
-            fastlane store_listing
-          fi
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          PACKAGE_NAME: com.masselabs.zkproofport
+          METADATA_PATH: fastlane/metadata/android
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python3 play/upload-listing.py

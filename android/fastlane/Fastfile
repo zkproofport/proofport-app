@@ -101,46 +101,17 @@ platform :android do
     end
   end
 
-  desc "Upload the store listing only — no build, no release"
-  lane :store_listing do
-    # The `beta` lane above skips metadata ON PURPOSE: shipping a build must
-    # not silently rewrite the store page. But that left the listing with no
-    # way up at all — the text sat in android/fastlane/metadata/ and nothing
-    # ever read it, the same shape of gap as the release workflow that had no
-    # path to Play. So the listing gets its own deliberate act.
-    #
-    # Images and screenshots stay skipped because none exist yet: the shots in
-    # the repo are iPhone-sized (1320x2868) and Play would reject them. When
-    # Android shots are taken, flip skip_upload_images / skip_upload_screenshots
-    # here in the same change that adds them.
-    #
-    # `track` is required by the upload tool but means nothing here — with both
-    # skip_upload_aab and skip_upload_apk set, no release is created on any
-    # track. "internal" is named rather than "production" so a misreading of
-    # this lane cannot be mistaken for a production release.
-    common = {
-      package_name: "com.masselabs.zkproofport",
-      track: "internal",
-      metadata_path: "./fastlane/metadata/android",
-      skip_upload_aab: true,
-      skip_upload_apk: true,
-      skip_upload_metadata: false,
-      skip_upload_images: true,
-      skip_upload_screenshots: true,
-      skip_upload_changelogs: true,
-    }
-
-    # Same three credential shapes, same order, same reasons as `beta`.
-    if credential('SUPPLY_JSON_KEY_DATA')
-      supply(**common, json_key_data: credential('SUPPLY_JSON_KEY_DATA'))
-    elsif credential('GOOGLE_APPLICATION_CREDENTIALS')
-      supply(**common, json_key: credential('GOOGLE_APPLICATION_CREDENTIALS'))
-    elsif credential('SUPPLY_JSON_KEY')
-      supply(**common)
-    else
-      UI.user_error!("No Play credential — set SUPPLY_JSON_KEY_DATA (the service-account JSON itself), or GOOGLE_APPLICATION_CREDENTIALS / SUPPLY_JSON_KEY (a path to it on disk). Nothing was uploaded.")
-    end
-  end
+  # There is no store_listing lane here, and that is deliberate.
+  #
+  # `supply` cannot upload listing text for an app with no release: it looks up
+  # a track release before writing any listing, and errors with "Could not find
+  # release for version code '' to update changelog" when the track has none.
+  # skip_upload_changelogs does not avoid it. The listing therefore goes up
+  # through the Play API directly — see android/play/upload-listing.py, called
+  # by .github/workflows/upload-store-listing.yml.
+  #
+  # The `beta` lane above still skips metadata on purpose: shipping a build
+  # must not silently rewrite the store page.
 
   desc "Build release APK"
   lane :build_apk do |options|

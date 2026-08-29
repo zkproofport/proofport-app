@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""Upload the Play store listing text. No build, no release, no track.
+
+Why this is not `fastlane supply`
+---------------------------------
+supply cannot upload listing text for an app that has no release. Its
+`perform_upload_meta` fetches a track release before it will write any
+listing, and errors out with
+
+    Could not find release for version code '' to update changelog
+
+when the track has none — which is the state of every app that has never had
+a build uploaded, including this one. `skip_upload_changelogs: true` does not
+help: the guard around that block is an OR across four skip flags, so leaving
+metadata enabled is enough to enter it, and the release lookup inside is
+unconditional.
+
+Worse, the loop it happens in is only reached by accident. supply 2.238.0 has
+
+    version_codes = version_codes.reject do |version_code|
+      version_codes.to_s == ""      # the ARRAY, not the element
+    end
+
+which never rejects anything. Fix that typo and the array of one empty version
+code becomes empty, the `each` body never runs, and the listing is silently not
+uploaded at all. Either way there is no version of supply that writes a listing
+for a release-less app, so the listing talks to the Play API directly.
+
+The API is a three-step edit session: open an edit, write each localized
+listing into it, then commit (or validate and throw it away, for a dry run).
+No track and no release are involved at any point, which is the whole reason
+this path works where supply does not.
+
+Length limits are deliberately NOT enforced here. Neither the Android Publisher
+reference nor supply states them, and a guard built on a half-remembered number
+would reject good text or pass bad. Play itself is the authority: over-long
+text is rejected by the API, and the character counts printed below plus the
+read-back at the end show what actually landed.
+"""
+
+import base64
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+API = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications'
+
+# The three files that make up one localized listing. `video` is a fourth
+# Listing field but there is no promo video, and sending an empty string for it
+# is not the same as leaving it alone.
+FIELDS = {
+    'title': 'title.txt',
+    'shortDescription': 'short_description.txt',
+    'fullDescription': 'full_description.txt',
+}
+
+
+def die(message):
+    print(f'::error::{message}')
+    sys.exit(1)
+
+
+def read_listings(metadata_path):
+    """Read every language folder, or refuse to run.
+
+    Every failure here is one that would otherwise reach Play as a successful
+    upload of the wrong thing: a missing file drops a field, and a file holding
+    only whitespace blanks the store page while reporting success.
+    """
+    if not os.path.isdir(metadata_path):
+        die(f'No metadata folder at {metadata_path}')
+
+    languages = sorted(
+        name for name in os.listdir(metadata_path)
+        if not name.startswith('.') and os.path.isdir(os.path.join(metadata_path, name))
+    )
+    if not languages:
+        die(f'No language folders under {metadata_path}')
+
+    listings = {}
+    for language in languages:
+        listing = {'language': language}
+        for field, filename in FIELDS.items():
+            path = os.path.join(metadata_path, language, filename)
+            if not os.path.isfile(path):
+                die(f'{language}: {filename} is missing. Play needs all of '
+                    f'{", ".join(sorted(FIELDS.values()))}.')
+            try:
+                text = open(path, encoding='utf-8').read()
+            except UnicodeDecodeError as e:
+                die(f'{language}: {filename} is not valid UTF-8 ({e}).')
+            # Trailing newlines are an artefact of editing a text file, not
+            # content — Play would keep them. Whitespace-only means the file
+            # exists but says nothing, which must not upload as an empty page.
+            text = text.strip()
+            if not text:
+                die(f'{language}: {filename} is empty. Uploading it would blank '
+                    f'that field on the live store page.')
+            listing[field] = text
+        listings[language] = listing
+
+    print('About to send:')
+    for language, listing in listings.items():
+        for field in FIELDS:
+            # len() over decoded text, so Korean counts as characters and not
+            # as the three bytes each of them takes in UTF-8.
+            print(f'  {language:6} {field:16} {len(listing[field]):5} chars')
+    return listings
+
+
+def access_token(key):
+    """Sign a JWT with the service-account key and trade it for a token."""
+    def b64(raw):
+        return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+
+    now = int(time.time())
+    header = b64(json.dumps({'alg': 'RS256', 'typ': 'JWT'}).encode())
+    claims = b64(json.dumps({
+        'iss': key['client_email'],
+        'scope': 'https://www.googleapis.com/auth/androidpublisher',
+        'aud': 'https://oauth2.googleapis.com/token',
+        'iat': now, 'exp': now + 3600,
+    }).encode())
+    with open('/tmp/play-pk.pem', 'w') as pem:
+        pem.write(key['private_key'])
+    signature = subprocess.run(
+        ['openssl', 'dgst', '-sha256', '-sign', '/tmp/play-pk.pem'],
+        input=f'{header}.{claims}'.encode(), capture_output=True, check=True).stdout
+    assertion = f'{header}.{claims}.{b64(signature)}'
+
+    body = urllib.parse.urlencode({
+        'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        'assertion': assertion,
+    }).encode()
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+                'https://oauth2.googleapis.com/token', data=body)) as response:
+            return json.load(response)['access_token']
+    except urllib.error.HTTPError as e:
+        print(e.read().decode('utf-8', 'replace')[:400])
+        die('Could not exchange the key for a token — the key is wrong or revoked.')
+
+
+def call(token, method, url, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {'Authorization': f'Bearer {token}'}
+    if data is not None:
+        headers['Content-Type'] = 'application/json'
+    request = urllib.request.Request(url, data=data, method=method, headers=headers)
+    with urllib.request.urlopen(request) as response:
+        raw = response.read()
+    return json.loads(raw) if raw else {}
+
+
+def api_error(e):
+    detail = e.read().decode('utf-8', 'replace')
+    try:
+        return json.loads(detail)['error']['message']
+    except Exception:
+        return detail[:600]
+
+
+def main():
+    package = os.environ['PACKAGE_NAME']
+    metadata_path = os.environ['METADATA_PATH']
+    dry_run = os.environ.get('DRY_RUN', 'true') == 'true'
+
+    raw_key = os.environ.get('PLAY_SERVICE_ACCOUNT_JSON', '').strip()
+    if not raw_key:
+        die('PLAY_SERVICE_ACCOUNT_JSON is not set in this repository.')
+    try:
+        key = json.loads(raw_key)
+    except json.JSONDecodeError as e:
+        die(f'PLAY_SERVICE_ACCOUNT_JSON is not valid JSON ({e}).')
+
+    # Read and check the text BEFORE opening an edit, so a bad file cannot
+    # leave a half-written session on the app.
+    listings = read_listings(metadata_path)
+
+    print(f'\nservice account: {key["client_email"]}')
+    print(f'package:         {package}')
+    print(f'mode:            {"dry run — validate and discard" if dry_run else "REAL — commit to Play"}')
+
+    token = access_token(key)
+    edits = f'{API}/{package}/edits'
+
+    try:
+        edit = call(token, 'POST', edits, {})
+    except urllib.error.HTTPError as e:
+        message = api_error(e)
+        print(f'::error::Play refused to open an edit ({e.code}): {message}')
+        if e.code == 404:
+            print('::error::Either the app does not exist in Play Console, or this '
+                  'service account cannot see it. Google returns 404 for both.')
+        sys.exit(1)
+
+    edit_id = edit['id']
+    print(f'\nedit session {edit_id} opened')
+
+    committed = False
+    try:
+        for language, listing in listings.items():
+            try:
+                call(token, 'PUT', f'{edits}/{edit_id}/listings/{language}', listing)
+            except urllib.error.HTTPError as e:
+                die(f'{language}: Play rejected the listing ({e.code}): {api_error(e)}')
+            print(f'  wrote {language}')
+
+        if dry_run:
+            try:
+                call(token, 'POST', f'{edits}/{edit_id}:validate')
+            except urllib.error.HTTPError as e:
+                die(f'Play rejected the edit on validate ({e.code}): {api_error(e)}')
+            print('\nvalidated. Nothing was committed — this was a dry run.')
+        else:
+            # Commit plainly first. An app that cannot send changes for review
+            # automatically answers with a message naming the parameter it
+            # wants; both strings below are the ones fastlane 2.238.0 matches on
+            # in supply/lib/supply/client.rb, not invented ones.
+            try:
+                call(token, 'POST', f'{edits}/{edit_id}:commit')
+            except urllib.error.HTTPError as e:
+                message = api_error(e)
+                if 'changesNotSentForReview to true' in message:
+                    print('Play asked for changesNotSentForReview=true — retrying.')
+                    call(token, 'POST',
+                         f'{edits}/{edit_id}:commit?changesNotSentForReview=true')
+                else:
+                    die(f'Play rejected the commit ({e.code}): {message}')
+            committed = True
+            print('\ncommitted to Play.')
+    finally:
+        # Abandon the session unless it was committed — a committed edit no
+        # longer exists to delete, and an abandoned one leaves the app clean
+        # for the next run whatever went wrong above.
+        if not committed:
+            try:
+                call(token, 'DELETE', f'{edits}/{edit_id}')
+                print('edit session abandoned — nothing was changed')
+            except Exception as e:
+                print(f'::warning::could not abandon the edit session ({e}). '
+                      'Nothing was committed; the session expires on its own.')
+
+    # Read Play back rather than trusting the calls above. A fresh edit is used
+    # because the one written to is gone by now either way.
+    print('\nWhat Play holds now:')
+    try:
+        check = call(token, 'POST', edits, {})
+        rows = (call(token, 'GET', f'{edits}/{check["id"]}/listings') or {}).get('listings') or []
+        print(f'  listings present: {len(rows)}')
+        for row in sorted(rows, key=lambda r: r.get('language') or ''):
+            print(f'  {row.get("language")}: title={row.get("title")!r}, '
+                  f'short={len(row.get("shortDescription") or "")} chars, '
+                  f'full={len(row.get("fullDescription") or "")} chars')
+        call(token, 'DELETE', f'{edits}/{check["id"]}')
+    except Exception as e:
+        # Never fail the run on the read-back: the upload above already
+        # succeeded or exited, and a broken report must not be readable as a
+        # broken upload.
+        print(f'::warning::could not read the listings back ({e}).')
+
+
+if __name__ == '__main__':
+    main()
