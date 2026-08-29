@@ -79,6 +79,13 @@ target 'ProofportApp' do
         '#if 0 // patched: force constexpr fallback for Xcode 26.x clang'
       )
       if content != patched
+        # Make it writable first. When the Pods directory comes back from a CI
+        # cache the file can be read-only, and the write then fails with
+        # `Permission denied @ rb_sysopen` from inside the post-install hook —
+        # which reads as a CocoaPods bug rather than a file mode. That killed a
+        # release build on 2026-08-29 after the same patch had worked on the
+        # previous, uncached run.
+        File.chmod(0o644, fmt_header) unless File.writable?(fmt_header)
         File.write(fmt_header, patched)
         Pod::UI.puts "Patched fmt/base.h: forced FMT_USE_CONSTEVAL guard to 0".green
       end
