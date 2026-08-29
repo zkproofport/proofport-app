@@ -8,7 +8,12 @@ export interface AppSettings {
   confirmBeforeGenerate: boolean;
   developerMode: boolean;
   theme: 'dark' | 'light';
-  language: string;
+  /* No `language` here on purpose. The app's language lives in i18n, keyed
+   * `proofport.language` (src/i18n/index.ts) — the phone's language at first
+   * run, overridden by whatever the user picks in More > Language. A second
+   * field of the same name in this store read like the language setting and
+   * was wired to nothing: no screen wrote it, no screen read it. Anyone
+   * "fixing" the picker to write here would silently break the setting. */
   defaultNetwork: string;
   /**
    * Developer-mode toggle for the Korea mDL flow. When true (default),
@@ -26,7 +31,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   confirmBeforeGenerate: true,
   developerMode: false,
   theme: 'dark',
-  language: 'en',
   defaultNetwork: 'base',
   useOmniOneCxUi: true,
 };
