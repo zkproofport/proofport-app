@@ -525,7 +525,7 @@
       },
       "commentsCount": "{{count}} comments",
       "viewsCount": "{{count}} views",
-      "more": "More",
+      "more": "Show more",
       "showLess": "Show less"
     },
     "relativeTime": {
@@ -619,12 +619,12 @@
         "all": "All"
       },
       "invite": {
-        "cta": "Join with invite code",
-        "hint": "Enter invite code",
+        "cta": "Join with an invite",
+        "hint": "Paste the invite link or code",
         "join": "Join",
         "share": "Invite",
         "shareSubject": "Join this topic on OpenStoa",
-        "shareBody": "Use this invite code to join: {{code}}",
+        "shareBody": "Join this topic on OpenStoa: {{link}}",
         "joinFailedTitle": "Couldn't join",
         "alreadyMember": "You're already a member of this topic.",
         "invalidCode": "That invite code is invalid or expired."
@@ -671,7 +671,7 @@
       "saved": "Topic updated",
       "saveFailed": "Couldn't save",
       "deleteTopic": "Delete topic",
-      "deleteConfirm": "Delete this topic? This cannot be undone."
+      "deleteConfirm": "Delete this topic? Every post, comment and message in it goes too, for everyone — not only for you. This cannot be undone."
     },
     "postCreate": {
       "title": "Title",

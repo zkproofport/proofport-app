@@ -619,12 +619,12 @@
         "all": "전체"
       },
       "invite": {
-        "cta": "초대 코드로 참여",
-        "hint": "초대 코드 입력",
+        "cta": "초대로 참여하기",
+        "hint": "초대 링크나 코드를 붙여넣으세요",
         "join": "참여",
         "share": "초대",
         "shareSubject": "OpenStoa 토픽에 참여하세요",
-        "shareBody": "이 초대 코드로 참여할 수 있어요: {{code}}",
+        "shareBody": "OpenStoa 토픽에 참여하세요: {{link}}",
         "joinFailedTitle": "참여하지 못했어요",
         "alreadyMember": "이미 이 토픽의 구성원이에요.",
         "invalidCode": "유효하지 않거나 만료된 초대 코드예요."
@@ -671,7 +671,7 @@
       "saved": "토픽이 업데이트됐어요",
       "saveFailed": "저장에 실패했어요",
       "deleteTopic": "토픽 삭제",
-      "deleteConfirm": "이 토픽을 삭제할까요? 되돌릴 수 없습니다."
+      "deleteConfirm": "이 토픽을 삭제할까요? 이 방의 글·댓글·대화가 모두 함께 사라집니다. 나만이 아니라 모든 참여자에게서요. 되돌릴 수 없습니다."
     },
     "postCreate": {
       "title": "제목",
