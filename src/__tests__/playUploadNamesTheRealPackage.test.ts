@@ -1,0 +1,100 @@
+/**
+ * The Play upload must name the package it actually built.
+ *
+ * On 2026-08-29 it did not. The Android upload lane worked out the package name
+ * to hand to Play from an `APP_ID_SUFFIX` environment variable, falling back to
+ * appending `.staging` for the staging flavor. Both branches were wrong:
+ *
+ *   - nothing applied a suffix to the build. `app/build.gradle` sets one
+ *     `applicationId` and no `applicationIdSuffix` anywhere, and says so in a
+ *     comment: every flavor ships as `com.masselabs.zkproofport`, one Play
+ *     listing, one Google OAuth client. So the variable changed only what
+ *     fastlane SAID, never what was built.
+ *   - the release workflow set the variable the wrong way round —
+ *     `inputs.environment == 'production' && '.staging' || ''` — so choosing
+ *     production sent `.staging` and choosing staging sent nothing.
+ *
+ * The first real upload would have been told about a listing that does not
+ * exist. Nothing had ever run it, because the Play service-account credential
+ * is still missing, so the mistake sat there unseen.
+ *
+ * These tests read the release files as text. That is deliberate: the defect
+ * lived in the agreement BETWEEN three files, and no amount of testing any one
+ * of them in isolation would have found it.
+ *
+ * This package runs jest, which takes no message argument on `expect`. Each
+ * failure has to be readable from the test name alone.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+
+const repo = path.join(__dirname, '..', '..');
+const read = (rel: string) => fs.readFileSync(path.join(repo, rel), 'utf8');
+
+const GRADLE = 'android/app/build.gradle';
+const FASTFILE = 'android/fastlane/Fastfile';
+const RELEASE_WORKFLOW = '.github/workflows/release-app.yml';
+
+/** Strips whole-line `#` and `//` comments so prose cannot satisfy a check. */
+const withoutComments = (body: string) => body.replace(/^[ \t]*(#|\/\/).*$/gm, '');
+
+describe('the Android release names one package, everywhere', () => {
+  it('build.gradle declares exactly one applicationId', () => {
+    const ids = [...read(GRADLE).matchAll(/^\s*applicationId\s+"([^"]+)"/gm)].map((m) => m[1]);
+    expect(ids).toEqual(['com.masselabs.zkproofport']);
+  });
+
+  it('build.gradle applies no suffix, so every flavor is the same package', () => {
+    // If a suffix is ever introduced, the upload lane has to learn to follow it,
+    // and the next test — which compares the two — is what will say so.
+    expect(withoutComments(read(GRADLE))).not.toMatch(/applicationIdSuffix/);
+  });
+
+  it('the upload lane hands Play exactly the applicationId that was built', () => {
+    const appId = read(GRADLE).match(/^\s*applicationId\s+"([^"]+)"/m)?.[1];
+    const pkg = read(FASTFILE).match(/^\s*pkg\s*=\s*"([^"]+)"/m)?.[1];
+    expect(appId).toBeTruthy();
+    expect(pkg).toBe(appId);
+  });
+
+  it('no .staging package name survives in build.gradle, the lane, or the workflow', () => {
+    for (const file of [GRADLE, FASTFILE, RELEASE_WORKFLOW]) {
+      expect(withoutComments(read(file))).not.toMatch(/com\.masselabs\.zkproofport\.staging/);
+    }
+  });
+
+  it('the suffix variable is gone from both the lane and the workflow', () => {
+    expect(withoutComments(read(FASTFILE))).not.toMatch(/APP_ID_SUFFIX/);
+    expect(withoutComments(read(RELEASE_WORKFLOW))).not.toMatch(/APP_ID_SUFFIX/);
+  });
+});
+
+describe('the upload still refuses to skip quietly', () => {
+  it('keeps the branch that reports a missing Play credential out loud', () => {
+    /*
+     * Guarding an earlier fix in the same file: both upload lanes used to fall
+     * off the end when no credential was present, printing nothing and exiting
+     * 0, so a green run meant nothing had been uploaded.
+     */
+    const fastfile = read(FASTFILE);
+    expect(/elsif credential\('SUPPLY_JSON_KEY'\)[\s\S]*?\belse\b/.test(fastfile)).toBe(true);
+    expect(fastfile).toMatch(/NO CREDENTIAL/i);
+  });
+
+  it('treats a credential set to nothing as not set', () => {
+    /*
+     * GitHub Actions writes an empty string for a secret that does not exist,
+     * and an empty string is truthy in Ruby. Branching on the bare variable
+     * would walk into the upload with no credential and fail somewhere far from
+     * the cause, instead of taking the branch above that says what is missing.
+     */
+    for (const file of [FASTFILE, 'ios/fastlane/Fastfile']) {
+      const body = withoutComments(read(file));
+      expect(body).toMatch(/def credential\(name\)/);
+      // No decision about a credential may read the raw variable.
+      expect(body).not.toMatch(
+        /(if|elsif|\?)\s*ENV\['(ASC_[A-Z_]+|MATCH_PASSWORD|GOOGLE_APPLICATION_CREDENTIALS|SUPPLY_JSON_KEY)'\]/,
+      );
+    }
+  });
+});

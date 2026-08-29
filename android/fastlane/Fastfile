@@ -1,5 +1,18 @@
 default_platform(:android)
 
+# A credential that is set to nothing is not set.
+#
+# GitHub Actions writes an EMPTY STRING for `${{ secrets.MISSING }}`, and in
+# Ruby an empty string is truthy — so `if ENV['SOME_KEY']` is true even when the
+# secret does not exist. A workflow that references a secret nobody has created
+# would therefore walk into the upload branch with no credential, and fail deep
+# inside the upload tool instead of at the branch that exists to say "there is
+# no credential, so nothing was uploaded".
+def credential(name)
+  value = ENV[name].to_s.strip
+  value.empty? ? nil : value
+end
+
 platform :android do
   desc "Build release AAB and upload to Play Console alpha track"
   lane :beta do |options|
@@ -17,17 +30,22 @@ platform :android do
       properties: props,
     )
 
-    suffix = ENV['ORG_GRADLE_PROJECT_APP_ID_SUFFIX']
-    if suffix
-      pkg = "com.masselabs.zkproofport#{suffix}"
-    else
-      pkg = flavor == "staging" ? "com.masselabs.zkproofport.staging" : "com.masselabs.zkproofport"
-    end
+    # One package name for every flavor, matching `applicationId` in
+    # app/build.gradle. There is no `applicationIdSuffix` anywhere, so the AAB
+    # this lane just built is always `com.masselabs.zkproofport` — naming
+    # anything else here only tells Play about a listing that does not exist.
+    #
+    # This used to read an APP_ID_SUFFIX environment variable and, failing that,
+    # append `.staging` for the staging flavor. Neither branch could be right:
+    # nothing applied a suffix to the build, and the workflow set the variable
+    # the wrong way round — picking production sent `.staging`, picking staging
+    # sent nothing.
+    pkg = "com.masselabs.zkproofport"
 
-    if ENV['GOOGLE_APPLICATION_CREDENTIALS']
+    if credential('GOOGLE_APPLICATION_CREDENTIALS')
       supply(
         track: "alpha",
-        json_key: ENV['GOOGLE_APPLICATION_CREDENTIALS'],
+        json_key: credential('GOOGLE_APPLICATION_CREDENTIALS'),
         package_name: pkg,
         aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
         skip_upload_metadata: true,
@@ -35,7 +53,7 @@ platform :android do
         skip_upload_screenshots: true,
         skip_upload_changelogs: true,
       )
-    elsif ENV['SUPPLY_JSON_KEY']
+    elsif credential('SUPPLY_JSON_KEY')
       supply(
         track: "alpha",
         package_name: pkg,
@@ -45,6 +63,21 @@ platform :android do
         skip_upload_screenshots: true,
         skip_upload_changelogs: true,
       )
+    else
+      # NO CREDENTIAL, SO NO UPLOAD — say so, loudly.
+      #
+      # This used to be an `if/elsif` with no `else`: with neither variable set,
+      # the lane simply ran off the end. The build went green, the AAB was built
+      # and signed, and nothing reached Play. Nothing in the log said why, so
+      # "the upload is broken" and "the upload never ran" looked identical from
+      # the outside.
+      #
+      # Deliberately a warning and not a failure: building the AAB without
+      # publishing it is a real thing to want (a local release build, a CI job
+      # that only checks the build compiles). What must not happen is doing it
+      # by accident and believing otherwise.
+      UI.important("No Play credential — set GOOGLE_APPLICATION_CREDENTIALS (path to the service-account JSON) or SUPPLY_JSON_KEY.")
+      UI.important("The AAB was built and signed at #{lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]}, and NOT uploaded to Play.")
     end
   end
 

@@ -3,7 +3,7 @@
  */
 
 // Polyfills - MUST be first before any other imports!
-import 'fast-text-encoding'; // TextEncoder/TextDecoder for Privy
+import 'fast-text-encoding'; // TextEncoder/TextDecoder for ethers/WalletConnect
 import 'react-native-get-random-values'; // crypto.getRandomValues
 import '@ethersproject/shims'; // ethers.js polyfills
 
@@ -13,7 +13,7 @@ import '@walletconnect/react-native-compat';
 // WebCrypto `subtle` (react-native-quick-crypto) for the OpenStoa mini-app's
 // E2EE chat GroupCipher (seal/open). Idempotent and additive — it only attaches
 // `subtle` to the existing global.crypto and never replaces getRandomValues,
-// so Privy/ethers/WalletConnect are unaffected. Without this the mini-app chat
+// so ethers/WalletConnect are unaffected. Without this the mini-app chat
 // cannot decrypt. (Installer originated in the Phase 0 PoC.)
 import {ensureSubtleCrypto} from './src/crypto/installCryptoPolyfill';
 ensureSubtleCrypto();

@@ -1,5 +1,19 @@
 default_platform(:ios)
 
+# A credential that is set to nothing is not set.
+#
+# GitHub Actions writes an EMPTY STRING for `${{ secrets.MISSING }}`, and in
+# Ruby an empty string is truthy — so `if ENV['SOME_KEY']` is true even when the
+# secret does not exist. That matters twice here: it decides whether to build an
+# API key at all, and it decides whether the archive is exported for the App
+# Store or for development. Getting the second one wrong from a blank value
+# produces an export that cannot be uploaded, and the reason is nowhere near the
+# failure.
+def credential(name)
+  value = ENV[name].to_s.strip
+  value.empty? ? nil : value
+end
+
 platform :ios do
   desc "Build IPA for local install or TestFlight"
   lane :beta do |options|
@@ -8,13 +22,13 @@ platform :ios do
 
     setup_ci if ENV['CI']
 
-    if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+    if credential('ASC_API_KEY_PATH') && File.exist?(ENV['ASC_API_KEY_PATH'])
       api_key = app_store_connect_api_key(
         key_id: ENV['ASC_KEY_ID'],
         issuer_id: ENV['ASC_ISSUER_ID'],
         key_filepath: ENV['ASC_API_KEY_PATH'],
       )
-    elsif ENV['ASC_KEY_ID']
+    elsif credential('ASC_KEY_ID')
       api_key = app_store_connect_api_key(
         key_id: ENV['ASC_KEY_ID'],
         issuer_id: ENV['ASC_ISSUER_ID'],
@@ -97,14 +111,21 @@ platform :ios do
       )
     end
 
+    # OPENSTOA_ENABLED is spelled out here rather than left to the Xcode build
+    # configuration. The configuration does set it (Debug true, Release false)
+    # and archives use Release, so the value would come out right anyway — but
+    # it would come out right invisibly. Reading this file would not tell you
+    # whether the mini-app ships, and flipping the Release setting in Xcode
+    # would change what goes to the App Store with nothing in CI to notice.
+    # When OpenStoa is ready to ship, change it here.
     build_app(
       workspace: "ProofportApp.xcworkspace",
       scheme: "ProofportApp",
-      export_method: ENV['ASC_KEY_ID'] ? "app-store" : "development",
+      export_method: credential('ASC_KEY_ID') ? "app-store" : "development",
       output_directory: "./build",
       output_name: "ProofportApp.ipa",
       clean: true,
-      xcargs: "APP_ENV=#{app_env}",
+      xcargs: "APP_ENV=#{app_env} OPENSTOA_ENABLED=false",
       export_xcargs: "-allowProvisioningUpdates",
     )
 
@@ -120,6 +141,18 @@ platform :ios do
         api_key: upload_key,
         skip_waiting_for_build_processing: true,
       )
+    else
+      # NO CREDENTIAL, SO NO UPLOAD — say so, loudly.
+      #
+      # Same shape as the Play upload in android/fastlane/Fastfile, and the same
+      # trap: with no key the lane runs off the end, the IPA is built and signed,
+      # and nothing reaches TestFlight. The build goes green either way, so
+      # "the upload failed" and "the upload never happened" look identical.
+      #
+      # A warning rather than a failure: `beta` is also how a local IPA gets
+      # built for a device, and that has no business needing an App Store key.
+      UI.important("No App Store Connect key — set ASC_KEY_ID / ASC_ISSUER_ID and either ASC_API_KEY_PATH or ASC_API_KEY.")
+      UI.important("The IPA was built and signed at ./build/ProofportApp.ipa, and NOT uploaded to TestFlight.")
     end
   end
 
@@ -127,7 +160,7 @@ platform :ios do
   lane :release do
     setup_ci if ENV['CI']
 
-    if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+    if credential('ASC_API_KEY_PATH') && File.exist?(ENV['ASC_API_KEY_PATH'])
       api_key = app_store_connect_api_key(
         key_id: ENV['ASC_KEY_ID'],
         issuer_id: ENV['ASC_ISSUER_ID'],
@@ -157,7 +190,7 @@ platform :ios do
       output_directory: "./build",
       output_name: "ProofportApp.ipa",
       clean: true,
-      xcargs: "APP_ENV=production",
+      xcargs: "APP_ENV=production OPENSTOA_ENABLED=false",
       export_xcargs: "-allowProvisioningUpdates",
     )
 
@@ -187,13 +220,13 @@ platform :ios do
     # Deliberately absent: match (would issue certificates), build_app,
     # upload_to_testflight, upload_to_app_store, deliver run.
 
-    if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+    if credential('ASC_API_KEY_PATH') && File.exist?(ENV['ASC_API_KEY_PATH'])
       api_key = app_store_connect_api_key(
         key_id: ENV['ASC_KEY_ID'],
         issuer_id: ENV['ASC_ISSUER_ID'],
         key_filepath: ENV['ASC_API_KEY_PATH'],
       )
-    elsif ENV['ASC_KEY_ID']
+    elsif credential('ASC_KEY_ID')
       api_key = app_store_connect_api_key(
         key_id: ENV['ASC_KEY_ID'],
         issuer_id: ENV['ASC_ISSUER_ID'],
@@ -244,9 +277,9 @@ platform :ios do
     #
     # Development, not appstore: this lane builds for a local install onto a
     # registered device. The appstore pair belongs to `beta`.
-    if ENV['ASC_KEY_ID'] || ENV['ASC_API_KEY_PATH']
+    if credential('ASC_KEY_ID') || credential('ASC_API_KEY_PATH')
       api_key =
-        if ENV['ASC_API_KEY_PATH'] && File.exist?(ENV['ASC_API_KEY_PATH'])
+        if credential('ASC_API_KEY_PATH') && File.exist?(ENV['ASC_API_KEY_PATH'])
           app_store_connect_api_key(
             key_id: ENV['ASC_KEY_ID'],
             issuer_id: ENV['ASC_ISSUER_ID'],

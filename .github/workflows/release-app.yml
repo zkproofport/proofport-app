@@ -313,7 +313,6 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
-          ORG_GRADLE_PROJECT_APP_ID_SUFFIX: ${{ inputs.environment == 'production' && '.staging' || '' }}
         run: bundle exec fastlane android beta flavor:${{ inputs.environment }}
 
       - name: Build APK (dry run)
@@ -321,7 +320,6 @@ jobs:
         working-directory: proofport-app/android
         env:
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
-          ORG_GRADLE_PROJECT_APP_ID_SUFFIX: .staging
         run: ./gradlew assembleProductionRelease
 
       - name: Upload AAB artifact
