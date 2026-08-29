@@ -21,7 +21,7 @@ import {
   LiveLogsPanel,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useGoogleAuth, useMicrosoftAuth, usePrivyWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
 import {useMdlKr} from '../../hooks/useMdlKr';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
@@ -287,7 +287,7 @@ export const ProofGenerationScreen: React.FC = () => {
     mdlHook.resetProofCache();
   }
 
-  const {account, isReady: isPrivyReady, connect: connectWallet, disconnect: disconnectWallet, getProvider} = usePrivyWallet(addLog);
+  const {account, isReady: isWalletReady, connect: connectWallet, disconnect: disconnectWallet, getProvider} = useWallet(addLog);
   const walletGate = useCircuitWalletGate({
     account,
     connectWallet,
@@ -306,7 +306,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const [circuitReady, setCircuitReady] = useState(false);
   useEffect(() => {
     if (isOidc || isMdl) {
-      // OIDC and Korea mDL are web2 flows — no Privy wallet binding, so the
+      // OIDC and Korea mDL are web2 flows — no wallet binding, so the
       // circuit is always "ready" without a wallet gate.
       setCircuitReady(true);
       return;
@@ -815,11 +815,11 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [isOidc, proofRequest, handleGenerateProof, addLog]);
 
   useEffect(() => {
-    if (proofRequest && !circuitReady && isPrivyReady && !hasAutoStarted.current) {
+    if (proofRequest && !circuitReady && isWalletReady && !hasAutoStarted.current) {
       addLog(`[DeepLink] From: ${proofRequest.dappName || 'Unknown'}`);
       addLog(`[DeepLink] Connect wallet to continue`);
     }
-  }, [proofRequest, circuitReady, isPrivyReady, addLog]);
+  }, [proofRequest, circuitReady, isWalletReady, addLog]);
 
   const isProcessing = hook.isLoading || isSearching;
   const hasStepsStarted = hook.proofSteps.some(s => s.status !== 'pending');

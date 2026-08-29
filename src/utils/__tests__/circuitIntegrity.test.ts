@@ -33,6 +33,7 @@
  *                turns the second answer into a different answer
  */
 import {
+  manifestLocation,
   isSha256Hex,
   parseSha256Manifest,
   verifyCircuitFile,
@@ -201,5 +202,67 @@ describe('parseSha256Manifest', () => {
 
   it('ACCUMULATING: names with spaces survive — the digest ends at the first gap', () => {
     expect(parseSha256Manifest(`${A}  my circuit.json`)).toEqual({ 'my circuit.json': A });
+  });
+});
+
+/**
+ * Where the digest is looked up, and under what name.
+ *
+ * THE DEFECT this pins. The lookup used the name the app SAVES the file under,
+ * not the name the server publishes it under. They agree for the circuit and
+ * its reference string and disagree for the verifying key — published as
+ * `.../target/vk/vk`, saved as `<circuit>.vk`. So the verifying key found no
+ * entry, fell through to the length check, and logged the same line a release
+ * with no manifest logs. Publishing the manifest would not have fixed it, and
+ * nothing would have pointed at why.
+ */
+describe('manifestLocation', () => {
+  const RAW = 'https://raw.githubusercontent.com/zkproofport/circuits/v1.2.3';
+
+  it('the circuit json: manifest beside it, keyed by its own name', () => {
+    expect(manifestLocation(`${RAW}/coinbase-attestation/target/coinbase_attestation.json`)).toEqual({
+      manifestUrl: `${RAW}/coinbase-attestation/target/SHA256SUMS`,
+      key: 'coinbase_attestation.json',
+    });
+  });
+
+  it('the reference string sits in the same directory, so it shares the manifest', () => {
+    const json = manifestLocation(`${RAW}/coinbase-attestation/target/coinbase_attestation.json`);
+    const srs = manifestLocation(`${RAW}/coinbase-attestation/target/coinbase_attestation.srs`);
+    expect(srs.manifestUrl).toBe(json.manifestUrl);
+    expect(srs.key).toBe('coinbase_attestation.srs');
+  });
+
+  it('THE REGRESSION: the verifying key is keyed `vk`, never `<circuit>.vk`', () => {
+    const at = manifestLocation(`${RAW}/coinbase-attestation/target/vk/vk`);
+    expect(at.key).toBe('vk');
+    expect(at.key).not.toBe('coinbase_attestation.vk');
+    // Its manifest is the one INSIDE vk/, not the one a level up.
+    expect(at.manifestUrl).toBe(`${RAW}/coinbase-attestation/target/vk/SHA256SUMS`);
+    expect(at.manifestUrl).not.toBe(`${RAW}/coinbase-attestation/target/SHA256SUMS`);
+  });
+
+  it('a dev-only circuit read from main resolves the same way', () => {
+    const main = 'https://raw.githubusercontent.com/zkproofport/circuits/main';
+    expect(manifestLocation(`${main}/giwa-attestation/target/vk/vk`)).toEqual({
+      manifestUrl: `${main}/giwa-attestation/target/vk/SHA256SUMS`,
+      key: 'vk',
+    });
+  });
+
+  it('BOUNDARY: a bare name with no directory still asks for a manifest', () => {
+    expect(manifestLocation('vk')).toEqual({ manifestUrl: 'SHA256SUMS', key: 'vk' });
+  });
+
+  it('BOUNDARY: an empty string never produces an empty key silently', () => {
+    const at = manifestLocation('');
+    expect(at.key).toBe('');
+    expect(at.manifestUrl).toBe('SHA256SUMS');
+  });
+
+  it('a query string stays part of the name rather than being guessed away', () => {
+    // Nothing appends one today; if something does, the key must not be
+    // silently rewritten into a name the manifest does not contain.
+    expect(manifestLocation(`${RAW}/a/target/x.json?v=2`).key).toBe('x.json?v=2');
   });
 });

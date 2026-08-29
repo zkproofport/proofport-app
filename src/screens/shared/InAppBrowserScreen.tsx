@@ -5,7 +5,7 @@
  * Rule: every http(s) outbound URL in ZKProofport MUST use this screen
  * instead of Linking.openURL. Exceptions (must be documented at call site):
  *   - non-http schemes: mailto:, tel:, wc:, zkproofport:// self-deep-links
- *   - wallet handoff deep links (Privy / RainbowKit / WalletConnect)
+ *   - wallet handoff deep links (RainbowKit / WalletConnect)
  *   - mobileid-app:// and similar OS-level app-switching deep links
  *
  * Header is the native stack header (back chevron + page title).

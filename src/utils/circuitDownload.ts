@@ -1,5 +1,6 @@
 import RNFS from 'react-native-fs';
 import {
+  manifestLocation,
   parseSha256Manifest,
   verifyCircuitFile,
 } from './circuitIntegrity';
@@ -274,7 +275,7 @@ async function downloadCircuitFileFromGitHub(
     size: stat.size,
     declaredLength: declaredLength ?? null,
     digest: await digestOrNull(destPath, log),
-    expectedDigest: await expectedDigestFor(circuitName, fileName, env, log),
+    expectedDigest: await expectedDigestFor(circuitName, extension, env, log),
   });
 
   if (!verdict.ok) {
@@ -327,14 +328,13 @@ export function __resetCircuitManifestCache(): void {
 
 async function expectedDigestFor(
   circuitName: string,
-  fileName: string,
+  extension: string,
   env: Environment,
   log: (m: string) => void,
 ): Promise<string | null> {
   try {
-    const fileUrl = await getCircuitFileUrl(circuitName, fileName.split('.').pop() ?? '', env);
-    const base = fileUrl.slice(0, fileUrl.lastIndexOf('/'));
-    const manifestUrl = `${base}/SHA256SUMS`;
+    const fileUrl = await getCircuitFileUrl(circuitName, extension, env);
+    const { manifestUrl, key: publishedName } = manifestLocation(fileUrl);
 
     if (!manifestCache.has(manifestUrl)) {
       const res = await fetch(manifestUrl);
@@ -351,7 +351,7 @@ async function expectedDigestFor(
       }
     }
 
-    return manifestCache.get(manifestUrl)?.[fileName] ?? null;
+    return manifestCache.get(manifestUrl)?.[publishedName] ?? null;
   } catch (e) {
     log(`Could not read the circuit manifest: ${String(e)}`);
     return null;

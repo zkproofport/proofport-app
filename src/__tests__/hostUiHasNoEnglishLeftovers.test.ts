@@ -99,7 +99,11 @@ const QUOTED = /(['"])([A-Za-z][^'"]{2,})\1/g;
 
 /** A translation key or a web address, not a sentence a person reads. */
 function notASentence(s: string): boolean {
-  return /^[a-z][\w]*(\.[\w]+)+$/.test(s) || /^(www\.|https?:\/\/)/.test(s);
+  // A host on its own (`masselabs.com`, `openstoa.xyz`), or a host followed by
+  // a path (`github.com/zkproofport/proofport-app`). Both are addresses, and
+  // translating either one breaks the link rather than localising it.
+  if (/^[a-z][\w-]*(\.[\w-]+)+(\/\S*)?$/.test(s)) return true;
+  return /^(www\.|https?:\/\/)/.test(s);
 }
 
 function offendersIn(text: string, re: RegExp): Array<{line: number; word: string}> {

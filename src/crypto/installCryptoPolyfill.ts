@@ -1,6 +1,6 @@
 // Phase 0 PoC — attach a WebCrypto `subtle` to the existing global.crypto so
 // ts-mls / @hpke/core work on Hermes, WITHOUT replacing the app's crypto
-// (react-native-get-random-values, used by Privy/ethers/WalletConnect).
+// (react-native-get-random-values, used by ethers/WalletConnect).
 //
 // NOTE: no top-level `import` of react-native-quick-crypto. Under Metro
 // `inlineRequires`, a top-level default import here interacted badly and the

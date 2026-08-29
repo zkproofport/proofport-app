@@ -23,6 +23,10 @@ const MASSE_LABS_URL = 'https://www.masselabs.com';
 const OPENSTOA_URL = 'https://www.openstoa.xyz';
 const ZKPROOFPORT_URL = 'https://www.zkproofport.com';
 const AZTEC_URL = 'https://aztec.network';
+// App Review Guideline 5.1.1(i) requires the policy to be reachable from inside
+// the app, not only from the App Store listing.
+const PRIVACY_POLICY_URL =
+  'https://github.com/zkproofport/proofport-app/blob/main/docs/legal/privacy-policy.md';
 
 type MoreNavigation = NativeStackNavigationProp<MoreStackParamList>;
 
@@ -114,6 +118,20 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
             title="Aztec"
             subtitle={t('host.about.aztecSubtitle')}
             onPress={() => openURL(AZTEC_URL, 'Aztec')}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>
+            {t('host.about.sectionLegal')}
+          </Text>
+          <MenuItem
+            icon="shield"
+            title={t('host.about.privacyPolicy')}
+            subtitle="github.com/zkproofport/proofport-app"
+            onPress={() =>
+              openURL(PRIVACY_POLICY_URL, t('host.about.privacyPolicy'))
+            }
           />
         </View>
       </ScrollView>

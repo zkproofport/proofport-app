@@ -159,3 +159,23 @@ export function parseSha256Manifest(text: string): Record<string, string> {
   }
   return out;
 }
+
+/**
+ * Where the digest for a downloaded file is published, and under what name.
+ *
+ * The manifest sits BESIDE the file and lists what that directory contains, so
+ * its keys are the server's names — which are not always ours. The verifying
+ * key is published as `<circuit>/target/vk/vk` and stored locally as
+ * `<circuit>.vk`; looking it up by the local name found nothing and fell
+ * through to the length check, and the log then read exactly like a release
+ * with no manifest. Publishing one would not have fixed it, and nothing on
+ * screen or in the log would have said why.
+ */
+export function manifestLocation(fileUrl: string): { manifestUrl: string; key: string } {
+  const cut = fileUrl.lastIndexOf('/');
+  if (cut < 0) return { manifestUrl: 'SHA256SUMS', key: fileUrl };
+  return {
+    manifestUrl: `${fileUrl.slice(0, cut)}/SHA256SUMS`,
+    key: fileUrl.slice(cut + 1),
+  };
+}

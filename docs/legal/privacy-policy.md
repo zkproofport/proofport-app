@@ -1,8 +1,23 @@
+<!--
+  THIS FILE IS THE PUBLISHED PRIVACY POLICY, not a copy of one.
+
+  It is served straight from GitHub at
+  https://github.com/zkproofport/proofport-app/blob/main/docs/legal/privacy-policy.md
+  and that URL is what both of these point at:
+
+    - proofport-app/ios/fastlane/metadata/{en-US,ko}/privacy_url.txt
+    - proofport-app/src/screens/more/AboutScreen.tsx (PRIVACY_POLICY_URL)
+
+  So a change here is live the moment it lands on main. App Review Guideline
+  5.1.1(i) requires the link in BOTH the App Store Connect metadata and inside
+  the app, which is why there are two pointers rather than one.
+-->
+
 # Privacy Policy for ZKProofport Mobile App
 
 **Effective Date:** February 1, 2026
 
-**Last Updated:** August 22, 2026
+**Last Updated:** August 29, 2026
 
 ## Introduction
 
@@ -104,15 +119,22 @@ The App stores the following data locally on your device:
 
 ### 3.2 Server-Side Storage
 
-ZKProofport servers store:
-- Usage metadata (circuit type, request ID, credits used, status, timestamp) for billing purposes
-- Nullifier hashes (for Plan 2 duplicate detection only)
-- Transaction hashes (for Plan 2 on-chain registration only)
-- Dashboard account data (email, name, password hash) for users who register for the dashboard (not mobile app users)
+The relay server that carries proof requests and results between the App and the
+requesting application holds **no database**. Everything it touches lives in an
+in-memory cache with an expiry attached at the moment it is written:
 
-The relay server temporarily caches proof results (proof data, public inputs, nullifier) in Redis for up to 5 minutes to enable reconnection, then automatically deletes this cached data. Request status and nonce replay prevention data are cached for up to 10 minutes, then automatically deleted.
+| What is held | How long | Why |
+|---|---|---|
+| Proof result (proof data, public inputs, nullifier) | 5 minutes | So a dropped connection can be resumed |
+| Request status | 10 minutes | So the requesting application can poll for the outcome |
+| Request session and one-time nonce | 10 minutes | Replay prevention |
 
-**We do not store wallet addresses, proof inputs, or full proof data permanently on our servers.** Usage metadata is retained for billing purposes. Dashboard account data is retained until account deletion is requested.
+When the timer expires the entry is deleted automatically. There is no archival
+copy, no backup of these entries, and no batch job that moves them anywhere else.
+
+**We keep no permanent server-side record of you.** No account, no wallet
+address, no proof inputs, no proof history. Nothing about a mobile App user
+survives the ten-minute window above.
 
 ### 3.3 Your Control Over Data
 
@@ -121,7 +143,7 @@ You can:
 - Export your proof history in portable format
 - Disconnect your wallet, which removes you from future proof requests
 
-If you have a dashboard account, you can request deletion of your account and associated server records. Account deletion requests will be honored within 30 days, after which all your server-side data is permanently deleted.
+There is no account to delete. Clearing the App's local data, or uninstalling the App, removes everything we hold about you, because everything we hold about you is on your device.
 
 ## 4. Third-Party Services
 
@@ -170,9 +192,14 @@ When you approve a proof request, the completed proof is transmitted to a callba
 ### 5.2 Server-Side Security
 
 - **Encryption in Transit**: All server communication uses TLS 1.3
-- **Encryption at Rest**: Server databases are encrypted
+- **Nothing at Rest to Encrypt**: The relay keeps no database. The only copies it
+  holds are the expiring cache entries listed in section 3.2, and they are gone
+  when their timer runs out
 - **Access Control**: Server access is limited to authorized personnel with role-based permissions
-- **Audit Logging**: Server actions are logged for security monitoring
+- **Operational Logging**: The relay logs the fact that a request happened, for
+  reliability and security monitoring. Proof data does not go into those logs:
+  a proof is reduced to its first and last few characters and public inputs to a
+  count before anything is written
 - **No Proof Data**: Servers never store your proof inputs or computation data
 
 ### 5.3 What We Cannot Protect
@@ -185,7 +212,7 @@ We cannot guarantee security against:
 
 ## 6. Children's Privacy
 
-The ZKProofport App is not directed to children under 13 years of age. We do not knowingly collect information from children under 13. If we learn that we have collected information from a child under 13, we will delete such information and the child's account immediately.
+The ZKProofport App is not directed to children under 13 years of age. We do not knowingly collect information from children under 13. If we learn that we have collected information from a child under 13, we will delete such information immediately. There is no account to close alongside it — as section 3.3 explains, the App creates none.
 
 If you are a parent or guardian and believe your child has provided information to ZKProofport, please contact us at support@masselabs.com.
 
@@ -205,9 +232,11 @@ If you have questions, concerns, or requests regarding this Privacy Policy or ou
 
 **Email:** support@masselabs.com
 
-**Developer:** ZKProofport Team
+**Developer:** Masse Labs Inc.
 
-**Address:** [To be completed with registered office address]
+**Address:** 305, 75 Hongjung-ro, Seogwipo-si, Jeju-do, Republic of Korea
+
+**Business registration number:** 788-86-03998
 
 We will respond to privacy inquiries within 30 days.
 
@@ -238,6 +267,5 @@ This privacy model is fundamentally different from traditional apps that collect
 
 ---
 
-**Document Version:** 1.0
-**Status:** Ready for Use
-**License:** © 2026 ZKProofport Team. All rights reserved.
+**Document Version:** 1.1
+**License:** © 2026 Masse Labs Inc. All rights reserved.
