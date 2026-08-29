@@ -408,7 +408,7 @@ def main():
             # upload said it worked".
             for image_type in MULTI_IMAGE_TYPES + SINGLE_IMAGE_TYPES:
                 shots = (call(token, 'GET',
-                              f'{edits}/{check["id"]}/images/{row.get("language")}/{image_type}')
+                              f'{edits}/{check["id"]}/listings/{row.get("language")}/{image_type}')
                          or {}).get('images') or []
                 if shots:
                     print(f'      {image_type}: {len(shots)}')
