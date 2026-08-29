@@ -162,3 +162,9 @@ tmp/
 # semantic-release
 # ====================
 .semantic-release-temp/
+
+# Python bytecode. `android/play/upload-listing.py` runs on the runner and
+# locally, and CPython drops a cache beside it either way. Committing it would
+# ship a build artefact tied to one interpreter version.
+__pycache__/
+*.pyc
