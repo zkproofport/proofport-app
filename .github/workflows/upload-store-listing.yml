@@ -31,7 +31,7 @@ jobs:
         run: gem install fastlane --no-document
 
       - name: Show what is about to be sent
-        working-directory: proofport-app/android
+        working-directory: android
         run: |
           # Read the files themselves rather than trusting the folder listing:
           # an empty file uploads an empty store page and reports success.
@@ -40,7 +40,7 @@ jobs:
           done
 
       - name: Upload
-        working-directory: proofport-app/android
+        working-directory: android
         env:
           SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
