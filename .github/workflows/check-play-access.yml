@@ -97,6 +97,32 @@ jobs:
               sys.exit(1)
 
           print(f"reachable: edit session {edit['id']} opened against {pkg}")
+
+          # What the listing already says, so nobody has to be asked.
+          # Read-only: `listings` and `details` inside an edit that is
+          # abandoned below, so nothing here changes the store page.
+          def read(path):
+              try:
+                  r = urllib.request.Request(
+                      f"{url}/{edit['id']}/{path}",
+                      headers={'Authorization': f'Bearer {token}'})
+                  with urllib.request.urlopen(r) as x:
+                      return json.load(x)
+              except Exception as e:
+                  print(f'  (could not read {path}: {e})')
+                  return None
+
+          details = read('details')
+          if details:
+              print(f"default language: {details.get('defaultLanguage')}")
+          listings = read('listings')
+          if listings is not None:
+              rows = listings.get('listings') or []
+              print(f"listings present: {len(rows)}")
+              for row in rows:
+                  print(f"  {row.get('language')}: title={row.get('title')!r}, "
+                        f"short={len(row.get('shortDescription') or '')} chars, "
+                        f"full={len(row.get('fullDescription') or '')} chars")
           # Abandon it so nothing is left half-open on the app.
           #
           # A plain DELETE on the edit, NOT a `:delete` suffix. The suffix form
