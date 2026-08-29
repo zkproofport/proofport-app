@@ -1,8 +1,18 @@
-# masselabs/, NOT zkproofport/. The old repository is shared with other
-# projects, so `match nuke` against it would revoke unrelated certificates too.
-# The corporate team gets its own storage rather than sharing one that cannot be
-# safely reset.
-git_url("https://github.com/masselabs/ios-certificates.git")
+# Storage named after this app, in the same organisation as this app.
+#
+# Two shared repositories used to be in play and they disagreed. This file
+# pointed at masselabs/ios-certificates, where the corporate material actually
+# lived, while the CI workflows pointed at zkproofport/ios-certificates, which is
+# shared with other projects and still holds the old personal account's
+# certificate and a profile for the retired bundle id com.zkproofport.app. The
+# release therefore failed at signing with "Invalid password passed via
+# 'MATCH_PASSWORD'" — right password, wrong repository — and would have failed
+# again on the profiles it could not find there.
+#
+# The material was moved byte for byte, so the password did not change and
+# nothing was revoked in Apple. Neither older repository was modified. A test in
+# the app checks that this file and both workflows still name the same one.
+git_url("https://github.com/zkproofport/proofport-app-certificates.git")
 team_id("R4G32CVY29")
 
 storage_mode("git")
