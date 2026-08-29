@@ -42,7 +42,27 @@ platform :android do
     # sent nothing.
     pkg = "com.masselabs.zkproofport"
 
-    if credential('GOOGLE_APPLICATION_CREDENTIALS')
+    # Three ways to hand over the Play service account, and they are not
+    # interchangeable. `json_key` wants a PATH ON DISK; `json_key_data` wants
+    # the JSON ITSELF. fastlane declares them as conflicting options, so exactly
+    # one may be passed.
+    #
+    # A GitHub Actions secret holds the JSON itself, never a path — so the
+    # content form is the one CI uses, and it is checked first. Setting the
+    # path-shaped variable to the JSON text fails inside the upload tool with a
+    # file-not-found, which reads nothing like "you gave it the wrong shape".
+    if credential('SUPPLY_JSON_KEY_DATA')
+      supply(
+        track: "alpha",
+        json_key_data: credential('SUPPLY_JSON_KEY_DATA'),
+        package_name: pkg,
+        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+        skip_upload_metadata: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true,
+        skip_upload_changelogs: true,
+      )
+    elsif credential('GOOGLE_APPLICATION_CREDENTIALS')
       supply(
         track: "alpha",
         json_key: credential('GOOGLE_APPLICATION_CREDENTIALS'),
@@ -76,7 +96,7 @@ platform :android do
       # publishing it is a real thing to want (a local release build, a CI job
       # that only checks the build compiles). What must not happen is doing it
       # by accident and believing otherwise.
-      UI.important("No Play credential — set GOOGLE_APPLICATION_CREDENTIALS (path to the service-account JSON) or SUPPLY_JSON_KEY.")
+      UI.important("No Play credential — set SUPPLY_JSON_KEY_DATA (the service-account JSON itself, what a CI secret holds), or GOOGLE_APPLICATION_CREDENTIALS / SUPPLY_JSON_KEY (a path to that JSON on disk).")
       UI.important("The AAB was built and signed at #{lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]}, and NOT uploaded to Play.")
     end
   end

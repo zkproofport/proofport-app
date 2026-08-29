@@ -98,3 +98,52 @@ describe('the upload still refuses to skip quietly', () => {
     }
   });
 });
+
+describe('the release workflow can actually reach Play', () => {
+  /*
+   * Found 2026-08-29. The lane knew how to upload and refused loudly without a
+   * credential — but no workflow ever gave it one. Neither the release workflow
+   * nor the staging beta workflow put a Play variable in the lane's environment,
+   * so every run took the "nothing was uploaded" branch by construction. The
+   * missing piece was described as "a secret nobody created"; it was also a
+   * wire nobody ran.
+   *
+   * And the wire has a shape. `json_key` is a path on disk, `json_key_data` is
+   * the JSON itself, and fastlane treats them as conflicting options. A CI
+   * secret holds the JSON itself, so handing it to the path-shaped variable
+   * fails with a file-not-found deep inside the upload tool.
+   */
+  const aabStep = () => {
+    const body = read(RELEASE_WORKFLOW);
+    const start = body.indexOf('- name: Build AAB');
+    expect(start).toBeGreaterThan(-1);
+    const next = body.indexOf('\n      - name:', start + 1);
+    return body.slice(start, next === -1 ? undefined : next);
+  };
+
+  it('hands the AAB step a Play credential from a repository secret', () => {
+    expect(aabStep()).toMatch(/SUPPLY_JSON_KEY_DATA:\s*\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}/);
+  });
+
+  it('passes the JSON itself, never the path-shaped variable, from CI', () => {
+    // A GitHub secret cannot be a path. If this ever flips to the path form the
+    // upload fails with a file-not-found that names nothing useful.
+    const step = aabStep();
+    expect(step).not.toMatch(/GOOGLE_APPLICATION_CREDENTIALS:\s*\$\{\{\s*secrets\./);
+    expect(step).not.toMatch(/SUPPLY_JSON_KEY:\s*\$\{\{\s*secrets\./);
+  });
+
+  it('the lane reads that variable and forwards it as the content option', () => {
+    const fastfile = withoutComments(read(FASTFILE));
+    expect(fastfile).toMatch(/credential\('SUPPLY_JSON_KEY_DATA'\)/);
+    expect(fastfile).toMatch(/json_key_data:\s*credential\('SUPPLY_JSON_KEY_DATA'\)/);
+  });
+
+  it('never passes the path and the content options in the same upload call', () => {
+    // fastlane declares json_key and json_key_data as conflicting options, so a
+    // call carrying both aborts before it reaches Play.
+    for (const call of read(FASTFILE).match(/supply\([\s\S]*?\n\s*\)/g) ?? []) {
+      expect(/json_key:/.test(call) && /json_key_data:/.test(call)).toBe(false);
+    }
+  });
+});
