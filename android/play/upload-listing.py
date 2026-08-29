@@ -225,6 +225,34 @@ def read_images(metadata_path, languages):
     return images
 
 
+# Contact details, kept beside the listing because they are part of the same
+# edit and the same submission checklist. Play requires an email before a first
+# release; the website is optional but it is the same one the App Store already
+# shows, so leaving it empty would make the two stores disagree.
+#
+# The PHONE NUMBER is deliberately absent. Play publishes whatever is put here
+# on the store page, it is not required, and whose number goes on a public page
+# is not a decision this script gets to make.
+CONTACT = {
+    'contactEmail': 'support@masselabs.com',
+    'contactWebsite': 'https://zkproofport.app',
+}
+
+
+def send_contact(token, edits, edit_id):
+    """Merge the contact fields into the app details, leaving the rest alone."""
+    # PATCH, not PUT: a PUT replaces the whole details resource, and the one
+    # field this script must never touch — defaultLanguage — lives in it.
+    # Sending a partial PUT would blank it.
+    current = call(token, 'GET', f'{edits}/{edit_id}/details') or {}
+    missing = {k: v for k, v in CONTACT.items() if not current.get(k)}
+    if not missing:
+        print('contact details: already set, left alone')
+        return
+    call(token, 'PATCH', f'{edits}/{edit_id}/details', missing)
+    print('contact details set:', ', '.join(sorted(missing)))
+
+
 def send_images(token, edits, edit_id, language, by_type):
     """Clear each managed type, then upload its files in name order."""
     for image_type, files in by_type.items():
@@ -356,6 +384,8 @@ def main():
             print(f'  wrote {language}')
             if language in images:
                 send_images(token, edits, edit_id, language, images[language])
+
+        send_contact(token, edits, edit_id)
 
         if dry_run:
             try:

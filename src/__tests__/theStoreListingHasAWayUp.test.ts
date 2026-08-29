@@ -111,6 +111,29 @@ describe('the Play listing can be uploaded, and shipping a build does not touch 
     expect(uploader).toContain('phoneScreenshots');
   });
 
+  it('the contact details are written, and by something that is called', () => {
+    // A helper that exists and is never called is the shape of tonight's other
+    // faults: declared, plausible, and doing nothing. Both halves are checked.
+    expect(uploader).toMatch(/def send_contact\(/);
+    expect(uploader).toMatch(/^\s+send_contact\(token/m);
+    expect(uploader).toContain('support@masselabs.com');
+  });
+
+  it('no phone number is sent, because Play publishes it', () => {
+    // Not required by Play, and whose number appears on a public store page is
+    // not a decision this script makes.
+    expect(uploader).not.toContain('contactPhone');
+  });
+
+  it('the details are merged, never replaced', () => {
+    // A PUT would replace the whole details resource, blanking the one field
+    // that must survive — the store's default language.
+    const fn = uploader.slice(uploader.indexOf('def send_contact('));
+    const body = fn.slice(0, fn.indexOf('\ndef ', 1));
+    expect(body).toMatch(/'PATCH'/);
+    expect(body).not.toMatch(/'PUT'/);
+  });
+
   it('a type is cleared before it is written, so a rerun cannot double it', () => {
     // Play APPENDS on upload. Without the delete, running this twice leaves
     // eight screenshots in a four-screenshot listing, and the store page is
