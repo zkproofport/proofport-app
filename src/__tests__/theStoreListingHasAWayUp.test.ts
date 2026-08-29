@@ -1,5 +1,5 @@
 /**
- * The Play store listing has a lane that actually uploads it.
+ * The Play store listing has something that actually uploads it.
  *
  * The build-and-ship lane skips metadata on purpose — shipping a build must not
  * silently rewrite the store page. The cost of that correct decision was that
@@ -8,8 +8,17 @@
  * built an AAB and had no path to Play (see playUploadNamesTheRealPackage),
  * and it fails the same way — quietly, with everything green.
  *
+ * The first attempt used a fastlane `supply` lane. That could not work here:
+ * supply looks up a TRACK RELEASE before it will write any listing, and this
+ * app has never had a build uploaded, so it dies on a release that does not
+ * exist. The upload now talks to the Play edits API directly
+ * (android/play/upload-listing.py): open an edit, PUT each language's listing,
+ * commit — or validate and throw the edit away for a dry run. No track and no
+ * release are touched at any point.
+ *
  * So this pins both halves: shipping still leaves the listing alone, and the
- * listing still has a lane of its own that names a metadata folder that exists.
+ * listing still has an upload of its own that names a metadata folder that
+ * exists and can never cut a release.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,14 +26,14 @@ import path from 'node:path';
 const repo = path.join(__dirname, '..', '..');
 const fastfile = fs.readFileSync(path.join(repo, 'android', 'fastlane', 'Fastfile'), 'utf8');
 
-/**
- * The body of one lane, from its declaration to the next one.
- *
- * The name is matched to its END, not as a prefix. A plain `indexOf` found
- * `store_listing` inside `store_listing_disabled`, so renaming the lane out of
- * existence left every check below green — the guard was reporting on a lane
- * that no longer answered to that name.
- */
+const UPLOADER = path.join(repo, 'android', 'play', 'upload-listing.py');
+const uploader = fs.readFileSync(UPLOADER, 'utf8');
+const workflow = fs.readFileSync(
+  path.join(repo, '.github', 'workflows', 'upload-store-listing.yml'),
+  'utf8',
+);
+
+/** The body of one fastlane lane, matched to the END of its name. */
 function lane(name: string): string {
   const decl = new RegExp(`^\\s*lane :${name}\\b`, 'm');
   const m = decl.exec(fastfile);
@@ -37,17 +46,23 @@ function lane(name: string): string {
 const metadataDir = path.join(repo, 'android', 'fastlane', 'metadata', 'android');
 
 describe('the Play listing can be uploaded, and shipping a build does not touch it', () => {
-  it('has a lane whose job is the listing', () => {
-    expect(lane('store_listing')).not.toBe('');
+  it('the uploader exists and the workflow runs it', () => {
+    expect(uploader.length).toBeGreaterThan(0);
+    expect(workflow).toContain('upload-listing.py');
   });
 
-  it('that lane does NOT skip metadata', () => {
-    expect(lane('store_listing')).toMatch(/skip_upload_metadata:\s*false/);
+  it('it writes listings and nothing else', () => {
+    // A PUT to `listings/{language}` inside an edit. Anything reaching for
+    // tracks, releases, bundles or apks would be able to ship something.
+    expect(uploader).toMatch(/listings\/\{language\}|listings\/'|listings\/\$/);
+    for (const forbidden of ['/bundles', '/apks', '/tracks', 'versionCode']) {
+      expect(uploader).not.toContain(forbidden);
+    }
   });
 
-  it('that lane uploads no build, so it can never cut a release', () => {
-    expect(lane('store_listing')).toMatch(/skip_upload_aab:\s*true/);
-    expect(lane('store_listing')).toMatch(/skip_upload_apk:\s*true/);
+  it('a dry run validates and throws the edit away instead of committing', () => {
+    expect(uploader).toContain(':validate');
+    expect(uploader).toMatch(/DRY_RUN/);
   });
 
   it('the build-and-ship lane still leaves the listing alone', () => {
@@ -56,10 +71,8 @@ describe('the Play listing can be uploaded, and shipping a build does not touch 
     expect(beta).not.toMatch(/skip_upload_metadata:\s*false/);
   });
 
-  it('the metadata folder the lane names is really there, with text in it', () => {
-    // A lane pointing at a folder that does not exist uploads nothing and says
-    // little about why.
-    expect(lane('store_listing')).toContain('./fastlane/metadata/android');
+  it('the metadata folder is really there, with text in it', () => {
+    // A folder that does not exist uploads nothing and says little about why.
     const locales = fs.readdirSync(metadataDir).filter((n) => !n.startsWith('.'));
     expect(locales.length).toBeGreaterThan(0);
     for (const locale of locales) {
@@ -72,6 +85,6 @@ describe('the Play listing can be uploaded, and shipping a build does not touch 
     // The build lane may warn and carry on — building without publishing is a
     // real thing to want. Uploading only the listing is not: if it cannot
     // upload, it did nothing at all, and must say so as a failure.
-    expect(lane('store_listing')).toMatch(/UI\.user_error!/);
+    expect(uploader).toMatch(/def die|sys\.exit/);
   });
 });
