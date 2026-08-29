@@ -115,6 +115,15 @@ jobs:
           details = read('details')
           if details:
               print(f"default language: {details.get('defaultLanguage')}")
+              # Play will not let a first release out with these empty, and
+              # they are the part of the submission checklist the API can
+              # actually write — unlike the content rating questionnaire, the
+              # target-audience answers and the ads declaration, which are
+              # console-only. Printing them says which half is left to a human.
+              for field, label in (('contactEmail', 'contact email'),
+                                   ('contactWebsite', 'contact website'),
+                                   ('contactPhone', 'contact phone')):
+                  print(f"{label}: {details.get(field) or '(empty)'}")
           listings = read('listings')
           if listings is not None:
               rows = listings.get('listings') or []
