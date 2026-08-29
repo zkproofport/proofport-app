@@ -33,7 +33,7 @@ this path works where supply does not.
 
 Screenshots go up the same way. They are not part of a Listing resource --
 each one is a separate media upload into the SAME edit
-(`edits/{id}/images/{language}/{imageType}`), so they commit together with the
+(`edits/{id}/listings/{language}/{imageType}`), so they commit together with the
 text and a dry run throws both away as one. Still no track, release, bundle or
 apk anywhere.
 
@@ -228,7 +228,14 @@ def read_images(metadata_path, languages):
 def send_images(token, edits, edit_id, language, by_type):
     """Clear each managed type, then upload its files in name order."""
     for image_type, files in by_type.items():
-        target = f'{edits}/{edit_id}/images/{language}/{image_type}'
+        # Images live UNDER `listings`, not under an `images` collection —
+        # `edits/{id}/listings/{language}/{imageType}` for delete, list and
+        # upload alike. The `images/...` form was written from memory and is
+        # not an API path at all: Google answers it with an HTML 404 page
+        # rather than a JSON API error, which is the tell. Verified against
+        # developers.google.com/android-publisher/api-ref/rest/v3/edits.images
+        # on 2026-08-30 for deleteall, list and upload.
+        target = f'{edits}/{edit_id}/listings/{language}/{image_type}'
         try:
             call(token, 'DELETE', target)
         except urllib.error.HTTPError as e:
@@ -236,7 +243,7 @@ def send_images(token, edits, edit_id, language, by_type):
         for path in files:
             content_type = IMAGE_SUFFIXES[os.path.splitext(path)[1].lower()]
             upload = (f'{UPLOAD_API}/{os.environ["PACKAGE_NAME"]}/edits/{edit_id}'
-                      f'/images/{language}/{image_type}?uploadType=media')
+                      f'/listings/{language}/{image_type}?uploadType=media')
             request = urllib.request.Request(
                 upload, data=open(path, 'rb').read(), method='POST',
                 headers={'Authorization': f'Bearer {token}', 'Content-Type': content_type})

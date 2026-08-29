@@ -131,7 +131,11 @@ jobs:
                                      'tenInchScreenshots', 'tvScreenshots',
                                      'wearScreenshots', 'icon', 'featureGraphic',
                                      'tvBanner'):
-                      shots = read(f"images/{row.get('language')}/{image_type}")
+                      # Under `listings`, not `images` — see the note in
+                      # android/play/upload-listing.py. Reading the wrong path
+                      # answered "no images" for an app that might well have
+                      # had them, and that false reading was reported as fact.
+                      shots = read(f"listings/{row.get('language')}/{image_type}")
                       count = len((shots or {}).get('images') or [])
                       if count:
                           print(f"      {image_type}: {count}")
