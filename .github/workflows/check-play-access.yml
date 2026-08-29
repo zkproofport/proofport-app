@@ -98,8 +98,19 @@ jobs:
 
           print(f"reachable: edit session {edit['id']} opened against {pkg}")
           # Abandon it so nothing is left half-open on the app.
-          urllib.request.urlopen(urllib.request.Request(
-              f"{url}/{edit['id']}:delete", data=b'', method='POST',
-              headers={'Authorization': f'Bearer {token}'}))
-          print('edit session abandoned — nothing was changed')
+          #
+          # A plain DELETE on the edit, NOT a `:delete` suffix. The suffix form
+          # was written from memory and 404s — and it 404s AFTER the check has
+          # already succeeded, so the run went red while reporting "reachable"
+          # one line above. A cleanup that fails must not be readable as the
+          # check failing, so it also never decides the exit code: the answer
+          # this workflow exists to give was already printed.
+          try:
+              urllib.request.urlopen(urllib.request.Request(
+                  f"{url}/{edit['id']}", method='DELETE',
+                  headers={'Authorization': f'Bearer {token}'}))
+              print('edit session abandoned — nothing was changed')
+          except Exception as e:
+              print(f'::warning::could not abandon the edit session ({e}). '
+                    'Nothing was uploaded; the session expires on its own.')
           PY
