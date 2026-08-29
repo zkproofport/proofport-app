@@ -22,6 +22,10 @@ on:
           - staging
           - production
         required: true
+      skip_version:
+        description: 'Skip version calculation and ship the version already in package.json'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -32,8 +36,8 @@ jobs:
     name: Determine Version
     runs-on: ubuntu-latest
     outputs:
-      new_version: ${{ steps.semantic.outputs.new_release_version }}
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_version: ${{ steps.pinned.outputs.new_release_version || steps.semantic.outputs.new_release_version }}
+      new_release_published: ${{ steps.pinned.outputs.new_release_published || steps.semantic.outputs.new_release_published }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,10 +49,39 @@ jobs:
           node-version: 20
 
       - name: Install semantic-release
+        if: inputs.skip_version == false
         run: npm install --no-save --legacy-peer-deps semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/exec
+
+      # Shipping the version that is already in the tree, not a computed one.
+      #
+      # semantic-release derives the next version from the tags, and it can
+      # never re-emit a version that already has a tag. So when the store is
+      # waiting on a version number that is behind the tag history — the first
+      # submission on a new Apple account, a resubmission, a hotfix pinned to a
+      # published version — the only way to make the calculator agree would be
+      # to delete every tag and every GitHub release. This input exists so that
+      # is never the price: no tag is written, no CHANGELOG entry is made, and
+      # the build carries the version already committed in package.json.
+      #
+      # Nothing downstream changes: the outputs below have the same shape the
+      # semantic-release step produces, so the platform jobs cannot tell the
+      # difference.
+      - name: Use the committed version
+        id: pinned
+        if: inputs.skip_version == true
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -z "$VERSION" ]; then
+            echo "package.json has no version to ship" >&2
+            exit 1
+          fi
+          echo "Shipping the committed version $VERSION — no tag, no changelog entry."
+          echo "new_release_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "new_release_published=true" >> "$GITHUB_OUTPUT"
 
       - name: Run semantic-release
         id: semantic
+        if: inputs.skip_version == false
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           GIT_AUTHOR_NAME: github-actions[bot]
@@ -68,8 +101,9 @@ jobs:
       - name: Version summary
         run: |
           echo "## Version" >> "$GITHUB_STEP_SUMMARY"
-          echo "- New version: ${{ steps.semantic.outputs.new_release_version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Published: ${{ steps.semantic.outputs.new_release_published }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- New version: ${{ steps.pinned.outputs.new_release_version || steps.semantic.outputs.new_release_version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Published: ${{ steps.pinned.outputs.new_release_published || steps.semantic.outputs.new_release_published }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version calculation skipped: ${{ inputs.skip_version }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Dry run: ${{ inputs.dry_run }}" >> "$GITHUB_STEP_SUMMARY"
 
   build-ios:
@@ -313,6 +347,11 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+          # The Play service-account JSON itself, not a path to it — see the
+          # branch comment in android/fastlane/Fastfile. Until this secret
+          # exists the lane builds and signs the AAB, says out loud that it
+          # uploaded nothing, and the artifact step below still keeps the file.
+          SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: bundle exec fastlane android beta flavor:${{ inputs.environment }}
 
       - name: Build APK (dry run)
