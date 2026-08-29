@@ -123,6 +123,18 @@ jobs:
                   print(f"  {row.get('language')}: title={row.get('title')!r}, "
                         f"short={len(row.get('shortDescription') or '')} chars, "
                         f"full={len(row.get('fullDescription') or '')} chars")
+                  # Play has no "list all images" call, so each type is asked for
+                  # by name. Text alone never made the listing publishable —
+                  # without at least two phone screenshots Play will not take it
+                  # — so the counts belong next to the character counts.
+                  for image_type in ('phoneScreenshots', 'sevenInchScreenshots',
+                                     'tenInchScreenshots', 'tvScreenshots',
+                                     'wearScreenshots', 'icon', 'featureGraphic',
+                                     'tvBanner'):
+                      shots = read(f"images/{row.get('language')}/{image_type}")
+                      count = len((shots or {}).get('images') or [])
+                      if count:
+                          print(f"      {image_type}: {count}")
           # Abandon it so nothing is left half-open on the app.
           #
           # A plain DELETE on the edit, NOT a `:delete` suffix. The suffix form
