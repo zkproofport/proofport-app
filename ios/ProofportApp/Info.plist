@@ -6,6 +6,25 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<!-- The languages this app has translations for.
+
+	     iOS hands an app a locale from the INTERSECTION of the phone's preferred
+	     languages and this list. Without the key the intersection is {en}, so a
+	     Korean phone got en-US, `getDeviceLanguage()` answered 'en' from a
+	     correct reading, and every Korean user saw an English app while the
+	     Korean translations sat complete and unreachable in src/i18n/locales/ko.json.
+
+	     Found 2026-08-30 on a TestFlight build, on an iPhone, months after the
+	     same symptom was chased and declared fixed on Android — Android needs no
+	     such declaration, so testing there could never have surfaced it.
+
+	     Keep this list equal to the filenames in src/i18n/locales/. Pinned by
+	     src/__tests__/iosOffersEveryLanguageWeTranslated.test.ts. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ko</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>ZKProofport</string>
 	<key>CFBundleExecutable</key>
