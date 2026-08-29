@@ -9,7 +9,7 @@ React Native mobile app for generating zero-knowledge proofs on mobile devices u
 - **OIDC Domain Attestation**: Prove email domain affiliation (Google, Google Workspace, Microsoft 365) via OIDC JWT without revealing email
 - **Microsoft 365 Support**: Authenticate with Microsoft 365 organizational accounts
 - **QR-based Deep Linking**: Scan QR codes to receive proof requests from external dApps
-- **Wallet Integration**: Connect wallets via Privy (embedded) and WalletConnect (AppKit)
+- **Wallet Integration**: Connect external wallets over WalletConnect (Reown AppKit)
 - **Proof History**: Persistent storage and viewing of generated proofs
 - **Runtime Circuit Downloads**: Circuit files (JSON, SRS, VK) downloaded from GitHub at startup
 - **Deep Link Protocol**: Receive proof requests via `proofport://` URI scheme
@@ -69,7 +69,7 @@ proofport-app/
 ├── src/
 │   ├── screens/
 │   │   ├── proof/             # Proof generation: circuit selection, generation, completion
-│   │   ├── wallet/            # Wallet connection: Privy and WalletConnect flows
+│   │   ├── wallet/            # Wallet connection over WalletConnect
 │   │   ├── history/           # Proof history viewing and details
 │   │   ├── scan/              # QR code scanning for deep link requests
 │   │   ├── more/              # Settings, legal, and user information
@@ -88,7 +88,7 @@ proofport-app/
 │   │   ├── useCoinbaseKyc.ts         # KYC attestation generation
 │   │   ├── useCoinbaseCountry.ts     # Country attestation generation
 │   │   ├── useDeepLink.ts            # Deep link parsing and handling
-│   │   ├── usePrivyWallet.ts         # Privy wallet integration
+│   │   ├── useWallet.ts              # Wallet connection state and signing
 │   │   ├── useWalletConnect.ts       # WalletConnect (AppKit) integration
 │   │   ├── useLogs.ts                # Debug logging
 │   │   └── useSettings.ts            # User settings management
@@ -100,7 +100,7 @@ proofport-app/
 │   │   └── DeepLinkContext.tsx       # Deep link request context
 │   ├── config/
 │   │   ├── AppKitConfig.ts           # WalletConnect AppKit setup
-│   │   ├── PrivyConfig.ts            # Privy authentication setup
+│   │   ├── WalletConnectConfig.ts    # WalletConnect project id and app metadata
 │   │   ├── contracts.ts              # Circuit metadata and contract addresses
 │   │   ├── deployments.ts            # Environment-specific deployments
 │   │   └── environment.ts            # Runtime environment detection
@@ -136,7 +136,6 @@ The app uses a bottom tab navigation with 5 main sections:
    - Proof Complete: Show success and proof data
 
 2. **Wallet** (WalletStackNavigator)
-   - Privy embedded wallet
    - WalletConnect modal
    - Connection status display
 
@@ -217,19 +216,14 @@ Each circuit caches three files:
 
 ## Wallet Integration
 
-### Privy (Embedded Wallet)
+### WalletConnect (Reown AppKit)
 
-Handles user authentication and embedded wallet management.
+The only wallet path. There is no embedded wallet and no separate sign-in step:
+connecting an external wallet IS the authenticated state. Private keys never
+leave the user's wallet app.
 
-- **Storage**: Custom AsyncStorage adapter (no keychain dependency)
-- **Config**: See `src/config/PrivyConfig.ts`
-
-### WalletConnect (AppKit)
-
-Enables connection to external wallets via WalletConnect v2.
-
-- **Config**: See `src/config/AppKitConfig.ts`
-- **Project ID**: Required in environment
+- **Config**: `src/config/AppKitConfig.ts`, `src/config/WalletConnectConfig.ts`
+- **Project ID**: Required in environment (`REOWN_PROJECT_ID`)
 
 ## Technologies
 
@@ -237,7 +231,6 @@ Enables connection to external wallets via WalletConnect v2.
 - **TypeScript 5.8** - Type-safe development
 - **React Navigation 7** - Tab and stack navigation
 - **Expo 54** - Development platform and build system
-- **Privy SDK 0.62** - Embedded wallet and authentication
 - **AppKit 2.0** - WalletConnect integration
 - **AsyncStorage** - Local data persistence
 - **mopro-ffi** - UniFFI bindings for Rust proof generation
@@ -249,8 +242,6 @@ Enables connection to external wallets via WalletConnect v2.
 Create `.env` file with:
 
 ```bash
-PRIVY_APP_ID=your_privy_app_id
-PRIVY_CLIENT_ID=your_privy_client_id
 REOWN_PROJECT_ID=your_walletconnect_project_id
 ```
 

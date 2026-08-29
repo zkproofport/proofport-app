@@ -21,7 +21,7 @@ Deep Link Integration
 dApps can launch proof requests directly from your browser or application using secure deep links. Frictionless workflow from any web3 service.
 
 Wallet Connection
-Connect your wallet via Privy or WalletConnect to complete on-chain actions. Supports MetaMask, Coinbase Wallet, Trust Wallet, Rainbow, Zerion, and more.
+Connect your wallet via WalletConnect to complete on-chain actions. Supports MetaMask, Coinbase Wallet, Trust Wallet, Rainbow, Zerion, and more.
 
 Theme Support
 Choose dark or light theme based on your preference. Comfortable viewing in any lighting condition.
@@ -31,7 +31,7 @@ Built for the Base network and Ethereum ecosystem. Works with decentralized serv
 
 HOW IT WORKS
 
-1. Connect your wallet using Privy or WalletConnect
+1. Connect your wallet using WalletConnect
 2. Scan a QR code or follow a deep link from a dApp
 3. Review the proof request and required verifications
 4. Generate the zero-knowledge proof locally on your phone

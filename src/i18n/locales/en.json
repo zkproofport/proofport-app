@@ -62,6 +62,8 @@
       "tagline": "Privacy-first zero-knowledge proof generation",
       "sectionLinks": "LINKS",
       "sectionPoweredBy": "POWERED BY",
+      "sectionLegal": "Legal",
+      "privacyPolicy": "Privacy Policy",
       "aztecSubtitle": "Zero-knowledge proof infrastructure",
       "devModeEnabled": "Developer Mode Enabled",
       "devModeDisabled": "Developer Mode Disabled",
@@ -105,19 +107,6 @@
       "reconnect": "Reconnect",
       "connecting": "Connecting…",
       "clear": "Clear"
-    },
-    "privy": {
-      "title": "Privy Wallet",
-      "subtitle": "Connect external wallet via Privy",
-      "connectedWallet": "Connected Wallet",
-      "walletName": "Wallet Name",
-      "privyUser": "Privy User",
-      "connectWallet": "Connect Wallet",
-      "disconnect": "Disconnect",
-      "fullAddress": "Full Address",
-      "notConnected": "Not connected",
-      "installMetaMask": "Install MetaMask",
-      "noWalletDetected": "No wallet app detected. Install MetaMask to connect."
     },
     "loading": {
       "tagline": "Privacy-Preserving Identity Proofs",

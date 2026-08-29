@@ -7,8 +7,8 @@ export type {UseGiwaKycReturn, GiwaKycProofInputs} from './useGiwaKyc';
 export {useCoinbaseCountry} from './useCoinbaseCountry';
 export type {UseCoinbaseCountryReturn, CoinbaseCountryInputs} from './useCoinbaseCountry';
 export {AUTHORIZED_SIGNERS} from '../utils/coinbaseKyc';
-export {usePrivyWallet} from './usePrivyWallet';
-export type {PrivyConnectionStatus} from './usePrivyWallet';
+export {useWallet} from './useWallet';
+export type {WalletConnectionStatus} from './useWallet';
 export {useDeepLink} from './useDeepLink';
 export type {SendProofOptions} from './useDeepLink';
 export {useOidcDomain} from './useOidcDomain';
@@ -19,5 +19,5 @@ export {useMicrosoftAuth} from './useMicrosoftAuth';
 export type {UseMicrosoftAuthReturn} from './useMicrosoftAuth';
 export {useAppStateReset} from './useAppStateReset';
 export {useSettings} from './useSettings';
-// Deprecated: use usePrivyWallet instead
+// Deprecated: use useWallet instead
 export {useWalletConnect} from './useWalletConnect';

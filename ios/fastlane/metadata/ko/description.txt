@@ -21,7 +21,7 @@ Deep Link 통합
 dApp은 브라우저나 애플리케이션에서 보안 deep link를 통해 증명 요청을 직접 시작할 수 있습니다. 모든 웹3 서비스에서 마찰 없는 워크플로우를 제공합니다.
 
 지갑 연결
-Privy 또는 WalletConnect를 통해 지갑을 연결하여 온체인 작업을 완료합니다. MetaMask, Coinbase Wallet, Trust Wallet, Rainbow, Zerion 등 다양한 지갑을 지원합니다.
+WalletConnect를 통해 지갑을 연결하여 온체인 작업을 완료합니다. MetaMask, Coinbase Wallet, Trust Wallet, Rainbow, Zerion 등 다양한 지갑을 지원합니다.
 
 테마 지원
 어두운 테마 또는 밝은 테마를 선택할 수 있습니다. 모든 조명 조건에서 편안한 사용이 가능합니다.
@@ -31,7 +31,7 @@ Base 네트워크 및 Ethereum 생태계를 위해 구축되었습니다. EVM �
 
 작동 방식
 
-1. Privy 또는 WalletConnect를 사용하여 지갑 연결
+1. WalletConnect를 사용하여 지갑 연결
 2. dApp의 QR 코드 스캔 또는 deep link 따라가기
 3. 증명 요청 및 필요한 검증 사항 검토
 4. 영지식증명을 휴대폰에서 로컬로 생성

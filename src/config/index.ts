@@ -1,6 +1,6 @@
 export {OPENSTOA_ENABLED} from './features';
 export {appKit, projectId, metadata, networks} from './AppKitConfig';
-export {WALLETCONNECT_PROJECT_ID, appMetadata} from './PrivyConfig';
+export {WALLETCONNECT_PROJECT_ID, appMetadata} from './WalletConnectConfig';
 export {VERIFIER_ABI, AUTHORIZED_SIGNERS} from './contracts';
 export {GOOGLE_WEB_CLIENT_ID} from './GoogleAuthConfig';
 export type {Environment, CircuitName} from './contracts';

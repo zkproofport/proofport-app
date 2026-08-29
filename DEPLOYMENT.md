@@ -383,7 +383,7 @@ base64 -i release.keystore | pbcopy
 - [ ] Full flow test on Android Emulator
 - [ ] Physical device testing (iOS + Android)
 - [ ] Deep link handling verified
-- [ ] Wallet connection (Privy + WalletConnect) tested
+- [ ] Wallet connection (WalletConnect / Reown AppKit) tested
 - [ ] Proof generation → verification full flow tested
 - [ ] Dark mode / Light mode UI verified
 - [ ] Network error handling verified

@@ -1,5 +1,5 @@
 import React from 'react';
-import {usePrivyWallet} from '../../hooks/usePrivyWallet';
+import {useWallet} from '../../hooks/useWallet';
 import {WalletNoConnectionScreen} from './WalletNoConnectionScreen';
 import {WalletConnectedScreen} from './WalletConnectedScreen';
 import {useThemeColors} from '../../context';
@@ -17,7 +17,7 @@ const NETWORK_NAMES: Record<number, string> = {
 
 export const WalletMainScreen: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
-  const {isWalletConnected, account, chainId, disconnect} = usePrivyWallet();
+  const {isWalletConnected, account, chainId, disconnect} = useWallet();
 
   const handleDisconnect = async () => {
     try {

@@ -2,7 +2,7 @@ import {useState, useCallback} from 'react';
 import {useAppKit, useAccount, useProvider} from '@reown/appkit-react-native';
 import {ethers} from 'ethers';
 
-export type PrivyConnectionStatus =
+export type WalletConnectionStatus =
   | 'initializing'
   | 'disconnected'
   | 'connecting'
@@ -10,10 +10,10 @@ export type PrivyConnectionStatus =
   | 'authenticated'
   | 'error';
 
-interface UsePrivyWalletReturn {
+interface UseWalletReturn {
   account: string | null;
   chainId: number | null;
-  status: PrivyConnectionStatus;
+  status: WalletConnectionStatus;
   error: string | null;
   isReady: boolean;
   isWalletConnected: boolean;
@@ -30,12 +30,12 @@ interface UsePrivyWalletReturn {
   getSigner: () => Promise<ethers.Signer | null>;
 }
 
-// Privy-free implementation: AppKit (Reown/WalletConnect) only.
+// AppKit (Reown/WalletConnect) is the only wallet path this app has.
 // `isAuthenticated` is treated as "wallet connected" since SIWE-backed
-// Privy user records are no longer required for the proof flow.
-export const usePrivyWallet = (
+// The proof flow needs a connected wallet and nothing else.
+export const useWallet = (
   addLog?: (msg: string) => void,
-): UsePrivyWalletReturn => {
+): UseWalletReturn => {
   const log = useCallback(
     (msg: string) => {
       console.log(`🔐 ${msg}`);
@@ -59,10 +59,11 @@ export const usePrivyWallet = (
   const isWalletConnected = !!(isConnected && address);
   // AppKit mounts synchronously; surface as "ready" immediately.
   const isReady = true;
-  // Privy SIWE removed — wallet connection itself is the authenticated state.
+  // Wallet connection itself is the authenticated state; there is no
+  // separate sign-in step.
   const isAuthenticated = isWalletConnected;
 
-  function getStatus(): PrivyConnectionStatus {
+  function getStatus(): WalletConnectionStatus {
     if (error) return 'error';
     if (isConnecting) return 'connecting';
     if (isWalletConnected) return 'wallet_connected';

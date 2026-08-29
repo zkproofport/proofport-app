@@ -28,7 +28,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
-import {usePrivyWallet} from '../../hooks/usePrivyWallet';
+import {useWallet} from '../../hooks/useWallet';
 import {useSettings} from '../../hooks/useSettings';
 import {getCircuitDisplayName} from '../../utils/circuit';
 import {
@@ -89,7 +89,7 @@ function rowStatus(entry: Entry | null, account: string | null): Status {
 export const CircuitWalletsCard: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
   const {t} = useTranslation();
-  const {account, connect, disconnect} = usePrivyWallet();
+  const {account, connect, disconnect} = useWallet();
   const {settings} = useSettings();
   const developerMode = settings?.developerMode ?? false;
   // GIWA is a dev-only / experimental network. Its wallet-binding row is
