@@ -1,0 +1,105 @@
+name: Check Play access
+
+# Answers one question in under a minute: can the service account actually reach
+# the app in Play Console?
+#
+# Without this the only way to find out is a full Android release — roughly half
+# an hour of building before the upload step reports a permission problem. That
+# is a slow way to learn that a checkbox in the console was never ticked.
+#
+# It reads and never writes: it opens an edit session against the app and
+# immediately abandons it. Nothing is uploaded, no track is touched.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: can the service account reach the app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ask Play
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          PACKAGE_NAME: com.masselabs.zkproofport
+        run: |
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not set in this repository."
+            exit 1
+          fi
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > /tmp/play-key.json
+          python3 - <<'PY'
+          import base64, json, os, subprocess, sys, time, urllib.request, urllib.error
+
+          key = json.load(open('/tmp/play-key.json'))
+          print(f"service account: {key['client_email']}")
+          print(f"project:         {key['project_id']}")
+
+          def b64(raw): return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+
+          now = int(time.time())
+          header = b64(json.dumps({'alg': 'RS256', 'typ': 'JWT'}).encode())
+          claims = b64(json.dumps({
+              'iss': key['client_email'],
+              'scope': 'https://www.googleapis.com/auth/androidpublisher',
+              'aud': 'https://oauth2.googleapis.com/token',
+              'iat': now, 'exp': now + 3600,
+          }).encode())
+          open('/tmp/pk.pem', 'w').write(key['private_key'])
+          sig = subprocess.run(
+              ['openssl', 'dgst', '-sha256', '-sign', '/tmp/pk.pem'],
+              input=f'{header}.{claims}'.encode(), capture_output=True, check=True).stdout
+          assertion = f'{header}.{claims}.{b64(sig)}'
+
+          body = urllib.parse.urlencode({
+              'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+              'assertion': assertion,
+          }).encode()
+          try:
+              with urllib.request.urlopen(urllib.request.Request(
+                      'https://oauth2.googleapis.com/token', data=body)) as r:
+                  token = json.load(r)['access_token']
+          except urllib.error.HTTPError as e:
+              print('::error::could not exchange the key for a token — the key itself is wrong or revoked')
+              print(e.read().decode('utf-8', 'replace')[:400])
+              sys.exit(1)
+          print('token: obtained')
+
+          pkg = os.environ['PACKAGE_NAME']
+          url = f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{pkg}/edits'
+          req = urllib.request.Request(url, data=b'{}', method='POST', headers={
+              'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
+          try:
+              with urllib.request.urlopen(req) as r:
+                  edit = json.load(r)
+          except urllib.error.HTTPError as e:
+              detail = e.read().decode('utf-8', 'replace')
+              try:
+                  message = json.loads(detail)['error']['message']
+              except Exception:
+                  message = detail[:400]
+              # 404 here means the app does not exist yet OR the account cannot see
+              # it — Google returns the same code for both, so say so rather than
+              # guess which.
+              print(f'::error::Play refused ({e.code}): {message}')
+              if e.code == 404:
+                  print('::error::Either the app has not been created in Play Console yet, '
+                        'or this service account has no access to it. Google does not '
+                        'distinguish the two.')
+              elif e.code == 403:
+                  print('::error::The account is known but lacks permission. Check the '
+                        'account-level permissions on the invite.')
+              sys.exit(1)
+
+          print(f"reachable: edit session {edit['id']} opened against {pkg}")
+          # Abandon it so nothing is left half-open on the app.
+          urllib.request.urlopen(urllib.request.Request(
+              f"{url}/{edit['id']}:delete", data=b'', method='POST',
+              headers={'Authorization': f'Bearer {token}'}))
+          print('edit session abandoned — nothing was changed')
+          PY
