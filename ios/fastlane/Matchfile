@@ -13,6 +13,14 @@
 # nothing was revoked in Apple. Neither older repository was modified. A test in
 # the app checks that this file and both workflows still name the same one.
 git_url("https://github.com/zkproofport/proofport-app-certificates.git")
+
+# Named, not inherited. match defaults `git_branch` to "master", and this
+# repository's default branch is "main" — so the first release against it cloned
+# fine, decrypted fine, checked out an empty "master", and reported "Couldn't
+# find a valid code signing identity for distribution". The certificates were
+# there the whole time, one branch over. Both older signing repositories used
+# "master", which is why nothing had ever needed this line.
+git_branch("main")
 team_id("R4G32CVY29")
 
 storage_mode("git")

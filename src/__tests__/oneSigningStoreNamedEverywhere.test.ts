@@ -54,6 +54,17 @@ describe('signing material has exactly one home', () => {
     expect([...named]).toEqual(['zkproofport/proofport-app-certificates']);
   });
 
+  it('the Matchfile names the branch instead of inheriting one', () => {
+    /*
+     * match defaults to "master". This repository's default branch is "main",
+     * and the mismatch does not look like a mismatch: the clone succeeds, the
+     * decryption succeeds, and the empty branch reports itself as "couldn't find
+     * a valid code signing identity". Naming the branch is the only way the
+     * intent is visible in the file.
+     */
+    expect(read(MATCHFILE)).toMatch(/^git_branch\("[\w.\/-]+"\)$/m);
+  });
+
   it('no url still points at either shared repository', () => {
     // Both are real repositories that other work depends on; neither was
     // modified. Pointing at them again would resurrect the same failure.
