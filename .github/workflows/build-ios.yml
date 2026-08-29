@@ -79,6 +79,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh release download mopro-binaries-v0.3.2 \
+            --repo ${{ github.repository }} \
             --pattern 'MoproFfiFramework.xcframework.tar.gz' \
             --dir /tmp
           tar xzf /tmp/MoproFfiFramework.xcframework.tar.gz -C proofport-app/mopro_bindings/
