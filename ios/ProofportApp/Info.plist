@@ -133,6 +133,14 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<!-- ZKProofport never asks for location, so this text is never shown. Apple
+	     requires it anyway: the notification component links CoreLocation
+	     unconditionally to describe location-triggered notifications, and the
+	     camera component links it to tag photos. Build 2 was accepted but came
+	     back with ITMS-90683 for exactly this. Keep the wording truthful — a
+	     reviewer reading this file should not find a reason we do not have. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ZKProofport does not use your location. This appears only because the camera and notification components it is built on include location features, which ZKProofport leaves switched off.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>ZKProofport needs local network access to communicate with the proof relay server</string>
 	<key>NSBonjourServices</key>
