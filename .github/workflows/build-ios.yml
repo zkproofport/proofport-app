@@ -87,7 +87,17 @@ jobs:
       - name: Install dependencies
         if: steps.cache-node.outputs.cache-hit != 'true'
         working-directory: proofport-app
-        run: npm install --legacy-peer-deps
+        # `npm ci`, not `npm install`. The install here used to ignore the
+        # lockfile and re-resolve every caret range, so the build compiled a
+        # dependency set nobody had ever tested — and the same commit could
+        # build today and fail tomorrow with nothing changed. It did: a newer
+        # react-native-screens declares a native command argument as
+        # `React.ComponentRef<>`, which this react-native's codegen rejects
+        # (it accepts only `React.ElementRef<>`), and pod install died on it
+        # while the pinned version in the lockfile was fine. The test workflow
+        # already used `npm ci`; that is why tests kept passing while the
+        # release path broke.
+        run: npm ci --legacy-peer-deps
 
       - name: Install CocoaPods
         run: cd proofport-app/ios && pod install --repo-update
