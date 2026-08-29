@@ -38,7 +38,7 @@
       "networkBase": "Base",
       "networkGiwa": "GIWA Testnet",
       "networkOmniOne": "OmniOne Chain Testnet",
-      "autoSaveProofs": "Auto-save proofs",
+      "autoSaveProofs": "Keep a history of proofs",
       "confirmBeforeGenerate": "Confirm before generate",
       "showLiveLogs": "Show live logs",
       "useOmniOneCxUi": "Use OmniOne CX UI",

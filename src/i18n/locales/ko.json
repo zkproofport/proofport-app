@@ -38,7 +38,7 @@
       "networkBase": "Base",
       "networkGiwa": "기와 테스트넷",
       "networkOmniOne": "OmniOne 체인 테스트넷",
-      "autoSaveProofs": "증명 자동 저장",
+      "autoSaveProofs": "증명 이력 남기기",
       "confirmBeforeGenerate": "생성 전 확인",
       "showLiveLogs": "라이브 로그 표시",
       "useOmniOneCxUi": "OmniOne CX UI 사용",
