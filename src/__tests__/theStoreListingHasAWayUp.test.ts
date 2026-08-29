@@ -19,6 +19,15 @@
  * So this pins both halves: shipping still leaves the listing alone, and the
  * listing still has an upload of its own that names a metadata folder that
  * exists and can never cut a release.
+ *
+ * Screenshots joined the same path later. They are the reason the listing could
+ * not be published at all: Play will not publish a listing with fewer than two
+ * phone screenshots, and the only shots in the repo were iPhone-sized
+ * (1320x2868), which Play rejects outright — its rule is that the long side may
+ * not exceed twice the short side, and 2868 is more than 2640. So the checks
+ * below cover the FILES as well as the uploader: a set of shots that Play would
+ * refuse is a listing that cannot go live, and that must fail here rather than
+ * in the console.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -44,6 +53,13 @@ function lane(name: string): string {
 }
 
 const metadataDir = path.join(repo, 'android', 'fastlane', 'metadata', 'android');
+
+/** Width and height straight out of a PNG's IHDR — no image library needed. */
+function pngSize(file: string): { width: number; height: number } {
+  const head = fs.readFileSync(file).subarray(0, 24);
+  expect(head.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+  return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) };
+}
 
 describe('the Play listing can be uploaded, and shipping a build does not touch it', () => {
   it('the uploader exists and the workflow runs it', () => {
@@ -79,6 +95,71 @@ describe('the Play listing can be uploaded, and shipping a build does not touch 
       const full = path.join(metadataDir, locale, 'full_description.txt');
       expect(fs.readFileSync(full, 'utf8').trim().length).toBeGreaterThan(0);
     }
+  });
+
+  it('images go up as media into the same edit, not as listing fields', () => {
+    // A screenshot is not a field of the Listing resource. It is a separate
+    // media upload, on a different URL prefix, into the SAME edit — which is
+    // what makes text and images commit together or be discarded together.
+    expect(uploader).toContain('upload/androidpublisher/v3/applications');
+    expect(uploader).toMatch(/images\/\{language\}\/\{image_type\}/);
+    expect(uploader).toContain('phoneScreenshots');
+  });
+
+  it('a type is cleared before it is written, so a rerun cannot double it', () => {
+    // Play APPENDS on upload. Without the delete, running this twice leaves
+    // eight screenshots in a four-screenshot listing, and the store page is
+    // wrong in a way no error ever mentions.
+    expect(uploader).toMatch(/call\(token, 'DELETE', target\)/);
+  });
+
+  it('a language with no images/ folder is left alone rather than emptied', () => {
+    // Absence must mean "not managed here". If it meant "delete", adding the
+    // first language folder would wipe every other language's screenshots.
+    expect(uploader).toMatch(/if language in images:/);
+  });
+
+  it('every language has screenshots Play will actually accept', () => {
+    const locales = fs.readdirSync(metadataDir).filter((n) => !n.startsWith('.'));
+    for (const locale of locales) {
+      const dir = path.join(metadataDir, locale, 'images', 'phoneScreenshots');
+      expect(fs.existsSync(dir)).toBe(true);
+      const shots = fs.readdirSync(dir).filter((n) => /\.(png|jpe?g)$/i.test(n)).sort();
+
+      // Play refuses to publish a listing with fewer than two phone
+      // screenshots. Four is what earns a promotional placement.
+      expect(shots.length).toBeGreaterThanOrEqual(2);
+
+      const sizes = shots.map((name) => pngSize(path.join(dir, name)));
+      for (const [i, { width, height }] of sizes.entries()) {
+        const short = Math.min(width, height);
+        const long = Math.max(width, height);
+        // Play's stated limits, in its own terms: each side within 320..3840,
+        // and the long side no more than twice the short one. That last rule is
+        // the one the iPhone shots broke.
+        expect(short).toBeGreaterThanOrEqual(320);
+        expect(long).toBeLessThanOrEqual(3840);
+        expect(long).toBeLessThanOrEqual(short * 2);
+        // Portrait 9:16 exactly. Google names 9:16 (or 16:9) as the shape a
+        // screenshot must have to be eligible for promotional placement, so
+        // drifting to a taller phone ratio is a decision, not an accident.
+        expect(`${locale}/${shots[i]} ${width}x${height}`)
+          .toBe(`${locale}/${shots[i]} ${width}x${Math.round((width * 16) / 9)}`);
+      }
+      // One size for the whole carousel — a mixed set is letterboxed by Play.
+      expect(new Set(sizes.map((s) => `${s.width}x${s.height}`)).size).toBe(1);
+    }
+  });
+
+  it('the build-and-ship lane leaves the screenshots alone too', () => {
+    // Now that image files sit in the metadata folder, shipping a build could
+    // rewrite the store page's pictures as well as its text. Every supply call
+    // in the lane has to keep both skips on.
+    const beta = lane('beta');
+    const supplies = beta.match(/supply\(/g) || [];
+    expect(supplies.length).toBeGreaterThan(0);
+    expect((beta.match(/skip_upload_images:\s*true/g) || []).length).toBe(supplies.length);
+    expect((beta.match(/skip_upload_screenshots:\s*true/g) || []).length).toBe(supplies.length);
   });
 
   it('refuses out loud when no Play credential is set', () => {

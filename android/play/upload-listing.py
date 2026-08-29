@@ -31,6 +31,12 @@ listing into it, then commit (or validate and throw it away, for a dry run).
 No track and no release are involved at any point, which is the whole reason
 this path works where supply does not.
 
+Screenshots go up the same way. They are not part of a Listing resource --
+each one is a separate media upload into the SAME edit
+(`edits/{id}/images/{language}/{imageType}`), so they commit together with the
+text and a dry run throws both away as one. Still no track, release, bundle or
+apk anywhere.
+
 Length limits are deliberately NOT enforced here. Neither the Android Publisher
 reference nor supply states them, and a guard built on a half-remembered number
 would reject good text or pass bad. Play itself is the authority: over-long
@@ -41,6 +47,7 @@ read-back at the end show what actually landed.
 import base64
 import json
 import os
+import struct
 import subprocess
 import sys
 import time
@@ -49,6 +56,9 @@ import urllib.parse
 import urllib.request
 
 API = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications'
+# Media uploads go through a different host path than the JSON API. Same
+# edit id, same session -- only the prefix differs.
+UPLOAD_API = 'https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications'
 
 # The three files that make up one localized listing. `video` is a fourth
 # Listing field but there is no promo video, and sending an empty string for it
@@ -58,6 +68,31 @@ FIELDS = {
     'shortDescription': 'short_description.txt',
     'fullDescription': 'full_description.txt',
 }
+
+
+# Images live where `fastlane supply` puts them, so the tree is readable to
+# anyone who has seen an Android metadata folder before:
+#
+#   <metadata>/<language>/images/phoneScreenshots/01_verify.png
+#   <metadata>/<language>/images/icon.png
+#   <metadata>/<language>/images/featureGraphic.png
+#
+# For the multi-image kinds the FOLDER name is the Play imageType; for the
+# single-image kinds one file is named after the type. Both names are taken
+# verbatim from the AppImageType enum, so a typo here is a 400 from Play rather
+# than a silent no-op.
+MULTI_IMAGE_TYPES = (
+    'phoneScreenshots',
+    'sevenInchScreenshots',
+    'tenInchScreenshots',
+    'tvScreenshots',
+    'wearScreenshots',
+)
+SINGLE_IMAGE_TYPES = ('icon', 'featureGraphic', 'tvBanner')
+
+# Play accepts JPEG and PNG. The suffix decides the Content-Type because the
+# media upload has no other way to say what it is sending.
+IMAGE_SUFFIXES = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'}
 
 
 def die(message):
@@ -111,6 +146,107 @@ def read_listings(metadata_path):
             # as the three bytes each of them takes in UTF-8.
             print(f'  {language:6} {field:16} {len(listing[field]):5} chars')
     return listings
+
+
+def png_size(path):
+    """(width, height) from a PNG header, or None for anything else.
+
+    Printed next to each file so the run itself shows whether the asset is the
+    shape Play wants, instead of that being something a reader has to take on
+    trust. Play remains the authority on what it will accept -- nothing here
+    rejects a file for its dimensions.
+    """
+    with open(path, 'rb') as f:
+        head = f.read(24)
+    if head[:8] != b'\x89PNG\r\n\x1a\n':
+        return None
+    width, height = struct.unpack('>II', head[16:24])
+    return width, height
+
+
+def read_images(metadata_path, languages):
+    """Collect the image files for each language.
+
+    A type with no local files is LEFT ALONE on Play -- absence here means "not
+    managed from this repo", never "delete what is up there". Only a type that
+    is present locally is replaced, and it is replaced wholesale, because Play
+    appends on upload and a second run would otherwise double the screenshots.
+    """
+    images = {}
+    for language in languages:
+        root = os.path.join(metadata_path, language, 'images')
+        if not os.path.isdir(root):
+            continue
+        found = {}
+
+        for image_type in MULTI_IMAGE_TYPES:
+            folder = os.path.join(root, image_type)
+            if not os.path.isdir(folder):
+                continue
+            files = sorted(
+                os.path.join(folder, name) for name in os.listdir(folder)
+                if os.path.splitext(name)[1].lower() in IMAGE_SUFFIXES
+            )
+            if not files:
+                # An empty folder is a mistake, not an instruction. Uploading
+                # nothing after clearing the type would wipe the screenshots.
+                die(f'{language}: {image_type}/ exists but holds no PNG or JPEG. '
+                    f'Remove the folder to leave Play alone, or put the images in it.')
+            found[image_type] = files
+
+        for image_type in SINGLE_IMAGE_TYPES:
+            matches = [
+                os.path.join(root, image_type + suffix) for suffix in IMAGE_SUFFIXES
+                if os.path.isfile(os.path.join(root, image_type + suffix))
+            ]
+            if len(matches) > 1:
+                die(f'{language}: {image_type} is there more than once '
+                    f'({", ".join(os.path.basename(m) for m in matches)}). '
+                    f'Which one is meant cannot be guessed.')
+            if matches:
+                found[image_type] = matches
+
+        if found:
+            images[language] = found
+
+    if not images:
+        print('\nNo images/ folder under any language — the text goes up alone '
+              'and whatever images Play holds stay as they are.')
+        return images
+
+    print('\nImages to send (each type is replaced wholesale):')
+    for language, by_type in images.items():
+        for image_type, files in by_type.items():
+            for path in files:
+                size = png_size(path)
+                shape = f'{size[0]}x{size[1]}' if size else 'jpeg'
+                print(f'  {language:6} {image_type:20} {os.path.basename(path):20} '
+                      f'{shape:>10} {os.path.getsize(path):8} bytes')
+    return images
+
+
+def send_images(token, edits, edit_id, language, by_type):
+    """Clear each managed type, then upload its files in name order."""
+    for image_type, files in by_type.items():
+        target = f'{edits}/{edit_id}/images/{language}/{image_type}'
+        try:
+            call(token, 'DELETE', target)
+        except urllib.error.HTTPError as e:
+            die(f'{language}: Play refused to clear {image_type} ({e.code}): {api_error(e)}')
+        for path in files:
+            content_type = IMAGE_SUFFIXES[os.path.splitext(path)[1].lower()]
+            upload = (f'{UPLOAD_API}/{os.environ["PACKAGE_NAME"]}/edits/{edit_id}'
+                      f'/images/{language}/{image_type}?uploadType=media')
+            request = urllib.request.Request(
+                upload, data=open(path, 'rb').read(), method='POST',
+                headers={'Authorization': f'Bearer {token}', 'Content-Type': content_type})
+            try:
+                with urllib.request.urlopen(request) as response:
+                    response.read()
+            except urllib.error.HTTPError as e:
+                die(f'{language}: Play rejected {os.path.basename(path)} as '
+                    f'{image_type} ({e.code}): {api_error(e)}')
+            print(f'  sent  {language} {image_type}/{os.path.basename(path)}')
 
 
 def access_token(key):
@@ -181,6 +317,7 @@ def main():
     # Read and check the text BEFORE opening an edit, so a bad file cannot
     # leave a half-written session on the app.
     listings = read_listings(metadata_path)
+    images = read_images(metadata_path, list(listings))
 
     print(f'\nservice account: {key["client_email"]}')
     print(f'package:         {package}')
@@ -210,6 +347,8 @@ def main():
             except urllib.error.HTTPError as e:
                 die(f'{language}: Play rejected the listing ({e.code}): {api_error(e)}')
             print(f'  wrote {language}')
+            if language in images:
+                send_images(token, edits, edit_id, language, images[language])
 
         if dry_run:
             try:
@@ -257,6 +396,15 @@ def main():
             print(f'  {row.get("language")}: title={row.get("title")!r}, '
                   f'short={len(row.get("shortDescription") or "")} chars, '
                   f'full={len(row.get("fullDescription") or "")} chars')
+            # Ask per type: Play has no "list every image" call, and a count of
+            # zero here is the difference between "the upload worked" and "the
+            # upload said it worked".
+            for image_type in MULTI_IMAGE_TYPES + SINGLE_IMAGE_TYPES:
+                shots = (call(token, 'GET',
+                              f'{edits}/{check["id"]}/images/{row.get("language")}/{image_type}')
+                         or {}).get('images') or []
+                if shots:
+                    print(f'      {image_type}: {len(shots)}')
         call(token, 'DELETE', f'{edits}/{check["id"]}')
     except Exception as e:
         # Never fail the run on the read-back: the upload above already
