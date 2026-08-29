@@ -120,8 +120,8 @@ jobs:
         # `React.ComponentRef<>`, which this react-native's codegen rejects
         # (it accepts only `React.ElementRef<>`), and pod install died on it
         # while the pinned version in the lockfile was fine. The test workflow
-        # already used `npm ci`; that is why tests kept passing while the
-        # release path broke.
+        # already called `npm ci` — and had been failing on every push for the
+        # same reason, unnoticed, because the lockfile was gitignored.
         run: npm ci --legacy-peer-deps
 
       - name: Decode keystore

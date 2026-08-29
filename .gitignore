@@ -44,7 +44,13 @@ local.properties
 node_modules/
 npm-debug.log
 yarn-error.log
-package-lock.json
+# package-lock.json is COMMITTED on purpose. It used to be ignored here,
+# inherited from a generic Node template, and the cost was invisible: with
+# no lockfile in the repository `npm ci` could not run at all, so CI
+# installed with `npm install` and re-resolved every caret range on every
+# run. The release then compiled a dependency set nobody had tested. The
+# test workflow, which does call `npm ci`, had been failing on every push
+# for the same reason. mopro_bindings has its own entry further down.
 
 # ====================
 # Yarn
