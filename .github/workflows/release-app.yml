@@ -112,7 +112,14 @@ jobs:
     if: |
       needs.version.outputs.new_release_published == 'true' &&
       (inputs.platform == 'both' || inputs.platform == 'ios')
-    runs-on: macos-15
+    # macos-26, not macos-15. Apple stopped accepting uploads built with an
+    # older SDK: the first release to reach the upload step was rejected with
+    # "This app was built with the iOS 18.5 SDK. All iOS and iPadOS apps must be
+    # built with the iOS 26 SDK or later, included in Xcode 26 or later"
+    # (validation 409). macos-15 ships Xcode 16, which is that 18.5 SDK. The
+    # build itself took seventeen minutes and succeeded — only Apple's
+    # validation refused it, so nothing in the log before that line looks wrong.
+    runs-on: macos-26
     steps:
       # See build-ios.yml (the beta workflow) for the full rationale:
       # proofport-app depends on three sibling OpenStoa packages via
