@@ -142,7 +142,32 @@ describe('the release workflow can actually reach Play', () => {
   it('never passes the path and the content options in the same upload call', () => {
     // fastlane declares json_key and json_key_data as conflicting options, so a
     // call carrying both aborts before it reaches Play.
-    for (const call of read(FASTFILE).match(/supply\([\s\S]*?\n\s*\)/g) ?? []) {
+    //
+    // The calls are found by counting brackets, not by looking for a closing
+    // bracket on its own line. The line-shaped version broke the moment a lane
+    // was written with its call on ONE line: the search ran past the end of it
+    // and swallowed the next two calls as well, so three separate branches —
+    // each passing exactly one credential — read as a single call passing
+    // both. A guard that depends on how the code is laid out is a guard that
+    // reports on formatting.
+    const src = read(FASTFILE);
+    const calls: string[] = [];
+    for (let i = src.indexOf('supply('); i !== -1; i = src.indexOf('supply(', i + 1)) {
+      let depth = 0;
+      let j = i + 'supply'.length;
+      for (; j < src.length; j++) {
+        if (src[j] === '(') depth++;
+        else if (src[j] === ')') {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      calls.push(src.slice(i, j + 1));
+    }
+
+    // If the scan found nothing, every check below would pass vacuously.
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
       expect(/json_key:/.test(call) && /json_key_data:/.test(call)).toBe(false);
     }
   });
