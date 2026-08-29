@@ -102,7 +102,12 @@ describe('the Play listing can be uploaded, and shipping a build does not touch 
     // media upload, on a different URL prefix, into the SAME edit — which is
     // what makes text and images commit together or be discarded together.
     expect(uploader).toContain('upload/androidpublisher/v3/applications');
-    expect(uploader).toMatch(/images\/\{language\}\/\{image_type\}/);
+    // Under `listings`, not an `images` collection. This line asked for the
+    // `images/...` form and passed while the uploader was sending screenshots
+    // to a path Google does not serve — a guard agreeing with the bug it was
+    // meant to catch. The path is pinned properly, for both callers, in
+    // thePlayPathsAreTheOnesGoogleDocuments.
+    expect(uploader).toMatch(/listings\/\{language\}\/\{image_type\}/);
     expect(uploader).toContain('phoneScreenshots');
   });
 
