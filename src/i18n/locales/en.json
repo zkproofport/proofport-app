@@ -364,6 +364,20 @@
       "txTitle": "Transaction",
       "explorerTitle": "Explorer"
     },
+    "proofRequest": {
+      "title": "Proof Request",
+      "unknownSite": "Unknown site",
+      "details": "Request Details",
+      "domain": "Domain",
+      "walletAddress": "Wallet Address",
+      "willConnectWallet": "Will connect wallet",
+      "returnsTo": "Returns to",
+      "requestId": "Request ID",
+      "expiresAt": "Expires at",
+      "noExpiry": "No expiry",
+      "reject": "Reject",
+      "generate": "Generate Proof"
+    },
     "errors": {
       "codeLine": "Error Code: {{code}}",
       "E1001": {

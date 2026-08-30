@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import {
   Modal,
   View,
@@ -22,41 +23,60 @@ interface ProofRequestModalProps {
   onReject: () => void;
 }
 
-const CIRCUIT_INFO = {
+/**
+ * Each circuit's icon, and WHERE its words live — not the words themselves.
+ *
+ * This file used to carry its own English name and description per circuit,
+ * a second copy of what the circuit picker already had translated. On a Korean
+ * phone the picker said "Coinbase KYC 인증" and this modal, the screen where a
+ * person actually decides whether to hand over a proof, said "Coinbase KYC" in
+ * English. Pointing at the picker's entries keeps one set of words.
+ */
+const CIRCUIT_INFO: Record<
+  string,
+  {icon: string; nameKey: string; descriptionKey: string; prefixKey?: string}
+> = {
   coinbase_attestation: {
-    name: 'Coinbase KYC',
     icon: '🏦',
-    description: 'Prove Coinbase identity verification',
+    nameKey: 'host.proof.circuitSelection.coinbaseKyc.title',
+    descriptionKey: 'host.proof.circuitSelection.coinbaseKyc.description',
   },
   coinbase_country_attestation: {
-    name: 'Coinbase Country Verification',
     icon: '🌍',
-    description: 'Verify your country through Coinbase',
+    nameKey: 'host.proof.circuitSelection.coinbaseCountry.title',
+    descriptionKey: 'host.proof.circuitSelection.coinbaseCountry.description',
   },
   oidc_domain_attestation: {
-    name: 'OIDC Domain Verification',
     icon: '🔐',
-    description: 'Prove your email domain via OIDC identity token',
+    nameKey: 'host.proof.circuitSelection.oidcDomain.title',
+    descriptionKey: 'host.proof.circuitSelection.oidcDomain.description',
   },
   giwa_attestation: {
-    name: 'GIWA KYC (Experimental)',
     icon: '🏯',
-    description: 'Prove GIWA Sepolia KYC attestation (PoC)',
+    nameKey: 'host.proof.circuitSelection.giwaKyc.title',
+    descriptionKey: 'host.proof.circuitSelection.giwaKyc.description',
   },
+  // The three Korea mobile ID entries are named "Ownership" / "Age" / "Region"
+  // in the picker, where they sit under a "Korea Mobile ID" heading that
+  // supplies the context. Alone in this modal they would be meaningless, so
+  // the heading is prefixed back on.
   mdl_kr_ownership: {
-    name: 'Korea Mobile ID — Ownership',
     icon: '🪪',
-    description: 'Prove ownership of your Korea mobile ID',
+    prefixKey: 'host.proof.circuitSelection.mdlKr.title',
+    nameKey: 'host.proof.circuitSelection.mdlKrOwnership.title',
+    descriptionKey: 'host.proof.circuitSelection.mdlKrOwnership.description',
   },
   mdl_kr_age: {
-    name: 'Korea Mobile ID — Age',
     icon: '🪪',
-    description: 'Prove you are an adult via your Korea mobile ID',
+    prefixKey: 'host.proof.circuitSelection.mdlKr.title',
+    nameKey: 'host.proof.circuitSelection.mdlKrAge.title',
+    descriptionKey: 'host.proof.circuitSelection.mdlKrAge.description',
   },
   mdl_kr_region: {
-    name: 'Korea Mobile ID — Region',
     icon: '🪪',
-    description: 'Prove your residence region via your Korea mobile ID',
+    prefixKey: 'host.proof.circuitSelection.mdlKr.title',
+    nameKey: 'host.proof.circuitSelection.mdlKrRegion.title',
+    descriptionKey: 'host.proof.circuitSelection.mdlKrRegion.description',
   },
 };
 
@@ -66,9 +86,19 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
   onAccept,
   onReject,
 }) => {
+  const {t} = useTranslation();
+
   if (!request) return null;
 
   const circuitInfo = CIRCUIT_INFO[request.circuit];
+  // A request naming a circuit this build does not know must still render —
+  // the person needs to see who is asking and be able to refuse.
+  const circuitName = circuitInfo
+    ? [circuitInfo.prefixKey && t(circuitInfo.prefixKey), t(circuitInfo.nameKey)]
+        .filter(Boolean)
+        .join(' — ')
+    : request.circuit;
+  const circuitDescription = circuitInfo ? t(circuitInfo.descriptionKey) : '';
   const inputs = request.inputs as CoinbaseKycInputs;
   // Shown so the user consents to the app switch as part of consenting to the
   // proof — a request can name any app, and "the proof app opened this" should
@@ -77,7 +107,7 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
   const returnTarget = normalizeReturnScheme(request.returnScheme);
 
   function formatTime(timestamp?: number): string {
-    if (!timestamp) return 'No expiry';
+    if (!timestamp) return t('host.proofRequest.noExpiry');
     return new Date(timestamp).toLocaleTimeString();
   }
 
@@ -99,8 +129,8 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerIcon}>{circuitInfo.icon}</Text>
-            <Text style={styles.headerTitle}>Proof Request</Text>
+            <Text style={styles.headerIcon}>{circuitInfo?.icon ?? '🔐'}</Text>
+            <Text style={styles.headerTitle}>{t('host.proofRequest.title')}</Text>
           </View>
 
           <ScrollView style={styles.content}>
@@ -114,7 +144,7 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
               )}
               <View style={styles.dappInfo}>
                 <Text style={styles.dappName}>
-                  {request.dappName || 'Unknown Dapp'}
+                  {request.dappName || t('host.proofRequest.unknownSite')}
                 </Text>
                 <Text style={styles.dappUrl}>
                   {getDappHost(request.callbackUrl)}
@@ -124,10 +154,8 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
 
             {/* Request Details */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{circuitInfo.name}</Text>
-              <Text style={styles.sectionDescription}>
-                {circuitInfo.description}
-              </Text>
+              <Text style={styles.sectionTitle}>{circuitName}</Text>
+              <Text style={styles.sectionDescription}>{circuitDescription}</Text>
             </View>
 
             {/* Message */}
@@ -139,30 +167,30 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
 
             {/* Input Details */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Request Details</Text>
+              <Text style={styles.sectionTitle}>{t('host.proofRequest.details')}</Text>
 
               <View style={styles.inputsList}>
                 {request.circuit === 'oidc_domain_attestation' ? (
                   <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>Domain</Text>
+                    <Text style={styles.inputLabel}>{t('host.proofRequest.domain')}</Text>
                     <Text style={styles.inputValue} numberOfLines={1}>
                       {(request.inputs as OidcDomainInputs).domain}
                     </Text>
                   </View>
                 ) : (
                   <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>Wallet Address</Text>
+                    <Text style={styles.inputLabel}>{t('host.proofRequest.walletAddress')}</Text>
                     <Text style={styles.inputValue} numberOfLines={1}>
                       {(request.inputs as CoinbaseKycInputs).userAddress
                         ? `${(request.inputs as CoinbaseKycInputs).userAddress!.slice(0, 10)}...${(request.inputs as CoinbaseKycInputs).userAddress!.slice(-8)}`
-                        : 'Will connect wallet'}
+                        : t('host.proofRequest.willConnectWallet')}
                     </Text>
                   </View>
                 )}
 
                 {returnTarget && (
                   <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>Returns to</Text>
+                    <Text style={styles.inputLabel}>{t('host.proofRequest.returnsTo')}</Text>
                     <Text style={styles.inputValue} numberOfLines={1}>
                       {returnTarget}
                     </Text>
@@ -173,12 +201,12 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
 
             {/* Expiry Info */}
             <View style={styles.expiryInfo}>
-              <Text style={styles.expiryLabel}>Request ID: </Text>
+              <Text style={styles.expiryLabel}>{t('host.proofRequest.requestId')}: </Text>
               <Text style={styles.expiryValue}>{request.requestId}</Text>
             </View>
             {request.expiresAt && (
               <View style={styles.expiryInfo}>
-                <Text style={styles.expiryLabel}>Expires at: </Text>
+                <Text style={styles.expiryLabel}>{t('host.proofRequest.expiresAt')}: </Text>
                 <Text style={styles.expiryValue}>
                   {formatTime(request.expiresAt)}
                 </Text>
@@ -191,12 +219,12 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
             <TouchableOpacity
               style={[styles.button, styles.rejectButton]}
               onPress={onReject}>
-              <Text style={styles.rejectButtonText}>Reject</Text>
+              <Text style={styles.rejectButtonText}>{t('host.proofRequest.reject')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.acceptButton]}
               onPress={onAccept}>
-              <Text style={styles.acceptButtonText}>Generate Proof</Text>
+              <Text style={styles.acceptButtonText}>{t('host.proofRequest.generate')}</Text>
             </TouchableOpacity>
           </View>
         </View>
