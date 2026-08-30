@@ -336,7 +336,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          gh release download mopro-binaries-v0.3.2 \
+          gh release download mopro-binaries-v0.3.2-so \
             --repo ${{ github.repository }} \
             --pattern 'android-jniLibs-arm64-v8a.tar.gz' \
             --dir /tmp

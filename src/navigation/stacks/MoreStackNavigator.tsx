@@ -5,7 +5,6 @@ import type { MoreStackParamList } from '../types';
 import {
   MoreMainScreen,
   AboutScreen,
-  MlsPocScreen,
 } from '../../screens/more';
 import {ProofHistoryScreen, HistoryDetailScreen} from '../../screens/history';
 import SettingsLanguageScreen from '../../screens/more/SettingsLanguageScreen';
@@ -44,13 +43,6 @@ const MoreStackNavigator: React.FC = () => {
         component={SettingsLanguageScreen}
         options={{ title: t('host.more.language') }}
       />
-      {__DEV__ && (
-        <Stack.Screen
-          name="MlsPoc"
-          component={MlsPocScreen}
-          options={{ title: 'MLS PoC (dev)' }}
-        />
-      )}
       <Stack.Screen
         name="InAppBrowser"
         component={InAppBrowserScreen}

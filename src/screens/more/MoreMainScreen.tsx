@@ -248,19 +248,6 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
           </View>
         )}
 
-        {__DEV__ && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>Phase 0 PoC (dev)</Text>
-            <TouchableOpacity
-              style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
-              onPress={() => navigation.navigate('MlsPoc')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>MLS PoC (ts-mls 0x0001)</Text>
-              <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionData')}</Text>
