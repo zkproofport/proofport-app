@@ -1,0 +1,20 @@
+This build adds Korean.
+
+1. On a phone set to Korean, the app should come up in Korean.
+   If it comes up in English, that is the defect — please say so. Switching
+   the phone to English should give you an English app, and that is correct.
+   One exception: if you picked a language yourself under More > Language on
+   an earlier build, that choice is remembered and still wins over the phone.
+   Pick again in the same place to change it.
+
+2. Are there five tabs — Verify, Wallet, Scan, History, More?
+   A sixth called OpenStoa, between Scan and History, means the wrong build
+   shipped. Say so if you see it.
+
+3. Make one proof end to end.
+   On the Verify tab, switch Network at the top from Base to Other and OIDC
+   Domain appears. Sign in with an ordinary Google account and leave the domain
+   box empty. The proof is built on the phone and takes 30-60 seconds.
+
+The two Coinbase entries need a wallet holding a Coinbase attestation on Base.
+Without one, reaching the explanatory message is the correct outcome.
