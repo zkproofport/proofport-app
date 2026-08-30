@@ -119,6 +119,27 @@ export async function readOpenStoaToken(): Promise<string | null> {
   return (await AsyncStorage.getItem(TOKEN_KEY)) ?? null;
 }
 
+/**
+ * Passkey recovery is OFF until it has been verified end to end.
+ *
+ * It was never run to completion — register a passkey, wipe the device, get
+ * the chat keys back. It also only ever existed for iPhone: the bridge below
+ * is iOS-only and Android has no implementation, so the feature could work
+ * for some people on one platform and silently not for everyone else.
+ *
+ * Offering half a recovery route is worse than offering none: somebody
+ * registers a passkey, believes their keys are safe, and learns otherwise on
+ * the day they need them. The recovery-code path is verified and stays.
+ *
+ * The mini-app already reads this correctly — it checks whether the host
+ * supplies `passkeyPrf` and offers only the recovery code when it does not.
+ * Nobody has registered one; OpenStoa has not launched. Turning it back on
+ * needs this constant, an Android implementation, and a run through the real
+ * flow — see also PASSKEY_RECOVERY_ENABLED in openstoa/src/lib/passkeyPrf.ts,
+ * which switches the web off for the same reason.
+ */
+const PASSKEY_RECOVERY_ENABLED = false;
+
 export function createZkProofportHostApi(
   opts: CreateZkProofportHostApiOptions,
 ): HostApi {
@@ -698,7 +719,7 @@ export function createZkProofportHostApi(
     // Bypasses the react-native-passkeys 0.4.0 default-export bug (loses native
     // methods on Expo 54) by calling the Expo native module directly, matching
     // the Phase 0 PoC (src/poc/passkeyPrf.ts).
-    passkeyPrf: async ({ mode, saltB64, credentialId }) => {
+    ...(PASSKEY_RECOVERY_ENABLED ? { passkeyPrf: (async ({ mode, saltB64, credentialId }) => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { requireNativeModule } = require('expo-modules-core');
       const passkeys = requireNativeModule('ReactNativePasskeys');
@@ -772,7 +793,7 @@ export function createZkProofportHostApi(
       const prf = readPrf(g);
       if (!prf) throw new Error('passkey get returned no PRF (hmac-secret unsupported or cancelled)');
       return { credentialId: g?.id ?? credentialId ?? '', prfOutputB64: prf };
-    },
+    }) as NonNullable<HostApi['passkeyPrf']> } : {}),
 
     // Phase 6 push (design §13, D12-D14): register this device for content-free
     // chat notifications. Requests notification permission, obtains an Expo push
