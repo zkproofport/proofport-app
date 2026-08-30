@@ -1,6 +1,6 @@
 # READ-ONLY backup of every App Store Connect and Developer Portal registration
 # that has to be re-typed by hand when the app record is recreated on the
-# corporate Apple team (docs/migration/mobile-apps.md §A).
+# corporate Apple team.
 #
 # Nothing in this workflow writes to Apple. It runs `fastlane backup_appstore`,
 # which only issues GET requests and only ever invokes `deliver` in its
