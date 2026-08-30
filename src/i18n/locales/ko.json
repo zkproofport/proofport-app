@@ -109,7 +109,7 @@
       "clear": "지우기"
     },
     "loading": {
-      "tagline": "Privacy-Preserving Identity Proofs",
+      "tagline": "프라이버시를 지키는 신원 증명",
       "downloadFailedTitle": "다운로드 실패",
       "downloadFailedMessage": "일부 회로 파일을 다운로드하지 못했어요. 네트워크 연결을 확인하고 앱을 다시 시작해 주세요."
     },
