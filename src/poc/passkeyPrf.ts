@@ -4,10 +4,13 @@
 // device, running the get() step alone with the same salt verifies cross-device
 // PRF reproduction (the core synced-passkey assumption).
 //
-// rpId must match the live AASA domain (stg-community.zkproofport.app, served
-// application/json). Lazy-require react-native-passkeys (Metro inlineRequires).
+// rpId must match a live AASA domain. Both origins serve one; passkeyDomain.ts
+// picks the one matching this build. Lazy-require react-native-passkeys
+// (Metro inlineRequires).
 
-const RP_ID = 'stg-community.zkproofport.app';
+import { resolvePasskeyDomain } from '../openstoa-host/passkeyDomain';
+
+const RP_ID = resolvePasskeyDomain();
 // Fixed PRF salt so determinism is testable: base64url("openstoa-master/v1").
 const SALT = 'b3BlbnN0b2EtbWFzdGVyL3Yx';
 

@@ -2,6 +2,7 @@
 // iOS simulator does not have the keychain entitlements that SecureStore
 // requires.
 import { setUnreadBadge } from './unreadBadge';
+import { resolvePasskeyDomain } from './passkeyDomain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Secure storage for the mini-app's E2EE chat MLS state (iOS Keychain /
 // Android Keystore). Unlike the token (kept in AsyncStorage), MLS leaf state is
@@ -691,7 +692,8 @@ export function createZkProofportHostApi(
     // a synced passkey and evaluates PRF with the mini-app's salt, returning a
     // deterministic 32-byte output the mini-app derives a master_key wrapping key
     // from. rpId MUST be the Associated-Domains entitlement domain
-    // (`webcredentials:stg-community.zkproofport.app`, ProofportApp.entitlements)
+    // (`webcredentials:` entries in ProofportApp.entitlements — see
+    // passkeyDomain.ts, which picks the one matching this build)
     // that serves the AASA — it is independent of the OpenStoa API base URL.
     // Bypasses the react-native-passkeys 0.4.0 default-export bug (loses native
     // methods on Expo 54) by calling the Expo native module directly, matching
@@ -700,7 +702,7 @@ export function createZkProofportHostApi(
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { requireNativeModule } = require('expo-modules-core');
       const passkeys = requireNativeModule('ReactNativePasskeys');
-      const RP_ID = 'stg-community.zkproofport.app';
+      const RP_ID = resolvePasskeyDomain();
 
       const toB64url = (s: string) => s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       const saltB64url = toB64url(saltB64);

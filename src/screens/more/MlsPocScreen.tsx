@@ -6,6 +6,7 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Act
 import Clipboard from '@react-native-clipboard/clipboard';
 import { ensureSubtleCrypto, type PolyfillResult } from '../../crypto/installCryptoPolyfill';
 import { runMlsRoundTrip, type MlsPocResult } from '../../poc/mlsRoundTrip';
+import { resolvePasskeyDomain } from '../../openstoa-host/passkeyDomain';
 import { runPasskeyPrf, type PrfResult } from '../../poc/passkeyPrf';
 
 const SUITE = 'MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519';
@@ -50,7 +51,7 @@ const MlsPocScreen: React.FC = () => {
       console.log('[PASSKEY_PRF_RESULT]', JSON.stringify(r));
       setPrf(r);
     } catch (e) {
-      const r: PrfResult = { ok: false, rpId: 'stg-community.zkproofport.app', steps: [], error: e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e) };
+      const r: PrfResult = { ok: false, rpId: resolvePasskeyDomain(), steps: [], error: e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e) };
       console.log('[PASSKEY_PRF_RESULT]', JSON.stringify(r));
       setPrf(r);
     } finally {
@@ -106,7 +107,7 @@ const MlsPocScreen: React.FC = () => {
 
         <View style={styles.divider} />
         <Text style={styles.title}>Passkey PRF (D6 key recovery)</Text>
-        <Text style={styles.mono}>rpId: stg-community.zkproofport.app (AASA live)</Text>
+        <Text style={styles.mono}>rpId: {resolvePasskeyDomain()} (AASA live)</Text>
         <TouchableOpacity style={[styles.btn, prfRunning && styles.btnDisabled]} onPress={runPrf} disabled={prfRunning}>
           {prfRunning ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Run passkey PRF</Text>}
         </TouchableOpacity>

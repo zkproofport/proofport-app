@@ -14,7 +14,14 @@
 		<string>$(AppIdentifierPrefix)com.masselabs.zkproofport.openstoa</string>
 	</array>
 	<key>com.apple.developer.associated-domains</key>
+	<!-- Both origins, because the passkey domain follows the build's
+	     environment (see src/openstoa-host/passkeyDomain.ts) and iOS only
+	     honours a domain listed here. A production build that asked for
+	     www.openstoa.xyz while this named staging alone would fail at the
+	     passkey prompt with no useful message. Both serve the association
+	     file naming this app's team; checked 2026-08-30. -->
 	<array>
+		<string>webcredentials:www.openstoa.xyz</string>
 		<string>webcredentials:stg-community.zkproofport.app</string>
 	</array>
 	<!-- E2EE chat Phase 6/7 push (§13): required for iOS to hand out an APNs
