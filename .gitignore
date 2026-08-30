@@ -104,6 +104,13 @@ mopro_bindings/package-lock.json
 # ====================
 *.a
 *.so
+# ...except the Android proving library. It is 15 MB and the build cannot link
+# without it. The build moved from a 2.5 GB static archive to this shared object
+# on 2026-06-01; the published binaries still hold the old static form, so the
+# first CI Android build to run afterwards could not find the file it wanted.
+# Keeping the library here means it travels with the build that needs it —
+# a fresh checkout can build Android without hunting for a download.
+!mopro_bindings/android/src/main/jniLibs/*/libproofport.so
 *.dylib
 **/*.xcframework/
 

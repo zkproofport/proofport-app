@@ -332,18 +332,6 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc
           df -h /
 
-      - name: Download mopro binaries
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          gh release download mopro-binaries-v0.3.2-so \
-            --repo ${{ github.repository }} \
-            --pattern 'android-jniLibs-arm64-v8a.tar.gz' \
-            --dir /tmp
-          mkdir -p proofport-app/mopro_bindings/android/src/main/jniLibs
-          tar xzf /tmp/android-jniLibs-arm64-v8a.tar.gz -C proofport-app/mopro_bindings/android/src/main/jniLibs/
-          rm /tmp/android-jniLibs-arm64-v8a.tar.gz
-
       - name: Install dependencies
         if: steps.cache-node-android.outputs.cache-hit != 'true'
         working-directory: proofport-app
