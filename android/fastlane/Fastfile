@@ -61,6 +61,11 @@ platform :android do
         skip_upload_images: true,
         skip_upload_screenshots: true,
         skip_upload_changelogs: true,
+        # A draft app takes only draft releases. Play refuses anything else with
+        # "Only releases with status draft may be created on draft app" — the
+        # first build for an app that has never been published cannot go live
+        # from here. It lands in the console and a person promotes it.
+        release_status: "draft",
       )
     elsif credential('GOOGLE_APPLICATION_CREDENTIALS')
       supply(
@@ -72,6 +77,11 @@ platform :android do
         skip_upload_images: true,
         skip_upload_screenshots: true,
         skip_upload_changelogs: true,
+        # A draft app takes only draft releases. Play refuses anything else with
+        # "Only releases with status draft may be created on draft app" — the
+        # first build for an app that has never been published cannot go live
+        # from here. It lands in the console and a person promotes it.
+        release_status: "draft",
       )
     elsif credential('SUPPLY_JSON_KEY')
       supply(
@@ -82,6 +92,11 @@ platform :android do
         skip_upload_images: true,
         skip_upload_screenshots: true,
         skip_upload_changelogs: true,
+        # A draft app takes only draft releases. Play refuses anything else with
+        # "Only releases with status draft may be created on draft app" — the
+        # first build for an app that has never been published cannot go live
+        # from here. It lands in the console and a person promotes it.
+        release_status: "draft",
       )
     else
       # NO CREDENTIAL, SO NO UPLOAD — say so, loudly.
