@@ -112,7 +112,14 @@ mopro_bindings/package-lock.json
 # a fresh checkout can build Android without hunting for a download.
 !mopro_bindings/android/src/main/jniLibs/*/libproofport.so
 *.dylib
+# ...except the iOS proving library. Same reason as the Android .so above: the
+# build cannot link without it, and a fresh clone had no way to obtain it — the
+# podspec points `vendored_frameworks` straight at this directory. The two
+# archives inside are 277 MB each, over GitHub's 100 MB per-file limit, so they
+# travel through Git LFS. Found 2026-08-31 while testing whether a clone builds.
 **/*.xcframework/
+!mopro_bindings/MoproFfiFramework.xcframework/
+!mopro_bindings/MoproFfiFramework.xcframework/**
 
 # ====================
 # Circuit Files (downloaded at runtime)
