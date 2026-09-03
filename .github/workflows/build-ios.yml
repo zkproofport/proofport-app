@@ -55,14 +55,14 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.3'
           bundler-cache: true
           working-directory: proofport-app
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: proofport-app/.nvmrc
 
       - name: Cache node_modules
         id: cache-node
@@ -107,7 +107,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Install CocoaPods
-        run: cd proofport-app/ios && pod install --repo-update
+        run: cd proofport-app/ios && bundle exec pod install --repo-update
 
       - name: Decode App Store Connect API key
         env:

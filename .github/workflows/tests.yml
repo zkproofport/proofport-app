@@ -76,7 +76,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: proofport-app/.nvmrc
 
       - name: Install
         working-directory: proofport-app
