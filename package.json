@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "postinstall": "patch-package",
-    "android": "react-native run-android",
-    "android:clean": "./scripts/clear-android-cache.sh && react-native run-android",
-    "android:device": "react-native run-android --deviceId",
-    "android:device:clean": "./scripts/clear-android-cache.sh && react-native run-android --deviceId",
+    "android": "react-native run-android --mode=developmentDebug",
+    "android:clean": "./scripts/clear-android-cache.sh && react-native run-android --mode=developmentDebug",
+    "android:device": "react-native run-android --mode=developmentDebug --deviceId",
+    "android:device:clean": "./scripts/clear-android-cache.sh && react-native run-android --mode=developmentDebug --deviceId",
     "android:wipe": "adb emu kill ; sleep 2 ; emulator -avd $(emulator -list-avds | head -1) -wipe-data -no-snapshot-load &",
     "clean:android": "./scripts/clear-android-cache.sh",
     "clean:ios": "./scripts/clear-ios-cache.sh",
@@ -25,7 +25,7 @@
     "start:clean": "react-native start --reset-cache",
     "test": "jest",
     "assets": "npx react-native-asset",
-    "pod-install": "cd ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install && cd ..",
+    "pod-install": "cd ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install && cd ..",
     "version:sync": "node scripts/sync-version.js"
   },
   "dependencies": {

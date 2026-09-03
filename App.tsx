@@ -2,7 +2,7 @@
 import './src/config/AppKitConfig';
 
 import 'react-native-gesture-handler';
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {Linking} from 'react-native';
 // Phase 6 push (design §13): a tapped chat notification deep-links into the
 // OpenStoa chat room for `data.topicId`. The payload is content-free / near-blind
@@ -14,7 +14,9 @@ import {
   NavigationContainer,
   NavigationContainerRef,
   CommonActions,
+  type NavigationAction,
 } from '@react-navigation/native';
+import {createNavigationQueue} from './src/utils/navigationQueue';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppKitProvider, AppKit} from '@reown/appkit-react-native';
 import {appKit} from './src/config';
@@ -48,6 +50,36 @@ const App: React.FC = () => {
   const navigationRef = useRef<NavigationContainerRef<TabParamList>>(null);
   // Track currently active request to prevent processing while modal is open
   const activeRequestId = useRef<string | null>(null);
+
+  // A deep link can arrive before there is anywhere to navigate to — see
+  // src/utils/navigationQueue.ts for the cold-start window and how it was
+  // reproduced. Every imperative navigation in this file goes through the
+  // queue so none of them can be dropped on the floor.
+  const navigationReadyRef = useRef(false);
+  const navigationQueue = useMemo(
+    () =>
+      createNavigationQueue<NavigationAction>({
+        dispatch: (action) => navigationRef.current?.dispatch(action),
+        claimRequest: (requestId) => {
+          activeRequestId.current = requestId;
+        },
+        isReady: () => navigationReadyRef.current && navigationRef.current !== null,
+        log: (message) => console.log(message),
+      }),
+    [],
+  );
+
+  const navigateOrQueue = useCallback(
+    (action: NavigationAction, requestId: string | null) => {
+      navigationQueue.navigate(action, requestId);
+    },
+    [navigationQueue],
+  );
+
+  const handleNavigationReady = useCallback(() => {
+    navigationReadyRef.current = true;
+    navigationQueue.flush();
+  }, [navigationQueue]);
 
   // Reset handler for when app returns from background after timeout
   const handleAppReset = useCallback(() => {
@@ -125,17 +157,16 @@ const App: React.FC = () => {
       return;
     }
 
-    // Mark this as the active request
-    activeRequestId.current = request.requestId;
-
     // mDL: skip the generic confirmation modal. The mobile-ID-type bottom
     // sheet inside ProofGenerationScreen is the confirmation + entry point;
     // the modal's wallet / Coinbase-shaped UI does not apply to the on-device
-    // mDL flow. Navigate straight to proof generation.
+    // mDL flow. Navigate straight to proof generation — queued when the
+    // navigator is not up yet, and the request is claimed only after the
+    // navigation actually runs (see navigateOrQueue).
     if (request.circuit.startsWith('mdl_kr_')) {
       console.log('[App] mDL request — navigating directly:', request.requestId);
       setActiveProofRequest(request);
-      navigationRef.current?.dispatch(
+      navigateOrQueue(
         CommonActions.navigate({
           name: 'ProofTab',
           params: {
@@ -143,15 +174,20 @@ const App: React.FC = () => {
             params: {circuitId: request.circuit, proofRequest: request},
           },
         }),
+        request.requestId,
       );
       setPendingRequest(null);
       return;
     }
 
+    // Mark this as the active request. Safe to claim here for the modal path:
+    // it is React state, so it renders whenever the tree comes up.
+    activeRequestId.current = request.requestId;
+
     console.log('[App] Valid proof request, showing modal:', request.requestId);
     setPendingRequest(request);
     setShowRequestModal(true);
-  }, []);
+  }, [navigateOrQueue]);
 
   // Listen for deep links
   useEffect(() => {
@@ -184,9 +220,11 @@ const App: React.FC = () => {
   // mirrors the ProofTab example above: the mini-app's ChatRoom lives at
   // OpenStoaTab → OpenStoaRoot → ChatTab → ChatRoom, so a flat navigate to the
   // root tab navigator would not reach it.
+  // Queued for the same reason as the mDL deep link: tapping a push wakes the
+  // app from cold, and this fires while LoadingScreen still owns the screen.
   const openOpenStoaChat = useCallback((topicId: string) => {
     if (!topicId) return;
-    navigationRef.current?.dispatch(
+    navigateOrQueue(
       CommonActions.navigate({
         name: 'OpenStoaTab',
         params: {
@@ -200,8 +238,9 @@ const App: React.FC = () => {
           },
         },
       }),
+      null,
     );
-  }, []);
+  }, [navigateOrQueue]);
 
   // Notification-tap handler (Phase 6). The push carries only { topicId } — no
   // message content — so this handler is a pure router. For Phase B (ciphertext)
@@ -258,7 +297,7 @@ const App: React.FC = () => {
     // silently no-ops because the screen lives inside ProofStack, not the
     // root TabNavigator — that left the user stranded on Verify home after
     // accepting the proof request modal.
-    navigationRef.current?.dispatch(
+    navigateOrQueue(
       CommonActions.navigate({
         name: 'ProofTab',
         params: {
@@ -269,13 +308,14 @@ const App: React.FC = () => {
           },
         },
       }),
+      null,
     );
 
     // Clear active request after navigation
     activeRequestId.current = null;
     setPendingRequest(null);
     // Note: activeProofRequest is cleared by ProofGenerationScreen after proof is sent
-  }, [pendingRequest]);
+  }, [pendingRequest, navigateOrQueue]);
 
   const handleRejectRequest = useCallback(async () => {
     if (!pendingRequest) return;
@@ -323,7 +363,7 @@ const App: React.FC = () => {
   }
 
   const inner = (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
       <TabNavigator />
     </NavigationContainer>
   );

@@ -30,10 +30,9 @@ const ENGLISH_PROSE = /^[A-Za-z]{2,}(\s+[A-Za-z][A-Za-z'.,!?-]*){1,}$/;
 const ALLOWED: Record<string, string> = {
   'src/screens/LoadingScreen.tsx | Powered by Masse Labs':
     'the company name, which stays as it is in every language',
-  'src/screens/more/MlsPocScreen.tsx | Run round-trip':
-    'developer-only screen, registered behind __DEV__ in the More stack',
-  'src/screens/more/MlsPocScreen.tsx | Run passkey PRF':
-    'developer-only screen, registered behind __DEV__ in the More stack',
+  // The two MlsPocScreen buttons that used to sit here are gone: the screen was
+  // deleted in 37c1849, so the entries named a file that no longer exists and
+  // this suite's own honesty check failed on them. Removed 2026-09-03.
   'src/components/LogViewer.tsx | Copy All':
     'the only screen holding this component is not reachable from navigation',
   'src/components/ActionButtons.tsx | Run All Steps':
