@@ -51,7 +51,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version-file: proofport-app/.ruby-version
           bundler-cache: true
           working-directory: proofport-app
 
