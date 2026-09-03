@@ -1,3 +1,17 @@
+## [1.0.1](https://github.com/zkproofport/proofport-app/compare/app-v1.0.0...app-v1.0.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* **ci:** bump the OpenStoa pin past the passkey switch ([4306945](https://github.com/zkproofport/proofport-app/commit/43069450cd27400f3e5b0c0e5ee3c0b3a18f34f9))
+* **deeplink:** a cold-start mDL link no longer loses its navigation ([a090524](https://github.com/zkproofport/proofport-app/commit/a0905245c32371ed7e16a11ea5d66d9966dca816))
+* **release:** make the tag history describe what actually shipped ([e84561c](https://github.com/zkproofport/proofport-app/commit/e84561c89435f9fdf4ea4932699a822c6462fba1))
+
+
+### Reverts
+
+* Revert "chore(release): 1.6.0" ([13fcf55](https://github.com/zkproofport/proofport-app/commit/13fcf55f70aad070ec9dc6063c1babef6a01601b))
+
 ## [1.5.2](https://github.com/zkproofport/proofport-app/compare/app-v1.5.1...app-v1.5.2) (2026-03-27)
 
 
