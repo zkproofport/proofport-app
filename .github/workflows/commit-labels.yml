@@ -1,0 +1,60 @@
+name: Commit labels
+
+# Why this exists
+#
+# .releaserc.json turns commit types into version numbers: feat -> minor,
+# fix/style/refactor/perf -> patch. Nothing checked that the type matched what
+# the commit did, so on 2026-08-31 a change that only moved the iOS proving
+# library into Git LFS — .gitattributes, .gitignore, an Info.plist and two LFS
+# pointers, no app source at all — was committed as `feat(mopro):`. It raised
+# the next release a whole minor version for a change no user can see.
+#
+# This does not police wording. It catches the one mistake that costs a version
+# number: calling something a feature when it touched no shipped code.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check:
+    name: A feat commit must change shipped code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check every feat commit touches app source
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+
+          # Paths that end up in what a user installs. A feat that touches none
+          # of these is describing repository plumbing, not a feature.
+          shipped='^(src/|App\.tsx|android/app/src/|ios/ProofportApp/|index\.js)'
+
+          bad=0
+          for sha in $(git rev-list "$base..$head"); do
+            subject=$(git log -1 --format=%s "$sha")
+            case "$subject" in
+              feat:*|feat\(*\):*) ;;
+              *) continue ;;
+            esac
+            if git show --stat --format= --name-only "$sha" | grep -qE "$shipped"; then
+              echo "  ok    $subject"
+            else
+              echo "::error::$subject"
+              echo "        changes no shipped code, so it is not a feature."
+              echo "        Files: $(git show --format= --name-only "$sha" | tr '\n' ' ')"
+              echo "        Use chore:, build: or ci: — feat raises the minor version."
+              bad=$((bad + 1))
+            fi
+          done
+
+          if [ "$bad" -gt 0 ]; then
+            echo
+            echo "$bad commit(s) labelled feat without touching shipped code."
+            exit 1
+          fi
+          echo "All feat commits touch shipped code."
