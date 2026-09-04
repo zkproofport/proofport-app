@@ -40,6 +40,16 @@ platform :android do
     # release_status:completed makes this lane go live on its own. Re-ask with
     # `scripts/play-api.py try-track production <code> completed` rather than
     # assuming it either way.
+    #
+    # THAT THRESHOLD IS NOW CROSSED. On 2026-09-04 this lane uploaded version
+    # code 44 as a draft and a person published it from the console, which is
+    # the app's one and only first publish — it is per APP, not per version or
+    # per track. Asked again the same day, Play answered "accepts internal ←
+    # versionCode 44 as 'completed'".
+    #
+    # So `draft` is no longer required, and staying on it means someone has to
+    # press publish for every build. Passing release_status:completed uploads
+    # and goes live in one step.
     track = options[:track] || "alpha"
     release_status = options[:release_status] || "draft"
     unless %w[internal alpha beta production].include?(track)
