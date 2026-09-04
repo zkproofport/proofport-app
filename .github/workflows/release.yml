@@ -69,6 +69,13 @@ on:
         type: boolean
         default: false
 
+# A called workflow can never hold more permission than its caller, so these
+# have to be at least what release-app.yml asks for. Without them the run dies
+# at startup with "workflow file issue" and no line number.
+permissions:
+  contents: write
+  id-token: write
+
 # One version bump at a time. Two running together both read the same tags,
 # both decide the same next version, and the second push is rejected as
 # out of date.
