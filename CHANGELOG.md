@@ -1,3 +1,11 @@
+## [1.2.2](https://github.com/zkproofport/proofport-app/compare/app-v1.2.1...app-v1.2.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* **release:** split the version bump from the build, and never ship on merge ([44cc605](https://github.com/zkproofport/proofport-app/commit/44cc605a9faa559d595499d7f36429cf083ae6ad))
+* **release:** tag after the builds, one release at a time ([470e564](https://github.com/zkproofport/proofport-app/commit/470e564a8573f90f9cb9e9ea2a6b4e1e00d693a6)), closes [#4103](https://github.com/zkproofport/proofport-app/issues/4103)
+
 ## [1.2.1](https://github.com/zkproofport/proofport-app/compare/app-v1.2.0...app-v1.2.1) (2026-09-04)
 
 
