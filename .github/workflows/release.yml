@@ -1,17 +1,17 @@
-name: Bump Version
+name: Release
 
-# THIS WORKFLOW ONLY MOVES THE VERSION. IT BUILDS NOTHING.
+# ONE RUN, TWO HALVES: decide the version and tag it, then build that tag and
+# ship it. They show up as a single entry in the Actions list, so "did the
+# release go out" is one thing to look at rather than two.
 #
 # It runs semantic-release, which reads the commits, decides the next version,
 # writes it into package.json / build.gradle / the Xcode project through
 # scripts/sync-version.js, commits that as `chore(release): X.Y.Z` and pushes
 # the tag `app-vX.Y.Z`.
 #
-# The tag is where a release BEGINS, not where it ships. release-app.yml takes
-# that tag as an input and is started by a person — merging to main must not
-# put a build in a store. What the tag gives that workflow is a version that is
-# already written into the code it checks out: nothing to calculate, hand over,
-# or wait for.
+# The tag is handed to release-app.yml as the second half of this same run.
+# What it gives that half is a version already written into the code it checks
+# out — nothing to calculate, hand over, or wait for.
 #
 # WHY THIS IS A SEPARATE WORKFLOW. The two used to be one, with the version job
 # publishing the tag before anything was built. Every job checks out on its own
@@ -23,23 +23,51 @@ name: Bump Version
 # build costs no version: the tag already exists, so re-running release-app.yml
 # against the same tag produces the same binary instead of burning a number.
 
-# AUTOMATIC. A push to main runs it, semantic-release decides whether the
-# commits call for a release, and does nothing when they do not. That is what
-# the tool is for — a version that has to be asked for is a version somebody
-# forgets to ask for.
-#
-# The manual entry stays for one thing only: --dry-run, to see what the next
-# version would be without writing it.
+# STARTED BY A PERSON. The version is decided automatically once this runs —
+# nobody picks a number — but whether a build reaches a store is a decision, and
+# merging to main is not that decision.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Calculate the version and print it, but write nothing'
+        description: 'Say what the next version would be, tag nothing, build nothing'
         type: boolean
-        default: true
+        default: false
+      platform:
+        description: 'Target platform'
+        type: choice
+        options:
+          - both
+          - ios
+          - android
+        default: both
+      environment:
+        description: 'App environment'
+        type: choice
+        options:
+          - staging
+          - production
+        default: production
+      android_track:
+        description: 'Play track the AAB is uploaded to'
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+        default: internal
+      android_release_status:
+        description: 'Play release status — completed publishes without a console click'
+        type: choice
+        options:
+          - completed
+          - draft
+        default: completed
+      ios_submit_for_review:
+        description: 'Also submit the App Store version for review (TestFlight upload happens either way)'
+        type: boolean
+        default: false
 
 # One version bump at a time. Two running together both read the same tags,
 # both decide the same next version, and the second push is rejected as
@@ -52,23 +80,6 @@ jobs:
   bump:
     name: Bump and tag
     runs-on: ubuntu-latest
-    # DO NOT REACT TO YOUR OWN COMMIT.
-    #
-    # semantic-release pushes `chore(release): X.Y.Z` to main, which is another
-    # push to main, which would start this again — forever.
-    #
-    # The usual fix, `[skip ci]` in that commit message, cannot be used here.
-    # A git tag inherits its annotation from the commit it points at, so the
-    # marker travels into the tag, and the tag push that is supposed to START
-    # release-app.yml gets skipped along with it. That is a documented
-    # semantic-release problem, not a quirk of this repo.
-    #
-    # Matching the message instead affects only this workflow. A person who
-    # writes a commit beginning `chore(release):` by hand gets no version bump
-    # from it, which is the right answer anyway.
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      !startsWith(github.event.head_commit.message, 'chore(release):')
     outputs:
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
@@ -134,5 +145,29 @@ jobs:
             echo "- Would be: ${{ steps.release.outputs.version }} (dry run — nothing written)" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- Tagged: ${{ steps.release.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Nothing was shipped. Run **Release App** against this tag when you want it in a store." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Building and shipping that tag now, in this same run." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  # THE SECOND HALF OF THE SAME RUN.
+  #
+  # `uses:` calls release-app.yml as a reusable workflow, so its jobs appear
+  # inside this run rather than as a separate one. Handing it the tag that was
+  # just made is what makes this a pipeline instead of two things a person has
+  # to remember to do in order.
+  #
+  # Skipped on a dry run, and skipped when semantic-release found nothing to
+  # release — there is no tag to build in either case.
+  ship:
+    name: Build and ship the tag
+    needs: bump
+    if: inputs.dry_run == false && needs.bump.outputs.tag != ''
+    uses: ./.github/workflows/release-app.yml
+    secrets: inherit
+    with:
+      tag: ${{ needs.bump.outputs.tag }}
+      dry_run: false
+      platform: ${{ inputs.platform }}
+      environment: ${{ inputs.environment }}
+      android_track: ${{ inputs.android_track }}
+      android_release_status: ${{ inputs.android_release_status }}
+      ios_submit_for_review: ${{ inputs.ios_submit_for_review }}

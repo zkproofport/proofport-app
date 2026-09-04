@@ -39,7 +39,7 @@ const repo = path.join(__dirname, '..', '..');
 const read = (rel: string) => fs.readFileSync(path.join(repo, rel), 'utf8');
 
 const RELEASE_WORKFLOW = '.github/workflows/release-app.yml';
-const BUMP_WORKFLOW = '.github/workflows/bump-version.yml';
+const PIPELINE_WORKFLOW = '.github/workflows/release.yml';
 
 describe('the release can ship a version that the tags cannot produce', () => {
   it('takes the tag to build as an input, and allows it to be empty', () => {
@@ -81,31 +81,38 @@ describe('the release can ship a version that the tags cannot produce', () => {
   });
 });
 
-describe('the version bump is automatic and cannot loop', () => {
-  it('runs on a push to main without being asked', () => {
-    const workflow = read(BUMP_WORKFLOW);
-    expect(workflow).toMatch(/push:\s*\n\s*branches:\s*\n\s*- main/);
+describe('the release is one run, not two things to remember', () => {
+  it('is started by a person, never by a push', () => {
+    // Deciding the VERSION is automatic once it runs — nobody picks a number.
+    // Deciding to SHIP is not, and merging to main is not that decision.
+    const workflow = read(PIPELINE_WORKFLOW);
+    const triggers = workflow.slice(workflow.indexOf('\non:'), workflow.indexOf('\n# One version bump'));
+    expect(triggers).toMatch(/workflow_dispatch:/);
+    expect(triggers).not.toMatch(/push:/);
   });
 
-  it('ignores its own release commit', () => {
+  it('builds the tag it just made, in the same run', () => {
     /*
-     * semantic-release pushes `chore(release): X.Y.Z` to main, which is another
-     * push to main. Without this guard the workflow restarts itself forever.
-     *
-     * `[skip ci]` in that commit message cannot do the job: a git tag inherits
-     * its annotation from the commit it points at, so the marker travels into
-     * the tag — and the tag is what a person later builds. Matching the message
-     * here affects this workflow only.
+     * The whole point of the split was removing the gap between deciding a
+     * version and building it. Leaving the two to be started separately puts
+     * that gap back in a person's head instead of in the workflow.
      */
-    expect(read(BUMP_WORKFLOW)).toMatch(
-      /!startsWith\(github\.event\.head_commit\.message, 'chore\(release\):'\)/,
-    );
+    const workflow = read(PIPELINE_WORKFLOW);
+    expect(workflow).toMatch(/uses: \.\/\.github\/workflows\/release-app\.yml/);
+    expect(workflow).toMatch(/tag: \$\{\{ needs\.bump\.outputs\.tag \}\}/);
+    expect(workflow).toMatch(/needs: bump/);
+  });
+
+  it('ships nothing when there was nothing to release', () => {
+    // semantic-release emits no version when the commits do not call for one.
+    // Without this the build would run against an empty tag.
+    expect(read(PIPELINE_WORKFLOW)).toMatch(/needs\.bump\.outputs\.tag != ''/);
   });
 
   it('reads the tag back rather than trusting the push', () => {
     // semantic-release reports success from its own exit code. The tag is what
     // the next step of the release depends on, so its existence is asserted.
-    const workflow = read(BUMP_WORKFLOW);
+    const workflow = read(PIPELINE_WORKFLOW);
     expect(workflow).toMatch(/git rev-parse "\$TAG"/);
     expect(workflow).toMatch(/was not pushed/);
   });

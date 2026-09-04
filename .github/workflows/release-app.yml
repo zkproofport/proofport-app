@@ -17,7 +17,37 @@ name: Release App
 # as `version_name 1.0.1` on 2026-09-04. Splitting the two removes the gap
 # rather than bridging it.
 
+# CALLED, NORMALLY. `bump-version.yml` runs this as the second half of one
+# release — it tags, then calls this with that tag, and the whole thing is a
+# single run in the Actions list.
+#
+# The dispatch entry is the exception: rebuilding a tag whose upload failed, or
+# shipping a tag to a different track than it first went to. Same code, same
+# numbers, no version burned.
 on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        required: true
+      platform:
+        type: string
+        required: true
+      environment:
+        type: string
+        required: true
+      android_track:
+        type: string
+        required: true
+      android_release_status:
+        type: string
+        required: true
+      ios_submit_for_review:
+        type: boolean
+        required: true
   workflow_dispatch:
     inputs:
       tag:
