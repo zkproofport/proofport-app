@@ -149,8 +149,21 @@ jobs:
       # path; without it, a "successful" release build ships an app whose
       # OpenStoa tab cannot even be bundled (the import is static/eager, not
       # lazy — Metro must resolve it to produce any bundle at all).
+      # CHECK OUT THE RELEASE TAG, NOT THE BRANCH TIP.
+      #
+      # semantic-release runs in the version job above and pushes the version
+      # bump as `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. A checkout
+      # with no `ref` takes the commit that STARTED the workflow — which is the
+      # one before that bump — so the build ships the previous version's numbers
+      # under the new release's name.
+      #
+      # That is what happened on 2026-09-04: version 1.1.0 was tagged, and the
+      # AAB went to Play as `version_name 1.0.1`. The upload succeeded, the
+      # workflow was green, and only a look at the Play track showed the wrong
+      # name against the new version code.
       - uses: actions/checkout@v4
         with:
+          ref: app-v${{ needs.version.outputs.new_version }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
           path: proofport-app
@@ -285,8 +298,21 @@ jobs:
       # packages via `file:../openstoa/packages/*`, and `npm install` does
       # not fail when that sibling is missing — it creates a broken symlink
       # and exits 0.
+      # CHECK OUT THE RELEASE TAG, NOT THE BRANCH TIP.
+      #
+      # semantic-release runs in the version job above and pushes the version
+      # bump as `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. A checkout
+      # with no `ref` takes the commit that STARTED the workflow — which is the
+      # one before that bump — so the build ships the previous version's numbers
+      # under the new release's name.
+      #
+      # That is what happened on 2026-09-04: version 1.1.0 was tagged, and the
+      # AAB went to Play as `version_name 1.0.1`. The upload succeeded, the
+      # workflow was green, and only a look at the Play track showed the wrong
+      # name against the new version code.
       - uses: actions/checkout@v4
         with:
+          ref: app-v${{ needs.version.outputs.new_version }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
           path: proofport-app
