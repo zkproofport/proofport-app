@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/zkproofport/proofport-app/compare/app-v1.0.1...app-v1.1.0) (2026-09-04)
+
+
+### Bug Fixes
+
+* **app:** derive circuit paths from the SDK's key FILE, not its directory ([d0b6339](https://github.com/zkproofport/proofport-app/commit/d0b63395b266bed7e5f7b74d4c0c68bcb32a2031))
+
+
+### Features
+
+* **app:** take verification key paths from the SDK, and fix the GIWA icon ([0fae4f5](https://github.com/zkproofport/proofport-app/commit/0fae4f511127b1abc9a71f0fef137122583c2e01))
+
 ## [1.0.1](https://github.com/zkproofport/proofport-app/compare/app-v1.0.0...app-v1.0.1) (2026-09-03)
 
 
