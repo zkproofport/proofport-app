@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/zkproofport/proofport-app/compare/app-v1.2.0...app-v1.2.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **release:** hand the version to the build jobs instead of making them find it ([ff6a60a](https://github.com/zkproofport/proofport-app/commit/ff6a60a0ec034734b0ada82ea2a9b48aab275597))
+
 # [1.2.0](https://github.com/zkproofport/proofport-app/compare/app-v1.1.0...app-v1.2.0) (2026-09-04)
 
 
