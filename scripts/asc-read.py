@@ -6,9 +6,16 @@ folder on disk — "the first screenshot is a launch screen, Korean is zero" —
 when the screenshots had long been uploaded and the folder it read was a stale
 copy nobody ships. A directory listing is not the store. This is.
 
-    source .env.ios && python3 scripts/asc-read.py           # summary
+    source .env.ios && python3 scripts/asc-read.py           # store listing
+    source .env.ios && python3 scripts/asc-read.py builds    # TestFlight builds
     source .env.ios && python3 scripts/asc-read.py --json    # machine readable
     source .env.ios && python3 scripts/asc-read.py --get /v1/betaGroups   # one read
+
+An unknown word is REFUSED rather than ignored. Until 2026-09-04 this script
+took no subcommand at all, so `asc-read.py builds` printed the store listing —
+descriptions, keywords, screenshots — and an assistant read that as "the build
+is not on TestFlight". Silently ignoring an argument is how a reader ends up
+confidently looking at the wrong thing.
 
 Needs ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_PATH — the same three fastlane
 uses.
@@ -104,6 +111,13 @@ if '--get' in sys.argv:
     print(json.dumps(get(sys.argv[sys.argv.index('--get') + 1]), ensure_ascii=False, indent=2))
     raise SystemExit(0)
 
+KNOWN_WORDS = {'builds'}
+words = [a for a in sys.argv[1:] if not a.startswith('--')]
+unknown = [w for w in words if w not in KNOWN_WORDS]
+if unknown:
+    sys.exit(f"unknown argument: {' '.join(unknown)}\n"
+             f"  known: {' '.join(sorted(KNOWN_WORDS))}, or --json / --get <path>")
+
 apps = get('/v1/apps?limit=50')['data']
 app = next((a for a in apps if a['attributes']['bundleId'] == BUNDLE_ID), None)
 if app is None:
@@ -114,6 +128,28 @@ out: dict = {'app': {
     'name': app['attributes']['name'],
     'bundleId': app['attributes']['bundleId'],
 }}
+
+# TESTFLIGHT BUILDS. A different question from the store listing below, and the
+# one asked after every release: did the upload arrive, and has Apple finished
+# processing it. `processingState` is what answers that — a build sits in
+# PROCESSING for several minutes before testers can install it, so VALID is the
+# state that means "it is really there".
+if 'builds' in words:
+    builds = get(f"/v1/builds?filter[app]={app['id']}&limit=10"
+                 "&sort=-uploadedDate&fields[builds]="
+                 "version,uploadedDate,processingState,expired")['data']
+    if '--json' in sys.argv:
+        print(json.dumps(builds, ensure_ascii=False, indent=2))
+    elif not builds:
+        print('TestFlight: no builds at all')
+    else:
+        print(f"{app['attributes']['name']}  TestFlight 빌드 {len(builds)}개 (최근순)")
+        for b in builds:
+            a = b['attributes']
+            print(f"  빌드 {a.get('version', '?'):<6} {a.get('processingState', '?'):<12}"
+                  f" 올린시각 {a.get('uploadedDate', '?')}"
+                  f"{'  만료됨' if a.get('expired') else ''}")
+    raise SystemExit(0)
 
 out['versions'] = []
 for version in get(f"/v1/apps/{app['id']}/appStoreVersions?limit=5")['data']:
