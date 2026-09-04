@@ -104,22 +104,16 @@ jobs:
       # path; without it, a "successful" release build ships an app whose
       # OpenStoa tab cannot even be bundled (the import is static/eager, not
       # lazy — Metro must resolve it to produce any bundle at all).
-      # The code comes from the commit that started the run; the VERSION comes
-      # from the job output. They are deliberately separate.
+      # The tag named on the run, or the branch when none was given. Either way
+      # the version is already written into what this checks out — bump-version
+      # put it there before making the tag — so nothing here calculates or waits
+      # for one.
       #
-      # semantic-release runs in the version job above and pushes the bump as
-      # `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. Every job checks out
-      # on its own runner, and `actions/checkout` with no `ref` takes the commit
-      # that STARTED the run — resolved before the version job existed. So this
-      # job cannot see that bump, and on 2026-09-04 that shipped `version_name
-      # 1.0.1` under the tag app-v1.1.0.
-      #
-      # Chasing the tag with `ref:` was the first fix and it worked, but it made
-      # the build wait on a tag another job had to push first — a race with no
-      # upside. Writing the version instead removes the dependency: nothing here
-      # reads git for it.
-      # A tag push checks out that tag by itself; a manual run takes whatever
-      # `tag` was given and falls back to the branch when it is empty.
+      # An earlier shape did calculate it, in a job above these, and published
+      # the tag before a byte was built. Each job checks out on its own runner
+      # and takes the commit that STARTED the run, so the builds got the code
+      # from before the bump: app-v1.1.0 reached Play as `version_name 1.0.1` on
+      # 2026-09-04.
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
@@ -267,22 +261,16 @@ jobs:
       # packages via `file:../openstoa/packages/*`, and `npm install` does
       # not fail when that sibling is missing — it creates a broken symlink
       # and exits 0.
-      # The code comes from the commit that started the run; the VERSION comes
-      # from the job output. They are deliberately separate.
+      # The tag named on the run, or the branch when none was given. Either way
+      # the version is already written into what this checks out — bump-version
+      # put it there before making the tag — so nothing here calculates or waits
+      # for one.
       #
-      # semantic-release runs in the version job above and pushes the bump as
-      # `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. Every job checks out
-      # on its own runner, and `actions/checkout` with no `ref` takes the commit
-      # that STARTED the run — resolved before the version job existed. So this
-      # job cannot see that bump, and on 2026-09-04 that shipped `version_name
-      # 1.0.1` under the tag app-v1.1.0.
-      #
-      # Chasing the tag with `ref:` was the first fix and it worked, but it made
-      # the build wait on a tag another job had to push first — a race with no
-      # upside. Writing the version instead removes the dependency: nothing here
-      # reads git for it.
-      # A tag push checks out that tag by itself; a manual run takes whatever
-      # `tag` was given and falls back to the branch when it is empty.
+      # An earlier shape did calculate it, in a job above these, and published
+      # the tag before a byte was built. Each job checks out on its own runner
+      # and takes the commit that STARTED the run, so the builds got the code
+      # from before the bump: app-v1.1.0 reached Play as `version_name 1.0.1` on
+      # 2026-09-04.
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}

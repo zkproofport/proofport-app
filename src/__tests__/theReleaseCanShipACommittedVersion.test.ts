@@ -13,10 +13,21 @@
  * has a tag, and app-v1.0.0 exists. Keeping 1.0.0 that way would have meant
  * deleting all thirteen tags and their GitHub releases.
  *
- * So the release grew an input that skips the calculation instead. These tests
- * read the workflow as text, because the defect they guard lives in the
- * agreement between the input, the two version steps, and the job outputs — the
- * exact shape no single-file test can see.
+ * HOW THIS IS SERVED NOW. The release used to carry a `skip_version` input that
+ * turned its own calculator off. On 2026-09-05 the calculator moved out
+ * entirely: `bump-version.yml` decides versions and tags them, and
+ * `release-app.yml` only builds. Building a version the tags cannot produce is
+ * then the ordinary case rather than a special one — run the release with no
+ * tag and it builds the working tree, whose package.json holds whatever is
+ * committed.
+ *
+ * These cases were rewritten with that move. They guard the same requirement
+ * against the new shape, which is why the story above is kept: a future reader
+ * needs to know why building an arbitrary version has to stay possible, not
+ * only that it does.
+ *
+ * They read the workflows as text, because what they guard lives in the
+ * agreement between two files — the exact shape no single-file test can see.
  *
  * This package runs jest, which takes no message argument on `expect`. Each
  * failure has to be readable from the test name alone.
@@ -28,59 +39,74 @@ const repo = path.join(__dirname, '..', '..');
 const read = (rel: string) => fs.readFileSync(path.join(repo, rel), 'utf8');
 
 const RELEASE_WORKFLOW = '.github/workflows/release-app.yml';
-
-/** The block of one named step, up to the next step at the same indent. */
-const step = (name: string) => {
-  const body = read(RELEASE_WORKFLOW);
-  const start = body.indexOf(`- name: ${name}`);
-  expect(start).toBeGreaterThan(-1);
-  const next = body.indexOf('\n      - name:', start + 1);
-  return body.slice(start, next === -1 ? undefined : next);
-};
+const BUMP_WORKFLOW = '.github/workflows/bump-version.yml';
 
 describe('the release can ship a version that the tags cannot produce', () => {
-  it('offers the skip as a workflow input, off unless asked for', () => {
+  it('takes the tag to build as an input, and allows it to be empty', () => {
+    // Empty is the whole mechanism: it builds the working tree rather than a
+    // tagged commit, so a version the calculator could never emit still ships.
     const workflow = read(RELEASE_WORKFLOW);
-    expect(workflow).toMatch(/skip_version:\s*\n\s*description:.*\n\s*type: boolean\s*\n\s*default: false/);
+    expect(workflow).toMatch(/tag:\s*\n\s*description:.*\n\s*type: string\s*\n\s*required: false/);
+    expect(workflow).toMatch(/ref: \$\{\{ inputs\.tag \|\| github\.ref \}\}/);
   });
 
-  it('takes the version from package.json when the skip is on', () => {
-    const pinned = step('Use the committed version');
-    expect(pinned).toMatch(/if: inputs\.skip_version == true/);
-    expect(pinned).toMatch(/require\('\.\/package\.json'\)\.version/);
-    expect(pinned).toMatch(/new_release_published=true/);
-  });
-
-  it('refuses to ship an empty version rather than building a nameless one', () => {
-    // Without this the step would export an empty string, the platform jobs
-    // would run, and the build would carry whatever version was left behind.
-    expect(step('Use the committed version')).toMatch(/if \[ -z "\$VERSION" \][\s\S]*exit 1/);
-  });
-
-  it('never runs the calculator and the skip in the same run', () => {
-    expect(step('Run semantic-release')).toMatch(/if: inputs\.skip_version == false/);
-    expect(step('Use the committed version')).toMatch(/if: inputs\.skip_version == true/);
-  });
-
-  it('the platform jobs read whichever of the two steps actually ran', () => {
-    /*
-     * The gate on the build jobs is new_release_published. If the outputs kept
-     * reading only the calculator step, turning the skip on would leave both
-     * outputs empty, the gate would be false, and the run would go green having
-     * built nothing — the failure mode this whole file exists to prevent.
-     */
-    // Scoped to the job's own `outputs:` block on purpose. Searching the whole
-    // file passes on the run summary further down, which prints the same two
-    // expressions — so a broken job output would still look fine. Caught by
-    // mutation: breaking the output alone left this test green.
+  it('does not calculate a version at all', () => {
+    // The calculator living here is what made shipping an arbitrary version a
+    // special case needing its own escape hatch. It belongs in the other file.
     const workflow = read(RELEASE_WORKFLOW);
-    const start = workflow.indexOf('    outputs:');
-    expect(start).toBeGreaterThan(-1);
-    const outputs = workflow.slice(start, workflow.indexOf('    steps:', start));
-    for (const key of ['new_release_version', 'new_release_published']) {
-      expect(outputs).toMatch(
-        new RegExp(`steps\\.pinned\\.outputs\\.${key} \\|\\| steps\\.semantic\\.outputs\\.${key}`),
-      );
+    expect(workflow).not.toMatch(/semantic-release/);
+    expect(workflow).not.toMatch(/skip_version/);
+  });
+
+  it('refuses to build when the checked-out code disagrees with itself', () => {
+    // Without this the build would carry whatever numbers were left in the
+    // files — a nameless build, which is the failure this whole file exists to
+    // prevent, in its new form.
+    const workflow = read(RELEASE_WORKFLOW);
+    const checks = workflow.match(/name: The version being built[\s\S]*?exit 1/g) || [];
+    expect(checks.length).toBe(2); // one per platform job
+    for (const check of checks) {
+      expect(check).toMatch(/require\('\.\/package\.json'\)\.version/);
+      expect(check).toMatch(/versionName/);
     }
+  });
+
+  it('is never started by merging to main', () => {
+    // Shipping is a decision. A tag is written for every release-worthy commit,
+    // and if that tag started this workflow every merge would reach a store.
+    const workflow = read(RELEASE_WORKFLOW);
+    const triggers = workflow.slice(workflow.indexOf('\non:'), workflow.indexOf('\npermissions:'));
+    expect(triggers).toMatch(/workflow_dispatch:/);
+    expect(triggers).not.toMatch(/push:/);
+  });
+});
+
+describe('the version bump is automatic and cannot loop', () => {
+  it('runs on a push to main without being asked', () => {
+    const workflow = read(BUMP_WORKFLOW);
+    expect(workflow).toMatch(/push:\s*\n\s*branches:\s*\n\s*- main/);
+  });
+
+  it('ignores its own release commit', () => {
+    /*
+     * semantic-release pushes `chore(release): X.Y.Z` to main, which is another
+     * push to main. Without this guard the workflow restarts itself forever.
+     *
+     * `[skip ci]` in that commit message cannot do the job: a git tag inherits
+     * its annotation from the commit it points at, so the marker travels into
+     * the tag — and the tag is what a person later builds. Matching the message
+     * here affects this workflow only.
+     */
+    expect(read(BUMP_WORKFLOW)).toMatch(
+      /!startsWith\(github\.event\.head_commit\.message, 'chore\(release\):'\)/,
+    );
+  });
+
+  it('reads the tag back rather than trusting the push', () => {
+    // semantic-release reports success from its own exit code. The tag is what
+    // the next step of the release depends on, so its existence is asserted.
+    const workflow = read(BUMP_WORKFLOW);
+    expect(workflow).toMatch(/git rev-parse "\$TAG"/);
+    expect(workflow).toMatch(/was not pushed/);
   });
 });
