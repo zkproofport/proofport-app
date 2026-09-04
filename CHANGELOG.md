@@ -1,3 +1,15 @@
+# [1.2.0](https://github.com/zkproofport/proofport-app/compare/app-v1.1.0...app-v1.2.0) (2026-09-04)
+
+
+### Bug Fixes
+
+* **release:** build the tag semantic-release just made, not the branch tip ([35fe961](https://github.com/zkproofport/proofport-app/commit/35fe961e95bebe45dffc185824e29432c19ed661))
+
+
+### Features
+
+* **scripts:** read TestFlight builds, and refuse an argument it does not know ([e5d0d86](https://github.com/zkproofport/proofport-app/commit/e5d0d860527c3c6ea331748f8f38afbbea3e0f73))
+
 # [1.1.0](https://github.com/zkproofport/proofport-app/compare/app-v1.0.1...app-v1.1.0) (2026-09-04)
 
 

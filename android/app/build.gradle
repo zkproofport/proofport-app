@@ -134,7 +134,7 @@ android {
         // rejects a versionCode that does not strictly increase — a hardcoded
         // constant would make the second upload impossible.
         versionCode System.getenv("BUILD_NUMBER") ? System.getenv("BUILD_NUMBER").toInteger() : 1
-        versionName "1.1.0"
+        versionName "1.2.0"
         manifestPlaceholders = [appAuthRedirectScheme: "msalcd5404cc-d313-431c-8112-725e629dad28"]
     }
     flavorDimensions = ["environment"]
