@@ -117,3 +117,50 @@ describe('the release is one run, not two things to remember', () => {
     expect(workflow).toMatch(/was not pushed/);
   });
 });
+
+describe('the Android version code cannot go backwards', () => {
+  const GRADLE = 'android/app/build.gradle';
+
+  it('is a literal number, not a run counter', () => {
+    /*
+     * It read `System.getenv("BUILD_NUMBER")`, which CI filled with
+     * github.run_number. That counts PER WORKFLOW, so splitting the release in
+     * two on 2026-09-05 reset it: Play held versionCode 46 and the new
+     * pipeline's second run offered 2. Play refused with "you cannot rollout
+     * this release because it does not allow any existing users to upgrade" —
+     * a message that names the symptom and not the cause.
+     *
+     * A literal written from the version cannot do that, because the version
+     * only goes up.
+     */
+    const gradle = read(GRADLE);
+    expect(gradle).toMatch(/^\s*versionCode \d+$/m);
+    expect(gradle).not.toMatch(/versionCode System\.getenv/);
+  });
+
+  it('is not passed in by the workflow any more', () => {
+    expect(read(RELEASE_WORKFLOW)).not.toMatch(/BUILD_NUMBER/);
+  });
+
+  it('matches what sync-version.js computes from the version', () => {
+    // The two disagreeing is what let the dead substitution go unnoticed:
+    // sync-version.js wrote a number nothing read, for as long as the getenv
+    // expression sat in its place.
+    const gradle = read(GRADLE);
+    const code = Number(gradle.match(/^\s*versionCode (\d+)$/m)![1]);
+    const name = gradle.match(/versionName "([\d.]+)"/)![1];
+    const [major, minor, patch] = name.split('.').map(Number);
+    expect(code).toBe(major * 10000 + minor * 100 + patch);
+  });
+
+  it('leaves no digits after the word in the comment above it', () => {
+    // sync-version.js substitutes on /versionCode \d+/, first match wins. A
+    // comment mentioning a past code takes the write and the real line keeps
+    // its old value — which happened on the first attempt at this fix.
+    // Counting matches, not comparing positions: an earlier attempt compared
+    // two `search` indexes and failed on the leading whitespace the anchored
+    // pattern also matches. The file was fine; the test was measuring itself.
+    const gradle = read(GRADLE);
+    expect((gradle.match(/versionCode \d+/g) || []).length).toBe(1);
+  });
+});
