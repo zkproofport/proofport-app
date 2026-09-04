@@ -149,24 +149,29 @@ jobs:
       # path; without it, a "successful" release build ships an app whose
       # OpenStoa tab cannot even be bundled (the import is static/eager, not
       # lazy — Metro must resolve it to produce any bundle at all).
-      # CHECK OUT THE RELEASE TAG, NOT THE BRANCH TIP.
+      # The code comes from the commit that started the run; the VERSION comes
+      # from the job output. They are deliberately separate.
       #
-      # semantic-release runs in the version job above and pushes the version
-      # bump as `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. A checkout
-      # with no `ref` takes the commit that STARTED the workflow — which is the
-      # one before that bump — so the build ships the previous version's numbers
-      # under the new release's name.
+      # semantic-release runs in the version job above and pushes the bump as
+      # `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. Every job checks out
+      # on its own runner, and `actions/checkout` with no `ref` takes the commit
+      # that STARTED the run — resolved before the version job existed. So this
+      # job cannot see that bump, and on 2026-09-04 that shipped `version_name
+      # 1.0.1` under the tag app-v1.1.0.
       #
-      # That is what happened on 2026-09-04: version 1.1.0 was tagged, and the
-      # AAB went to Play as `version_name 1.0.1`. The upload succeeded, the
-      # workflow was green, and only a look at the Play track showed the wrong
-      # name against the new version code.
+      # Chasing the tag with `ref:` was the first fix and it worked, but it made
+      # the build wait on a tag another job had to push first — a race with no
+      # upside. Writing the version instead removes the dependency: nothing here
+      # reads git for it.
       - uses: actions/checkout@v4
         with:
-          ref: app-v${{ needs.version.outputs.new_version }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
           path: proofport-app
+
+      - name: Write the release version into the platform files
+        working-directory: proofport-app
+        run: node scripts/sync-version.js "${{ needs.version.outputs.new_version }}"
 
       # Fails fast on a malformed/unresolvable/rewritten pin, and warns
       # loudly (run summary + ::warning) when the pin is a valid but
@@ -298,24 +303,29 @@ jobs:
       # packages via `file:../openstoa/packages/*`, and `npm install` does
       # not fail when that sibling is missing — it creates a broken symlink
       # and exits 0.
-      # CHECK OUT THE RELEASE TAG, NOT THE BRANCH TIP.
+      # The code comes from the commit that started the run; the VERSION comes
+      # from the job output. They are deliberately separate.
       #
-      # semantic-release runs in the version job above and pushes the version
-      # bump as `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. A checkout
-      # with no `ref` takes the commit that STARTED the workflow — which is the
-      # one before that bump — so the build ships the previous version's numbers
-      # under the new release's name.
+      # semantic-release runs in the version job above and pushes the bump as
+      # `chore(release): X.Y.Z` plus the tag `app-vX.Y.Z`. Every job checks out
+      # on its own runner, and `actions/checkout` with no `ref` takes the commit
+      # that STARTED the run — resolved before the version job existed. So this
+      # job cannot see that bump, and on 2026-09-04 that shipped `version_name
+      # 1.0.1` under the tag app-v1.1.0.
       #
-      # That is what happened on 2026-09-04: version 1.1.0 was tagged, and the
-      # AAB went to Play as `version_name 1.0.1`. The upload succeeded, the
-      # workflow was green, and only a look at the Play track showed the wrong
-      # name against the new version code.
+      # Chasing the tag with `ref:` was the first fix and it worked, but it made
+      # the build wait on a tag another job had to push first — a race with no
+      # upside. Writing the version instead removes the dependency: nothing here
+      # reads git for it.
       - uses: actions/checkout@v4
         with:
-          ref: app-v${{ needs.version.outputs.new_version }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
           path: proofport-app
+
+      - name: Write the release version into the platform files
+        working-directory: proofport-app
+        run: node scripts/sync-version.js "${{ needs.version.outputs.new_version }}"
 
       # Fails fast on a malformed/unresolvable/rewritten pin, and warns
       # loudly (run summary + ::warning) when the pin is a valid but
