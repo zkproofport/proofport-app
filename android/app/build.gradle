@@ -142,8 +142,8 @@ android {
         // failed silently for as long as both existed. Nothing above this line
         // may contain the word followed by digits — the same substitution would
         // hit the comment instead of the code, which it did on the first try.
-        versionCode 10300
-        versionName "1.3.0"
+        versionCode 10301
+        versionName "1.3.1"
         manifestPlaceholders = [appAuthRedirectScheme: "msalcd5404cc-d313-431c-8112-725e629dad28"]
     }
     flavorDimensions = ["environment"]

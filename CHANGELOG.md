@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/zkproofport/proofport-app/compare/app-v1.3.0...app-v1.3.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **android:** derive the version code from the version, not the run counter ([b341cb8](https://github.com/zkproofport/proofport-app/commit/b341cb887f5698106c5e5e9a44bbc2020a9a22b8))
+
 # [1.3.0](https://github.com/zkproofport/proofport-app/compare/app-v1.2.2...app-v1.3.0) (2026-09-04)
 
 
