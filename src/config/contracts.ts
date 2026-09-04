@@ -229,16 +229,24 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> =
   Object.freeze(
     Object.fromEntries(
       ALL_CIRCUIT_IDS.map((circuit) => {
-        const vkPath = CIRCUIT_VK_PATHS[circuit];
+        // The SDK stores the key's FILE path (`…/target/vk/vk`). This app
+        // wants it split, because circuitDownload.ts joins `vkPath` and
+        // `vkFileName` back together with a slash: the directory is one
+        // segment up, and `basePath` — where the circuit JSON and SRS sit — is
+        // one above that. Deriving both from the file path rather than keeping
+        // a second copy is the point; the two lists disagreeing is what made a
+        // browser ask GitHub for a directory and get a 404.
+        const vkFile = CIRCUIT_VK_PATHS[circuit];
+        if (!vkFile) return [circuit, null];
+        const lastSlash = vkFile.lastIndexOf('/');
+        const vkDir = vkFile.slice(0, lastSlash);
         return [
           circuit,
-          vkPath
-            ? {
-                basePath: vkPath.replace(/\/vk$/, ''),
-                vkPath,
-                vkFileName: 'vk',
-              }
-            : null,
+          {
+            basePath: vkDir.slice(0, vkDir.lastIndexOf('/')),
+            vkPath: vkDir,
+            vkFileName: vkFile.slice(lastSlash + 1),
+          },
         ];
       }),
     ) as Record<CircuitName, CircuitFilePaths | null>,
