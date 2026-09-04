@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/zkproofport/proofport-app/compare/app-v1.2.2...app-v1.3.0) (2026-09-04)
+
+
+### Bug Fixes
+
+* **release:** the pipeline must hold the permissions it calls with ([86cd45d](https://github.com/zkproofport/proofport-app/commit/86cd45d1379d1c55b1abb75692eaacdbbb7458fb))
+
+
+### Features
+
+* **release:** one run that decides the version, tags it, and ships it ([aaef596](https://github.com/zkproofport/proofport-app/commit/aaef59626ff1e4ef5397baf32fb829b8263bcc22))
+
 ## [1.2.2](https://github.com/zkproofport/proofport-app/compare/app-v1.2.1...app-v1.2.2) (2026-09-04)
 
 
