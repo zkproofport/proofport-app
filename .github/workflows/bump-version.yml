@@ -1,0 +1,138 @@
+name: Bump Version
+
+# THIS WORKFLOW ONLY MOVES THE VERSION. IT BUILDS NOTHING.
+#
+# It runs semantic-release, which reads the commits, decides the next version,
+# writes it into package.json / build.gradle / the Xcode project through
+# scripts/sync-version.js, commits that as `chore(release): X.Y.Z` and pushes
+# the tag `app-vX.Y.Z`.
+#
+# The tag is where a release BEGINS, not where it ships. release-app.yml takes
+# that tag as an input and is started by a person — merging to main must not
+# put a build in a store. What the tag gives that workflow is a version that is
+# already written into the code it checks out: nothing to calculate, hand over,
+# or wait for.
+#
+# WHY THIS IS A SEPARATE WORKFLOW. The two used to be one, with the version job
+# publishing the tag before anything was built. Every job checks out on its own
+# runner and `actions/checkout` takes the commit that STARTED the run, so the
+# builds took the code from before the bump and shipped the previous version's
+# numbers — app-v1.1.0 reached Play as `version_name 1.0.1` on 2026-09-04.
+#
+# Splitting them removes the gap rather than bridging it. It also means a failed
+# build costs no version: the tag already exists, so re-running release-app.yml
+# against the same tag produces the same binary instead of burning a number.
+
+# AUTOMATIC. A push to main runs it, semantic-release decides whether the
+# commits call for a release, and does nothing when they do not. That is what
+# the tool is for — a version that has to be asked for is a version somebody
+# forgets to ask for.
+#
+# The manual entry stays for one thing only: --dry-run, to see what the next
+# version would be without writing it.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Calculate the version and print it, but write nothing'
+        type: boolean
+        default: true
+
+# One version bump at a time. Two running together both read the same tags,
+# both decide the same next version, and the second push is rejected as
+# out of date.
+concurrency:
+  group: bump-version
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Bump and tag
+    runs-on: ubuntu-latest
+    # DO NOT REACT TO YOUR OWN COMMIT.
+    #
+    # semantic-release pushes `chore(release): X.Y.Z` to main, which is another
+    # push to main, which would start this again — forever.
+    #
+    # The usual fix, `[skip ci]` in that commit message, cannot be used here.
+    # A git tag inherits its annotation from the commit it points at, so the
+    # marker travels into the tag, and the tag push that is supposed to START
+    # release-app.yml gets skipped along with it. That is a documented
+    # semantic-release problem, not a quirk of this repo.
+    #
+    # Matching the message instead affects only this workflow. A person who
+    # writes a commit beginning `chore(release):` by hand gets no version bump
+    # from it, which is the right answer anyway.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      !startsWith(github.event.head_commit.message, 'chore(release):')
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install semantic-release
+        run: npm install --no-save --legacy-peer-deps semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/exec
+
+      - name: Run semantic-release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            npx semantic-release --dry-run 2>&1 | tee sr-output.txt
+          else
+            npx semantic-release 2>&1 | tee sr-output.txt
+          fi
+          VERSION=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' sr-output.txt || echo "")
+          if [ -z "$VERSION" ]; then
+            echo "No release is due — nothing in the commits calls for a version bump."
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=app-v$VERSION" >> "$GITHUB_OUTPUT"
+
+      # The tag has to be readable by the next workflow, and semantic-release
+      # reports success from its own exit code. Reading it back is the only
+      # thing that says the push actually landed.
+      - name: The tag must exist and carry the version
+        if: inputs.dry_run == false && steps.release.outputs.version != ''
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          git fetch --tags --quiet origin
+          git rev-parse "$TAG" >/dev/null 2>&1 || { echo "::error::$TAG was not pushed"; exit 1; }
+          WROTE=$(git show "$TAG:package.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          [ "$WROTE" = "${{ steps.release.outputs.version }}" ] || {
+            echo "::error::$TAG carries package.json $WROTE, expected ${{ steps.release.outputs.version }}"
+            exit 1
+          }
+          echo "$TAG exists and carries version $WROTE"
+
+      - name: Summary
+        run: |
+          echo "## Version" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "${{ steps.release.outputs.version }}" ]; then
+            echo "- No release was due." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "- Would be: ${{ steps.release.outputs.version }} (dry run — nothing written)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Tagged: ${{ steps.release.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Nothing was shipped. Run **Release App** against this tag when you want it in a store." >> "$GITHUB_STEP_SUMMARY"
+          fi

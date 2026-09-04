@@ -1,8 +1,29 @@
 name: Release App
 
+# BUILD AND SHIP A TAG. The version is not calculated here — it is already in
+# the code this checks out, put there by bump-version.yml.
+#
+# STARTED BY A PERSON, ALWAYS. A tag is created for every release-worthy commit
+# on main, but shipping to a store is a decision, not a consequence of merging.
+# So this takes the tag as an input and is never triggered by the tag's push.
+#
+# Retrying a failed release is the same act: run it again against the same tag.
+# Same code, same numbers, no version burned.
+#
+# WHY THE VERSION IS NOT COMPUTED HERE. It used to be, in a job above the
+# builds, and it published the tag before a byte was built. Every job checks out
+# on its own runner and `actions/checkout` takes the commit that STARTED the
+# run, so the builds got the code from before the bump: app-v1.1.0 reached Play
+# as `version_name 1.0.1` on 2026-09-04. Splitting the two removes the gap
+# rather than bridging it.
+
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        description: 'Tag to build (app-vX.Y.Z). Empty builds the current branch.'
+        type: string
+        required: false
       dry_run:
         description: 'Dry run (skip upload)'
         type: boolean
@@ -21,11 +42,7 @@ on:
         options:
           - staging
           - production
-        required: true
-      skip_version:
-        description: 'Skip version calculation and ship the version already in package.json'
-        type: boolean
-        default: false
+        default: production
       android_track:
         description: 'Play track the AAB is uploaded to'
         type: choice
@@ -51,108 +68,25 @@ permissions:
   contents: write
   id-token: write
 
-# ONE RELEASE AT A TIME.
+# One release at a time, keyed by the thing being released. Two runs against
+# DIFFERENT tags may proceed together; two against the same one would race to
+# upload the same version code, which the stores reject.
 #
-# Two releases running together both calculate the same next version from the
-# same tags, both build it, and the second one to reach the tag step fails —
-# after thirty minutes of work. A concurrency group makes the second wait
-# instead, which is the standard answer for this in GitHub Actions.
-#
-# cancel-in-progress is deliberately FALSE. Cancelling a release halfway can
-# leave one store with a build and the other without, and no tag describing
-# either. Waiting is slower and always recoverable.
+# cancel-in-progress is deliberately FALSE. Cancelling halfway can leave one
+# store with a build and the other without. Waiting is slower and recoverable.
 concurrency:
-  group: release-app
+  group: release-app-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  version:
-    name: Determine Version
-    runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.pinned.outputs.new_release_version || steps.semantic.outputs.new_release_version }}
-      new_release_published: ${{ steps.pinned.outputs.new_release_published || steps.semantic.outputs.new_release_published }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GH_PAT }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Install semantic-release
-        if: inputs.skip_version == false
-        run: npm install --no-save --legacy-peer-deps semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/exec
-
-      # Shipping the version that is already in the tree, not a computed one.
-      #
-      # semantic-release derives the next version from the tags, and it can
-      # never re-emit a version that already has a tag. So when the store is
-      # waiting on a version number that is behind the tag history — the first
-      # submission on a new Apple account, a resubmission, a hotfix pinned to a
-      # published version — the only way to make the calculator agree would be
-      # to delete every tag and every GitHub release. This input exists so that
-      # is never the price: no tag is written, no CHANGELOG entry is made, and
-      # the build carries the version already committed in package.json.
-      #
-      # Nothing downstream changes: the outputs below have the same shape the
-      # semantic-release step produces, so the platform jobs cannot tell the
-      # difference.
-      - name: Use the committed version
-        id: pinned
-        if: inputs.skip_version == true
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [ -z "$VERSION" ]; then
-            echo "package.json has no version to ship" >&2
-            exit 1
-          fi
-          echo "Shipping the committed version $VERSION — no tag, no changelog entry."
-          echo "new_release_version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "new_release_published=true" >> "$GITHUB_OUTPUT"
-
-      # CALCULATE ONLY — no tag, no commit, no GitHub release. Those are written
-      # by the `finalize` job at the bottom, after every platform that was asked
-      # for has succeeded.
-      #
-      # This is the shape semantic-release's own maintainers describe for a
-      # build that must carry its version (discussion #4103): run --dry-run to
-      # learn the number, hand it to the build, tag last. The reason the version
-      # cannot simply be read afterwards is that the binary has to contain it —
-      # an app compiled without its version number has no way to learn one.
-      #
-      # It used to publish here, before a byte was built, and that cost twice.
-      # The builds had to chase a commit that appeared mid-run, which is how
-      # app-v1.1.0 reached Play as `version_name 1.0.1` on 2026-09-04. And a tag
-      # was written whether or not anything shipped, so the tag history could
-      # not be read as "what is out there".
-      - name: Calculate the next version
-        id: semantic
-        if: inputs.skip_version == false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          npx semantic-release --dry-run 2>&1 | tee sr-output.txt
-          VERSION=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' sr-output.txt || echo "")
-          echo "new_release_version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "new_release_published=$( [ -n \"$VERSION\" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
-
-      - name: Version summary
-        run: |
-          echo "## Version" >> "$GITHUB_STEP_SUMMARY"
-          echo "- New version: ${{ steps.pinned.outputs.new_release_version || steps.semantic.outputs.new_release_version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Published: ${{ steps.pinned.outputs.new_release_published || steps.semantic.outputs.new_release_published }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Version calculation skipped: ${{ inputs.skip_version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Dry run: ${{ inputs.dry_run }}" >> "$GITHUB_STEP_SUMMARY"
-
   build-ios:
     name: Build iOS
-    needs: version
-    if: |
-      needs.version.outputs.new_release_published == 'true' &&
-      (inputs.platform == 'both' || inputs.platform == 'ios')
+    # No `needs`: nothing has to be calculated before this can start.
+    #
+    # A tag push has no inputs, so `inputs.platform` is empty then — the
+    # comparison below treats that as 'both', which is what a tag push means:
+    # ship everywhere.
+    if: inputs.platform == '' || inputs.platform == 'both' || inputs.platform == 'ios'
     # macos-26, not macos-15. Apple stopped accepting uploads built with an
     # older SDK: the first release to reach the upload step was rejected with
     # "This app was built with the iOS 18.5 SDK. All iOS and iPadOS apps must be
@@ -184,15 +118,27 @@ jobs:
       # the build wait on a tag another job had to push first — a race with no
       # upside. Writing the version instead removes the dependency: nothing here
       # reads git for it.
+      # A tag push checks out that tag by itself; a manual run takes whatever
+      # `tag` was given and falls back to the branch when it is empty.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
           path: proofport-app
 
-      - name: Write the release version into the platform files
+      # Nothing is written here. The version is already in the files, put there
+      # by bump-version.yml before the tag was made — this only reports it, and
+      # refuses code that disagrees with itself.
+      - name: The version being built
         working-directory: proofport-app
-        run: node scripts/sync-version.js "${{ needs.version.outputs.new_version }}"
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          GRADLE=$(grep -oE 'versionName "[^"]+"' android/app/build.gradle | grep -oE '[0-9][0-9.]*')
+          echo "package.json: $VERSION"
+          echo "build.gradle: $GRADLE"
+          [ "$VERSION" = "$GRADLE" ] || { echo "::error::checked-out code disagrees with itself: $VERSION vs $GRADLE"; exit 1; }
+          echo "building version $VERSION"
 
       # Fails fast on a malformed/unresolvable/rewritten pin, and warns
       # loudly (run summary + ::warning) when the pin is a valid but
@@ -313,10 +259,7 @@ jobs:
 
   build-android:
     name: Build Android
-    needs: version
-    if: |
-      needs.version.outputs.new_release_published == 'true' &&
-      (inputs.platform == 'both' || inputs.platform == 'android')
+    if: inputs.platform == '' || inputs.platform == 'both' || inputs.platform == 'android'
     runs-on: ubuntu-latest
     steps:
       # See build-ios job above / build-android.yml (beta workflow) for the
@@ -338,15 +281,27 @@ jobs:
       # the build wait on a tag another job had to push first — a race with no
       # upside. Writing the version instead removes the dependency: nothing here
       # reads git for it.
+      # A tag push checks out that tag by itself; a manual run takes whatever
+      # `tag` was given and falls back to the branch when it is empty.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
           path: proofport-app
 
-      - name: Write the release version into the platform files
+      # Nothing is written here. The version is already in the files, put there
+      # by bump-version.yml before the tag was made — this only reports it, and
+      # refuses code that disagrees with itself.
+      - name: The version being built
         working-directory: proofport-app
-        run: node scripts/sync-version.js "${{ needs.version.outputs.new_version }}"
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          GRADLE=$(grep -oE 'versionName "[^"]+"' android/app/build.gradle | grep -oE '[0-9][0-9.]*')
+          echo "package.json: $VERSION"
+          echo "build.gradle: $GRADLE"
+          [ "$VERSION" = "$GRADLE" ] || { echo "::error::checked-out code disagrees with itself: $VERSION vs $GRADLE"; exit 1; }
+          echo "building version $VERSION"
 
       # Fails fast on a malformed/unresolvable/rewritten pin, and warns
       # loudly (run summary + ::warning) when the pin is a valid but
@@ -464,89 +419,3 @@ jobs:
         with:
           name: app-production-release.apk
           path: proofport-app/android/app/build/outputs/apk/production/release/*.apk
-
-  # THE TAG IS WRITTEN LAST, AND ONLY FOR A BUILD THAT REACHED A STORE.
-  #
-  # semantic-release used to publish at the top of this workflow. Doing it here
-  # instead is what its own maintainers describe for a build that must carry its
-  # version (discussion #4103), and it removes two separate problems:
-  #
-  #   The builds no longer chase a commit created while they were starting.
-  #   `actions/checkout` takes the commit that STARTED the run, so they used to
-  #   build the code from before the version bump — app-v1.1.0 reached Play as
-  #   `version_name 1.0.1` on 2026-09-04.
-  #
-  #   And a tag no longer appears for a release that failed halfway. The tag
-  #   history can be read as "what is out there", which is the only thing it is
-  #   good for.
-  #
-  # WHEN THIS RUNS — four rules, each with a reason:
-  #
-  #   `always()` is required, not stylistic. A `needs` job that was SKIPPED —
-  #   which build-android is on `platform: ios` — skips everything needing it.
-  #   Without always(), a single-platform release would quietly produce no tag.
-  #   always() also runs after failures, so the real requirements are spelled
-  #   out below by hand.
-  #
-  #   Every platform ASKED FOR must have succeeded. A skipped platform is fine
-  #   (it was not requested); a failed one is not. `result` is 'skipped' for a
-  #   job that never ran, which is what separates the two cases.
-  #
-  #   No tag on a dry run — nothing was uploaded, so nothing shipped.
-  #
-  #   No tag when skip_version is on. That input exists to ship a version the
-  #   tag history has already passed; writing a tag is the one thing it is there
-  #   to avoid.
-  finalize:
-    name: Tag the release
-    runs-on: ubuntu-latest
-    needs: [version, build-ios, build-android]
-    if: >
-      always() &&
-      inputs.dry_run == false &&
-      inputs.skip_version == false &&
-      needs.version.result == 'success' &&
-      needs.version.outputs.new_release_published == 'true' &&
-      needs.build-ios.result != 'failure' && needs.build-ios.result != 'cancelled' &&
-      needs.build-android.result != 'failure' && needs.build-android.result != 'cancelled'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GH_PAT }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Install semantic-release
-        run: npm install --no-save --legacy-peer-deps semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/exec
-
-      # The same command the version job ran with --dry-run, now for real. It
-      # recalculates from the same tags and commits and should land on the same
-      # number; if it does not — someone pushed while the builds ran — this
-      # stops rather than tagging a version nobody built.
-      - name: Publish the version that was built
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          GIT_AUTHOR_NAME: github-actions[bot]
-          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: github-actions[bot]
-          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
-        run: |
-          BUILT="${{ needs.version.outputs.new_version }}"
-          npx semantic-release 2>&1 | tee sr-output.txt
-          PUBLISHED=$(grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' sr-output.txt || echo "")
-          if [ "$PUBLISHED" != "$BUILT" ]; then
-            echo "::error::built $BUILT but semantic-release published $PUBLISHED — the tag would describe code nobody built"
-            exit 1
-          fi
-          echo "tagged app-v$PUBLISHED, which is what the builds carried"
-
-      - name: Release summary
-        run: |
-          echo "## Released" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Version: ${{ needs.version.outputs.new_version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Tag: app-v${{ needs.version.outputs.new_version }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- iOS: ${{ needs.build-ios.result }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Android: ${{ needs.build-android.result }}" >> "$GITHUB_STEP_SUMMARY"
