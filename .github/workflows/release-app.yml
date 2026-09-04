@@ -1,7 +1,7 @@
 name: Release App
 
 # BUILD AND SHIP A TAG. The version is not calculated here — it is already in
-# the code this checks out, put there by bump-version.yml.
+# the code this checks out, put there by release.yml.
 #
 # STARTED BY A PERSON, ALWAYS. A tag is created for every release-worthy commit
 # on main, but shipping to a store is a decision, not a consequence of merging.
@@ -17,7 +17,7 @@ name: Release App
 # as `version_name 1.0.1` on 2026-09-04. Splitting the two removes the gap
 # rather than bridging it.
 
-# CALLED, NORMALLY. `bump-version.yml` runs this as the second half of one
+# CALLED, NORMALLY. `release.yml` runs this as the second half of one
 # release — it tags, then calls this with that tag, and the whole thing is a
 # single run in the Actions list.
 #
@@ -135,7 +135,7 @@ jobs:
       # OpenStoa tab cannot even be bundled (the import is static/eager, not
       # lazy — Metro must resolve it to produce any bundle at all).
       # The tag named on the run, or the branch when none was given. Either way
-      # the version is already written into what this checks out — bump-version
+      # the version is already written into what this checks out — release.yml
       # put it there before making the tag — so nothing here calculates or waits
       # for one.
       #
@@ -152,7 +152,7 @@ jobs:
           path: proofport-app
 
       # Nothing is written here. The version is already in the files, put there
-      # by bump-version.yml before the tag was made — this only reports it, and
+      # by release.yml before the tag was made — this only reports it, and
       # refuses code that disagrees with itself.
       - name: The version being built
         working-directory: proofport-app
@@ -292,7 +292,7 @@ jobs:
       # not fail when that sibling is missing — it creates a broken symlink
       # and exits 0.
       # The tag named on the run, or the branch when none was given. Either way
-      # the version is already written into what this checks out — bump-version
+      # the version is already written into what this checks out — release.yml
       # put it there before making the tag — so nothing here calculates or waits
       # for one.
       #
@@ -309,7 +309,7 @@ jobs:
           path: proofport-app
 
       # Nothing is written here. The version is already in the files, put there
-      # by bump-version.yml before the tag was made — this only reports it, and
+      # by release.yml before the tag was made — this only reports it, and
       # refuses code that disagrees with itself.
       - name: The version being built
         working-directory: proofport-app

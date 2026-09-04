@@ -15,7 +15,7 @@
  *
  * HOW THIS IS SERVED NOW. The release used to carry a `skip_version` input that
  * turned its own calculator off. On 2026-09-05 the calculator moved out
- * entirely: `bump-version.yml` decides versions and tags them, and
+ * entirely: `release.yml` decides versions and tags them, and
  * `release-app.yml` only builds. Building a version the tags cannot produce is
  * then the ordinary case rather than a special one — run the release with no
  * tag and it builds the working tree, whose package.json holds whatever is

@@ -5,16 +5,17 @@ const path = require('path');
 
 // The version to write, from the argument if given, otherwise package.json.
 //
-// WHY AN ARGUMENT. semantic-release calls this with no argument, having already
-// written package.json — that path is unchanged. The release workflow's build
-// jobs call it WITH the version, because they must not depend on reading it
-// from git: semantic-release creates the version-bump commit during the run,
-// and a job that starts before that commit lands builds the previous version's
-// numbers. That is how app-v1.1.0 shipped `versionName 1.0.1` to Play on
-// 2026-09-04.
+// WHY AN ARGUMENT AT ALL. semantic-release calls this with no argument, having
+// already written package.json — that is the only caller today, through
+// `prepareCmd` in .releaserc.json and the `version:sync` npm script.
 //
-// Passing the value removes the dependency entirely. Nothing has to wait for a
-// commit or a tag to appear.
+// The argument was added on 2026-09-04 for build jobs that had to write the
+// version themselves, and it outlived that need one day later: release.yml now
+// tags first and release-app.yml builds the tag, so nothing downstream writes a
+// version. It is kept because passing the number explicitly is the safer shape
+// for any future caller, and because the check below — validate the format
+// before touching the file — was added after an earlier draft wrote the string
+// "--help" into package.json.
 const packageJsonPath = path.join(__dirname, '..', 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const version = process.argv[2] || packageJson.version;
