@@ -1,14 +1,17 @@
 import {showReturnNotice, type ReturnNoticeKind} from './returnNoticeBridge';
+import {ALL_CIRCUIT_IDS, isCircuitId, type CircuitName} from '../config/circuitIds';
 
-
-export type CircuitType =
-  | 'coinbase_attestation'
-  | 'coinbase_country_attestation'
-  | 'oidc_domain_attestation'
-  | 'giwa_attestation'
-  | 'mdl_kr_ownership'
-  | 'mdl_kr_age'
-  | 'mdl_kr_region';
+/**
+ * The circuit a deep link may name. Alias of the SDK's canonical id union —
+ * this file used to re-declare the seven names, which made it the sixth place
+ * the list had to be edited when a circuit was added.
+ *
+ * Deep links carry the CANONICAL id and only the canonical id. This app's
+ * legacy hyphenated route ids are accepted at the navigation layer
+ * (`canonicalCircuitId`), never here: a link naming `coinbase-kyc` was never
+ * valid and is still refused.
+ */
+export type CircuitType = CircuitName;
 
 export interface CoinbaseKycInputs {
   userAddress?: string; // Optional - app will connect wallet if not provided
@@ -245,18 +248,13 @@ export function validateProofRequest(
     return {valid: false, error: 'Missing circuit type'};
   }
 
-  if (
-    ![
-      'coinbase_attestation',
-      'coinbase_country_attestation',
-      'oidc_domain_attestation',
-      'giwa_attestation',
-      'mdl_kr_ownership',
-      'mdl_kr_age',
-      'mdl_kr_region',
-    ].includes(request.circuit)
-  ) {
-    return {valid: false, error: `Invalid circuit type: ${request.circuit}`};
+  // The published list, not a copy of it. `ALL_CIRCUIT_IDS` is named in the
+  // error so a rejected request says what WOULD have been accepted.
+  if (!isCircuitId(request.circuit)) {
+    return {
+      valid: false,
+      error: `Invalid circuit type: ${request.circuit}. Expected one of: ${ALL_CIRCUIT_IDS.join(', ')}`,
+    };
   }
 
   if (!request.callbackUrl) {

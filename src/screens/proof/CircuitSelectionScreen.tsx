@@ -31,15 +31,21 @@ const OTHER_KEY = 'other' as const;
 // changes "Default Network" from the More tab.
 
 interface CircuitDescriptor {
-  /** Internal canonical circuit ID matching CircuitName. */
+  /**
+   * The canonical circuit id — the only id this screen deals in.
+   *
+   * There used to be a second `routeCircuitId` field carrying this app's
+   * historical hyphenated spelling, plus an `iconKey` carrying a third. One of
+   * those route ids, `'oidc-domain'`, was understood by no table anywhere: it
+   * survived only because that entry's `navigate()` ignores its argument, so
+   * the value was never looked up and never missed. Passing the canonical id
+   * to a screen that resolves canonical ids removes both fields and the trap.
+   */
   id: CircuitName;
-  /** Route param used by ProofGeneration / CountryInput / DomainInput. */
-  routeCircuitId: string;
-  iconKey: string;
   titleKey: string;
   descriptionKey: string;
   /** Direct circuit screens (no extra input step). */
-  navigate: (nav: NavigationProp, routeCircuitId: string) => void;
+  navigate: (nav: NavigationProp, circuitId: CircuitName) => void;
   experimental?: boolean;
   /**
    * i18n key for a shared group header rendered once above the first card
@@ -58,24 +64,18 @@ interface CircuitDescriptor {
 const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
   {
     id: 'coinbase_attestation',
-    routeCircuitId: 'coinbase-kyc',
-    iconKey: 'coinbase-kyc',
     titleKey: 'host.proof.circuitSelection.coinbaseKyc.title',
     descriptionKey: 'host.proof.circuitSelection.coinbaseKyc.description',
     navigate: (nav, id) => nav.navigate('ProofGeneration', {circuitId: id}),
   },
   {
     id: 'coinbase_country_attestation',
-    routeCircuitId: 'coinbase-country',
-    iconKey: 'coinbase-country',
     titleKey: 'host.proof.circuitSelection.coinbaseCountry.title',
     descriptionKey: 'host.proof.circuitSelection.coinbaseCountry.description',
     navigate: (nav) => nav.navigate('CountryInput'),
   },
   {
     id: 'giwa_attestation',
-    routeCircuitId: 'giwa-kyc',
-    iconKey: 'giwa-kyc',
     titleKey: 'host.proof.circuitSelection.giwaKyc.title',
     descriptionKey: 'host.proof.circuitSelection.giwaKyc.description',
     navigate: (nav, id) => nav.navigate('ProofGeneration', {circuitId: id}),
@@ -88,8 +88,6 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
   // flow starts.
   {
     id: 'mdl_kr_ownership',
-    routeCircuitId: 'mdl-kr-ownership',
-    iconKey: 'giwa-kyc',
     titleKey: 'host.proof.circuitSelection.mdlKrOwnership.title',
     descriptionKey: 'host.proof.circuitSelection.mdlKrOwnership.description',
     navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'ownership'}),
@@ -98,8 +96,6 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
   },
   {
     id: 'mdl_kr_age',
-    routeCircuitId: 'mdl-kr-age',
-    iconKey: 'giwa-kyc',
     titleKey: 'host.proof.circuitSelection.mdlKrAge.title',
     descriptionKey: 'host.proof.circuitSelection.mdlKrAge.description',
     navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'age'}),
@@ -108,8 +104,6 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
   },
   {
     id: 'mdl_kr_region',
-    routeCircuitId: 'mdl-kr-region',
-    iconKey: 'giwa-kyc',
     titleKey: 'host.proof.circuitSelection.mdlKrRegion.title',
     descriptionKey: 'host.proof.circuitSelection.mdlKrRegion.description',
     navigate: (nav) => nav.navigate('MdlKrInput', {variant: 'region'}),
@@ -118,8 +112,6 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
   },
   {
     id: 'oidc_domain_attestation',
-    routeCircuitId: 'oidc-domain',
-    iconKey: 'oidc_domain_attestation',
     titleKey: 'host.proof.circuitSelection.oidcDomain.title',
     descriptionKey: 'host.proof.circuitSelection.oidcDomain.description',
     navigate: (nav) => nav.navigate('DomainInput'),
@@ -243,12 +235,12 @@ export const CircuitSelectionScreen: React.FC = () => {
                     </Text>
                   )}
                   <CircuitCard
-                    icon={getCircuitIcon(c.iconKey)}
+                    icon={getCircuitIcon(c.id)}
                     title={t(c.titleKey)}
                     description={t(c.descriptionKey)}
                     experimental={c.experimental}
                     experimentalLabel={t('host.proof.circuitSelection.experimentalBadge')}
-                    onPress={() => c.navigate(navigation, c.routeCircuitId)}
+                    onPress={() => c.navigate(navigation, c.id)}
                   />
                 </React.Fragment>
               );

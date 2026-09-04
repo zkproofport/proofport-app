@@ -64,6 +64,12 @@ export const ErrorCodes = {
     title: 'Attestation Not Found',
     description: 'No valid attestation was found for your wallet.',
   },
+  E2006: {
+    code: 'E2006',
+    title: 'Unsupported Proof Type',
+    description:
+      'This request names a proof type the app does not support. Nothing was generated.',
+  },
 
   // Network errors
   E3001: {

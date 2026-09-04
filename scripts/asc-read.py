@@ -8,6 +8,7 @@ copy nobody ships. A directory listing is not the store. This is.
 
     source .env.ios && python3 scripts/asc-read.py           # summary
     source .env.ios && python3 scripts/asc-read.py --json    # machine readable
+    source .env.ios && python3 scripts/asc-read.py --get /v1/betaGroups   # one read
 
 Needs ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_PATH — the same three fastlane
 uses.
@@ -93,6 +94,15 @@ def get(path: str) -> dict:
             pass
         sys.exit(f'{path} → {err.code}: {detail}')
 
+
+# `--get <path>` answers one arbitrary read and stops. Without it, any question
+# the fixed report below does not cover — TestFlight groups, who is a tester,
+# which build a group can see — needs either a second script or a hand-rolled
+# curl with its own ES256 signing. Placed here because the report starts making
+# requests on the very next line.
+if '--get' in sys.argv:
+    print(json.dumps(get(sys.argv[sys.argv.index('--get') + 1]), ensure_ascii=False, indent=2))
+    raise SystemExit(0)
 
 apps = get('/v1/apps?limit=50')['data']
 app = next((a for a in apps if a['attributes']['bundleId'] == BUNDLE_ID), None)

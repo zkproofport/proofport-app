@@ -14,6 +14,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BROADCAST_PATHS,
+  CIRCUITS_WITH_BROADCAST,
   FALLBACK_VERIFIERS,
   STATIC_CONFIGS,
   GITHUB_RAW,
@@ -191,13 +192,23 @@ export async function getVerifierAddress(
  * Returns true if any address was updated.
  */
 export async function syncDeployments(env: Environment): Promise<boolean> {
-  // NOTE: giwa_attestation is intentionally excluded — its address is hard-coded
-  // in FALLBACK_VERIFIERS for the PoC (BROADCAST_PATHS[giwa_attestation] is null).
-  const circuits: CircuitName[] = [
-    'coinbase_attestation',
-    'coinbase_country_attestation',
-    'oidc_domain_attestation',
-  ];
+  /*
+   * Derived from BROADCAST_PATHS, never typed out here.
+   *
+   * `giwa_attestation` is still excluded, and deliberately: its path is `null`
+   * because the PoC verifier address is pinned in FALLBACK_VERIFIERS.
+   *
+   * The three `mdl_kr_*` circuits were excluded too, and that was NOT
+   * deliberate — nothing said so, and the comment that used to sit here
+   * explained only the GIWA case. All three have had a published broadcast
+   * JSON since the day they were deployed (checked 2026-09-04: every
+   * `DeployMdlKr*.s.sol/84532/run-latest.json` answers 200 on circuits@main,
+   * with HonkVerifier addresses equal to the pinned fallbacks), so the effect
+   * was that a redeploy of any mDL verifier would never have reached a device.
+   * A hand-written list is exactly the shape that goes stale when a circuit is
+   * added; this one cannot.
+   */
+  const circuits: ReadonlyArray<CircuitName> = CIRCUITS_WITH_BROADCAST;
   let updated = false;
 
   await Promise.all(

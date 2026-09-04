@@ -21,7 +21,7 @@ import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
 import { NativeModules, Platform } from 'react-native';
 import i18n, { getLanguage } from '../i18n';
-import { OPENSTOA_ENABLED } from '../config';
+import { OPENSTOA_ENABLED, CIRCUIT_IDS, type CircuitName } from '../config';
 import {
   startPushTapBridge,
   subscribeHostPushTap,
@@ -359,8 +359,14 @@ export function createZkProofportHostApi(
     // For mDL login we use the ownership predicate in anonymous mode
     // (disclose_flags = 0). The resulting nullifier is the user's
     // sybil-resistant identity for the openstoa:login scope.
-    const circuitType =
-      method === 'mdl' ? 'mdl_kr_ownership' : 'oidc_domain_attestation';
+    // The published constants, not string literals. This value is sent over
+    // HTTP and never passes through a `CircuitType` annotation, so a typo here
+    // would compile, ship, and come back from the relay as a rejected login
+    // with nothing pointing at the spelling.
+    const circuitType: CircuitName =
+      method === 'mdl'
+        ? CIRCUIT_IDS.MDL_KR_OWNERSHIP
+        : CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION;
 
     // Match the web ProofGate behavior for login: only specify circuitType.
     // Do NOT send `provider`/`domain` — the web's `<ProofGate circuitType=

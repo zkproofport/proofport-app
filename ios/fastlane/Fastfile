@@ -137,10 +137,43 @@ platform :ios do
         upload_key = api_key.dup
         upload_key[:key] = File.read(ENV['ASC_API_KEY_PKCS8_PATH'])
       end
+      # ASKING APPLE FOR REVIEW IS THE CALLER'S CHOICE, AND IT IS OFF BY DEFAULT.
+      #
+      # Uploading to TestFlight and submitting to the App Store are two separate
+      # acts, and only the first one is reversible. This lane always does the
+      # first; it does the second only when told to.
+      submit = options[:submit_for_review].to_s == "true"
+
+      # Submitting names a build, so the build has to have finished processing
+      # first. Waiting costs several minutes and buys nothing when all we want
+      # is TestFlight, which is why it is skipped in that case.
       upload_to_testflight(
         api_key: upload_key,
-        skip_waiting_for_build_processing: true,
+        skip_waiting_for_build_processing: !submit,
       )
+
+      if submit
+        # No second archive: the binary is already uploaded, so this call only
+        # writes the App Store version record and asks for review.
+        #
+        # WHAT THIS NEEDS THAT TESTFLIGHT DOES NOT. Checked against App Store
+        # Connect on 2026-09-04: the only version record on the app is 1.0.0 in
+        # PREPARE_FOR_SUBMISSION, while TestFlight holds 1.0.1. `force: true`
+        # skips deliver's confirmation page; the version record itself is
+        # created from `app_version`. A version after the first also needs
+        # release notes — fastlane/metadata/<locale>/release_notes.txt — or
+        # Apple rejects the submission for empty "What's New".
+        upload_to_app_store(
+          api_key: upload_key,
+          app_version: get_version_number(xcodeproj: "ProofportApp.xcodeproj", target: "ProofportApp"),
+          skip_binary_upload: true,
+          skip_screenshots: true,
+          submit_for_review: true,
+          force: true,
+          precheck_include_in_app_purchases: false,
+          submission_information: { add_id_info_uses_idfa: false },
+        )
+      end
     else
       # NO CREDENTIAL, SO NO UPLOAD — say so, loudly.
       #

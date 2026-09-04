@@ -11,16 +11,19 @@
  * See deployments.ts for the fetch logic.
  */
 
+import {ALL_CIRCUIT_IDS, CIRCUIT_VK_PATHS, type CircuitName} from './circuitIds';
+
 export type Environment = 'development' | 'staging' | 'production';
 
-export type CircuitName =
-  | 'coinbase_attestation'
-  | 'coinbase_country_attestation'
-  | 'oidc_domain_attestation'
-  | 'giwa_attestation'
-  | 'mdl_kr_ownership'
-  | 'mdl_kr_age'
-  | 'mdl_kr_region';
+/*
+ * `CircuitName` is the SDK's canonical id union — see `./circuitIds`. It used
+ * to be re-declared here as a literal union, which is what let this file's
+ * tables and the rest of the app disagree about which circuits exist. Every
+ * `Record<CircuitName, …>` below is now exhaustive over the PUBLISHED list, so
+ * a circuit added to `@zkproofport-app/sdk` fails `tsc` here until this file
+ * says what its path, address, version and network are.
+ */
+export type {CircuitName};
 
 export interface NetworkConfig {
   chainId: number;
@@ -188,6 +191,18 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployMdlKrRegion.s.sol/${chainId}/run-latest.json`,
 };
 
+/**
+ * Every circuit whose verifier address can be refreshed from a broadcast JSON,
+ * derived from the table above rather than typed out a second time.
+ *
+ * `syncDeployments()` used to carry its own hand-written list of three, so the
+ * three Korea mDL circuits — which have had a published broadcast JSON all
+ * along — never refreshed off `FALLBACK_VERIFIERS`. Deriving it means the list
+ * cannot be shorter than the paths that exist.
+ */
+export const CIRCUITS_WITH_BROADCAST: ReadonlyArray<CircuitName> =
+  Object.freeze(ALL_CIRCUIT_IDS.filter((c) => BROADCAST_PATHS[c] !== null));
+
 export interface CircuitFilePaths {
   basePath: string;
   vkPath: string;
@@ -195,48 +210,39 @@ export interface CircuitFilePaths {
 }
 
 /**
- * Circuit file paths per circuit (relative to repo root).
- * Used by circuitDownload.ts to construct download URLs.
+ * Circuit file paths per circuit, derived from the SDK.
+ *
+ * ONE LIST, NOT TWO. This used to be seven hand-written rows naming the same
+ * directories the SDK names in CIRCUIT_VK_PATHS. Two copies of the same fact
+ * drift silently: a circuit renamed in the circuits repo goes wrong here as a
+ * 404 during download, which reads as a network problem rather than a stale
+ * path. The SDK gained the list when off-chain verification needed it, so the
+ * app reads it instead of repeating it.
+ *
+ * The shape stays the same — `basePath` is the directory the circuit's compiled
+ * JSON and SRS sit in, which is the verification key's path minus its final
+ * `/vk` segment.
+ *
  * null = circuit files hosted externally (not in zkproofport/circuits).
  */
-export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> = {
-  coinbase_attestation: {
-    basePath: 'coinbase-attestation/target',
-    vkPath: 'coinbase-attestation/target/vk',
-    vkFileName: 'vk',
-  },
-  coinbase_country_attestation: {
-    basePath: 'coinbase-country-attestation/target',
-    vkPath: 'coinbase-country-attestation/target/vk',
-    vkFileName: 'vk',
-  },
-  oidc_domain_attestation: {
-    basePath: 'oidc-domain-attestation/target',
-    vkPath: 'oidc-domain-attestation/target/vk',
-    vkFileName: 'vk',
-  },
-  giwa_attestation: {
-    basePath: 'giwa-attestation/target',
-    vkPath: 'giwa-attestation/target/vk',
-    vkFileName: 'vk',
-  },
-  mdl_kr_ownership: {
-    basePath: 'mdl/kr-ownership/target',
-    vkPath: 'mdl/kr-ownership/target/vk',
-    vkFileName: 'vk',
-  },
-  mdl_kr_age: {
-    basePath: 'mdl/kr-age/target',
-    vkPath: 'mdl/kr-age/target/vk',
-    vkFileName: 'vk',
-  },
-  mdl_kr_region: {
-    basePath: 'mdl/kr-region/target',
-    vkPath: 'mdl/kr-region/target/vk',
-    vkFileName: 'vk',
-  },
-};
-
+export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> =
+  Object.freeze(
+    Object.fromEntries(
+      ALL_CIRCUIT_IDS.map((circuit) => {
+        const vkPath = CIRCUIT_VK_PATHS[circuit];
+        return [
+          circuit,
+          vkPath
+            ? {
+                basePath: vkPath.replace(/\/vk$/, ''),
+                vkPath,
+                vkFileName: 'vk',
+              }
+            : null,
+        ];
+      }),
+    ) as Record<CircuitName, CircuitFilePaths | null>,
+  );
 /**
  * Per-circuit data versions — bump individually when a circuit is recompiled.
  * Forces re-download of cached circuit files on devices.

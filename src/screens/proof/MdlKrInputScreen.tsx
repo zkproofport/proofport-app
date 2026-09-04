@@ -31,6 +31,7 @@ import {
   DISCLOSE_NAME,
   DISCLOSE_BIRTH,
   DISCLOSE_TELNO,
+  MDL_KR_CIRCUIT_NAMES,
 } from '../../utils/mdlKr';
 
 type Navigation = NativeStackNavigationProp<ProofStackParamList, 'MdlKrInput'>;
@@ -118,7 +119,11 @@ export const MdlKrInputScreen: React.FC = () => {
 
   const handleContinue = () => {
     if (!canContinue) return;
-    const circuitId = `mdl-kr-${variant}`;
+    // The canonical id from the ONE table that owns the mapping, not a string
+    // built here. This used to assemble the legacy route spelling
+    // (`mdl-kr-${variant}`) — a fourth place that had to be kept in step with
+    // the circuit names by hand.
+    const circuitId = MDL_KR_CIRCUIT_NAMES[variant];
     if (variant === 'ownership') {
       navigation.navigate('ProofGeneration', {
         circuitId,

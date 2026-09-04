@@ -26,6 +26,26 @@ on:
         description: 'Skip version calculation and ship the version already in package.json'
         type: boolean
         default: false
+      android_track:
+        description: 'Play track the AAB is uploaded to'
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+        default: alpha
+      android_release_status:
+        description: 'Play release status — completed is REFUSED while the app has never been published'
+        type: choice
+        options:
+          - draft
+          - completed
+        default: draft
+      ios_submit_for_review:
+        description: 'Also submit the App Store version for review (TestFlight upload happens either way)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -225,7 +245,10 @@ jobs:
           ASC_API_KEY_PKCS8_PATH: /tmp/asc_api_key_pkcs8.p8
           MATCH_GIT_URL: https://${{ secrets.GH_PAT }}@github.com/zkproofport/proofport-app-certificates.git
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-        run: bundle exec fastlane ios beta env:${{ inputs.environment }}
+        # The lane always uploads to TestFlight. It asks Apple for review only
+        # when told to, and then it waits for the build to finish processing
+        # first, which adds several minutes to the run.
+        run: bundle exec fastlane ios beta env:${{ inputs.environment }} submit_for_review:${{ inputs.ios_submit_for_review }}
 
       - name: Build only (dry run)
         if: inputs.dry_run == true
@@ -362,7 +385,7 @@ jobs:
           # exists the lane builds and signs the AAB, says out loud that it
           # uploaded nothing, and the artifact step below still keeps the file.
           SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: bundle exec fastlane android beta flavor:${{ inputs.environment }}
+        run: bundle exec fastlane android beta flavor:${{ inputs.environment }} track:${{ inputs.android_track }} release_status:${{ inputs.android_release_status }}
 
       - name: Build APK (dry run)
         if: inputs.dry_run == true

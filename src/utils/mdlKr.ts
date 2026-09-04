@@ -15,6 +15,7 @@
  * for the offline acceptance fixtures.
  */
 import {ethers} from 'ethers';
+import {CIRCUIT_IDS, type CircuitName} from '../config/circuitIds';
 
 // Disclosure flag bits -- match the ownership circuit.
 export const DISCLOSE_NAME = 0x01;
@@ -381,8 +382,14 @@ export function flattenMdlKrRegionInputs(inputs: MdlKrRegionInputs): string[] {
 
 export type MdlKrVariant = 'ownership' | 'age' | 'region';
 
-export const MDL_KR_CIRCUIT_NAMES: Record<MdlKrVariant, string> = {
-  ownership: 'mdl_kr_ownership',
-  age: 'mdl_kr_age',
-  region: 'mdl_kr_region',
+/**
+ * Which circuit proves which predicate. The values are the SDK's published
+ * constants rather than string literals, so a rename in
+ * `@zkproofport-app/sdk/circuits` is a compile error here instead of a runtime
+ * download of a circuit file that does not exist.
+ */
+export const MDL_KR_CIRCUIT_NAMES: Readonly<Record<MdlKrVariant, CircuitName>> = {
+  ownership: CIRCUIT_IDS.MDL_KR_OWNERSHIP,
+  age: CIRCUIT_IDS.MDL_KR_AGE,
+  region: CIRCUIT_IDS.MDL_KR_REGION,
 };

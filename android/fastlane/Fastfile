@@ -14,9 +14,42 @@ def credential(name)
 end
 
 platform :android do
-  desc "Build release AAB and upload to Play Console alpha track"
+  desc "Build release AAB and upload to a Play track (track: and release_status: choose which, and how)"
   lane :beta do |options|
     flavor = options[:flavor] || "production"
+
+    # WHICH TRACK, AND WHETHER THE RELEASE IS A DRAFT, ARE THE CALLER'S CHOICE.
+    #
+    # Read and checked HERE, before the build, because the build takes about
+    # fifteen minutes and a mistyped track has no business costing that.
+    #
+    # Both used to be hardcoded to `alpha` / `draft` further down, so every run
+    # landed in the same place whatever the operator meant. That was never a
+    # Play constraint on the track — asked directly on 2026-09-04 with
+    # `scripts/play-api.py try-track`, which runs an edit through Play's
+    # `:validate` and then throws it away, Play accepts a DRAFT release on
+    # `production` and on `beta` just as readily as on `alpha`.
+    #
+    # The draft part IS a Play constraint, and still is today. Any non-draft
+    # status, on any track, comes back:
+    #
+    #     Only releases with status draft may be created on draft app.
+    #
+    # An app that has never been published is a "draft app", and that first
+    # publish happens in the console — no API call can do it. Once it has,
+    # release_status:completed makes this lane go live on its own. Re-ask with
+    # `scripts/play-api.py try-track production <code> completed` rather than
+    # assuming it either way.
+    track = options[:track] || "alpha"
+    release_status = options[:release_status] || "draft"
+    unless %w[internal alpha beta production].include?(track)
+      UI.user_error!("track must be internal, alpha, beta or production — got '#{track}'")
+    end
+    unless %w[draft completed].include?(release_status)
+      UI.user_error!("release_status must be draft or completed — got '#{release_status}'")
+    end
+    UI.message("Will upload to the #{track} track as a #{release_status} release.")
+
     props = {
       "android.injected.signing.store.file" => ENV['ANDROID_KEYSTORE_FILE'],
       "android.injected.signing.store.password" => ENV['ANDROID_KEYSTORE_PASSWORD'],
@@ -42,6 +75,29 @@ platform :android do
     # sent nothing.
     pkg = "com.masselabs.zkproofport"
 
+    # The release NAME, spelled out rather than left to default.
+    #
+    # Read off the same build.gradle the AAB is built from, so the console
+    # cannot disagree with the bundle. It did on 2026-09-04: version code 44
+    # carried versionName 1.0.1 and the alpha release it landed in stayed
+    # labelled "1.0.0", because supply updated the release that was already
+    # sitting there instead of naming a new one.
+    gradle_file = File.join(__dir__, "..", "app", "build.gradle")
+    version_name = File.read(gradle_file)[/versionName\s+"([^"]+)"/, 1]
+    UI.user_error!("no versionName in android/app/build.gradle") unless version_name
+
+    upload = {
+      track: track,
+      release_status: release_status,
+      version_name: version_name,
+      package_name: pkg,
+      aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+    }
+
     # Three ways to hand over the Play service account, and they are not
     # interchangeable. `json_key` wants a PATH ON DISK; `json_key_data` wants
     # the JSON ITSELF. fastlane declares them as conflicting options, so exactly
@@ -52,52 +108,13 @@ platform :android do
     # path-shaped variable to the JSON text fails inside the upload tool with a
     # file-not-found, which reads nothing like "you gave it the wrong shape".
     if credential('SUPPLY_JSON_KEY_DATA')
-      supply(
-        track: "alpha",
-        json_key_data: credential('SUPPLY_JSON_KEY_DATA'),
-        package_name: pkg,
-        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
-        skip_upload_metadata: true,
-        skip_upload_images: true,
-        skip_upload_screenshots: true,
-        skip_upload_changelogs: true,
-        # A draft app takes only draft releases. Play refuses anything else with
-        # "Only releases with status draft may be created on draft app" — the
-        # first build for an app that has never been published cannot go live
-        # from here. It lands in the console and a person promotes it.
-        release_status: "draft",
-      )
+      supply(upload.merge(json_key_data: credential('SUPPLY_JSON_KEY_DATA')))
     elsif credential('GOOGLE_APPLICATION_CREDENTIALS')
-      supply(
-        track: "alpha",
-        json_key: credential('GOOGLE_APPLICATION_CREDENTIALS'),
-        package_name: pkg,
-        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
-        skip_upload_metadata: true,
-        skip_upload_images: true,
-        skip_upload_screenshots: true,
-        skip_upload_changelogs: true,
-        # A draft app takes only draft releases. Play refuses anything else with
-        # "Only releases with status draft may be created on draft app" — the
-        # first build for an app that has never been published cannot go live
-        # from here. It lands in the console and a person promotes it.
-        release_status: "draft",
-      )
+      supply(upload.merge(json_key: credential('GOOGLE_APPLICATION_CREDENTIALS')))
     elsif credential('SUPPLY_JSON_KEY')
-      supply(
-        track: "alpha",
-        package_name: pkg,
-        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
-        skip_upload_metadata: true,
-        skip_upload_images: true,
-        skip_upload_screenshots: true,
-        skip_upload_changelogs: true,
-        # A draft app takes only draft releases. Play refuses anything else with
-        # "Only releases with status draft may be created on draft app" — the
-        # first build for an app that has never been published cannot go live
-        # from here. It lands in the console and a person promotes it.
-        release_status: "draft",
-      )
+      # SUPPLY_JSON_KEY is read by supply from the environment on its own, so
+      # nothing is merged in here.
+      supply(upload)
     else
       # NO CREDENTIAL, SO NO UPLOAD — say so, loudly.
       #

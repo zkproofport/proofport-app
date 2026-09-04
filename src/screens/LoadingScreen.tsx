@@ -9,15 +9,33 @@ import {
   type DownloadProgress,
 } from '../utils/circuitDownload';
 import {getEnvironment, initDeployments} from '../config';
+import {PLANNED_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
 import {useThemeColors} from '../context';
 import {settingsStore} from '../stores';
 
-const BASE_CIRCUITS = ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'];
-// GIWA is a Developer-Mode-only circuit. It exists on circuits@main but is not
-// in the production release tag, so prefetching it without Developer Mode 404s
-// and triggers a false "Download Failed" modal. Only prefetch when the in-app
-// Developer Mode toggle is on (works in release builds too, not just dev env).
-const DEV_ONLY_CIRCUITS = ['giwa_attestation'];
+/*
+ * What the app warms up at launch, split exactly the way the SDK splits it:
+ * `supported` circuits for everyone, `planned` ones only under Developer Mode.
+ *
+ * Both lists used to be written out here, and the second one held only
+ * `giwa_attestation` — so the three `mdl_kr_*` circuits were prefetched by
+ * nobody. That was NOT deliberate; nothing recorded a reason, and they meet
+ * the same description GIWA does: reachable only from a developer-only network
+ * in the Verify tab, and served off `circuits@main` (checked 2026-09-04: each
+ * circuit json under `mdl/kr-<variant>/target` answers 200 there, and
+ * `circuitDownload.ts` pins every `planned` circuit to `main` regardless of
+ * environment, so the release-tag 404 warned about below cannot reach them).
+ * The effect was a first mDL proof that stalled on a cold download instead of
+ * starting.
+ *
+ * The original warning still holds and is why the split exists at all: a
+ * circuit absent from the production release tag 404s when prefetched, and
+ * `bootstrapCircuits` turns that into a "Download Failed" modal on a launch
+ * nobody asked anything of. Developer Mode works in release builds too, so
+ * this is not the same condition as `__DEV__`.
+ */
+const BASE_CIRCUITS: ReadonlyArray<string> = SUPPORTED_CIRCUIT_IDS;
+const DEV_ONLY_CIRCUITS: ReadonlyArray<string> = PLANNED_CIRCUIT_IDS;
 const SPLASH_DURATION = 3000;
 const MAX_LOADING_DURATION = 5000;
 

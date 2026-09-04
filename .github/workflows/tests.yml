@@ -49,17 +49,11 @@ jobs:
       # A stale or unresolvable pin breaks the install in a way that reads as a
       # module-resolution error pages later. Fail here instead.
       #
-      # THE PIN'S AGE DOES NOT AFFECT WHAT IS TESTED, and that is worth stating
-      # because it is not obvious. Checked on 2026-08-27: the pin was 109
-      # commits behind, and no test under `src/**/__tests__` imports
-      # `openstoa-mobile` or any `@openstoa/*` package — verified by scanning
-      # them, not assumed. The sibling exists so `npm ci` can resolve the three
-      # `file:` dependencies at all; the cases themselves exercise host code.
-      #
-      # If a case ever DOES reach into the mini-app, this stops being true: the
-      # run would then be testing whatever the pin points at, which is a
-      # different question from "does the current tree work". Move to checking
-      # out openstoa `main` at that point, and say so here.
+      # THE PIN DECIDES WHAT `npm ci` INSTALLS, AND NOTHING ELSE. That was
+      # already the intent, but the note here used to go further and say no test
+      # reached into the mini-app at all — true when written on 2026-08-27,
+      # false three days later, and nobody came back to it. See the second
+      # checkout below.
       - name: Check OpenStoa pin staleness
         id: openstoa-pin
         uses: ./proofport-app/.github/actions/openstoa-pin-check
@@ -72,6 +66,29 @@ jobs:
           repository: zkproofport/openstoa
           ref: ${{ steps.openstoa-pin.outputs.sha }}
           path: openstoa
+
+      # A SECOND, CURRENT COPY — for the checks that compare the two clients.
+      #
+      # The passkey-recovery switch has to read the same value in the app and on
+      # the web, and asking that of a pinned checkout answers a different
+      # question: "did the two agree on the day someone last bumped the pin".
+      # Both ways of being wrong have already happened here. On 2026-08-30 the
+      # pin was one day older than the OpenStoa commit that introduced the
+      # switch, so the check went red on the commit that added it and stayed red
+      # for five days across twelve runs, for a reason that had nothing to do
+      # with any of the changes being pushed. The quiet direction is worse:
+      # switch the web side on today and a pinned read still returns yesterday's
+      # `false`, so the check passes while the two clients disagree.
+      #
+      # Kept separate from the pinned checkout on purpose. `npm ci` resolves
+      # three `file:../openstoa/packages/*` dependencies and wants a fixed tree;
+      # this copy is read as text and installs nothing.
+      - name: Checkout OpenStoa main (what the cross-client checks read)
+        uses: actions/checkout@v4
+        with:
+          repository: zkproofport/openstoa
+          ref: main
+          path: openstoa-main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -87,6 +104,10 @@ jobs:
 
       - name: Tests
         working-directory: proofport-app
+        env:
+          # Which OpenStoa the cross-client checks read. Without it they fall
+          # back to the pinned sibling, which is the failure described above.
+          OPENSTOA_SOURCE: ${{ github.workspace }}/openstoa-main
         # `--ci` so a missing snapshot fails instead of being written, and
         # `--runInBand` because the RN preset's module registry is not cheap to
         # fork per worker on a 2-core runner.

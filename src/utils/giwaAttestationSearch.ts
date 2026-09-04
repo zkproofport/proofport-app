@@ -18,6 +18,10 @@ if (!GIWA_NET) {
   throw new Error('CIRCUIT_NETWORK_OVERRIDES.giwa_attestation missing — required for attestation search');
 }
 const GIWA_RPC = GIWA_NET.rpcUrl;
+const GIWA_EXPLORER = GIWA_NET.explorerUrl;
+if (!GIWA_EXPLORER) {
+  throw new Error('CIRCUIT_NETWORK_OVERRIDES.giwa_attestation.explorerUrl missing — the attestation search reads its log index');
+}
 
 // EAS predeploy + Attested event topic
 const EAS_CONTRACT = '0x4200000000000000000000000000000000000021';
@@ -53,14 +57,35 @@ interface BlockscoutLog {
   transaction_hash: string;
 }
 
-// GIWA Sepolia RPC caps `eth_getLogs` at 100,000 blocks per query. EAS
-// Attested has every meaningful field indexed (`recipient`, `attester`,
-// `schema`), so the RPC server itself can filter — we just need to feed
-// it chunked block ranges starting from the chain head and walking back.
-// First match wins (newest), which is what the user wants when they
-// just registered a fresh attestation.
-const CHUNK_SIZE = 99_999; // RPC limit is 100k inclusive; stay just under
-const MAX_CHUNKS = 30; // ≈ 3M blocks back, plenty for a fresh PoC
+// HOW THIS LOOKUP FINDS THE ATTESTATION, AND WHY IT CHANGED (2026-09-04).
+//
+// The wallet is the INDEXED `recipient` on the EAS `Attested` event, so the
+// question "does this wallet hold an attestation" is one filtered log query —
+// if something will answer it over the whole chain. Three things were measured
+// against GIWA Sepolia before picking:
+//
+//   explorer, one query filtered by recipient   1s for a fresh attestation,
+//                                               26s for one 9.7M blocks back
+//   RPC, walking back in 100k chunks            126 seconds, 98 calls
+//   RPC, one wide query                         WRONG ANSWER — see below
+//
+// So the explorer answers it, and the RPC cannot. The chunked walk is kept only
+// as a fallback for a JUST-REGISTERED attestation, which sits within the first
+// chunk or two of the head.
+//
+// WHAT WAS BROKEN. This walked back `MAX_CHUNKS` × `CHUNK_SIZE` = 3M blocks and
+// stopped. The one attestation that existed sat 9.7M blocks back, so the lookup
+// returned "no attestation" for a wallet that has one, and every day made it
+// worse. The old comment called 3M "plenty for a fresh PoC" — true when written,
+// and silently expired as GIWA produced blocks.
+//
+// AND THE RPC LIES ABOUT WIDE RANGES. Ask sepolia-rpc.giwa.io for more than
+// 100,000 blocks in one `eth_getLogs` and it returns an EMPTY LIST rather than
+// an error — measured on a range that provably contains the event. So widening
+// the chunk is not an option, and an empty result from a wide query must never
+// be read as "there is none".
+const CHUNK_SIZE = 99_999; // hard cap: 100,001 blocks returns [] instead of erroring
+const MAX_CHUNKS = 3; // fallback only — a fresh attestation is near the head
 const PAD = (v: string) =>
   '0x' + v.replace(/^0x/, '').toLowerCase().padStart(64, '0');
 const toHex = (n: number) => '0x' + n.toString(16);
@@ -94,11 +119,242 @@ async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
   }
 }
 
-async function findAttestationLog(
+/**
+ * The whole chain in one request, filtered by the wallet.
+ *
+ * Blockscout's log search takes the same indexed topics `eth_getLogs` does, but
+ * answers over an unbounded block range because it reads its own index instead
+ * of walking the chain. That is the entire difference between 1 second and 126.
+ *
+ * Only the event and the recipient are filtered server-side; the schema is
+ * checked here. Blockscout wants a pairwise operator for every extra topic
+ * (`topic0_1_opr`, `topic1_3_opr`, …) and getting one wrong drops the filter
+ * silently rather than erroring, which is a bad trade for a check that costs
+ * nothing locally.
+ */
+async function findAttestationViaExplorer(
   schemaUid: string,
   walletAddress: string,
   addLog: (msg: string) => void,
 ): Promise<BlockscoutLog | null> {
+  const url =
+    `${GIWA_EXPLORER}/api?module=logs&action=getLogs` +
+    `&fromBlock=0&toBlock=latest&address=${EAS_CONTRACT}` +
+    `&topic0=${ATTESTED_TOPIC}&topic1=${PAD(walletAddress)}&topic0_1_opr=and`;
+
+  const controller = new AbortController();
+  // Generous on purpose: an attestation far behind the head took 26s to come
+  // back, against 1s for a recent one. Both beat the walk this replaced.
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    addLog('[GIWA] explorer log search over the full chain');
+    const resp = await fetch(url, {signal: controller.signal});
+    if (!resp.ok) throw new Error(`explorer HTTP ${resp.status}`);
+    const json = await resp.json();
+    const rows: RpcLog[] = Array.isArray(json.result) ? json.result : [];
+
+    const wanted = PAD(schemaUid).toLowerCase();
+    const matches = rows.filter(r => (r.topics[3] || '').toLowerCase() === wanted);
+    if (matches.length === 0) {
+      addLog(`[GIWA] explorer: ${rows.length} attestation(s) for this wallet, none on our schema`);
+      return null;
+    }
+    // Newest wins, matching what the walk did when it started from the head.
+    matches.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber));
+    const r = matches[0];
+    addLog(`[GIWA] explorer match: tx ${r.transactionHash}`);
+    return {
+      address: r.address,
+      block_hash: r.blockHash,
+      block_number: Number(r.blockNumber),
+      data: r.data,
+      index: Number(r.logIndex),
+      topics: r.topics,
+      transaction_hash: r.transactionHash,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Ask our own attester contract who it has attested, instead of asking the
+ * whole chain who holds an attestation.
+ *
+ * WHY THIS IS THE FAST PATH.
+ *
+ * Every GIWA attestation this app can prove was issued by MockGiwaAttester —
+ * the circuit constrains the issuing contract, so an attestation from anywhere
+ * else cannot produce a valid proof no matter what the search turns up. That
+ * makes the contract's own transaction list the exact right set to look in, and
+ * it is tiny: one deployment plus one call per registered wallet.
+ *
+ * Measured against GIWA Sepolia on 2026-09-04, for the wallet whose attestation
+ * sits 9.7M blocks back:
+ *
+ *   attester's tx list, then that tx's receipt   0.29s  (0.22 + 0.07)
+ *   EAS log search by recipient                    26s
+ *   RPC walk back in 100k chunks                  126s
+ *
+ * So this is not a shortcut around the log search — it is a narrower question
+ * that the explorer can answer from an index it already has.
+ *
+ * `attestAccount(address)` is selector 0x56feed5e, mirroring the Coinbase
+ * attester's, so the wallet is readable straight out of the call data and no
+ * receipt is fetched for a wallet that was never registered.
+ */
+const ATTEST_ACCOUNT_SELECTOR = '0x56feed5e';
+const TXLIST_PAGE_SIZE = 100;
+const TXLIST_MAX_PAGES = 10; // 1,000 attestations; logged loudly if ever reached
+
+interface ExplorerTx {
+  hash: string;
+  input: string;
+  blockNumber: string;
+  isError?: string;
+}
+
+/**
+ * Three outcomes, not two.
+ *
+ * `none` means the attester's whole call history was read and this wallet is
+ * not in it — a real answer, and the broader searches would only spend 26
+ * seconds arriving at the same place. `unknown` means the read stopped early
+ * (paging cap), so "no" has not been established and the search must widen.
+ *
+ * Collapsing those two is exactly the bug this file already shipped once: a
+ * search that gave up early reported "no attestation" for a wallet that had
+ * one.
+ */
+type AttesterLookup =
+  | {status: 'found'; log: BlockscoutLog}
+  | {status: 'none'}
+  | {status: 'unknown'};
+
+async function findAttestationViaAttester(
+  schemaUid: string,
+  walletAddress: string,
+  addLog: (msg: string) => void,
+): Promise<AttesterLookup> {
+  const wanted =
+    ATTEST_ACCOUNT_SELECTOR + PAD(walletAddress).replace(/^0x/, '');
+
+  let match: ExplorerTx | undefined;
+  let page = 1;
+  for (; page <= TXLIST_MAX_PAGES; page++) {
+    const url =
+      `${GIWA_EXPLORER}/api?module=account&action=txlist` +
+      `&address=${GIWA_MOCK_ATTESTER_CONTRACT}&sort=desc` +
+      `&page=${page}&offset=${TXLIST_PAGE_SIZE}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    let rows: ExplorerTx[];
+    try {
+      const resp = await fetch(url, {signal: controller.signal});
+      if (!resp.ok) throw new Error(`explorer HTTP ${resp.status}`);
+      const json = await resp.json();
+      rows = Array.isArray(json.result) ? json.result : [];
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // Newest first, so the first hit is the current attestation. A reverted
+    // call attested nothing and its receipt carries no Attested log.
+    match = rows.find(
+      t =>
+        t.isError !== '1' &&
+        (t.input || '').toLowerCase().startsWith(wanted.toLowerCase()),
+    );
+    if (match) break;
+    if (rows.length < TXLIST_PAGE_SIZE) {
+      // Short page means the end of the list, so the history was read in full.
+      const checked = rows.length + (page - 1) * TXLIST_PAGE_SIZE;
+      addLog(`[GIWA] attester never registered this wallet (all ${checked} calls read)`);
+      return {status: 'none'};
+    }
+  }
+
+  if (!match) {
+    addLog(`[GIWA] attester tx list hit the ${TXLIST_MAX_PAGES}-page cap without a match — widening, NOT concluding "none"`);
+    return {status: 'unknown'};
+  }
+
+  const receipt = await rpcCall<{
+    blockHash: string;
+    blockNumber: string;
+    logs: RpcLog[];
+  }>('eth_getTransactionReceipt', [match.hash]);
+  if (!receipt) throw new Error(`no receipt for ${match.hash}`);
+
+  const paddedRecipient = PAD(walletAddress).toLowerCase();
+  const paddedSchema = PAD(schemaUid).toLowerCase();
+  const log = receipt.logs.find(
+    l =>
+      l.address.toLowerCase() === EAS_CONTRACT.toLowerCase() &&
+      (l.topics[0] || '').toLowerCase() === ATTESTED_TOPIC.toLowerCase() &&
+      (l.topics[1] || '').toLowerCase() === paddedRecipient &&
+      (l.topics[3] || '').toLowerCase() === paddedSchema,
+  );
+  if (!log) {
+    // The attester was called for this wallet but the receipt carries no
+    // attestation on our schema. Unknown rather than none: our schema UID could
+    // have been changed while older calls kept the previous one, and answering
+    // "none" here would hide an attestation the wider search can still find.
+    addLog(`[GIWA] attester call ${match.hash} carries no attestation on our schema — widening`);
+    return {status: 'unknown'};
+  }
+
+  addLog(`[GIWA] attester match: tx ${match.hash} (page ${page})`);
+  return {
+    status: 'found',
+    log: {
+      address: log.address,
+      block_hash: log.blockHash || receipt.blockHash,
+      block_number: parseInt(log.blockNumber || receipt.blockNumber, 16),
+      data: log.data,
+      index: parseInt(log.logIndex, 16),
+      topics: log.topics,
+      transaction_hash: log.transactionHash || match.hash,
+    },
+  };
+}
+
+/**
+ * Exported for its own tests. Everything past this point — fetching the issuing
+ * transaction and re-serialising it to RLP — needs a real signed transaction to
+ * exercise, so a test of the SEARCH through the public entry point would have
+ * to fake one just to reach the part it cares about. The search is where the
+ * defect was, so the search is what is reachable.
+ */
+export async function findAttestationLog(
+  schemaUid: string,
+  walletAddress: string,
+  addLog: (msg: string) => void,
+): Promise<BlockscoutLog | null> {
+  // Narrowest question first: our attester's own calls. A confident "none"
+  // ends the search — the circuit constrains the issuing contract, so a wallet
+  // this contract never attested has nothing provable no matter what a wider
+  // search turns up, and 26 seconds spent confirming that is 26 seconds the
+  // person spends staring at a spinner.
+  try {
+    const viaAttester = await findAttestationViaAttester(schemaUid, walletAddress, addLog);
+    if (viaAttester.status === 'found') return viaAttester.log;
+    if (viaAttester.status === 'none') return null;
+  } catch (e) {
+    addLog(`[GIWA] attester lookup failed (${e instanceof Error ? e.message : e}) — widening to the EAS log search`);
+  }
+
+  try {
+    const viaExplorer = await findAttestationViaExplorer(schemaUid, walletAddress, addLog);
+    if (viaExplorer) return viaExplorer;
+  } catch (e) {
+    // Fall through to the RPC. A wallet with no attestation returns null above,
+    // not an exception, so reaching here means the explorer itself failed.
+    addLog(`[GIWA] explorer search failed (${e instanceof Error ? e.message : e}) — ` +
+           `falling back to ${MAX_CHUNKS} chunks from the head`);
+  }
+
   const paddedRecipient = PAD(walletAddress);
   const paddedSchema = PAD(schemaUid);
   const head = parseInt(await rpcCall<string>('eth_blockNumber', []), 16);
@@ -222,9 +478,9 @@ export async function findGiwaAttestationTransaction(
   log(`[GIWA Search] Wallet: ${walletAddress}`);
   log(`[GIWA Search] Schema: ${GIWA_VERIFIED_ACCOUNT_SCHEMA_UID}`);
 
-  // Paginated scan — Blockscout sorts logs newest-first and the wallet's
-  // attestation may be buried beyond page 1 once other testers register
-  // newer ones.
+  // Our attester's own call list first (0.29s), the explorer's EAS log search
+  // second (1-26s), RPC chunks from the head last. See the note above
+  // findAttestationViaAttester.
   const match = await findAttestationLog(
     GIWA_VERIFIED_ACCOUNT_SCHEMA_UID,
     walletAddress,

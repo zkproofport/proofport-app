@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
+import {PLANNED_CIRCUIT_IDS} from '../config/circuitIds';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
@@ -166,16 +167,14 @@ async function getCircuitFileUrl(
 ): Promise<string> {
   const configPath = getCircuitFilePaths(circuitName);
   if (configPath) {
-    // GIWA + Korea mDL (ownership/age/region) are dev-only circuits that
-    // exist only on main (not in any release tag), so always fetch from
-    // main regardless of env.
-    const baseUrl =
-      circuitName === 'giwa_attestation' ||
-      circuitName === 'mdl_kr_ownership' ||
-      circuitName === 'mdl_kr_age' ||
-      circuitName === 'mdl_kr_region'
-        ? GITHUB_RAW('main')
-        : await resolveCircuitBaseUrl(env);
+    // Circuits the SDK still marks `planned` (GIWA + the three Korea mDL
+    // predicates) exist only on main, never in a release tag, so they are
+    // always fetched from main regardless of environment. Asking the SDK
+    // rather than listing the four names again is what stops a fifth circuit
+    // from being added to that group and forgotten here.
+    const baseUrl = PLANNED_CIRCUIT_IDS.includes(circuitName as CircuitName)
+      ? GITHUB_RAW('main')
+      : await resolveCircuitBaseUrl(env);
     return buildFilePath(baseUrl, circuitName, extension, configPath);
   }
 

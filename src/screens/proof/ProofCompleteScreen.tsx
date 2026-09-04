@@ -19,26 +19,20 @@ import type {ProofStackParamList} from '../../navigation/types';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useLogs} from '../../hooks';
 import {useMdlKr} from '../../hooks/useMdlKr';
 import {proofHistoryStore} from '../../stores';
-import {getVerifierAddressSync, getNetworkConfig, getNetworkConfigForCircuit} from '../../config';
-import {findGiwaAttestationTransaction} from '../../utils';
+import {getVerifierAddressSync, getNetworkConfig, getNetworkConfigForCircuit, canonicalCircuitId} from '../../config';
+import {findGiwaAttestationTransaction, getCircuitDisplayName} from '../../utils';
 
 type ProofCompleteRouteProp = RouteProp<ProofStackParamList, 'ProofComplete'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofComplete'>;
 
-const CIRCUIT_DISPLAY_NAMES: Record<string, string> = {
-  'coinbase-kyc': 'Coinbase KYC',
-  'coinbase-country': 'Coinbase Country',
-  'oidc_domain_attestation': 'OIDC Domain',
-  'giwa-kyc': 'GIWA KYC',
-  'giwa_attestation': 'GIWA KYC',
-  'mdl-kr-ownership': 'Korea Mobile ID — Ownership',
-  'mdl-kr-age': 'Korea Mobile ID — Age',
-  'mdl-kr-region': 'Korea Mobile ID — Region',
-  // Canonical underscore ids — deep links / OpenStoa login arrive with these.
-  'mdl_kr_ownership': 'Korea Mobile ID — Ownership',
-  'mdl_kr_age': 'Korea Mobile ID — Age',
-  'mdl_kr_region': 'Korea Mobile ID — Region',
-};
+/*
+ * This screen used to carry its own name table, and it disagreed with the
+ * other two: `giwa_attestation` was "GIWA KYC" here and "GIWA KYC
+ * (Experimental)" in `utils/circuit.ts` and on the generation screen, so what
+ * the same proof was called depended on which screen you were looking at. The
+ * names now come from `getCircuitDisplayName` — one table, so there is nothing
+ * left to disagree with.
+ */
 
 export const ProofCompleteScreen: React.FC = () => {
   const { colors: themeColors } = useThemeColors();
@@ -48,7 +42,11 @@ export const ProofCompleteScreen: React.FC = () => {
 
   const params = route.params || {} as any;
   const proofHex = params.proofHex || '0x0000000000000000';
-  const circuitId = params.circuitId || 'coinbase-kyc';
+  // No default. This screen states what was just proved, so naming Coinbase KYC
+  // for a proof it was never told the type of is a false claim about the
+  // result — worse here than on the generation screen, where the same default
+  // was removed on 2026-09-04. An empty id shows as unknown instead.
+  const circuitId = params.circuitId ?? '';
   const timestamp = params.timestamp || Date.now().toString();
   const verification = params.verification || {
     offChain: null,
@@ -64,18 +62,21 @@ export const ProofCompleteScreen: React.FC = () => {
     ? `${proofHex.slice(0, 10)}...${proofHex.slice(-8)}`
     : proofHex;
   const formattedDate = new Date(parseInt(timestamp)).toLocaleString();
-  const circuitName = CIRCUIT_DISPLAY_NAMES[circuitId] || circuitId;
+  const canonical = canonicalCircuitId(circuitId);
+  const circuitName = getCircuitDisplayName(circuitId);
 
   const [offChainStatus, setOffChainStatus] = useState<'generated' | 'loading' | 'verified' | 'failed'>('generated');
   const [onChainStatus, setOnChainStatus] = useState<'generated' | 'loading' | 'verified' | 'failed'>('generated');
 
-  const isCountryCircuit = circuitId === 'coinbase-country';
-  const isOidcCircuit = circuitId === 'oidc_domain_attestation';
-  const isGiwaCircuit = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
+  // Keyed on the canonical id, so a legacy route id and the canonical spelling
+  // of the same circuit cannot pick different hooks.
+  const isCountryCircuit = canonical === 'coinbase_country_attestation';
+  const isOidcCircuit = canonical === 'oidc_domain_attestation';
+  const isGiwaCircuit = canonical === 'giwa_attestation';
   const mdlVariant: 'ownership' | 'age' | 'region' | null =
-    circuitId === 'mdl-kr-ownership' || circuitId === 'mdl_kr_ownership' ? 'ownership'
-    : circuitId === 'mdl-kr-age' || circuitId === 'mdl_kr_age' ? 'age'
-    : circuitId === 'mdl-kr-region' || circuitId === 'mdl_kr_region' ? 'region'
+    canonical === 'mdl_kr_ownership' ? 'ownership'
+    : canonical === 'mdl_kr_age' ? 'age'
+    : canonical === 'mdl_kr_region' ? 'region'
     : null;
   const isMdlCircuit = mdlVariant !== null;
   const kycHook = useCoinbaseKyc();

@@ -424,6 +424,10 @@
         "title": "Attestation Not Found",
         "description": "No valid attestation was found for your wallet."
       },
+      "E2006": {
+        "title": "Unsupported Proof Type",
+        "description": "This request names a proof type the app does not support. Nothing was generated."
+      },
       "E3001": {
         "title": "Network Error",
         "description": "Unable to connect to the server. Please check your internet connection."

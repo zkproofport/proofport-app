@@ -40,8 +40,10 @@ import {
 import {walletGroupKey} from '../../stores/circuitWalletStore';
 import type {CircuitName} from '../../config';
 
-// Group representatives — one row per wallet-binding group. OIDC is wallet-
-// less and is intentionally absent.
+// Group representatives — one row per wallet-binding group. OIDC and Korea
+// mDL are wallet-less flows and are intentionally absent: they have wallet
+// groups only so the gate can be a no-op for them, and a row here would offer
+// to bind a wallet that is never read.
 const CIRCUITS: CircuitName[] = [
   'coinbase_attestation',
   'giwa_attestation',

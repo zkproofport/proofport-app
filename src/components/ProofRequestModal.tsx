@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  type ImageSourcePropType,
 } from 'react-native';
 import {
   normalizeReturnScheme,
@@ -34,7 +35,15 @@ interface ProofRequestModalProps {
  */
 const CIRCUIT_INFO: Record<
   string,
-  {icon: string; nameKey: string; descriptionKey: string; prefixKey?: string}
+  {
+    /** An emoji, for a circuit whose issuer has no mark worth showing. */
+    icon?: string;
+    /** The issuer's own mark, which beats an emoji whenever one exists. */
+    iconImage?: ImageSourcePropType;
+    nameKey: string;
+    descriptionKey: string;
+    prefixKey?: string;
+  }
 > = {
   coinbase_attestation: {
     icon: '🏦',
@@ -52,7 +61,15 @@ const CIRCUIT_INFO: Record<
     descriptionKey: 'host.proof.circuitSelection.oidcDomain.description',
   },
   giwa_attestation: {
-    icon: '🏯',
+    // GIWA's own mark, the same one the demo page shows, cut white-on-clear by
+    // scripts/make-giwa-mark.py so it sits on this dark sheet.
+    //
+    // No emoji here, and no flag. Two were tried and both said something false:
+    // 🏯 is a Japanese castle (reached for because 기와 means roof tile), and
+    // 🇰🇷 tells the person holding the phone that the proof is about where they
+    // are from — GIWA is a chain and its attestations are open to anyone on it.
+    // The issuer has a real mark, so the mark is what goes here.
+    iconImage: require('../../assets/giwa-mark.png'),
     nameKey: 'host.proof.circuitSelection.giwaKyc.title',
     descriptionKey: 'host.proof.circuitSelection.giwaKyc.description',
   },
@@ -129,7 +146,15 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerIcon}>{circuitInfo?.icon ?? '🔐'}</Text>
+            {circuitInfo?.iconImage ? (
+              <Image
+                source={circuitInfo.iconImage}
+                style={styles.headerMark}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={styles.headerIcon}>{circuitInfo?.icon ?? '🔐'}</Text>
+            )}
             <Text style={styles.headerTitle}>{t('host.proofRequest.title')}</Text>
           </View>
 
@@ -255,6 +280,13 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     fontSize: 28,
+    marginRight: 10,
+  },
+  // Sized to sit level with the emoji the other circuits use, so swapping a
+  // circuit does not shift the title.
+  headerMark: {
+    width: 28,
+    height: 28,
     marginRight: 10,
   },
   headerTitle: {

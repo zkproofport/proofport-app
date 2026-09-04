@@ -183,11 +183,21 @@ describe('the Play listing can be uploaded, and shipping a build does not touch 
     // Now that image files sit in the metadata folder, shipping a build could
     // rewrite the store page's pictures as well as its text. Every supply call
     // in the lane has to keep both skips on.
+    //
+    // This used to count skip lines and require one per supply call, which was
+    // the only way to say it while the three credential branches each spelled
+    // their options out. They now share one options hash, so the skips appear
+    // once and cover all three — a stronger guarantee that the old count read
+    // as a failure. What has to be checked instead is that no supply call gets
+    // its options from anywhere else.
     const beta = lane('beta');
     const supplies = beta.match(/supply\(/g) || [];
     expect(supplies.length).toBeGreaterThan(0);
-    expect((beta.match(/skip_upload_images:\s*true/g) || []).length).toBe(supplies.length);
-    expect((beta.match(/skip_upload_screenshots:\s*true/g) || []).length).toBe(supplies.length);
+    expect(beta).toMatch(/skip_upload_images:\s*true/);
+    expect(beta).toMatch(/skip_upload_screenshots:\s*true/);
+    // A fourth branch that builds its own options, skips and all forgotten,
+    // is what this catches.
+    expect((beta.match(/supply\(\s*upload\b/g) || []).length).toBe(supplies.length);
   });
 
   it('refuses out loud when no Play credential is set', () => {

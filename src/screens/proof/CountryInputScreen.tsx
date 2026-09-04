@@ -49,7 +49,7 @@ export const CountryInputScreen: React.FC = () => {
 
   const handleContinue = () => {
     navigation.navigate('ProofGeneration', {
-      circuitId: 'coinbase-country',
+      circuitId: 'coinbase_country_attestation',
       countryInputs: {
         countryList: selectedCountries,
         isIncluded: isIncluded,

@@ -29,57 +29,97 @@ import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore, settingsStore} from '../../stores';
 import {getCircuitWallet, walletGroupKey} from '../../stores/circuitWalletStore';
-import {getVerifierAddressSync, getNetworkConfig, getNetworkConfigForCircuit, type CircuitName} from '../../config';
+// `getNetworkConfig` is deliberately absent: this screen always resolves the
+// network PER CIRCUIT (GIWA is on chain 91342, the mDL verifiers on Base
+// Sepolia), so the environment default would be the wrong answer. It was
+// imported and unused before this change; lint has been reporting it.
+import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, type CircuitName} from '../../config';
+import {getCircuitDisplayName} from '../../utils/circuit';
 // Wallet-cache logic now lives in useCircuitWalletGate.
 import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
 import {ethers} from 'ethers';
 import {getActiveProofRequest, setActiveProofRequest} from '../../stores/activeProofRequestStore';
+import {ErrorCodes} from '../../constants/errorCodes';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
 
-const CIRCUIT_DISPLAY: Record<string, string> = {
-  'coinbase-kyc': 'Coinbase KYC',
-  'coinbase-country': 'Coinbase Country',
-  'oidc_domain_attestation': 'OIDC Domain',
-  'giwa-kyc': 'GIWA KYC (Experimental)',
-  'giwa_attestation': 'GIWA KYC (Experimental)',
-  'mdl-kr-ownership': 'Korea Mobile ID — Ownership',
-  'mdl-kr-age': 'Korea Mobile ID — Age',
-  'mdl-kr-region': 'Korea Mobile ID — Region',
-  // Canonical underscore ids — deep links / OpenStoa login arrive with these.
-  'mdl_kr_ownership': 'Korea Mobile ID — Ownership',
-  'mdl_kr_age': 'Korea Mobile ID — Age',
-  'mdl_kr_region': 'Korea Mobile ID — Region',
+/**
+ * EVERY CIRCUIT THIS SCREEN SERVES. AN ID THAT IS NOT HERE IS AN ERROR.
+ *
+ * This used to be a chain of equality checks with no final branch, opened by
+ *
+ *     const circuitId = route.params?.circuitId || 'coinbase-kyc';
+ *
+ * so a request that named no circuit, or named one this screen did not
+ * recognise, silently generated a COINBASE KYC PROOF instead. The user asked
+ * for one thing and the app proved another, with nothing on screen to say so.
+ *
+ * It had already bitten once: underscore ids were added as aliases because deep
+ * links sent `mdl_kr_age` and the screen answered with a Coinbase proof.
+ * Aliasing the ids that were noticed does not fix the shape — the next
+ * unrecognised id lands in the same place. The fix is that there IS no default.
+ *
+ * The screen no longer keeps its own spelling tables. Three of them lived here
+ * — display names, id translation, mDL variant — each carrying both spellings
+ * of every id, and they disagreed: the title block below matched only the
+ * hyphenated ids, so a deep link naming `mdl_kr_age` ran the AGE proof under
+ * the OWNERSHIP heading. Everything is keyed by the canonical id now, and the
+ * translation happens once, in `canonicalCircuitId`.
+ */
+type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'mdl';
+
+const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
+  coinbase_attestation: 'coinbase',
+  coinbase_country_attestation: 'country',
+  oidc_domain_attestation: 'oidc',
+  giwa_attestation: 'giwa',
+  mdl_kr_ownership: 'mdl',
+  mdl_kr_age: 'mdl',
+  mdl_kr_region: 'mdl',
 };
 
-const CIRCUIT_CONFIG: Record<string, string> = {
-  'coinbase-kyc': 'coinbase_attestation',
-  'coinbase-country': 'coinbase_country_attestation',
-  'oidc_domain_attestation': 'oidc_domain_attestation',
-  'giwa-kyc': 'giwa_attestation',
-  'giwa_attestation': 'giwa_attestation',
-  'mdl-kr-ownership': 'mdl_kr_ownership',
-  'mdl-kr-age': 'mdl_kr_age',
-  'mdl-kr-region': 'mdl_kr_region',
-  'mdl_kr_ownership': 'mdl_kr_ownership',
-  'mdl_kr_age': 'mdl_kr_age',
-  'mdl_kr_region': 'mdl_kr_region',
+/**
+ * The mDL predicate each circuit proves. `MdlKrInputScreen` collects the
+ * matching parameter (disclose_flags / age_threshold / target_region) before
+ * navigating here.
+ */
+const MDL_VARIANT_OF: Partial<Record<CircuitName, 'ownership' | 'age' | 'region'>> = {
+  mdl_kr_ownership: 'ownership',
+  mdl_kr_age: 'age',
+  mdl_kr_region: 'region',
 };
 
-// Map route circuitId -> mdl_kr predicate variant. The MdlKrInputScreen
-// also collects the per-variant inputs (disclose_flags / age_threshold /
-// target_region) before navigating here.
-const MDL_VARIANT_OF: Record<string, 'ownership' | 'age' | 'region'> = {
-  'mdl-kr-ownership': 'ownership',
-  'mdl-kr-age': 'age',
-  'mdl-kr-region': 'region',
-  // Canonical underscore ids — deep links / OpenStoa login use these. Without
-  // these aliases mdlVariant is undefined -> isMdl false -> the request falls
-  // through to the Coinbase KYC default flow.
-  'mdl_kr_ownership': 'ownership',
-  'mdl_kr_age': 'age',
-  'mdl_kr_region': 'region',
+/** Title / description i18n keys, keyed canonically so no id can miss them. */
+const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = {
+  coinbase_attestation: {
+    title: 'host.proof.generation.coinbaseKycTitle',
+    description: 'host.proof.generation.coinbaseKycDescription',
+  },
+  coinbase_country_attestation: {
+    title: 'host.proof.generation.coinbaseCountryTitle',
+    description: 'host.proof.generation.coinbaseCountryDescription',
+  },
+  oidc_domain_attestation: {
+    title: 'host.proof.generation.oidcTitle',
+    description: 'host.proof.generation.oidcDescription',
+  },
+  giwa_attestation: {
+    title: 'host.proof.generation.giwaKycTitle',
+    description: 'host.proof.generation.giwaKycDescription',
+  },
+  mdl_kr_ownership: {
+    title: 'host.proof.generation.mdlKrOwnershipTitle',
+    description: 'host.proof.generation.mdlKrOwnershipDescription',
+  },
+  mdl_kr_age: {
+    title: 'host.proof.generation.mdlKrAgeTitle',
+    description: 'host.proof.generation.mdlKrAgeDescription',
+  },
+  mdl_kr_region: {
+    title: 'host.proof.generation.mdlKrRegionTitle',
+    description: 'host.proof.generation.mdlKrRegionDescription',
+  },
 };
 
 const ProgressButton: React.FC<{
@@ -241,12 +281,22 @@ export const ProofGenerationScreen: React.FC = () => {
   const {logs, addLog, clearLogs} = useLogs();
   const {settings} = useSettings();
 
-  const circuitId = route.params?.circuitId || 'coinbase-kyc';
-  const isCountry = circuitId === 'coinbase-country';
-  const isOidc = circuitId === 'oidc_domain_attestation';
-  const isGiwa = circuitId === 'giwa-kyc' || circuitId === 'giwa_attestation';
-  const mdlVariant = MDL_VARIANT_OF[circuitId];
-  const isMdl = mdlVariant !== undefined;
+  // No default. A missing or unrecognised id is refused below, never quietly
+  // turned into a Coinbase proof — see the note on FLOW_OF_CANONICAL.
+  //
+  // `circuitId` is whatever the caller navigated with, which for a deep link
+  // minted before the canonical spelling may be a legacy route id. `canonical`
+  // is the only form anything below this line looks at.
+  const circuitId = route.params?.circuitId ?? '';
+  const canonical = canonicalCircuitId(circuitId);
+  const flow: ProofFlow | undefined = canonical
+    ? FLOW_OF_CANONICAL[canonical]
+    : undefined;
+  const isCountry = flow === 'country';
+  const isOidc = flow === 'oidc';
+  const isGiwa = flow === 'giwa';
+  const mdlVariant = canonical ? MDL_VARIANT_OF[canonical] : undefined;
+  const isMdl = flow === 'mdl';
   // Document-type bottom sheet for the mDL flow. The chosen provider is held
   // in a ref so handleGenerateProof (a stable useCallback) reads the latest
   // value without being recreated.
@@ -311,10 +361,15 @@ export const ProofGenerationScreen: React.FC = () => {
       setCircuitReady(true);
       return;
     }
+    // An id this build does not serve has no wallet binding to look up, and
+    // the effect below refuses it outright.
+    if (!canonical) {
+      setCircuitReady(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
-      const resolved = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
-      const bound = await getCircuitWallet(walletGroupKey(resolved));
+      const bound = await getCircuitWallet(walletGroupKey(canonical));
       if (cancelled) return;
       setCircuitReady(
         !!bound && !!account && bound.toLowerCase() === account.toLowerCase(),
@@ -323,7 +378,7 @@ export const ProofGenerationScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [circuitId, account, isOidc]);
+  }, [canonical, account, isOidc, isMdl]);
 
   const googleStepStatus = googleAuth.idToken ? 'complete' : 'pending';
   const googleStepLabel = 'Google Sign-In';
@@ -374,9 +429,12 @@ export const ProofGenerationScreen: React.FC = () => {
   // previous screen entry can't trigger this navigation.
   useEffect(() => {
     if (!hook.parsedProof || !proofStartedAt.current) return;
+    // Unreachable without a canonical id — nothing starts a proof without one
+    // — but narrowing here keeps the address/network lookups below honest.
+    if (!canonical) return;
 
     const generatedAt = Date.now();
-    const resolved = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
+    const resolved: CircuitName = canonical;
 
     if (historyIdRef.current) {
       proofHistoryStore.update(historyIdRef.current, {
@@ -438,9 +496,35 @@ export const ProofGenerationScreen: React.FC = () => {
     // stale `hook.parsedProof` value can't navigate again.
     proofStartedAt.current = null;
     historyIdRef.current = null;
-  }, [hook.parsedProof, navigation, circuitId, proofRequest, sendProof, account, isOidc, markHistoryFailed]);
+  }, [hook.parsedProof, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc, markHistoryFailed]);
+
+  // An unrecognised circuit id is refused on arrival, not on button press, so
+  // nobody sits looking at a form for a proof the app will not generate.
+  useEffect(() => {
+    if (flow) return;
+    // The reader's own language; ErrorCodes carries the English fallback only.
+    const said = t('host.errors.E2006.description', {
+      defaultValue: ErrorCodes.E2006.description,
+    });
+    // Named with a ternary, not `circuitId || ...`. The guard test forbids
+    // that shape outright rather than trying to tell a harmless display
+    // fallback from the one that used to substitute a whole circuit.
+    const named = circuitId ? circuitId : 'none';
+    setErrorMessage(`[${ErrorCodes.E2006.code}] ${said} (${named})`);
+    addLog(`[Circuit] refusing unknown circuit id ${JSON.stringify(circuitId)} — no proof generated`);
+  }, [flow, circuitId, addLog, t]);
 
   const handleGenerateProof = useCallback(async () => {
+    // Refuse rather than fall through. Before this guard existed the id
+    // defaulted to Coinbase KYC, so an unrecognised request produced a real
+    // proof of the wrong thing. See the note on FLOW_OF_CANONICAL.
+    // `flow` cannot exist without `canonical`; both are named so the compiler
+    // knows it too and nothing below has to re-derive the id.
+    if (!flow || !canonical) {
+      setErrorMessage(`[${ErrorCodes.E2006.code}] ` +
+        t('host.errors.E2006.description', {defaultValue: ErrorCodes.E2006.description}));
+      return;
+    }
     // mDL: the document-type bottom sheet is the entry point and the
     // confirmation step. Open it first; its onSelect sets the provider ref
     // and re-invokes this function (ref non-null -> proceeds past this guard).
@@ -454,10 +538,9 @@ export const ProofGenerationScreen: React.FC = () => {
     // effect below will re-invoke handleGenerateProof when account changes.
     let gatedAddress: string | null = null;
     if (!isOidc && !isMdl) {
-      const resolved = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
       const gateResult = await walletGate.runGate(
-        resolved,
-        CIRCUIT_DISPLAY[circuitId] || resolved,
+        canonical,
+        getCircuitDisplayName(canonical),
       );
       if (gateResult === 'pending') return;
       if (gateResult === 'cancelled') {
@@ -473,8 +556,8 @@ export const ProofGenerationScreen: React.FC = () => {
     failedMarkedRef.current = false;
     proofStartedAt.current = Date.now();
 
-    const displayName = CIRCUIT_DISPLAY[circuitId] || circuitId;
-    const configName = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
+    const displayName = getCircuitDisplayName(canonical);
+    const configName: CircuitName = canonical;
 
     // Read settings directly from store (avoids stale closure from useSettings)
     const currentSettings = await settingsStore.get();
@@ -733,7 +816,7 @@ export const ProofGenerationScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [walletGate, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, giwaHook.generateProofWithSteps, mdlHook.generateProofWithSteps, isCountry, isOidc, isGiwa, isMdl, proofRequest, route.params, sendError, circuitId, markHistoryFailed]);
+  }, [walletGate, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, giwaHook.generateProofWithSteps, mdlHook.generateProofWithSteps, isCountry, isOidc, isGiwa, isMdl, proofRequest, route.params, sendError, circuitId, canonical, markHistoryFailed]);
 
   // After the wallet gate opens a picker / reconnect prompt, it sets its
   // internal post-picker flag. When `account` then flips to a new wallet,
@@ -748,8 +831,8 @@ export const ProofGenerationScreen: React.FC = () => {
     const prev = previousAccountRef.current;
     if (walletGate.isPostPicker && account && account !== prev) {
       previousAccountRef.current = account;
-      const circuitForGate = (CIRCUIT_CONFIG[circuitId] || circuitId) as CircuitName;
-      if (walletGate.wasFailedAddress(circuitForGate, account)) {
+      if (!canonical) return;
+      if (walletGate.wasFailedAddress(canonical, account)) {
         addLog(
           `[Wallet] Re-selected ${account} which already failed lookup — pick a different wallet.`,
         );
@@ -768,7 +851,7 @@ export const ProofGenerationScreen: React.FC = () => {
       return;
     }
     if (!walletGate.isPostPicker) previousAccountRef.current = account;
-  }, [account, walletGate, circuitId, addLog, handleGenerateProof]);
+  }, [account, walletGate, canonical, addLog, handleGenerateProof]);
 
   // mDL document-type sheet selection -> stash provider + start proof.
   const handleMdlProviderSelect = useCallback(
@@ -875,38 +958,18 @@ export const ProofGenerationScreen: React.FC = () => {
             {t('host.proof.generation.portalLabel')}
           </Text>
           <Text style={{fontSize: 24, fontWeight: '700', color: themeColors.text.primary, marginBottom: 12}}>
-            {circuitId === 'mdl-kr-ownership'
-              ? t('host.proof.generation.mdlKrOwnershipTitle')
-              : circuitId === 'mdl-kr-age'
-              ? t('host.proof.generation.mdlKrAgeTitle')
-              : circuitId === 'mdl-kr-region'
-              ? t('host.proof.generation.mdlKrRegionTitle')
-              : isMdl
-              ? t('host.proof.generation.mdlKrOwnershipTitle')
-              : isOidc
-              ? t('host.proof.generation.oidcTitle')
-              : isCountry
-              ? t('host.proof.generation.coinbaseCountryTitle')
-              : isGiwa
-              ? t('host.proof.generation.giwaKycTitle')
-              : t('host.proof.generation.coinbaseKycTitle')}
+            {/*
+              * One lookup, keyed canonically. This was a ladder of equality
+              * checks against the HYPHENATED ids only, with a Coinbase KYC
+              * heading as its final else — so `mdl_kr_age`, which is what a
+              * deep link actually carries, ran the age proof under the
+              * OWNERSHIP heading, and any id the ladder did not name was
+              * announced as Coinbase KYC while proving something else.
+              */}
+            {canonical ? t(CIRCUIT_TEXT[canonical].title) : ''}
           </Text>
           <Text style={{fontSize: 15, color: themeColors.text.secondary, lineHeight: 22}}>
-            {circuitId === 'mdl-kr-ownership'
-              ? t('host.proof.generation.mdlKrOwnershipDescription')
-              : circuitId === 'mdl-kr-age'
-              ? t('host.proof.generation.mdlKrAgeDescription')
-              : circuitId === 'mdl-kr-region'
-              ? t('host.proof.generation.mdlKrRegionDescription')
-              : isMdl
-              ? t('host.proof.generation.mdlKrOwnershipDescription')
-              : isOidc
-              ? t('host.proof.generation.oidcDescription')
-              : isCountry
-              ? t('host.proof.generation.coinbaseCountryDescription')
-              : isGiwa
-              ? t('host.proof.generation.giwaKycDescription')
-              : t('host.proof.generation.coinbaseKycDescription')}
+            {canonical ? t(CIRCUIT_TEXT[canonical].description) : ''}
           </Text>
         </Card>
 

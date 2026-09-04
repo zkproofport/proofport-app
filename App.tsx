@@ -286,11 +286,15 @@ const App: React.FC = () => {
     setActiveProofRequest(pendingRequest);
 
     // Navigate to proof generation with stack reset to avoid stacking on ProofComplete
-    const circuitId = pendingRequest.circuit === 'coinbase_attestation'
-      ? 'coinbase-kyc'
-      : pendingRequest.circuit === 'coinbase_country_attestation'
-        ? 'coinbase-country'
-        : pendingRequest.circuit;
+    //
+    // The canonical id is passed straight through. This used to rewrite two of
+    // the seven circuits into the app's legacy hyphenated route ids, because
+    // the generation screen once only recognised those — which is why five
+    // other circuits arrived spelled one way and two the other, and why every
+    // table downstream had to carry both spellings. The screen resolves route
+    // ids itself now (`canonicalCircuitId`), so nothing has to be translated
+    // on the way in.
+    const circuitId = pendingRequest.circuit;
 
     // Use nested-navigation form so the inner ProofStack receives the screen.
     // `StackActions.push('ProofGeneration', ...)` against the root tab navigator
