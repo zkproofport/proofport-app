@@ -20,86 +20,19 @@ confidently looking at the wrong thing.
 Needs ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_PATH — the same three fastlane
 uses.
 
-No third-party packages. The request token has to be signed ES256, which the
-Python standard library cannot do, so the signing shells out to `openssl` — it
-ships with macOS and is already a hard dependency of the iOS toolchain here.
-The alternative, PyJWT, is not installed on this machine, and a script that
-needs an install step before it runs is a script nobody runs.
+Signing and sending live in `asc_api.py`, which this and every other App
+Store script here now share. Until 2026-09-08 there were three copies of it and
+two scripts that exec'd a SLICE OF THIS FILE'S SOURCE to borrow the `get`
+helper, because there was nothing importable.
 """
-import base64
 import json
 import os
-import subprocess
 import sys
-import time
-import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from asc_api import get  # noqa: E402
 
 BUNDLE_ID = 'com.masselabs.zkproofport'
-API = 'https://api.appstoreconnect.apple.com'
-
-
-def need(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        sys.exit(f'{name} is not set — run `source .env.ios` first')
-    return value
-
-
-def b64(raw: bytes) -> str:
-    return base64.urlsafe_b64encode(raw).decode().rstrip('=')
-
-
-def der_to_raw(der: bytes) -> bytes:
-    """ASN.1 SEQUENCE { INTEGER r, INTEGER s } → the r||s pair ASC expects.
-
-    `openssl dgst -sign` emits DER. Feeding that to the API is rejected as a
-    malformed token, with a message that says nothing about the encoding.
-    """
-    assert der[0] == 0x30, 'not a DER sequence'
-    i = 2 if der[1] < 0x80 else 2 + (der[1] & 0x7F)
-
-    def take(pos: int) -> tuple[bytes, int]:
-        assert der[pos] == 0x02, 'expected an INTEGER'
-        length = der[pos + 1]
-        value = der[pos + 2:pos + 2 + length]
-        return value.lstrip(b'\x00').rjust(32, b'\x00'), pos + 2 + length
-
-    r, i = take(i)
-    s, _ = take(i)
-    return r + s
-
-
-def token() -> str:
-    key_id, issuer, key_path = need('ASC_KEY_ID'), need('ASC_ISSUER_ID'), need('ASC_API_KEY_PATH')
-    header = b64(json.dumps({'alg': 'ES256', 'kid': key_id, 'typ': 'JWT'}).encode())
-    payload = b64(json.dumps({
-        'iss': issuer,
-        'exp': int(time.time()) + 900,
-        'aud': 'appstoreconnect-v1',
-    }).encode())
-    signing_input = f'{header}.{payload}'.encode()
-    der = subprocess.run(
-        ['openssl', 'dgst', '-sha256', '-sign', key_path],
-        input=signing_input, capture_output=True, check=True,
-    ).stdout
-    return f'{header}.{payload}.{b64(der_to_raw(der))}'
-
-
-TOKEN = token()
-
-
-def get(path: str) -> dict:
-    req = urllib.request.Request(API + path, headers={'Authorization': f'Bearer {TOKEN}'})
-    try:
-        with urllib.request.urlopen(req) as res:
-            return json.load(res)
-    except urllib.error.HTTPError as err:
-        detail = ''
-        try:
-            detail = json.load(err)['errors'][0].get('detail', '')
-        except Exception:
-            pass
-        sys.exit(f'{path} → {err.code}: {detail}')
 
 
 # `--get <path>` answers one arbitrary read and stops. Without it, any question

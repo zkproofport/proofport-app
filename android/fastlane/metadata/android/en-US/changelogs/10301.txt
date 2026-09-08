@@ -1,0 +1,6 @@
+First release
+
+• Proofs built on your phone — nothing personal leaves the device
+• Coinbase KYC and country of residence — your wallet address stays private
+• Google Workspace and Microsoft 365 domain proofs — your email address stays private
+• Wallet connection over WalletConnect — private keys stay in your wallet

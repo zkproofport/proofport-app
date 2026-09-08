@@ -16,8 +16,6 @@ not something to do as a side effect of running a script.
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -25,31 +23,12 @@ NOTES = os.path.join(REPO, 'ios', 'fastlane', 'testflight-notes')
 APP = '6803903114'
 MAX_CHARS = 4000  # Apple rejects a longer whatsNew
 
-src = open(os.path.join(HERE, 'asc-read.py')).read()
-ns = {'__name__': 'ascread'}
-exec(compile(src.split("apps = get(")[0], 'asc-read.py', 'exec'), ns)
-get, TOKEN, API = ns['get'], ns['TOKEN'], ns['API']
+sys.path.insert(0, HERE)
+from asc_api import get, request  # noqa: E402
 
 WRITE = '--write' in sys.argv
 
 
-def send(method: str, path: str, body: dict) -> dict:
-    req = urllib.request.Request(
-        API + path, method=method,
-        data=json.dumps(body).encode(),
-        headers={'Authorization': f'Bearer {TOKEN}',
-                 'Content-Type': 'application/json'},
-    )
-    try:
-        with urllib.request.urlopen(req) as res:
-            return json.load(res)
-    except urllib.error.HTTPError as err:
-        detail = ''
-        try:
-            detail = json.load(err)['errors'][0].get('detail', '')
-        except Exception:
-            pass
-        sys.exit(f'{method} {path} → {err.code}: {detail}')
 
 
 builds = get(f'/v1/builds?filter[app]={APP}&limit=1&sort=-uploadedDate')['data']
@@ -85,12 +64,12 @@ for filename in sorted(os.listdir(NOTES)):
         continue
 
     if locale in existing:
-        send('PATCH', f"/v1/betaBuildLocalizations/{existing[locale]['id']}",
+        request('PATCH', f"/v1/betaBuildLocalizations/{existing[locale]['id']}",
              {'data': {'type': 'betaBuildLocalizations',
                        'id': existing[locale]['id'],
                        'attributes': {'whatsNew': text}}})
     else:
-        send('POST', '/v1/betaBuildLocalizations',
+        request('POST', '/v1/betaBuildLocalizations',
              {'data': {'type': 'betaBuildLocalizations',
                        'attributes': {'locale': locale, 'whatsNew': text},
                        'relationships': {'build': {'data': {'type': 'builds',

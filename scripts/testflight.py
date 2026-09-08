@@ -27,84 +27,18 @@ That file is read-only by name and by promise, and this one writes, so they are
 kept apart rather than one importing the other. If a third script ever needs the
 same block, extract it instead of making a third copy.
 """
-import base64
 import json
 import os
-import subprocess
 import sys
-import time
-import urllib.error
-import urllib.request
 
-BUNDLE_ID = 'com.masselabs.zkproofport'
-API = 'https://api.appstoreconnect.apple.com'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from asc_api import request  # noqa: E402
 
 
-def need(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        sys.exit(f'{name} is not set — run `source .env.ios` first')
-    return value
 
-
-def b64(raw: bytes) -> str:
-    return base64.urlsafe_b64encode(raw).decode().rstrip('=')
-
-
-def der_to_raw(der: bytes) -> bytes:
-    """ASN.1 SEQUENCE { INTEGER r, INTEGER s } -> the r||s pair ASC expects."""
-    assert der[0] == 0x30, 'not a DER sequence'
-    i = 2 if der[1] < 0x80 else 2 + (der[1] & 0x7F)
-
-    def take(pos: int):
-        assert der[pos] == 0x02, 'expected an INTEGER'
-        length = der[pos + 1]
-        value = der[pos + 2:pos + 2 + length]
-        return value.lstrip(b'\x00').rjust(32, b'\x00'), pos + 2 + length
-
-    r, i = take(i)
-    s, _ = take(i)
-    return r + s
-
-
-def token() -> str:
-    key_id, issuer, key_path = need('ASC_KEY_ID'), need('ASC_ISSUER_ID'), need('ASC_API_KEY_PATH')
-    header = b64(json.dumps({'alg': 'ES256', 'kid': key_id, 'typ': 'JWT'}).encode())
-    payload = b64(json.dumps({
-        'iss': issuer,
-        'exp': int(time.time()) + 900,
-        'aud': 'appstoreconnect-v1',
-    }).encode())
-    signing_input = f'{header}.{payload}'.encode()
-    der = subprocess.run(
-        ['openssl', 'dgst', '-sha256', '-sign', key_path],
-        input=signing_input, capture_output=True, check=True,
-    ).stdout
-    return f'{header}.{payload}.{b64(der_to_raw(der))}'
-
-
-TOKEN = token()
-
-
-def call(path: str, body=None) -> dict:
-    req = urllib.request.Request(
-        API + path,
-        data=json.dumps(body).encode() if body is not None else None,
-        headers={'Authorization': f'Bearer {TOKEN}', 'Content-Type': 'application/json'},
-        method='POST' if body is not None else 'GET',
-    )
-    try:
-        with urllib.request.urlopen(req) as res:
-            raw = res.read()
-            return json.loads(raw) if raw.strip() else {}
-    except urllib.error.HTTPError as err:
-        detail = err.read().decode()
-        try:
-            errors = json.loads(detail)['errors']
-            detail = '; '.join(f"{e.get('title')}: {e.get('detail')}" for e in errors)
-        except Exception:
-            pass
-        sys.exit(f'{path} -> {err.code}: {detail}')
+def call(path: str, body=None):
+    """POST when there is a body, GET otherwise — the shape this script uses."""
+    return request('POST' if body is not None else 'GET', path, body)
 
 
 def app_id() -> str:

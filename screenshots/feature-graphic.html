@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1024, height=500">
+    <title>ZKProofport Feature Graphic</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1024px;
+            height: 500px;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+            background: #0a0a1a;
+            position: relative;
+        }
+
+        /* Animated gradient background */
+        .gradient-bg {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg,
+                #0a0a1a 0%,
+                #1a1a2e 20%,
+                #2d1b69 50%,
+                #1a1a2e 80%,
+                #0a0a1a 100%);
+        }
+
+        /* Radial gradient overlays for depth */
+        .glow-1 {
+            position: absolute;
+            top: -20%;
+            left: 10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%);
+            filter: blur(60px);
+        }
+
+        .glow-2 {
+            position: absolute;
+            bottom: -30%;
+            right: 5%;
+            width: 700px;
+            height: 700px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+            filter: blur(80px);
+        }
+
+        /* Geometric pattern overlay */
+        .pattern {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.5;
+        }
+
+        /* Main content container */
+        .content {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 80px;
+        }
+
+        /* Left side - Text content */
+        .text-content {
+            max-width: 520px;
+        }
+
+        .app-name {
+            font-size: 76px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 50%, #c4b5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            text-shadow: 0 0 40px rgba(124, 58, 237, 0.5);
+        }
+
+        .tagline {
+            font-size: 32px;
+            font-weight: 600;
+            color: #d4d4d8;
+            line-height: 1.3;
+            margin-bottom: 16px;
+        }
+
+        .tagline-kr {
+            font-size: 24px;
+            font-weight: 500;
+            color: #a1a1aa;
+            letter-spacing: 0.5px;
+        }
+
+        /* Right side - Abstract ZK visualization */
+        .visual {
+            position: relative;
+            width: 380px;
+            height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Shield/lock icon representation */
+        .shield-container {
+            position: relative;
+            width: 280px;
+            height: 280px;
+        }
+
+        .shield {
+            position: absolute;
+            inset: 0;
+            border: 4px solid transparent;
+            border-radius: 140px;
+            background:
+                linear-gradient(#0a0a1a, #0a0a1a) padding-box,
+                linear-gradient(135deg, #7c3aed, #6366f1, #8b5cf6) border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shield::before {
+            content: '';
+            position: absolute;
+            inset: -20px;
+            border-radius: 160px;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(99, 102, 241, 0.2));
+            filter: blur(30px);
+        }
+
+        /* Lock symbol */
+        .lock {
+            position: relative;
+            z-index: 2;
+        }
+
+        .lock-body {
+            width: 80px;
+            height: 90px;
+            background: linear-gradient(135deg, #7c3aed, #6366f1);
+            border-radius: 12px;
+            position: relative;
+            margin-top: 20px;
+            box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
+        }
+
+        .lock-shackle {
+            width: 60px;
+            height: 50px;
+            border: 12px solid #8b5cf6;
+            border-bottom: none;
+            border-radius: 30px 30px 0 0;
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .lock-keyhole {
+            width: 16px;
+            height: 16px;
+            background: #0a0a1a;
+            border-radius: 50%;
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .lock-keyhole::after {
+            content: '';
+            width: 6px;
+            height: 24px;
+            background: #0a0a1a;
+            position: absolute;
+            top: 12px;
+            left: 5px;
+            border-radius: 0 0 3px 3px;
+        }
+
+        /* Orbiting dots - representing ZK proof elements */
+        .orbit {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            animation: rotate 20s linear infinite;
+        }
+
+        .orbit-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: linear-gradient(135deg, #7c3aed, #6366f1);
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(124, 58, 237, 0.8);
+        }
+
+        .orbit-dot:nth-child(1) {
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .orbit-dot:nth-child(2) {
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+        }
+
+        .orbit-dot:nth-child(3) {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .orbit-dot:nth-child(4) {
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Noise texture overlay for premium feel */
+        .noise {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+    <div class="pattern"></div>
+
+    <div class="content">
+        <div class="text-content">
+            <h1 class="app-name">ZKProofport</h1>
+            <p class="tagline">Prove without revealing</p>
+            <p class="tagline-kr">공개하지 않고 증명하세요</p>
+        </div>
+
+        <div class="visual">
+            <div class="shield-container">
+                <div class="orbit">
+                    <div class="orbit-dot"></div>
+                    <div class="orbit-dot"></div>
+                    <div class="orbit-dot"></div>
+                    <div class="orbit-dot"></div>
+                </div>
+                <div class="shield">
+                    <div class="lock">
+                        <div class="lock-shackle"></div>
+                        <div class="lock-body">
+                            <div class="lock-keyhole"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="noise"></div>
+</body>
+</html>
