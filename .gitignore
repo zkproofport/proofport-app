@@ -182,3 +182,12 @@ tmp/
 # ship a build artefact tied to one interpreter version.
 __pycache__/
 *.pyc
+
+# Apple signing keys, and anything else the project needs on disk but must
+# never publish. The .p8 is downloadable exactly ONCE from App Store Connect,
+# so a copy that leaks cannot be rotated quietly — it has to be revoked and the
+# key replaced everywhere. Two rules rather than one: the folder for things
+# kept here on purpose, and the extension for a .p8 dropped anywhere by
+# accident.
+.secrets/
+*.p8

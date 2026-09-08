@@ -14,15 +14,31 @@ That worked only while the borrowed file's first API call stayed on the line it
 was split at. Adding an import to `asc-read.py` would have silently broken both
 callers, which is why nobody touched it.
 
-Needs ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_PATH — the same three fastlane
-uses. Signing shells out to `openssl`, because the standard library cannot do
-ES256 and a script that needs `pip install` first is a script nobody runs.
+Needs ASC_KEY_ID, ASC_ISSUER_ID, and the key itself as EITHER:
+
+    ASC_API_KEY       the .p8 base64-encoded — preferred, and the only one CI
+                      has ever used
+    ASC_API_KEY_PATH  a path to the .p8 on disk
+
+Prefer the base64. A .p8 is downloadable exactly ONCE from App Store Connect,
+so every copy on disk is a copy that cannot be replaced quietly if it leaks —
+and a path means a second file to carry to the next machine, or to another
+project, which is how the old one ended up pointing at a home directory that no
+longer existed. With the base64 in the environment there is nothing to carry.
+
+The key is written to a temporary file for the length of one signature and
+deleted, because `openssl` signs from a file. This is the same shape
+`play-api.py` uses for the Play service account, for the same reason.
+
+Signing shells out to `openssl`: the standard library cannot do ES256, and a
+script that needs `pip install` before it runs is a script nobody runs.
 """
 import base64
 import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -61,8 +77,46 @@ def _der_to_raw(der: bytes) -> bytes:
     return r + s
 
 
+def _sign(signing_input: bytes) -> bytes:
+    """ES256 over the token, from whichever form of the key is present.
+
+    ASC_API_KEY (base64) wins. It is written to a file with owner-only
+    permissions for the length of one call and removed in `finally`, so an
+    interrupt does not leave a private key behind in the temp directory.
+    """
+    encoded = os.environ.get('ASC_API_KEY')
+    if encoded:
+        handle = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.p8', delete=False) as f:
+                handle = f.name
+                os.chmod(handle, 0o600)
+                f.write(base64.b64decode(encoded))
+            return subprocess.run(
+                ['openssl', 'dgst', '-sha256', '-sign', handle],
+                input=signing_input, capture_output=True, check=True,
+            ).stdout
+        finally:
+            if handle and os.path.exists(handle):
+                os.unlink(handle)
+
+    key_path = os.environ.get('ASC_API_KEY_PATH')
+    if not key_path:
+        sys.exit('Neither ASC_API_KEY nor ASC_API_KEY_PATH is set — '
+                 'run `source .env.ios` first')
+    if not os.path.exists(key_path):
+        # The failure this replaces: openssl answers a signing error that never
+        # names the file, so a path left over from another machine reads as a
+        # broken key rather than a missing one.
+        sys.exit(f'ASC_API_KEY_PATH points at nothing: {key_path}')
+    return subprocess.run(
+        ['openssl', 'dgst', '-sha256', '-sign', key_path],
+        input=signing_input, capture_output=True, check=True,
+    ).stdout
+
+
 def token() -> str:
-    key_id, issuer, key_path = _need('ASC_KEY_ID'), _need('ASC_ISSUER_ID'), _need('ASC_API_KEY_PATH')
+    key_id, issuer = _need('ASC_KEY_ID'), _need('ASC_ISSUER_ID')
     header = _b64(json.dumps({'alg': 'ES256', 'kid': key_id, 'typ': 'JWT'}).encode())
     payload = _b64(json.dumps({
         'iss': issuer,
@@ -70,11 +124,7 @@ def token() -> str:
         'aud': 'appstoreconnect-v1',
     }).encode())
     signing_input = f'{header}.{payload}'.encode()
-    der = subprocess.run(
-        ['openssl', 'dgst', '-sha256', '-sign', key_path],
-        input=signing_input, capture_output=True, check=True,
-    ).stdout
-    return f'{header}.{payload}.{_b64(_der_to_raw(der))}'
+    return f'{header}.{payload}.{_b64(_der_to_raw(_sign(signing_input)))}'
 
 
 _TOKEN = None

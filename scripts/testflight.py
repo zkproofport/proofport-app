@@ -34,6 +34,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from asc_api import request  # noqa: E402
 
+BUNDLE_ID = 'com.masselabs.zkproofport'
 
 
 def call(path: str, body=None):
