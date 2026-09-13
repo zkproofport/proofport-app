@@ -4,6 +4,8 @@
     source .env.ios && python3 scripts/asc-write.py show
     source .env.ios && python3 scripts/asc-write.py set-version 1.3.1
     source .env.ios && python3 scripts/asc-write.py set-build 9
+    source .env.ios && python3 scripts/asc-write.py show-attachments
+    source .env.ios && python3 scripts/asc-write.py add-attachment demo.mp4
 
 Why a script and not the console: the two fields below are ordered — Apple only
 offers builds whose marketing version equals the version record's number, so
@@ -25,6 +27,66 @@ from asc_api import get, request  # noqa: E402
 BUNDLE_ID = 'com.masselabs.zkproofport'
 EDITABLE = {'PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED',
             'METADATA_REJECTED', 'INVALID_BINARY'}
+
+
+def _upload_attachment(detail_id: str, path: str) -> str:
+    """Attach one file to App Review Information. Answers the attachment id.
+
+    Three steps, which is how every binary reaches App Store Connect:
+
+      1. POST the name and size. Apple answers with `uploadOperations` — one or
+         more plain HTTP PUTs to its storage, each with its own offset, length
+         and headers.
+      2. PUT each slice of the file.
+      3. PATCH `uploaded: true` with the file's MD5, which is how Apple checks
+         it received what we sent.
+
+    The PUTs go straight to a storage host, not to the API, so they cannot use
+    `request()` — that one talks JSON to api.appstoreconnect.apple.com and
+    parses a JSON body back. A 59 MB video sent that way would be base64'd into
+    a JSON string and refused.
+    """
+    import hashlib
+    import urllib.request
+
+    blob = open(path, 'rb').read()
+    name = os.path.basename(path)
+
+    created = request('POST', '/v1/appStoreReviewAttachments', {
+        'data': {
+            'type': 'appStoreReviewAttachments',
+            'attributes': {'fileName': name, 'fileSize': len(blob)},
+            'relationships': {
+                'appStoreReviewDetail': {
+                    'data': {'type': 'appStoreReviewDetails', 'id': detail_id},
+                },
+            },
+        },
+    })['data']
+
+    operations = created['attributes'].get('uploadOperations') or []
+    if not operations:
+        sys.exit(f'Apple accepted {name} but named no upload operations — nothing to send to')
+
+    for i, op in enumerate(operations, 1):
+        chunk = blob[op['offset']:op['offset'] + op['length']]
+        put = urllib.request.Request(op['url'], data=chunk, method=op['method'])
+        for header in op.get('requestHeaders') or []:
+            put.add_header(header['name'], header['value'])
+        try:
+            urllib.request.urlopen(put).read()
+        except urllib.error.HTTPError as err:
+            sys.exit(f'upload {i}/{len(operations)} of {name} → {err.code}\n{err.read().decode()[:400]}')
+        print(f'  올림 {i}/{len(operations)}  {len(chunk):,}바이트')
+
+    request('PATCH', f"/v1/appStoreReviewAttachments/{created['id']}", {
+        'data': {
+            'type': 'appStoreReviewAttachments',
+            'id': created['id'],
+            'attributes': {'uploaded': True, 'sourceFileChecksum': hashlib.md5(blob).hexdigest()},
+        },
+    })
+    return created['id']
 
 
 def settles_on(read, wanted, tries=6, gap=1.0):
@@ -165,6 +227,37 @@ def main() -> None:
     elif command == 'show-notes':
         detail = get(f"/v1/appStoreVersions/{version['id']}/appStoreReviewDetail")['data']
         print(detail['attributes']['notes'])
+
+    elif command == 'add-attachment':
+        # Apple's Guideline 2.1 questionnaire asks for a screen recording. This
+        # is where it goes: App Review Information carries attachments, and the
+        # reply in App Store Connect can then point at it.
+        if len(words) < 2:
+            sys.exit('add-attachment needs a path to the file')
+        target = words[1]
+        if not os.path.exists(target):
+            sys.exit(f'{target} does not exist')
+        detail = get(f"/v1/appStoreVersions/{version['id']}/appStoreReviewDetail")['data']
+        before = get(f"/v1/appStoreReviewDetails/{detail['id']}/appStoreReviewAttachments")
+        size = os.path.getsize(target)
+        print(f"{os.path.basename(target)} — {size:,}바이트, 지금 첨부 {before['meta']['paging']['total']}개")
+        made = _upload_attachment(detail['id'], target)
+        after = get(f"/v1/appStoreReviewDetails/{detail['id']}/appStoreReviewAttachments")
+        rows = after['data']
+        print(f"첨부 {before['meta']['paging']['total']}개 → {len(rows)}개")
+        for r in rows:
+            a = r['attributes']
+            mark = ' ←' if r['id'] == made else ''
+            print(f"  {a.get('fileName')}  {a.get('fileSize'):,}바이트  uploaded={a.get('assetDeliveryState', {}).get('state')}{mark}")
+
+    elif command == 'show-attachments':
+        detail = get(f"/v1/appStoreVersions/{version['id']}/appStoreReviewDetail")['data']
+        rows = get(f"/v1/appStoreReviewDetails/{detail['id']}/appStoreReviewAttachments")['data']
+        if not rows:
+            print('첨부 없음')
+        for r in rows:
+            a = r['attributes']
+            print(f"  {a.get('fileName')}  {a.get('fileSize'):,}바이트  {a.get('assetDeliveryState', {}).get('state')}  id={r['id']}")
 
     elif command == 'set-notes':
         # Takes a file rather than an inline string: the notes run to thousands

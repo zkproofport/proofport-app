@@ -1,12 +1,8 @@
-import {
-  createAppKit,
-  type AppKitNetwork,
-  type Storage,
-} from '@reown/appkit-react-native';
+import {createAppKit, type Storage} from '@reown/appkit-react-native';
 import {EthersAdapter} from '@reown/appkit-ethers-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import {mainnet as viemMainnet, base as viemBase} from 'viem/chains';
+import {walletNetworks} from './walletNetworks';
 
 const projectId = 'c1194f0c45c964d20fb24a52b2432af4';
 
@@ -20,43 +16,18 @@ const metadata = {
   },
 };
 
-const mainnet: AppKitNetwork = {
-  id: 1,
-  name: 'Ethereum',
-  chainNamespace: 'eip155',
-  caipNetworkId: 'eip155:1',
-  nativeCurrency: {
-    name: 'Ether',
-    symbol: 'ETH',
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: { http: ['https://cloudflare-eth.com'] },
-  },
-  blockExplorers: {
-    default: { name: 'Etherscan', url: 'https://etherscan.io' },
-  },
-};
-
-const base: AppKitNetwork = {
-  id: 8453,
-  name: 'Base',
-  chainNamespace: 'eip155',
-  caipNetworkId: 'eip155:8453',
-  nativeCurrency: {
-    name: 'Ether',
-    symbol: 'ETH',
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: { http: ['https://mainnet.base.org'] },
-  },
-  blockExplorers: {
-    default: { name: 'BaseScan', url: 'https://basescan.org' },
-  },
-};
-
-const networks: AppKitNetwork[] = [mainnet, base];
+/**
+ * Every chain a circuit is pinned to, plus this build's own network.
+ *
+ * A WalletConnect session approves its chains once, at connection time, and
+ * nothing outside that set can be signed for afterwards. This was `[mainnet,
+ * base]` typed out by hand while circuits were pinned to Arc, GIWA and a Korea
+ * mobile-ID network — so a wallet could never sign for any of them, and adding
+ * the network inside MetaMask changed nothing because the session had not
+ * asked for it. The symptom was an alert reading "Active chainId is 0x1 but
+ * received 0x4cef52" with no way forward.
+ */
+const networks = walletNetworks();
 
 const storage: Storage = {
   getItem: async <T = string>(key: string): Promise<T | undefined> => {
@@ -118,7 +89,7 @@ const storage: Storage = {
 
 export const appKit = createAppKit({
   projectId,
-  networks: [viemMainnet, viemBase],
+  networks,
   adapters: [new EthersAdapter()],
   metadata,
   storage,

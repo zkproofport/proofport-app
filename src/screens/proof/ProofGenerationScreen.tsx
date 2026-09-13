@@ -25,6 +25,7 @@ import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useGoogle
 import {useMdlKr} from '../../hooks/useMdlKr';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
+import type {TypedAction} from '../../utils/typedAction';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore, settingsStore} from '../../stores';
@@ -71,6 +72,10 @@ type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'mdl';
 
 const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
   coinbase_attestation: 'coinbase',
+  // Same Coinbase attestation, same screen. What differs is upstream: the
+  // requester supplied a typed action, so the wallet signs that instead of
+  // signal_hash and the proof runs on the action-bound circuit.
+  arc_eligibility: 'coinbase',
   coinbase_country_attestation: 'country',
   oidc_domain_attestation: 'oidc',
   giwa_attestation: 'giwa',
@@ -95,6 +100,10 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
   coinbase_attestation: {
     title: 'host.proof.generation.coinbaseKycTitle',
     description: 'host.proof.generation.coinbaseKycDescription',
+  },
+  arc_eligibility: {
+    title: 'host.proof.generation.arcEligibilityTitle',
+    description: 'host.proof.generation.arcEligibilityDescription',
   },
   coinbase_country_attestation: {
     title: 'host.proof.generation.coinbaseCountryTitle',
@@ -572,7 +581,14 @@ export const ProofGenerationScreen: React.FC = () => {
           onChainStatus: 'pending',
           overallStatus: 'started',
           timestamp: new Date().toISOString(),
-          network: 'Sepolia',
+          // The chain this circuit actually verifies on, not a literal.
+          // It WAS the literal 'Sepolia', so every proof — including one
+          // verified on Base mainnet — was filed in History as Sepolia, while
+          // the result screen a tap away said Base. Two screens, one proof,
+          // two different chains. Spotted on 2026-09-11 in the App Review
+          // demo recording, where both screens appear within thirty seconds
+          // of each other.
+          network: getNetworkConfigForCircuit(configName).name,
           walletAddress: account ?? '',
           verifierAddress: getVerifierAddressSync(configName),
           source: proofRequest ? 'deeplink' : 'manual',
@@ -604,7 +620,7 @@ export const ProofGenerationScreen: React.FC = () => {
           currentYear?: number;
           discloseFlags?: number;
         } | undefined;
-        const scopeStr = deep?.scope || 'proofport:default';
+        const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
         const mInputs = route.params?.mdlKrInputs;
 
         if (mdlVariant === 'ownership') {
@@ -687,11 +703,14 @@ export const ProofGenerationScreen: React.FC = () => {
         }
 
         let jwtToken: string | null = null;
-        try {
-          jwtToken = await authHook.promptSignIn();
-        } catch (authError: unknown) {
-          const errMsg = authError instanceof Error ? authError.message : String(authError);
-          const msg = `${providerName} Sign-In error: ${errMsg}`;
+        // One shape for every outcome. The reason arrives WITH the result,
+        // so nothing here reads a state value that has not landed yet — which
+        // is why every failure used to read "cancelled".
+        const signIn = await authHook.promptSignIn();
+        if (!('token' in signIn)) {
+          const msg = signIn.cancelled
+            ? `${providerName} Sign-In was cancelled`
+            : `${providerName} Sign-In failed: ${signIn.error}`;
           addLog(`[Error] ${msg}`);
           setErrorMessage(msg);
           markHistoryFailed();
@@ -701,17 +720,7 @@ export const ProofGenerationScreen: React.FC = () => {
           }
           return;
         }
-        if (!jwtToken) {
-          const msg = `${providerName} Sign-In was cancelled`;
-          addLog(`[Error] ${msg}`);
-          setErrorMessage(msg);
-          markHistoryFailed();
-          if (proofRequest) {
-            sendError(proofRequest, msg).catch(console.error);
-            setActiveProofRequest(null);
-          }
-          return;
-        }
+        jwtToken = signIn.token;
 
         addLog(`[OIDC] ${providerName} Sign-In successful — JWT obtained`);
 
@@ -770,7 +779,7 @@ export const ProofGenerationScreen: React.FC = () => {
       if (isCountry) {
         const manual = route.params?.countryInputs;
         const deep = proofRequest?.inputs as CoinbaseCountryInputs | undefined;
-        const scopeStr = deep?.scope || 'proofport:default';
+        const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
         const countryList = manual?.countryList || deep?.countryList;
         const isIncluded = manual?.isIncluded ?? deep?.isIncluded;
 
@@ -800,10 +809,27 @@ export const ProofGenerationScreen: React.FC = () => {
         );
       } else {
         const deep = proofRequest?.inputs as CoinbaseKycInputs | undefined;
-        const scopeStr = deep?.scope || 'proofport:default';
+        const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
 
+        // The circuit is named, not inferred. `canonical` is the id the user
+        // picked or the deep link asked for; the hook refuses it when the
+        // inputs cannot honour it, instead of quietly proving another circuit.
         await kycHook.generateProofWithSteps(
-          {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, scopeString: scopeStr},
+          {
+            circuit: canonical,
+            userAddress: walletAddress,
+            rawTransaction: txResult.rawTransaction,
+            signerIndex: 0,
+            scopeString: scopeStr,
+            // Present only for arc_eligibility. A dapp sends it through the
+            // SDK and it arrives in the deep link's inputs, already checked by
+            // validateProofRequest; the demo screen is the other way in. The
+            // hook refuses the mismatched combinations rather than choosing a
+            // circuit for us.
+            action:
+              route.params?.action ??
+              (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action,
+          },
           ethereum, addLog,
         );
       }

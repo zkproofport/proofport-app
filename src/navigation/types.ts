@@ -26,12 +26,26 @@ export type ProofStackParamList = {
   CountryInput: undefined;
   DomainInput: undefined;
   MdlKrInput: { variant: 'ownership' | 'age' | 'region' };
+  /**
+   * The EIP-712 action an arc_eligibility proof binds to. Collected by
+   * ArcActionInputScreen; in the shipped product a dapp supplies it through
+   * the SDK and this screen is never reached.
+   */
+  ArcActionInput: undefined;
   /** OACX widget WebView screen. provider = OacxProvider string, scope = scopeString. */
   OacxWebView: { provider: string; scope: string };
   ProofGeneration: {
     circuitId: string;
     proofRequest?: ProofRequest;
     countryInputs?: { countryList: string[]; isIncluded: boolean };
+    /**
+     * The EIP-712 action an arc_eligibility proof binds to. Present only for
+     * that circuit, from ArcActionInput or a deep link. The hook refuses
+     * arc_eligibility without one rather than proving another circuit.
+     */
+    action?: import('../utils/typedAction').TypedAction;
+    /** Scope override from an input screen. */
+    scope?: string;
     domainInput?: { domain?: string; scope: string; provider?: string };
     mdlKrInputs?: {
       variant: 'ownership' | 'age' | 'region';

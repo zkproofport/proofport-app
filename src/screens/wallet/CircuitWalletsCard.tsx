@@ -27,7 +27,7 @@ import {useTranslation} from 'react-i18next';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {Card} from '../../components/ui';
-import {useThemeColors} from '../../context';
+import {useThemeColors, useError} from '../../context';
 import {useWallet} from '../../hooks/useWallet';
 import {useSettings} from '../../hooks/useSettings';
 import {getCircuitDisplayName} from '../../utils/circuit';
@@ -37,17 +37,28 @@ import {
   getCircuitWalletEntry,
   setCircuitWallet,
 } from '../../stores';
-import {walletGroupKey} from '../../stores/circuitWalletStore';
-import type {CircuitName} from '../../config';
+import {
+  walletGroupKey,
+  WALLET_BINDING_ROWS,
+  circuitsInWalletGroup,
+} from '../../stores/circuitWalletStore';
+import {ALL_CIRCUIT_IDS, DEV_ONLY_CIRCUIT_IDS, type CircuitName} from '../../config';
 
 // Group representatives — one row per wallet-binding group. OIDC and Korea
-// mDL are wallet-less flows and are intentionally absent: they have wallet
-// groups only so the gate can be a no-op for them, and a row here would offer
-// to bind a wallet that is never read.
-const CIRCUITS: CircuitName[] = [
-  'coinbase_attestation',
-  'giwa_attestation',
-];
+/**
+ * The circuits that actually read a bound wallet.
+ *
+ * Derived from the SDK's record of which circuits need a wallet signature,
+ * because that is the same question: a circuit whose proof is built from a
+ * wallet signature needs a wallet bound, and one whose is not would offer a
+ * binding nothing ever reads. The Korea mDL flows and the OIDC domain proof
+ * fall out on their own — they have wallet groups only so the gate can be a
+ * no-op for them.
+ *
+ * This was two names typed out, `coinbase_attestation` and `giwa_attestation`,
+ * so `arc_eligibility` and the country proof had no row here at all and no
+ * wallet could be bound to them from this screen.
+ */
 
 // Module-level latch for the "I'm about to bind this circuit on the next
 // wallet pick" state. We keep this OUTSIDE component state because the
@@ -92,6 +103,7 @@ export const CircuitWalletsCard: React.FC = () => {
   const {colors: themeColors} = useThemeColors();
   const {t} = useTranslation();
   const {account, connect, disconnect} = useWallet();
+  const {showError} = useError();
   const {settings} = useSettings();
   const developerMode = settings?.developerMode ?? false;
   // GIWA is a dev-only / experimental network. Its wallet-binding row is
@@ -100,8 +112,8 @@ export const CircuitWalletsCard: React.FC = () => {
   const visibleCircuits = useMemo(
     () =>
       developerMode
-        ? CIRCUITS
-        : CIRCUITS.filter((c) => c !== 'giwa_attestation'),
+        ? WALLET_BINDING_ROWS
+        : WALLET_BINDING_ROWS.filter((c) => !DEV_ONLY_CIRCUIT_IDS.includes(c)),
     [developerMode],
   );
   const [entries, setEntries] = useState<Record<string, Entry | null>>({});
@@ -166,7 +178,7 @@ export const CircuitWalletsCard: React.FC = () => {
         // until either the bind completes or the user dismisses the picker
         // (in which case the user can re-tap and we'll overwrite busy).
       } catch (e) {
-        console.error('[CircuitWallets] connect error:', e);
+        showError('E4003', e instanceof Error ? e.message : String(e));
         setBusy(null);
         setPendingBindTarget(null);
       }
@@ -187,7 +199,9 @@ export const CircuitWalletsCard: React.FC = () => {
           try {
             await disconnect();
           } catch (e) {
-            console.error('[CircuitWallets] disconnect error:', e);
+            // Same reason as the global row: a console line is invisible, and
+            // the person is left looking at a button that did nothing.
+            showError('E4004', e instanceof Error ? e.message : String(e));
           }
         }
         await refresh();
@@ -208,7 +222,9 @@ export const CircuitWalletsCard: React.FC = () => {
         await disconnect();
         await refresh();
       } catch (e) {
-        console.error('[CircuitWallets] disconnect-only error:', e);
+        // Third place this was swallowed. A console line is invisible to the
+        // person holding the phone, and the row just sits there.
+        showError('E4004', e instanceof Error ? e.message : String(e));
       } finally {
         setBusy(null);
       }
@@ -239,9 +255,24 @@ export const CircuitWalletsCard: React.FC = () => {
         return (
           <View key={c} style={styles.row}>
             <View style={{flex: 1, paddingRight: 12}}>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4}}>
-                <Text style={[styles.label, {color: themeColors.text.primary}]}>
-                  {getCircuitDisplayName(c)}
+              {/*
+                * `flexWrap` and a shrinkable label, because a row now names
+                * every circuit in its wallet group — "Coinbase KYC · Coinbase
+                * Country · Arc Eligibility (Experimental)" wraps to two lines
+                * on a phone. Without these the label kept its natural width,
+                * pushed the status pill out of this column, and drew it on top
+                * of the buttons: "연결됨연결 해제" in one place.
+                */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                  marginBottom: 4,
+                }}>
+                <Text style={[styles.label, {color: themeColors.text.primary, flexShrink: 1}]}>
+                  {circuitsInWalletGroup(c).map(getCircuitDisplayName).join(' · ')}
                 </Text>
                 <StatusPill status={status} />
               </View>
@@ -368,7 +399,9 @@ const styles = StyleSheet.create({
   card: {marginBottom: 24},
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // Top, not centre: the left column is two or three lines now and centring
+    // floated the buttons into the middle of the text.
+    alignItems: 'flex-start',
     paddingVertical: 14,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.05)',

@@ -1,4 +1,4 @@
-import {useState, useCallback} from 'react';
+import {useState, useCallback, useEffect} from 'react';
 import {useAppKit, useAccount, useProvider} from '@reown/appkit-react-native';
 import {ethers} from 'ethers';
 
@@ -54,9 +54,55 @@ export const useWallet = (
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const chainId = accountChainId ? Number(accountChainId) : null;
-  const account = address || null;
-  const isWalletConnected = !!(isConnected && address);
+  /**
+   * The chain the wallet reports, as a number.
+   *
+   * AppKit types this `string | number`, and a CAIP form ("eip155:8453") turns
+   * into NaN through `Number()`. Taking the part after the colon first means a
+   * wallet on Arc reads as 5042002 rather than "Chain NaN".
+   */
+  const chainId = (() => {
+    if (accountChainId === undefined || accountChainId === null) return null;
+    const raw = String(accountChainId);
+    const n = Number(raw.includes(':') ? raw.slice(raw.lastIndexOf(':') + 1) : raw);
+    return Number.isFinite(n) ? n : null;
+  })();
+
+  /**
+   * The address, asked of the provider when the account state has none.
+   *
+   * The proof flow signs through `useProvider()` and the Wallet tab read
+   * `useAccount()`, so the app had two answers to "is a wallet connected".
+   * They disagreed: a person could produce a proof — the wallet prompted, the
+   * signature came back — while the Wallet tab showed nothing connected and
+   * offered no way to disconnect. Whatever can sign is what is connected, so
+   * the provider is asked when the account is empty rather than trusted to
+   * agree.
+   */
+  const [providerAddress, setProviderAddress] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!walletProvider || address) {
+      setProviderAddress(null);
+      return;
+    }
+    (async () => {
+      try {
+        const accounts = (await (
+          walletProvider as {request: (a: {method: string}) => Promise<unknown>}
+        ).request({method: 'eth_accounts'})) as string[] | undefined;
+        if (!cancelled) setProviderAddress(accounts?.[0] ?? null);
+      } catch {
+        if (!cancelled) setProviderAddress(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [walletProvider, address]);
+
+  const account = address || providerAddress || null;
+  const isWalletConnected = !!(account && (isConnected || walletProvider));
   // AppKit mounts synchronously; surface as "ready" immediately.
   const isReady = true;
   // Wallet connection itself is the authenticated state; there is no
@@ -99,21 +145,35 @@ export const useWallet = (
     }
   }, [address, log]);
 
+  /**
+   * Drop the session, and fail loudly when it does not drop.
+   *
+   * Three things made this look like a dead button:
+   *
+   *   - It was skipped entirely when `isConnected` was false, and reported
+   *     success — but a session the provider still holds is still a session.
+   *   - AppKit's `disconnect` returns `void`, not a promise, so `await` on it
+   *     resolved before anything had happened.
+   *   - Every failure was caught and written to a `setError` that no screen
+   *     renders, so a refusal and a success looked identical: nothing.
+   *
+   * Now it always asks, waits for the provider to actually let go, and throws
+   * when it does not — so the caller can show the person something.
+   */
   const disconnect = useCallback(async () => {
+    log('Disconnecting...');
+    setError(null);
     try {
-      log('Disconnecting...');
-      if (isConnected) {
-        await appKitDisconnect();
-        log('Wallet disconnected');
-      }
-      setError(null);
+      // No `isConnected` guard: that state is the one that was already wrong.
+      await appKitDisconnect();
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Disconnect failed';
-      log(`Disconnect error: ${errorMessage}`);
-      setError(errorMessage);
+      const message = err instanceof Error ? err.message : 'Disconnect failed';
+      log(`Disconnect error: ${message}`);
+      setError(message);
+      throw new Error(message);
     }
-  }, [isConnected, appKitDisconnect, log]);
+    log('Disconnect requested');
+  }, [appKitDisconnect, log]);
 
   const signMessage = useCallback(
     async (message: string): Promise<string> => {

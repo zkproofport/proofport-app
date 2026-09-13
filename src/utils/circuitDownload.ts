@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
-import {PLANNED_CIRCUIT_IDS} from '../config/circuitIds';
+import {DEV_ONLY_CIRCUIT_IDS} from '../config/circuitIds';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
@@ -167,12 +167,13 @@ async function getCircuitFileUrl(
 ): Promise<string> {
   const configPath = getCircuitFilePaths(circuitName);
   if (configPath) {
-    // Circuits the SDK still marks `planned` (GIWA + the three Korea mDL
-    // predicates) exist only on main, never in a release tag, so they are
-    // always fetched from main regardless of environment. Asking the SDK
-    // rather than listing the four names again is what stops a fifth circuit
-    // from being added to that group and forgotten here.
-    const baseUrl = PLANNED_CIRCUIT_IDS.includes(circuitName as CircuitName)
+    // Circuits that are not officially supported -- the experimental Arc one
+    // and the planned ones (GIWA, the three Korea mDL predicates) -- exist only
+    // on main, never in a release tag, so they are always fetched from main
+    // regardless of environment. Asking for the derived list rather than
+    // naming them is what stops the next circuit from being forgotten here;
+    // Arc was, for exactly as long as it sat in neither of two lists.
+    const baseUrl = DEV_ONLY_CIRCUIT_IDS.includes(circuitName as CircuitName)
       ? GITHUB_RAW('main')
       : await resolveCircuitBaseUrl(env);
     return buildFilePath(baseUrl, circuitName, extension, configPath);

@@ -9,6 +9,7 @@
  * This is NOT a permanent pin — purely a UX shortcut.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {ALL_CIRCUIT_IDS} from '../config/circuitIds';
 import type {CircuitName} from '../config/contracts';
 
 const STORAGE_KEY = '@proofport/circuit-wallets';
@@ -31,6 +32,8 @@ const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
  */
 const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
   coinbase_attestation: 'coinbase',
+  // Same Coinbase-attested wallet, so binding once covers both.
+  arc_eligibility: 'coinbase',
   coinbase_country_attestation: 'coinbase',
   giwa_attestation: 'giwa',
   oidc_domain_attestation: 'oidc',
@@ -42,8 +45,67 @@ const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
   mdl_kr_region: 'mdl_kr',
 };
 
+/**
+ * Whether a circuit's PROOF is built from a wallet signature.
+ *
+ * Not the same question as the relay's "does the request need a signature to
+ * authenticate the requester" — `giwa_attestation` answers no to that one and
+ * yes to this one, because its hook asks the wallet for a `personal_sign`
+ * while the relay accepts its request unsigned. Reusing the relay's answer
+ * here dropped GIWA's row from the Wallet tab entirely.
+ *
+ * `satisfies` so a circuit added to the SDK is a compile error until somebody
+ * decides, rather than silently having no wallet row.
+ */
+export const CIRCUIT_BINDS_A_WALLET = {
+  coinbase_attestation: true,
+  coinbase_country_attestation: true,
+  // Same Coinbase-attested wallet; it signs an EIP-712 action instead of a
+  // signal hash, which changes nothing about needing a wallet.
+  arc_eligibility: true,
+  // Its hook asks for a personal_sign, so a wallet has to be bound.
+  giwa_attestation: true,
+  // The signature is inside the OIDC identity token. No wallet is read.
+  oidc_domain_attestation: false,
+  // Web2 (OmniOne CX) flows with no wallet at all.
+  mdl_kr_ownership: false,
+  mdl_kr_age: false,
+  mdl_kr_region: false,
+} satisfies Record<CircuitName, boolean>;
+
 export function walletGroupKey(circuit: CircuitName): CircuitName {
   return (CIRCUIT_WALLET_GROUP[circuit] ?? circuit) as CircuitName;
+}
+
+/**
+ * One entry per WALLET BINDING — what the Wallet tab draws a row for.
+ *
+ * Lives here rather than in the screen because the grouping rule is here, and
+ * because a list computed inside a screen cannot be checked: a test that works
+ * the rows out for itself passes with the grouping torn back out.
+ *
+ * Coinbase KYC, Coinbase Country and Arc share one Coinbase-attested wallet,
+ * so they are one entry. Listing them separately showed one binding three
+ * times, and since all three read the same stored entry, connecting once made
+ * all three say Connected.
+ */
+export const WALLET_BINDING_ROWS: CircuitName[] = (() => {
+  const seen = new Set<string>();
+  return ALL_CIRCUIT_IDS.filter(c => {
+    if (!CIRCUIT_BINDS_A_WALLET[c]) return false;
+    const key = walletGroupKey(c);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+})();
+
+/** Every circuit one row stands for, so the row can name them all. */
+export function circuitsInWalletGroup(representative: CircuitName): CircuitName[] {
+  const key = walletGroupKey(representative);
+  return ALL_CIRCUIT_IDS.filter(
+    c => CIRCUIT_BINDS_A_WALLET[c] && walletGroupKey(c) === key,
+  );
 }
 
 async function readAll(): Promise<CircuitWalletMap> {

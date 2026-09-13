@@ -26,8 +26,19 @@ const openstoaWatchFolders = [
   path.join(openstoaPackagesRoot, 'mls'),
 ];
 
+// The customer SDK, when it is linked from the sibling checkout for
+// development (`npm run sdk:local`). The link points outside this project, and
+// Metro refuses to read a file outside every watch folder -- the bundle then
+// fails with "Unable to resolve module @zkproofport-app/sdk/circuits", while
+// `tsc` passes, because TypeScript follows the symlink and Metro does not.
+//
+// Listed unconditionally: when the SDK is the published package instead, this
+// path still exists as a sibling checkout and watching it costs a little file
+// watching and changes no resolution.
+const customerSdkRoot = path.resolve(__dirname, '../proofport-app-sdk');
+
 const config = {
-  watchFolders: openstoaWatchFolders,
+  watchFolders: [...openstoaWatchFolders, customerSdkRoot],
   transformer: {
     getTransformOptions: async () => ({
       transform: {

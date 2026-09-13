@@ -151,7 +151,18 @@ export interface UseMdlKrReturn {
     addLog: (msg: string) => void,
   ) => Promise<void>;
   verifyProofOffChain: (addLog: (msg: string) => void) => Promise<boolean>;
-  verifyProofOnChain: (addLog: (msg: string) => void) => Promise<boolean>;
+  /**
+   * Check a generated proof against its verifier contract.
+   *
+   * `circuit` is required, and checked against the variant this hook instance
+   * was created for. This hook already looked its circuit up correctly; the
+   * argument exists so every proof hook has ONE signature and the screen that
+   * calls them cannot pass the wrong thing to one of them.
+   */
+  verifyProofOnChain: (
+    circuit: CircuitName,
+    addLog: (msg: string) => void,
+  ) => Promise<boolean>;
   resetSteps: () => void;
   resetProofCache: () => void;
 }
@@ -531,7 +542,12 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
   );
 
   const verifyProofOnChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
+    async (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> => {
+      if (circuit !== (CIRCUIT_NAME as CircuitName)) {
+        throw new Error(
+          `This hook proves ${CIRCUIT_NAME}; it was asked to verify '${circuit}'.`,
+        );
+      }
       const useParsed = parsedProof || moduleCaches[variant].parsedProof;
       if (!useParsed) {
         addLog('Please generate proof first');
@@ -540,13 +556,13 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
       setIsLoading(true);
       setStatus('Verifying proof on-chain...');
       try {
-        const verifierAddress = await getVerifierAddress(CIRCUIT_NAME as CircuitName);
+        const verifierAddress = await getVerifierAddress(circuit);
         if (!verifierAddress) {
           addLog(`[OnChain] Verifier address empty — check FALLBACK_VERIFIERS.${CIRCUIT_NAME}`);
           setStatus('Verification unavailable');
           return false;
         }
-        const network = getNetworkConfigForCircuit(CIRCUIT_NAME as CircuitName);
+        const network = getNetworkConfigForCircuit(circuit);
         addLog(`[OnChain] Verifier: ${verifierAddress}`);
         addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);
 

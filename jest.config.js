@@ -10,4 +10,6 @@ module.exports = {
     '^.+\\.[jt]sx?$': 'babel-jest',
   },
   testMatch: ['**/__tests__/**/*.test.ts'],
+  // Defines `__DEV__`, which Metro injects and jest does not.
+  setupFiles: ['<rootDir>/jest.setup.js'],
 };

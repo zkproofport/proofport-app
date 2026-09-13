@@ -22,3 +22,8 @@ export * from './circuitDownload';
 export { getCircuitIcon, getCircuitDisplayName } from './circuit';
 export { prepareOidcInputs, flattenOidcInputs } from './oidcDomain';
 export type { OidcCircuitInputs, PrepareOidcParams } from './oidcDomain';
+export {checkAction, parseAction} from './typedAction';
+export type {TypedAction} from './typedAction';
+export {ensureWalletOnChain} from './walletChain';
+export {whatTheWalletSigns, recoverSignerPubkey} from './signedAction';
+export type {SignedThing} from './signedAction';

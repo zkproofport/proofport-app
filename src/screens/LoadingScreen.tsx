@@ -9,7 +9,7 @@ import {
   type DownloadProgress,
 } from '../utils/circuitDownload';
 import {getEnvironment, initDeployments} from '../config';
-import {PLANNED_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
+import {DEV_ONLY_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
 import {useThemeColors} from '../context';
 import {settingsStore} from '../stores';
 
@@ -35,7 +35,7 @@ import {settingsStore} from '../stores';
  * this is not the same condition as `__DEV__`.
  */
 const BASE_CIRCUITS: ReadonlyArray<string> = SUPPORTED_CIRCUIT_IDS;
-const DEV_ONLY_CIRCUITS: ReadonlyArray<string> = PLANNED_CIRCUIT_IDS;
+const DEV_ONLY_CIRCUITS: ReadonlyArray<string> = DEV_ONLY_CIRCUIT_IDS;
 const SPLASH_DURATION = 3000;
 const MAX_LOADING_DURATION = 5000;
 

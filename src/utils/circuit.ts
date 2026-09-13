@@ -18,6 +18,7 @@ import {canonicalCircuitId, type CircuitName} from '../config/circuitIds';
 
 const CIRCUIT_ICONS: Readonly<Record<CircuitName, string>> = {
   coinbase_attestation: 'user',
+  arc_eligibility: 'check-square',
   coinbase_country_attestation: 'globe',
   oidc_domain_attestation: 'shield',
   giwa_attestation: 'user',
@@ -28,6 +29,7 @@ const CIRCUIT_ICONS: Readonly<Record<CircuitName, string>> = {
 
 const CIRCUIT_DISPLAY_NAMES: Readonly<Record<CircuitName, string>> = {
   coinbase_attestation: 'Coinbase KYC',
+  arc_eligibility: 'Arc Eligibility (Experimental)',
   coinbase_country_attestation: 'Coinbase Country',
   oidc_domain_attestation: 'OIDC Domain',
   giwa_attestation: 'GIWA KYC (Experimental)',

@@ -19,7 +19,7 @@ import type {ProofStackParamList} from '../../navigation/types';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useLogs} from '../../hooks';
 import {useMdlKr} from '../../hooks/useMdlKr';
 import {proofHistoryStore} from '../../stores';
-import {getVerifierAddressSync, getNetworkConfig, getNetworkConfigForCircuit, canonicalCircuitId} from '../../config';
+import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, isCircuitId} from '../../config';
 import {findGiwaAttestationTransaction, getCircuitDisplayName} from '../../utils';
 
 type ProofCompleteRouteProp = RouteProp<ProofStackParamList, 'ProofComplete'>;
@@ -48,12 +48,16 @@ export const ProofCompleteScreen: React.FC = () => {
   // was removed on 2026-09-04. An empty id shows as unknown instead.
   const circuitId = params.circuitId ?? '';
   const timestamp = params.timestamp || Date.now().toString();
+  // Same rule as `circuitId` above: naming Coinbase's verifier and the
+  // build's chain for a proof of unknown origin is a false claim about the
+  // result. With a known circuit these follow it; without one there is
+  // nothing honest to show.
   const verification = params.verification || {
     offChain: null,
     onChain: null,
-    verifierContract: getVerifierAddressSync('coinbase_attestation'),
-    chainName: getNetworkConfig().name,
-    explorerUrl: getNetworkConfig().explorerUrl,
+    verifierContract: isCircuitId(circuitId) ? getVerifierAddressSync(circuitId) : '',
+    chainName: isCircuitId(circuitId) ? getNetworkConfigForCircuit(circuitId).name : '',
+    explorerUrl: isCircuitId(circuitId) ? getNetworkConfigForCircuit(circuitId).explorerUrl : '',
   };
   const walletAddress = params.walletAddress;
   const historyIdFromParams = params.historyId || null;
@@ -130,7 +134,16 @@ export const ProofCompleteScreen: React.FC = () => {
     setOnChainStatus('loading');
     console.log('[History] Updating on-chain status with ID:', historyIdFromParams);
     try {
-      const result = await verifyProofOnChain(addLog);
+      // The circuit this screen is reporting on. Without it the check used to
+      // look up the Coinbase verifier on the build's default chain, so an Arc
+      // proof was tested against another contract on another chain and read
+      // "failed" while being valid.
+      if (!isCircuitId(circuitId)) {
+        addLog(`Cannot verify on-chain: this screen was not told which circuit produced the proof (got '${circuitId}')`);
+        setOnChainStatus('failed');
+        return;
+      }
+      const result = await verifyProofOnChain(circuitId, addLog);
       const newStatus = result ? 'verified' : 'failed';
       setOnChainStatus(newStatus);
       if (historyIdFromParams) {

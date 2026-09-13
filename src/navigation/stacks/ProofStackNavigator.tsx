@@ -8,6 +8,7 @@ import {
   CountryInputScreen,
   DomainInputScreen,
   MdlKrInputScreen,
+  ArcActionInputScreen,
   ProofGenerationScreen,
   ProofCompleteScreen,
 } from '../../screens/proof';
@@ -38,6 +39,11 @@ const ProofStackNavigator: React.FC = () => {
         name="DomainInput"
         component={DomainInputScreen}
         options={{ title: t('host.proof.domain.stackTitle') }}
+      />
+      <Stack.Screen
+        name="ArcActionInput"
+        component={ArcActionInputScreen}
+        options={{title: 'Arc Eligibility'}}
       />
       <Stack.Screen
         name="MdlKrInput"

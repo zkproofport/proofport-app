@@ -1,0 +1,83 @@
+1. RECORDING
+Attached: physical iPhone, latest iOS, from app launch. All three proofs are
+generated end to end, then the Wallet, History and More tabs.
+
+None of the three items you listed apply - see below.
+
+2. PURPOSE AND AUDIENCE
+ZKProofport proves a fact about its user without disclosing the data behind it.
+
+The normal flow: a dapp asks for a proof through our SDK; the request opens
+this app; the proof is generated ON THE DEVICE; the finished proof returns to
+the dapp through our relay, and the dapp verifies it on-chain against a
+verifier contract, or off-chain. Nothing else leaves the phone. The
+Verify tab also makes any proof with no dapp, which is what the recording
+shows.
+
+- Coinbase KYC: the user passed Coinbase's identity check
+- Coinbase Country: their country of residence is, or is not, in a given list
+- OIDC Domain: they hold an email address at a given domain, without revealing
+  the address
+
+For services needing an assurance about someone, and people who would rather
+prove it than hand over documents. A proof takes 30-60 seconds; there is no
+proof server.
+
+3. HOW TO TEST
+No accounts exist, so there are no credentials to issue.
+
+OIDC Domain needs no wallet and no company account - an ordinary personal
+Google account does it:
+  1. Verify screen: Network picker from "Base" to "Other"
+  2. Choose "OIDC Domain"
+  3. Leave "Domain to prove" empty, leave Scope as it comes
+  4. Verification mode: "Any Email" - the one that takes an ordinary Google
+     account; the other two want an organization account
+  5. "Sign in with Google"
+  6. The proof builds on the device; a progress list names each step
+
+The two Coinbase entries (Network = "Base") read an attestation Coinbase issues
+on Base, so only a wallet already holding one can complete them - they may not
+be completable for you. Both are demonstrated in the recording.
+
+4. EXTERNAL SERVICES
+- Reown AppKit over WalletConnect: the only wallet mechanism. No embedded
+  wallet, no custody; keys never leave the user's own wallet.
+- Base, read-only, via public RPC endpoints (mainnet.base.org and three other
+  public providers) and the attestation index base.easscan.org: reads what
+  Coinbase published. No transaction is sent.
+- Google (accounts.google.com), Microsoft Entra
+  (login.microsoftonline.com/organizations): identity token for OIDC Domain.
+- GitHub, read-only (raw.githubusercontent.com/zkproofport/circuits): the
+  public proving circuits and keys, checksummed before use.
+- relay.zkproofport.app: carries a finished proof back to the dapp that asked
+  for it. Not involved when a user proves something on their own.
+
+No analytics, crash-reporting or advertising SDK, and no AI service.
+
+5. REGIONAL DIFFERENCES
+None. Identical in every region; nothing is gated by country or storefront. The
+only variation is interface language, chosen by the user.
+
+6. REGULATED INDUSTRY AND THIRD-PARTY MATERIAL
+We perform no identity verification and are not a financial service. The
+Coinbase proofs read what Coinbase already
+published on Base, a public network, needing no agreement with them. Google and
+Microsoft authenticate through their own sign-in. No protected third-party
+material.
+
+7. NO ACCOUNTS, NO USER CONTENT, NO PURCHASES
+No registration, password or profile exists. Connecting an external wallet is
+the authenticated state; signing in with Google is Google's own sign-in against
+an account the user already holds, so we never see a password and create
+nothing. No account can be created, so there is no deletion flow.
+
+What the user can delete is what the app stored on the phone: History > Clear
+All for the proof records, More > Clear Local Data for the rest, and More >
+Export Proof History hands it back first. Shown in the recording.
+
+No posts, comments, messages or profiles - nothing one user does is visible to
+another, so there is nothing to report or block. Nothing costs money.
+
+PRIVACY POLICY
+https://github.com/zkproofport/proofport-app/blob/main/docs/legal/privacy-policy.md

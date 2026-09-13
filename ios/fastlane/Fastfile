@@ -15,6 +15,39 @@ def credential(name)
 end
 
 platform :ios do
+
+  # ─── Keep fastlane's signing rewrite off the simulator ────────────────────
+  #
+  # `update_code_signing_settings(use_automatic_signing: false, ...)` writes
+  # CODE_SIGN_STYLE, CODE_SIGN_IDENTITY and PROVISIONING_PROFILE_SPECIFIER into
+  # EVERY build configuration, with no SDK condition. Device builds need that.
+  # Simulator builds do not have a provisioning profile, so the manual settings
+  # leave them ad-hoc signed with NO entitlements at all -- and the app's
+  # keychain-access-groups never reaches the binary.
+  #
+  # What that costs: Google Sign-In fails on the simulator with
+  # `keychain error (code=-2)`, and the hook's recovery re-opens the sign-in
+  # sheet, so a person completes the Google flow twice and still gets an error.
+  # It arrived unannounced with the first match setup on 2026-08-22 and took a
+  # night to find on 2026-09-12, because the app reported every sign-in failure
+  # as "cancelled".
+  #
+  # So after each rewrite, re-scope the three keys to iphoneos. Device signing
+  # is unchanged; the simulator goes back to Xcode's own handling.
+  def scope_signing_to_device(path)
+    text = File.read(path)
+    {
+      'CODE_SIGN_IDENTITY' => nil,
+      'CODE_SIGN_STYLE' => nil,
+      'PROVISIONING_PROFILE_SPECIFIER' => nil,
+    }.each_key do |key|
+      text = text.gsub(/^(\s*)#{key} = /) { "#{$1}\"#{key}[sdk=iphoneos*]\" = " }
+    end
+    File.write(path, text)
+    UI.message("Scoped signing settings to iphoneos so simulator builds keep their entitlements")
+  end
+
+
   desc "Build IPA for local install or TestFlight"
   lane :beta do |options|
     env = options[:env] || "production"
@@ -68,6 +101,7 @@ platform :ios do
           code_sign_identity: "Apple Development",
         )
       end
+      scope_signing_to_device("ProofportApp.xcodeproj/project.pbxproj")
     end
 
     if ENV['CI'] && api_key
@@ -102,6 +136,7 @@ platform :ios do
         profile_name: "match AppStore com.masselabs.zkproofport.OpenStoaNSE",
         code_sign_identity: "iPhone Distribution",
       )
+      scope_signing_to_device("ProofportApp.xcodeproj/project.pbxproj")
     end
 
     if api_key
@@ -339,6 +374,7 @@ platform :ios do
           code_sign_identity: "Apple Development",
         )
       end
+      scope_signing_to_device("ProofportApp.xcodeproj/project.pbxproj")
     end
 
     build_app(

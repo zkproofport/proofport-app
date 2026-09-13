@@ -56,7 +56,9 @@
       "versionSupport": "버전, 지원",
       "openStoaEnabled": "OpenStoa 미니앱",
       "openStoaEnabledHint": "이 빌드의 설정을 덮어씁니다. 앱을 다시 시작하면 적용됩니다.",
-      "openStoaRestartRequired": "앱을 다시 시작하면 적용됩니다."
+      "openStoaRestartRequired": "앱을 다시 시작하면 적용됩니다.",
+      "networkArc": "Arc 테스트넷",
+      "networkOther": "기타"
     },
     "about": {
       "tagline": "개인정보 보호 최우선 영지식 증명 생성",
@@ -179,8 +181,7 @@
         "network": {
           "label": "네트워크",
           "base": "Base",
-          "giwa": "기와 테스트넷",
-          "other": "기타"
+          "giwa": "기와 테스트넷"
         },
         "coinbaseKyc": {
           "title": "Coinbase KYC 인증",
@@ -213,6 +214,10 @@
         "mdlKrRegion": {
           "title": "지역",
           "description": "거주 지역을 증명해요 (완전 익명)"
+        },
+        "arcEligibility": {
+          "title": "Arc 자격 증명",
+          "description": "자격을 증명하면서 Arc 에서 할 행위 하나를 승인해요"
         }
       },
       "mdlKrInput": {
@@ -321,7 +326,9 @@
         "confirmMessage": "영지식 증명을 생성할까요?",
         "confirmCancel": "취소",
         "confirmGenerate": "생성",
-        "stackTitle": "증명 생성"
+        "stackTitle": "증명 생성",
+        "arcEligibilityTitle": "Arc 자격 증명 (실험)",
+        "arcEligibilityDescription": "Arc 서비스 이용 자격을 증명하고 행위 하나를 승인해요. 서명하기 전에 지갑이 그 내용을 보여주고, 증명은 그 행위에만 쓰입니다."
       },
       "domain": {
         "heroLabel": "OIDC 도메인 인증",
@@ -362,7 +369,55 @@
         "dismiss": "확인"
       },
       "txTitle": "트랜잭션",
-      "explorerTitle": "탐색기"
+      "explorerTitle": "탐색기",
+      "arcAction": {
+        "heroLabel": "ARC",
+        "title": "액션을 승인했음을 증명",
+        "description": "아크 자격 증명은 지갑이 서명한 액션 하나에만 묶입니다. 실제로는 댑이 SDK 로 액션을 보내고, 이 화면은 흐름을 직접 해보라고 미리 채워둔 것입니다 — 무엇이든 고쳐도 됩니다.",
+        "actionLabel": "액션",
+        "deposit": "예치",
+        "depositDesc": "컨트랙트에 금액을 넣습니다.",
+        "withdraw": "출금",
+        "withdrawDesc": "컨트랙트에서 금액을 다시 빼냅니다.",
+        "transfer": "전송",
+        "transferDesc": "다른 주소로 금액을 보냅니다.",
+        "custom": "직접 입력",
+        "customDesc": "목록에 없는 액션을 만듭니다. 이름을 짓고 필드를 추가하세요.",
+        "contractLabel": "컨트랙트",
+        "appNamePlaceholder": "앱 이름 (예: MyVault)",
+        "contractHint": "{{chain}} (체인 {{chainId}}) 에서 이 액션을 확인할 컨트랙트입니다. 서명할 때 이 주소로 호출하는 것은 없어서, 아래의 0 주소로도 데모는 됩니다.",
+        "valuesLabel": "값",
+        "summaryLabel": "증명되는 내용",
+        "summary": "{{app}} 의 \"{{action}}\" 을(를) 내 지갑이 승인했다는 사실 — 어느 지갑인지는 밝히지 않고.",
+        "generate": "증명 생성",
+        "field": {
+          "to": "받는 주소",
+          "amount": "금액",
+          "nonce": "논스"
+        },
+        "errAppName": "앱 이름을 입력하세요.",
+        "errContract": "컨트랙트 주소는 0x 뒤에 16진수 40자리여야 합니다.",
+        "errRequired": "{{field}} 을(를) 입력하세요.",
+        "errAddress": "{{field}} 은(는) 0x 뒤에 16진수 40자리여야 합니다.",
+        "errNumber": "{{field}} 은(는) 정수여야 합니다.",
+        "appNameLabel": "앱 이름",
+        "appNameHint": "지갑이 서명을 요청할 때 이 이름이 보입니다.",
+        "contractAddressLabel": "컨트랙트 주소",
+        "customLabel": "직접 입력",
+        "actionNameLabel": "액션 이름",
+        "fieldNumber": "필드 {{number}}",
+        "fieldNamePlaceholder": "이름",
+        "fieldTypeLabel": "타입",
+        "fieldValuePlaceholder": "값",
+        "addField": "필드 추가",
+        "removeField": "필드 {{number}} 삭제",
+        "errActionName": "액션 이름은 영문자로 시작하고 영문자·숫자·밑줄만 쓸 수 있습니다.",
+        "errNoFields": "필드가 하나 이상 있어야 합니다.",
+        "errFieldName": "필드 이름 '{{field}}' 은 영문자로 시작하고 영문자·숫자·밑줄만 쓸 수 있습니다.",
+        "errFieldTwice": "필드 '{{field}}' 이 두 번 있습니다.",
+        "errBool": "{{field}} 은 true 또는 false 여야 합니다.",
+        "errBytes32": "{{field}} 은 0x 뒤에 16진수 64자여야 합니다."
+      }
     },
     "proofRequest": {
       "title": "증명 요청",
@@ -507,6 +562,10 @@
       "E3005": {
         "title": "증명 파일을 받지 못했습니다",
         "description": "증명에 필요한 파일을 내려받지 못했습니다. 네트워크가 돌아오면 앱을 다시 열어 주세요."
+      },
+      "E4004": {
+        "title": "연결 해제에 실패했습니다",
+        "description": "지갑이 세션을 놓지 않았습니다. 지갑 앱 안에서 연결을 끊으면 대개 정리됩니다."
       }
     }
   },

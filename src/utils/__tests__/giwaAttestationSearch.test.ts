@@ -13,6 +13,11 @@
  * Sepolia to be up is a test that goes red for reasons that are not defects.
  */
 
+// The chain comes from the per-circuit, per-environment table now, and
+// picking the environment reads a native build setting. Stubbed the way the
+// sibling deep-link tests stub it.
+jest.mock('react-native', () => ({NativeModules: {}}));
+
 const EAS_CONTRACT = '0x4200000000000000000000000000000000000021';
 const ATTESTED_TOPIC =
   '0x8bf46bf4cfd674fa735a3d63ec1c9ad4153f033c290341f3a588b75685141b35';

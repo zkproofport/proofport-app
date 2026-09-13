@@ -535,7 +535,7 @@ rustc --version
 cargo --version
 
 # Rebuild mopro from project root
-cd /Users/nhn/Workspace/proofport-app-dev
+cd <repo>
 ./scripts/mopro_build.sh
 ```
 

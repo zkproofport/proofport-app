@@ -4,3 +4,4 @@ export {DomainInputScreen} from './DomainInputScreen';
 export {MdlKrInputScreen} from './MdlKrInputScreen';
 export {ProofGenerationScreen} from './ProofGenerationScreen';
 export {ProofCompleteScreen} from './ProofCompleteScreen';
+export {ArcActionInputScreen} from './ArcActionInputScreen';

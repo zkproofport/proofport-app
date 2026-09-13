@@ -1,4 +1,5 @@
 import {useState, useCallback} from 'react';
+import {signedIn, signInFailed, type SignInResult} from './signInResult';
 import {Platform} from 'react-native';
 import {
   GoogleSignin,
@@ -27,7 +28,7 @@ export interface UseGoogleAuthReturn {
   idToken: string | null;
   isReady: boolean;
   error: string | null;
-  promptSignIn: () => Promise<string | null>;
+  promptSignIn: () => Promise<SignInResult>;
   reset: () => void;
 }
 
@@ -35,7 +36,7 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const promptSignIn = useCallback(async (): Promise<string | null> => {
+  const promptSignIn = useCallback(async (): Promise<SignInResult> => {
     setError(null);
     setIdToken(null);
 
@@ -57,9 +58,9 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
       const token = await attempt();
       if (token) {
         setIdToken(token);
-        return token;
+        return signedIn(token);
       }
-      return null;
+      return signInFailed('Google Sign-In returned no token and no error.');
     } catch (e: unknown) {
       const err = e as {code?: string; message?: string};
       console.log('[GoogleAuth] signIn error (attempt 1)', {code: err.code, message: err.message});
@@ -79,31 +80,29 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
           const token = await attempt();
           if (token) {
             setIdToken(token);
-            return token;
+            return signedIn(token);
           }
         } catch (e2: unknown) {
           const err2 = e2 as {code?: string; message?: string};
           console.log('[GoogleAuth] signIn error (attempt 2)', {code: err2.code, message: err2.message});
-          setError(
+          const message =
             `Google Sign-In keychain error persisted after retry (code=${err2.code ?? 'unknown'}, msg=${err2.message ?? 'none'}). ` +
-              `This typically requires rebuilding the app with a valid keychain-access-groups entitlement.`,
-          );
-          return null;
+            'This typically requires rebuilding the app with a valid keychain-access-groups entitlement.';
+          setError(message);
+          return signInFailed(message, err2.code === statusCodes.SIGN_IN_CANCELLED);
         }
       }
 
-      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
-        setError(`Google sign-in was cancelled (code=${err.code}, msg=${err.message ?? 'none'})`);
-      } else if (err.code === statusCodes.IN_PROGRESS) {
-        setError('Google sign-in already in progress');
-      } else if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        setError('Google Play Services not available');
-      } else {
-        const msg = err.message || String(e);
-        setError(`${msg} (code=${err.code ?? 'unknown'})`);
-      }
-
-      return null;
+      const cancelled = err.code === statusCodes.SIGN_IN_CANCELLED;
+      const message = cancelled
+        ? `Google sign-in was cancelled (code=${err.code}, msg=${err.message ?? 'none'})`
+        : err.code === statusCodes.IN_PROGRESS
+          ? 'Google sign-in already in progress'
+          : err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE
+            ? 'Google Play Services not available'
+            : `${err.message || String(e)} (code=${err.code ?? 'unknown'})`;
+      setError(message);
+      return signInFailed(message, cancelled);
     }
   }, []);
 

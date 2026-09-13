@@ -56,7 +56,9 @@
       "versionSupport": "Version, Support",
       "openStoaEnabled": "OpenStoa mini-app",
       "openStoaEnabledHint": "Overrides what this build shipped with. Applies on the next launch.",
-      "openStoaRestartRequired": "Restart the app to apply this change."
+      "openStoaRestartRequired": "Restart the app to apply this change.",
+      "networkArc": "Arc Testnet",
+      "networkOther": "Other"
     },
     "about": {
       "tagline": "Privacy-first zero-knowledge proof generation",
@@ -179,8 +181,7 @@
         "network": {
           "label": "Network",
           "base": "Base",
-          "giwa": "GIWA Testnet",
-          "other": "Other"
+          "giwa": "GIWA Testnet"
         },
         "coinbaseKyc": {
           "title": "Coinbase KYC Verification",
@@ -213,6 +214,10 @@
         "mdlKrRegion": {
           "title": "Region",
           "description": "Prove your residence region via Korea mobile ID — fully anonymous"
+        },
+        "arcEligibility": {
+          "title": "Arc Eligibility",
+          "description": "Prove you are eligible and authorize one action on Arc"
         }
       },
       "mdlKrInput": {
@@ -321,7 +326,9 @@
         "confirmMessage": "This will generate a zero-knowledge proof. Proceed?",
         "confirmCancel": "Cancel",
         "confirmGenerate": "Generate",
-        "stackTitle": "Generate Proof"
+        "stackTitle": "Generate Proof",
+        "arcEligibilityTitle": "Arc Eligibility (Experimental)",
+        "arcEligibilityDescription": "Prove you are eligible for an Arc service and authorize one action. Your wallet shows the action before you sign, and the proof works only for that action."
       },
       "domain": {
         "heroLabel": "OIDC DOMAIN VERIFICATION",
@@ -362,7 +369,55 @@
         "dismiss": "Got it"
       },
       "txTitle": "Transaction",
-      "explorerTitle": "Explorer"
+      "explorerTitle": "Explorer",
+      "arcAction": {
+        "heroLabel": "ARC",
+        "title": "Prove you authorised an action",
+        "description": "An Arc eligibility proof binds to exactly one action your wallet signs. A dapp sends the action through the SDK; here it is filled in already so you can try the flow — change anything you like.",
+        "actionLabel": "Action",
+        "deposit": "Deposit",
+        "depositDesc": "Put an amount into the contract.",
+        "withdraw": "Withdraw",
+        "withdrawDesc": "Take an amount back out of the contract.",
+        "transfer": "Transfer",
+        "transferDesc": "Send an amount to another address.",
+        "custom": "Write your own",
+        "customDesc": "For an action not listed here. Name it and add its fields.",
+        "contractLabel": "Contract",
+        "appNamePlaceholder": "App name, e.g. MyVault",
+        "contractHint": "The contract that would check this action on {{chain}} (chain {{chainId}}). Nothing is called at signing time, so the all-zero address below is fine for a demo.",
+        "valuesLabel": "Values",
+        "summaryLabel": "What gets proved",
+        "summary": "That your wallet authorised a \"{{action}}\" on {{app}} — without revealing which wallet.",
+        "generate": "Generate proof",
+        "field": {
+          "to": "Recipient address",
+          "amount": "Amount",
+          "nonce": "Nonce"
+        },
+        "errAppName": "Enter the app name.",
+        "errContract": "The contract address must be 0x followed by 40 hex characters.",
+        "errRequired": "Enter {{field}}.",
+        "errAddress": "{{field}} must be 0x followed by 40 hex characters.",
+        "errNumber": "{{field}} must be a whole number.",
+        "appNameLabel": "App name",
+        "appNameHint": "Shown in your wallet when it asks you to sign.",
+        "contractAddressLabel": "Contract address",
+        "customLabel": "Your own action",
+        "actionNameLabel": "Action name",
+        "fieldNumber": "Field {{number}}",
+        "fieldNamePlaceholder": "name",
+        "fieldTypeLabel": "Type",
+        "fieldValuePlaceholder": "value",
+        "addField": "Add a field",
+        "removeField": "Remove field {{number}}",
+        "errActionName": "The action name must start with a letter and use only letters, digits and underscores.",
+        "errNoFields": "An action needs at least one field.",
+        "errFieldName": "Field name '{{field}}' must start with a letter and use only letters, digits and underscores.",
+        "errFieldTwice": "Field '{{field}}' is listed twice.",
+        "errBool": "{{field}} must be true or false.",
+        "errBytes32": "{{field}} must be 0x followed by 64 hex characters."
+      }
     },
     "proofRequest": {
       "title": "Proof Request",
@@ -507,6 +562,10 @@
       "E3005": {
         "title": "Circuit Files Missing",
         "description": "The proof files could not be downloaded. Reopen the app once you are back online."
+      },
+      "E4004": {
+        "title": "Disconnect Failed",
+        "description": "The wallet did not let go of the session. Disconnecting from inside the wallet app usually clears it."
       }
     }
   },

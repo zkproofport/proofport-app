@@ -8,19 +8,16 @@
  */
 import {ethers} from 'ethers';
 import type {AttestationInfo} from './attestationSearch';
-import {CIRCUIT_NETWORK_OVERRIDES} from '../config/contracts';
+import {getNetworkConfigForCircuit} from '../config/environment';
 
-// Single source of truth for the GIWA Sepolia endpoints — same struct
-// the proof-generation pipeline uses (CIRCUIT_NETWORK_OVERRIDES). Add a
-// future GIWA network by editing that map only.
-const GIWA_NET = CIRCUIT_NETWORK_OVERRIDES.giwa_attestation;
-if (!GIWA_NET) {
-  throw new Error('CIRCUIT_NETWORK_OVERRIDES.giwa_attestation missing — required for attestation search');
-}
+// Single source of truth for the GIWA endpoints — the same lookup the
+// proof-generation pipeline uses. Asked per circuit AND per environment,
+// because a chain is a property of the circuit, not of the build.
+const GIWA_NET = getNetworkConfigForCircuit('giwa_attestation');
 const GIWA_RPC = GIWA_NET.rpcUrl;
 const GIWA_EXPLORER = GIWA_NET.explorerUrl;
 if (!GIWA_EXPLORER) {
-  throw new Error('CIRCUIT_NETWORK_OVERRIDES.giwa_attestation.explorerUrl missing — the attestation search reads its log index');
+  throw new Error('CIRCUIT_NETWORKS.giwa_attestation.explorerUrl missing — the attestation search reads its log index');
 }
 
 // EAS predeploy + Attested event topic

@@ -12,7 +12,8 @@ import {
   arrayBufferToHex,
   prepareCircuitInputs,
   verifyAttestationTx,
-  recoverPublicKey,
+  whatTheWalletSigns,
+  recoverSignerPubkey,
   AUTHORIZED_SIGNERS,
   clearProofCache,
   ensureStorageAvailable,
@@ -20,7 +21,7 @@ import {
   downloadCircuitFiles,
   allCircuitFilesExist,
 } from '../utils';
-import {getVerifierAddress, getVerifierAbi, getNetworkConfig, getEnvironment} from '../config';
+import {getVerifierAddress, getVerifierAbi, getNetworkConfigForCircuit, getEnvironment, type CircuitName} from '../config';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -71,7 +72,19 @@ export interface UseCoinbaseCountryReturn {
     addLog: (msg: string) => void,
   ) => Promise<void>;
   verifyProofOffChain: (addLog: (msg: string) => void) => Promise<boolean>;
-  verifyProofOnChain: (addLog: (msg: string) => void) => Promise<boolean>;
+  /**
+   * Check a generated proof against its verifier contract.
+   *
+   * `circuit` is required and is checked against what this hook proves. Every
+   * hook took only a logger and looked up its own circuit on the BUILD's
+   * default network, which is wrong the moment a circuit is pinned elsewhere —
+   * an `arc_eligibility` proof was tested against the Coinbase contract on
+   * Base Sepolia and reported "failed" while being valid.
+   */
+  verifyProofOnChain: (
+    circuit: CircuitName,
+    addLog: (msg: string) => void,
+  ) => Promise<boolean>;
   validateTransaction: (
     rawTx: string,
     userAddress: string,
@@ -328,7 +341,10 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         addLog('Step 6: Recovering public key from signature...');
         addLog('[PubKey] Recovering secp256k1 public key from signature...');
 
-        userPubkey = recoverPublicKey(messageHex, userSignature);
+        // Through the one place that decides what was signed. This circuit
+        // has no typed action, so it is personal_sign over the signal hash --
+        // said once, in src/utils/signedAction.ts, rather than assumed here.
+        userPubkey = recoverSignerPubkey(whatTheWalletSigns(messageHex), userSignature);
 
         addLog(`[PubKey] Public key: ${userPubkey.slice(0, 40)}...`);
         addLog(`[PubKey] Key length: ${userPubkey.length} chars`);
@@ -567,7 +583,12 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
   );
 
   const verifyProofOnChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
+    async (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> => {
+      if (circuit !== 'coinbase_country_attestation') {
+        throw new Error(
+          `This hook proves coinbase_country_attestation; it was asked to verify '${circuit}'.`,
+        );
+      }
       const useParsedProof = parsedProof || _cachedParsedProof;
 
       if (!useParsedProof) {
@@ -581,7 +602,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
 
       try {
         addLog('[OnChain] Loading network configuration...');
-        const verifierAddress = await getVerifierAddress('coinbase_country_attestation');
+        const verifierAddress = await getVerifierAddress(circuit);
 
         if (!verifierAddress) {
           addLog('[OnChain] ERROR: Verifier address is empty - check environment config');
@@ -590,7 +611,8 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
           return false;
         }
 
-        const network = getNetworkConfig();
+        // The circuit's own chain, not the build's.
+        const network = getNetworkConfigForCircuit(circuit);
 
         addLog('[OnChain] Starting on-chain verification...');
         addLog(`[OnChain] Contract: ${verifierAddress}`);

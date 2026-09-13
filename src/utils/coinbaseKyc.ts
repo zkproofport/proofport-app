@@ -7,6 +7,8 @@
  */
 import {ethers} from 'ethers';
 import {getAttestationConfig} from '../config';
+// Straight from the module that holds it, not the `src/config` barrel: the
+// barrel also pulls in the wallet-connection setup, which jest cannot parse.
 import {
   AttesterCircuitInputs,
   SimpleMerkleTree,
@@ -78,6 +80,18 @@ export function prepareCircuitInputs(
   rawTransaction: string,
   coinbaseSignerIndex: number,
   scopeString: string,
+  /**
+   * The two EIP-712 hashes, for `arc_eligibility` only.
+   *
+   * They are PUBLIC INPUTS of that circuit, so a vector built without them is
+   * not a shorter one — it is a different circuit's, and the prover says only
+   * `MoproError.NoirError`.
+   *
+   * Taken already-computed rather than derived from the action here, so the
+   * hashes in the proof are the SAME values the wallet signed over and the
+   * recovery used. Computing them again in a third place is how they drift.
+   */
+  publicHashes?: {domainSeparator: string; actionHash: string},
 ): AttesterCircuitInputs {
   const merkleTree = new SimpleMerkleTree(AUTHORIZED_SIGNERS);
   const merkleRoot = merkleTree.getRoot();
@@ -109,8 +123,18 @@ export function prepareCircuitInputs(
   const scopeBytes = computeScope(scopeString);
   const nullifierBytes = computeNullifier(userAddress, signalHash, scopeBytes);
 
+  // The same two values the verifying contract recomputes from the call it is
+  // about to run, and the same two the wallet signed over.
+  const arcHashes = publicHashes
+    ? {
+        domain_separator: bytesToNoirInput(hexToByteArray(publicHashes.domainSeparator)),
+        action_hash: bytesToNoirInput(hexToByteArray(publicHashes.actionHash)),
+      }
+    : {};
+
   return {
     signal_hash: bytesToNoirInput(Array.from(signalHash)),
+    ...arcHashes,
     signer_list_merkle_root: bytesToNoirInput(hexToByteArray(merkleRoot)),
     scope: bytesToNoirInput(Array.from(scopeBytes)),
     nullifier: bytesToNoirInput(Array.from(nullifierBytes)),

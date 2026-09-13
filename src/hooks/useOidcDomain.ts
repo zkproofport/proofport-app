@@ -15,7 +15,7 @@ import {
   downloadCircuitFiles,
   allCircuitFilesExist,
 } from '../utils';
-import {getEnvironment, getVerifierAddress, getVerifierAbi, getNetworkConfig} from '../config';
+import {getEnvironment, getVerifierAddress, getVerifierAbi, getNetworkConfigForCircuit, type CircuitName} from '../config';
 import {ethers} from 'ethers';
 import {prepareOidcInputs, flattenOidcInputs} from '../utils/oidcDomain';
 import type {ProofStatus} from '../types';
@@ -58,7 +58,19 @@ export interface UseOidcDomainReturn {
     addLog: (msg: string) => void,
   ) => Promise<void>;
   verifyProofOffChain: (addLog: (msg: string) => void) => Promise<boolean>;
-  verifyProofOnChain: (addLog: (msg: string) => void) => Promise<boolean>;
+  /**
+   * Check a generated proof against its verifier contract.
+   *
+   * `circuit` is required and is checked against what this hook proves. Every
+   * hook took only a logger and looked up its own circuit on the BUILD's
+   * default network, which is wrong the moment a circuit is pinned elsewhere —
+   * an `arc_eligibility` proof was tested against the Coinbase contract on
+   * Base Sepolia and reported "failed" while being valid.
+   */
+  verifyProofOnChain: (
+    circuit: CircuitName,
+    addLog: (msg: string) => void,
+  ) => Promise<boolean>;
   resetSteps: () => void;
   resetProofCache: () => void;
 }
@@ -470,7 +482,12 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
    * Verify proof on-chain using the deployed Verifier contract
    */
   const verifyProofOnChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
+    async (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> => {
+      if (circuit !== 'oidc_domain_attestation') {
+        throw new Error(
+          `This hook proves oidc_domain_attestation; it was asked to verify '${circuit}'.`,
+        );
+      }
       const useParsedProof = parsedProof || _cachedParsedProof;
 
       if (!useParsedProof) {
@@ -483,7 +500,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
       addLog('=== Starting On-Chain Verification ===');
 
       try {
-        const verifierAddress = await getVerifierAddress('oidc_domain_attestation');
+        const verifierAddress = await getVerifierAddress(circuit);
 
         if (!verifierAddress) {
           addLog('[OnChain] ERROR: Verifier address is empty');
@@ -491,7 +508,8 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           return false;
         }
 
-        const network = getNetworkConfig();
+        // The circuit's own chain, not the build's.
+        const network = getNetworkConfigForCircuit(circuit);
         addLog(`[OnChain] Contract: ${verifierAddress}`);
         addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);
 

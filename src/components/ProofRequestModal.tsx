@@ -50,6 +50,11 @@ const CIRCUIT_INFO: Record<
     nameKey: 'host.proof.circuitSelection.coinbaseKyc.title',
     descriptionKey: 'host.proof.circuitSelection.coinbaseKyc.description',
   },
+  arc_eligibility: {
+    icon: '🏦',
+    nameKey: 'host.proof.circuitSelection.arcEligibility.title',
+    descriptionKey: 'host.proof.circuitSelection.arcEligibility.description',
+  },
   coinbase_country_attestation: {
     icon: '🌍',
     nameKey: 'host.proof.circuitSelection.coinbaseCountry.title',

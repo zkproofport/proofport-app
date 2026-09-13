@@ -17,13 +17,20 @@ export {
   isSupportedCircuitId,
 } from './circuitIds';
 export type {CircuitName, CircuitSupportStatus} from './circuitIds';
-export {USER_FACING_NETWORKS, NETWORK_INDEPENDENT_CIRCUITS, isNetworkVisible} from './networks';
-export type {NetworkId, NetworkDescriptor} from './networks';
+export {
+  USER_FACING_NETWORKS,
+  NETWORK_INDEPENDENT_CIRCUITS,
+  NETWORK_CATEGORIES,
+  OTHER_NETWORK,
+  isNetworkVisible,
+  visibleNetworkCategories,
+  circuitsForCategory,
+} from './networks';
+export type {NetworkId, NetworkDescriptor, NetworkCategoryId, NetworkCategoryDescriptor} from './networks';
 export {
   getEnvironment,
   setEnvironmentOverride,
-  getNetworkConfig,
-  getNetworkConfigForCircuit,
+    getNetworkConfigForCircuit,
   getAttestationConfig,
   getRelayConfig,
   getVerifierAbi,
@@ -32,3 +39,6 @@ export {
   getVerifierAddressSync,
   initDeployments,
 } from './environment';
+export type {TypedAction} from './circuitIds';
+export {validateTypedAction, parseTypedAction} from './circuitIds';
+export {CIRCUIT_NEEDS_WALLET_SIGNATURE, DEV_ONLY_CIRCUIT_IDS} from './circuitIds';

@@ -5,7 +5,7 @@
  * Runtime: setEnvironmentOverride() allows switching in dev builds.
  */
 
-import {STATIC_CONFIGS, VERIFIER_ABI, FALLBACK_VERIFIERS, CIRCUIT_NETWORK_OVERRIDES} from './contracts';
+import {STATIC_CONFIGS, VERIFIER_ABI, FALLBACK_VERIFIERS, CIRCUIT_NETWORKS} from './contracts';
 import {getVerifierAddress as getVerifierAddressAsync, syncDeployments} from './deployments';
 import type {
   Environment,
@@ -40,17 +40,36 @@ export function setEnvironmentOverride(env: Environment | null): void {
   _runtimeOverride = env;
 }
 
-export function getNetworkConfig(): NetworkConfig {
-  return STATIC_CONFIGS[getEnvironment()].network;
-}
+/*
+ * `getNetworkConfig()` is gone.
+ *
+ * It answered "what chain is this build on", and nothing in a multi-chain app
+ * has that question. Every caller actually wanted "what chain does THIS
+ * CIRCUIT live on" and got Base because Base was the first chain anybody
+ * wrote down. An arc_eligibility proof was verified against the Coinbase
+ * contract on Base Sepolia and reported failed while being valid.
+ *
+ * Use `getNetworkConfigForCircuit(circuit)`. For the set of chains the wallet
+ * session must carry, use `walletNetworks()`.
+ */
 
 /**
- * Network config for a specific circuit. Honors CIRCUIT_NETWORK_OVERRIDES
+ * Network config for a specific circuit. Honors CIRCUIT_NETWORKS
  * so e.g. giwa_attestation always resolves to GIWA Sepolia (chain 91342)
  * regardless of the current environment.
  */
 export function getNetworkConfigForCircuit(circuit: CircuitName): NetworkConfig {
-  return CIRCUIT_NETWORK_OVERRIDES[circuit] ?? getNetworkConfig();
+  const net = CIRCUIT_NETWORKS[getEnvironment()][circuit];
+  if (!net) {
+    // No default. A circuit with no chain written down is a circuit nobody has
+    // decided where to verify, and answering "Base" made that decision for
+    // them, silently and wrongly.
+    throw new Error(
+      `No network is configured for circuit '${circuit}' in the ${getEnvironment()} environment. ` +
+        'Add it to CIRCUIT_NETWORKS in src/config/contracts.ts.',
+    );
+  }
+  return net;
 }
 
 export function getAttestationConfig(): AttestationConfig {

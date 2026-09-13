@@ -32,6 +32,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   ALL_CIRCUIT_IDS,
+  EXPERIMENTAL_CIRCUIT_IDS,
   PLANNED_CIRCUIT_IDS,
   SUPPORTED_CIRCUIT_IDS,
   isCircuitId,
@@ -45,7 +46,7 @@ import {
   CIRCUITS_WITH_BROADCAST,
   CIRCUIT_DATA_VERSIONS,
   CIRCUIT_FILE_PATHS,
-  CIRCUIT_NETWORK_OVERRIDES,
+  CIRCUIT_NETWORKS,
   FALLBACK_VERIFIERS,
 } from '../config/contracts';
 import {NETWORK_INDEPENDENT_CIRCUITS, USER_FACING_NETWORKS} from '../config/networks';
@@ -80,20 +81,20 @@ function codeOf(file: string): string {
 }
 
 describe('the identifiers come from the published SDK', () => {
-  it('CONTRACT: the SDK is the list — seven canonical ids, none of them hyphenated', () => {
+  it('CONTRACT: the SDK is the list — eight canonical ids, none of them hyphenated', () => {
     /*
      * Not an assertion about the SDK's content so much as a statement of what
      * every other case here is measured against. If this number changes, a
      * circuit was added or removed upstream and the cases below say which of
      * this app's tables have not caught up.
      */
-    expect(ALL_CIRCUIT_IDS.length).toBe(7);
+    expect(ALL_CIRCUIT_IDS.length).toBe(8);
     for (const id of ALL_CIRCUIT_IDS) {
       expect([id, /^[a-z][a-z0-9_]*$/.test(id)]).toEqual([id, true]);
     }
-    expect([...SUPPORTED_CIRCUIT_IDS, ...PLANNED_CIRCUIT_IDS].sort()).toEqual(
-      [...ALL_CIRCUIT_IDS].sort(),
-    );
+    expect(
+      [...SUPPORTED_CIRCUIT_IDS, ...EXPERIMENTAL_CIRCUIT_IDS, ...PLANNED_CIRCUIT_IDS].sort(),
+    ).toEqual([...ALL_CIRCUIT_IDS].sort());
   });
 
   it('CONTRACT: it is the dependency-free subpath that is imported, not the package root', () => {
@@ -142,7 +143,12 @@ describe('every app table covers every published circuit', () => {
   covers('BROADCAST_PATHS', BROADCAST_PATHS);
   covers('CIRCUIT_FILE_PATHS', CIRCUIT_FILE_PATHS);
   covers('CIRCUIT_DATA_VERSIONS', CIRCUIT_DATA_VERSIONS);
-  covers('CIRCUIT_NETWORK_OVERRIDES', CIRCUIT_NETWORK_OVERRIDES);
+  // Keyed by environment first, because a circuit's chain differs between a
+  // testnet build and a production one. Every environment must name every
+  // circuit — there is no default to fall through to any more.
+  covers('CIRCUIT_NETWORKS.development', CIRCUIT_NETWORKS.development);
+  covers('CIRCUIT_NETWORKS.staging', CIRCUIT_NETWORKS.staging);
+  covers('CIRCUIT_NETWORKS.production', CIRCUIT_NETWORKS.production);
   covers('FALLBACK_VERIFIERS.development', FALLBACK_VERIFIERS.development);
   covers('FALLBACK_VERIFIERS.staging', FALLBACK_VERIFIERS.staging);
   covers('FALLBACK_VERIFIERS.production', FALLBACK_VERIFIERS.production);
@@ -312,18 +318,20 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
      */
     const loading = codeOf(path.join(SRC, 'screens', 'LoadingScreen.tsx'));
     expect(loading).toMatch(/BASE_CIRCUITS[^=]*=\s*SUPPORTED_CIRCUIT_IDS/);
-    expect(loading).toMatch(/DEV_ONLY_CIRCUITS[^=]*=\s*PLANNED_CIRCUIT_IDS/);
+    // Experimental AND planned: Arc is neither supported nor planned, and for
+    // one commit it was in neither list, so its files were never prefetched.
+    expect(loading).toMatch(/DEV_ONLY_CIRCUITS[^=]*=\s*DEV_ONLY_CIRCUIT_IDS/);
     expect(loading).not.toMatch(/'(coinbase|giwa|oidc|mdl)_/);
-    expect([...SUPPORTED_CIRCUIT_IDS, ...PLANNED_CIRCUIT_IDS].sort()).toEqual(
-      [...ALL_CIRCUIT_IDS].sort(),
-    );
+    expect(
+      [...SUPPORTED_CIRCUIT_IDS, ...EXPERIMENTAL_CIRCUIT_IDS, ...PLANNED_CIRCUIT_IDS].sort(),
+    ).toEqual([...ALL_CIRCUIT_IDS].sort());
   });
 
   it('THE REGRESSION: the circuits read from main are the planned ones, asked not listed', () => {
     // Was a four-way `||` chain of literal names, which is the shape that
     // forgets the fifth circuit.
     const download = codeOf(path.join(SRC, 'utils', 'circuitDownload.ts'));
-    expect(download).toContain('PLANNED_CIRCUIT_IDS.includes');
+    expect(download).toContain('DEV_ONLY_CIRCUIT_IDS.includes');
     expect(download).not.toMatch(/circuitName === '(giwa|mdl)_/);
   });
 

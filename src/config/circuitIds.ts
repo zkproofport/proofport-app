@@ -40,7 +40,9 @@ import {
   ALL_CIRCUIT_IDS,
   CIRCUIT_IDS,
   CIRCUIT_SUPPORT_STATUS,
+  CIRCUIT_NEEDS_WALLET_SIGNATURE,
   CIRCUIT_VK_PATHS,
+  EXPERIMENTAL_CIRCUIT_IDS,
   PLANNED_CIRCUIT_IDS,
   SUPPORTED_CIRCUIT_IDS,
   getCircuitSupportStatus,
@@ -56,7 +58,9 @@ export {
   CIRCUIT_SUPPORT_STATUS,
   // Where each circuit's verification key lives in the circuits repo. The app
   // downloads by these paths; the SDK verifies off-chain with them. One list.
+  CIRCUIT_NEEDS_WALLET_SIGNATURE,
   CIRCUIT_VK_PATHS,
+  EXPERIMENTAL_CIRCUIT_IDS,
   PLANNED_CIRCUIT_IDS,
   SUPPORTED_CIRCUIT_IDS,
   getCircuitSupportStatus,
@@ -120,3 +124,38 @@ export function canonicalCircuitId(
   }
   return ROUTE_CIRCUIT_IDS[id];
 }
+
+/**
+ * Checking the EIP-712 action an `arc_eligibility` proof binds to.
+ *
+ * Re-exported from here because this file is the app's ONE door to the SDK —
+ * a contract held by `theCircuitListComesFromTheSdk.test.ts`, and the reason
+ * twenty-four copies of the circuit list became one. `./typedAction` is a
+ * dependency-free subpath like `./circuits`: importing the package ROOT
+ * instead drags qrcode, ethers and @babel/runtime into the React Native bundle
+ * and breaks every jest suite that touches the deep link.
+ */
+export {
+  validateTypedAction,
+  parseTypedAction,
+} from '@zkproofport-app/sdk/typedAction';
+export type {TypedAction} from '@zkproofport-app/sdk/typedAction';
+
+/**
+ * Circuits that only exist behind Developer Mode, and only on `main`.
+ *
+ * Two questions the app asks separately — which circuits to prefetch at
+ * startup, and which to fetch from `main` rather than a release tag — have the
+ * same answer, so the answer lives here once.
+ *
+ * The SDK's `supported` / `experimental` / `planned` split is what decides it:
+ * a supported circuit ships in the release tag and is prefetched for everyone;
+ * the other two do not exist in a release tag and would 404. Arc arrived as a
+ * third status and briefly fell into NEITHER of the two lists this replaced,
+ * which meant its files were never prefetched and were looked for in a release
+ * that does not contain them.
+ */
+export const DEV_ONLY_CIRCUIT_IDS: readonly CircuitName[] = [
+  ...EXPERIMENTAL_CIRCUIT_IDS,
+  ...PLANNED_CIRCUIT_IDS,
+];

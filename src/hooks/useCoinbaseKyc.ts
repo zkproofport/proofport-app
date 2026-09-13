@@ -13,15 +13,17 @@ import {
   prepareCircuitInputs,
   flattenCircuitInputs,
   verifyAttestationTx,
-  recoverPublicKey,
+  whatTheWalletSigns,
+  recoverSignerPubkey,
   AUTHORIZED_SIGNERS,
   clearProofCache,
   ensureStorageAvailable,
   loadVkFromAssets,
   downloadCircuitFiles,
   allCircuitFilesExist,
+  ensureWalletOnChain,
 } from '../utils';
-import {getVerifierAddress, getVerifierAbi, getNetworkConfig, getEnvironment} from '../config';
+import {getVerifierAddress, getVerifierAbi, getNetworkConfigForCircuit, getEnvironment, type CircuitName} from '../config';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -32,16 +34,122 @@ import type {Step} from '../components';
 // DO NOT modify this value without coordinating with the contract and relay teams.
 const CIRCUIT_NAME = 'coinbase_attestation';
 
+/**
+ * The action-bound circuit, used ONLY when the requester supplied a typed
+ * action. It proves the same Coinbase attestation, but the wallet signs an
+ * EIP-712 structure and two extra hashes ride in the public inputs.
+ *
+ * Experimental, testnet only -- no verifier for it is deployed on any mainnet.
+ */
+const ACTION_CIRCUIT_NAME = 'arc_eligibility';
+
+/**
+ * Which circuit a request runs on — named by the caller, then checked.
+ *
+ * It used to be `action ? ACTION_CIRCUIT_NAME : CIRCUIT_NAME`, which made the
+ * presence of one optional field decide the circuit. Picking `Arc Eligibility`
+ * on the Verify screen therefore produced a COINBASE proof: the screen passed
+ * no action, the ternary fell through, and nothing said so. A registered id
+ * resolving quietly to another circuit is the failure this codebase forbids
+ * everywhere else.
+ *
+ * So the caller states the circuit and this function refuses every combination
+ * that cannot be honoured, rather than choosing one.
+ *
+ * `signal_hash` keeps using CIRCUIT_NAME either way, and that is deliberate:
+ * the nullifier derives from it, so switching circuits must NOT change a
+ * wallet's nullifier for a scope. Feeding the circuit name into signal_hash
+ * here would give the same person two identities depending on whether the
+ * requester bound an action, and on-chain duplicate detection would stop
+ * seeing them as one.
+ */
+function circuitFor(requested: string, action?: TypedAction): string {
+  if (requested === ACTION_CIRCUIT_NAME) {
+    if (!action) {
+      throw new Error(
+        `${ACTION_CIRCUIT_NAME} proves that a wallet authorised ONE EIP-712 action, and no ` +
+        `action was supplied. There is nothing for the wallet to sign and nothing to put in ` +
+        `the public inputs. Supply inputs.action, or ask for ${CIRCUIT_NAME}.`,
+      );
+    }
+    return ACTION_CIRCUIT_NAME;
+  }
+
+  if (requested === CIRCUIT_NAME) {
+    if (action) {
+      throw new Error(
+        `An action was supplied but ${CIRCUIT_NAME} was requested, and that circuit has no ` +
+        `public inputs to carry it. The action would be signed and then silently dropped, ` +
+        `so the proof would say nothing about it. Ask for ${ACTION_CIRCUIT_NAME}.`,
+      );
+    }
+    return CIRCUIT_NAME;
+  }
+
+  throw new Error(
+    `This hook proves ${CIRCUIT_NAME} and ${ACTION_CIRCUIT_NAME}; it was asked for ` +
+    `'${requested}'.`,
+  );
+}
+
 // Module-level proof cache — persists across hook instances (screen navigations)
+/**
+ * Which circuit produced the cached proof and VK below.
+ *
+ * Off-chain verification runs from those caches and has no request in scope,
+ * so without this it would load whichever circuit was hardcoded and verify a
+ * proof against the wrong artifacts -- which fails as "invalid proof", naming
+ * the proof rather than the mismatch.
+ */
+let _cachedCircuitName: string = 'coinbase_attestation';
 let _cachedVk: ArrayBuffer | null = null;
 let _cachedFullProof: ArrayBuffer | null = null;
 let _cachedParsedProof: ParsedProofData | null = null;
 
+/**
+ * An EIP-712 typed structure, as `eth_signTypedData_v4` takes it.
+ *
+ * The requester owns every field; this app defines no action shapes and keeps
+ * no registry of them. It passes the structure to the wallet, which renders
+ * the named fields for the person to read before approving.
+ */
+// The shape a dapp signs. Declared once, in the SDK, because a dapp and this
+// app have to agree on it byte for byte — this file used to repeat it, and two
+// declarations agree only until somebody edits one.
+export type {TypedAction} from '../utils/typedAction';
+import type {TypedAction} from '../utils/typedAction';
+
 export interface CoinbaseKycProofInputs {
+  /**
+   * Which circuit to prove. Required, and checked against `action` below:
+   * `arc_eligibility` without an action is an error, and so is an action with
+   * `coinbase_attestation`. Neither can be honoured, and guessing produced a
+   * proof from the wrong circuit.
+   */
+  circuit: string;
   userAddress: string;
   rawTransaction: string;
   signerIndex: number;
   scopeString: string;  // dApp scope identifier (REQUIRED)
+  /**
+   * Bind the proof to one action.
+   *
+   * ABSENT is the shipped behaviour and must stay that way: the wallet signs
+   * `signal_hash` through personal_sign, the proof goes to the
+   * `coinbase_attestation` circuit, and every deployed verifier keeps working.
+   * A build that started sending typed data unconditionally would produce
+   * proofs the deployed verifiers cannot check.
+   *
+   * PRESENT switches the whole path -- typed-data signing, and the
+   * `arc_eligibility` circuit, whose public inputs carry two extra hashes.
+   * The two are not interchangeable at either end, which is why one field
+   * decides both rather than a separate circuit toggle that could disagree
+   * with it.
+   *
+   * Experimental, and testnet only: no verifier for that circuit is deployed
+   * on any mainnet yet.
+   */
+  action?: TypedAction;
 }
 
 export interface EthereumProvider {
@@ -71,7 +179,20 @@ export interface UseCoinbaseKycReturn {
     addLog: (msg: string) => void,
   ) => Promise<void>;
   verifyProofOffChain: (addLog: (msg: string) => void) => Promise<boolean>;
-  verifyProofOnChain: (addLog: (msg: string) => void) => Promise<boolean>;
+  /**
+   * Check a generated proof against its verifier contract.
+   *
+   * `circuit` is required. This used to take only a logger and look up
+   * `coinbase_attestation` on the build's default network — so an
+   * `arc_eligibility` proof was checked against the WRONG CONTRACT on the
+   * WRONG CHAIN and came back "failed" while being perfectly valid. Seen in a
+   * simulator on 2026-09-12, off-chain green and on-chain red on the same
+   * proof.
+   */
+  verifyProofOnChain: (
+    circuit: CircuitName,
+    addLog: (msg: string) => void,
+  ) => Promise<boolean>;
   validateTransaction: (
     rawTx: string,
     userAddress: string,
@@ -178,11 +299,18 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
       try {
         // Step 0: Download circuit files if needed
-        const filesExist = await allCircuitFilesExist(CIRCUIT_NAME);
+        // Bound once from the request so every artifact below -- files, VK,
+        // SRS, circuit json -- comes from the same circuit. Reading the
+        // request separately at each call site is how one of them ends up on
+        // the other circuit's files and the proof fails with nothing naming
+        // the cause.
+        const circuitName = circuitFor(inputs.circuit, inputs.action);
+        _cachedCircuitName = circuitName;
+        const filesExist = await allCircuitFilesExist(circuitName);
         if (!filesExist) {
           addLog('Circuit files not found, downloading...');
           const env = getEnvironment();
-          await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
+          await downloadCircuitFiles(circuitName, env, undefined, addLog);
           addLog('Circuit files downloaded');
         }
 
@@ -190,10 +318,10 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         updateStep('vk', {status: 'in_progress'});
         addLog('Step 1: Loading verification key...');
         addLog('[VK] Loading verification key from assets...');
-        addLog(`[VK] Circuit name: ${CIRCUIT_NAME}`);
+        addLog(`[VK] Circuit name: ${circuitName}`);
 
         const vkStartTime = Date.now();
-        currentVk = await loadVkFromAssets(CIRCUIT_NAME, addLog);
+        currentVk = await loadVkFromAssets(circuitName, addLog);
         const vkElapsed = Date.now() - vkStartTime;
 
         addLog(`[VK] VK loaded successfully: ${currentVk.byteLength} bytes`);
@@ -257,17 +385,38 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 4: Sign with wallet
         updateStep('sign', {status: 'in_progress'});
         addLog('Step 4: Requesting signature from wallet...');
-        addLog('[Sign] Preparing EIP-191 personal_sign request...');
+        addLog(
+          inputs.action
+            ? '[Sign] Preparing EIP-712 eth_signTypedData_v4 request...'
+            : '[Sign] Preparing EIP-191 personal_sign request...',
+        );
 
         if (!ethereum) {
           throw new Error('Wallet provider not available');
         }
 
         const messageHex = ethers.utils.hexlify(currentSignalHash);
+        // One decision for all three uses below — the signing request, the key
+        // recovery, and the circuit inputs. They were three separate reads of
+        // `inputs.action` and drifted apart twice in one day.
+        const signed = whatTheWalletSigns(messageHex, inputs.action);
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
         addLog(`[Sign] Signer address: ${from}`);
-        addLog(`[Sign] Message: ${messageHex.slice(0, 20)}...`);
+
+        if (inputs.action) {
+          addLog('[Sign] Typed action present -- the wallet will show its fields');
+          // A wallet refuses to sign typed data whose domain names a chain it
+          // is not on: "Active chainId is 0x1 but received 0x4cef52", and
+          // nothing else. Ask it to switch -- and to add the network first if
+          // it has never seen it -- rather than leaving a person to type the
+          // RPC and chain id in by hand.
+          await ensureWalletOnChain(ethereum, circuitName as CircuitName, addLog);
+          addLog(`[Sign] Contract: ${inputs.action.domain.verifyingContract}`);
+          addLog(`[Sign] Action: ${inputs.action.primaryType}`);
+        } else {
+          addLog(`[Sign] Message: ${messageHex.slice(0, 20)}...`);
+        }
 
         if (isSigningRef.current) {
           throw new Error('Signing already in progress');
@@ -275,9 +424,19 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
         try {
           isSigningRef.current = true;
+          // Two request shapes, chosen by whether an action was bound. The
+          // typed one carries `EIP712Domain` in `types` -- wallets require it
+          // in the wire payload even though ethers adds it for you when
+          // hashing, and omitting it here is rejected as a malformed request.
+          // `personal_sign` takes [message, from]; `eth_signTypedData_v4`
+          // takes [from, payload]. The order differs and is easy to get
+          // backwards, so it is applied once here from the one resolution.
           const result = await ethereum.request({
-            method: 'personal_sign',
-            params: [messageHex, from],
+            method: signed.method,
+            params:
+              signed.method === 'personal_sign'
+                ? [...signed.params, from]
+                : [from, ...signed.params],
           });
 
           userSignature = result as string;
@@ -309,7 +468,23 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         addLog('Step 5: Recovering public key from signature...');
         addLog('[PubKey] Recovering secp256k1 public key from signature...');
 
-        userPubkey = recoverPublicKey(messageHex, userSignature);
+        // Recover against WHAT WAS SIGNED, which is not the same thing for
+        // the two circuits.
+        //
+        // Without an action the wallet signed `signal_hash` through
+        // personal_sign. With one it signed the EIP-712 digest —
+        // keccak256(0x1901 ++ domainSeparator ++ structHash) — and the arc
+        // circuit recomputes exactly that from its own public inputs before
+        // checking the signature. Recovering against `signal_hash` there
+        // yields a DIFFERENT public key: every step still succeeds, the input
+        // vector is the right length, and the prover fails at the end with
+        // `MoproError.NoirError` and nothing naming the cause. Seen on
+        // 2026-09-12 with 963 correct inputs and a wrong key among them.
+        addLog(
+          `[PubKey] Recovering against what was signed: ${signed.digest.slice(0, 20)}... ` +
+            `(${signed.method}, personal_sign prefix ${signed.prefixed ? 'yes' : 'no'})`,
+        );
+        userPubkey = recoverSignerPubkey(signed, userSignature);
 
         addLog(`[PubKey] Public key: ${userPubkey.slice(0, 40)}...`);
         addLog(`[PubKey] Key length: ${userPubkey.length} chars`);
@@ -337,6 +512,12 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           inputs.rawTransaction,
           signerIndex,
           inputs.scopeString,  // NEW: scope string for nullifier
+          // The two hashes that are PUBLIC INPUTS of the action-bound
+          // circuit, from the same resolution the signature and the recovery
+          // used. Leaving them out does not shorten the proof — it builds a
+          // different circuit's, which the prover rejects one second in with
+          // `MoproError.NoirError` and nothing else.
+          signed.publicHashes,
         );
         const flatInputs = flattenCircuitInputs(circuitInputs);
 
@@ -370,11 +551,11 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 9: Generate proof
         updateStep('proof', {status: 'in_progress'});
         addLog('Step 9: Generating ZK proof...');
-        addLog(`[Proof] Loading circuit file: ${CIRCUIT_NAME}.json`);
-        addLog(`[Proof] Loading SRS file: ${CIRCUIT_NAME}.srs`);
+        addLog(`[Proof] Loading circuit file: ${circuitName}.json`);
+        addLog(`[Proof] Loading SRS file: ${circuitName}.srs`);
 
-        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
-        const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
+        const circuitPath = await getAssetPath(`${circuitName}.json`);
+        const srsPath = await getAssetPath(`${circuitName}.srs`);
 
         addLog('[Proof] Starting Noir proof generation (low memory mode)...');
         addLog('[Proof] This may take 30-60 seconds...');
@@ -489,8 +670,8 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
       addLog(`[OffChain] Using cached proof: ${useFullProof ? useFullProof.byteLength + ' bytes' : 'null'}`);
 
       try {
-        addLog(`[OffChain] Loading circuit: ${CIRCUIT_NAME}.json`);
-        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
+        addLog(`[OffChain] Loading circuit: ${_cachedCircuitName}.json`);
+        const circuitPath = await getAssetPath(`${_cachedCircuitName}.json`);
 
         addLog('[OffChain] Calling mopro verifyNoirProof...');
         const startTime = Date.now();
@@ -525,7 +706,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    * Verify proof on-chain using the deployed Verifier contract
    */
   const verifyProofOnChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
+    async (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> => {
       const useParsedProof = parsedProof || _cachedParsedProof;
 
       if (!useParsedProof) {
@@ -539,7 +720,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
       try {
         addLog('[OnChain] Loading network configuration...');
-        const verifierAddress = await getVerifierAddress('coinbase_attestation');
+        const verifierAddress = await getVerifierAddress(circuit);
 
         if (!verifierAddress) {
           addLog('[OnChain] ERROR: Verifier address is empty - check environment config');
@@ -548,8 +729,13 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           return false;
         }
 
-        const network = getNetworkConfig();
+        // The circuit's OWN chain, not the build's. `arc_eligibility` is
+        // pinned to Arc Testnet and its verifier exists nowhere else; asking
+        // for the build default sent the call to Base Sepolia, where that
+        // address holds a different contract entirely.
+        const network = getNetworkConfigForCircuit(circuit);
 
+        addLog(`[OnChain] Circuit: ${circuit}`);
         addLog('[OnChain] Starting on-chain verification...');
         addLog(`[OnChain] Contract: ${verifierAddress}`);
         addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);

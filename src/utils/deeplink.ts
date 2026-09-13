@@ -1,5 +1,6 @@
 import {showReturnNotice, type ReturnNoticeKind} from './returnNoticeBridge';
 import {ALL_CIRCUIT_IDS, isCircuitId, type CircuitName} from '../config/circuitIds';
+import {checkAction, type TypedAction} from './typedAction';
 
 /**
  * The circuit a deep link may name. Alias of the SDK's canonical id union —
@@ -33,10 +34,30 @@ export interface OidcDomainInputs {
   provider?: 'google' | 'microsoft'; // OIDC workspace provider for organization membership verification
 }
 
+/**
+ * What an `arc_eligibility` request carries. Same shape the SDK sends, because
+ * the type IS the SDK's — see src/utils/typedAction.ts.
+ *
+ * The action is required and is checked on arrival: a deep link is the one
+ * place a stranger's data reaches the prover, and the circuit binds the
+ * signature to whatever is in here.
+ */
+export interface ArcEligibilityInputs {
+  userAddress?: string;
+  rawTransaction?: string;
+  scope?: string;
+  action: TypedAction;
+}
+
 // Empty inputs for circuits that get data from app
 export interface EmptyInputs {}
 
-export type CircuitInputs = CoinbaseKycInputs | CoinbaseCountryInputs | OidcDomainInputs | EmptyInputs;
+export type CircuitInputs =
+  | CoinbaseKycInputs
+  | CoinbaseCountryInputs
+  | OidcDomainInputs
+  | ArcEligibilityInputs
+  | EmptyInputs;
 
 export interface ProofRequest {
   requestId: string;
@@ -287,6 +308,24 @@ export function validateProofRequest(
       }
     }
     // If userAddress is not provided, app will prompt wallet connection
+  }
+
+  // Arc eligibility: the action is what the wallet signs and what the proof
+  // binds to, so a request without a usable one cannot be honoured. Checked
+  // with the same function the demo screen uses -- there is one definition of
+  // a valid action, and a deep link is the untrusted way in.
+  if (request.circuit === 'arc_eligibility') {
+    const inputs = request.inputs as Partial<ArcEligibilityInputs>;
+    if (!inputs.action) {
+      return {
+        valid: false,
+        error: 'Missing required action for arc_eligibility. The circuit proves that a wallet authorised ONE EIP-712 action; there is nothing to prove without it.',
+      };
+    }
+    const checked = checkAction(inputs.action);
+    if ('error' in checked) {
+      return {valid: false, error: `Invalid action for arc_eligibility: ${checked.error}`};
+    }
   }
 
   // OIDC domain attestation: scope is required

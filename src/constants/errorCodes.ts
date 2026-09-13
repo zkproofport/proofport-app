@@ -117,6 +117,12 @@ export const ErrorCodes = {
     title: 'Wallet Connection Failed',
     description: 'Could not connect to your wallet.',
   },
+  E4004: {
+    code: 'E4004',
+    title: 'Disconnect Failed',
+    description:
+      'The wallet did not let go of the session. Disconnecting from inside the wallet app usually clears it.',
+  },
 
   // Storage errors
   E5001: {

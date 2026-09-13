@@ -177,6 +177,8 @@ export {GITHUB_RAW};
 export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) | null> = {
   coinbase_attestation: (chainId) =>
     `DeployCoinbaseAttestation.s.sol/${chainId}/run-latest.json`,
+  arc_eligibility: (chainId) =>
+    `DeployArcEligibility.s.sol/${chainId}/run-latest.json`,
   coinbase_country_attestation: (chainId) =>
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
   oidc_domain_attestation: (chainId) =>
@@ -258,6 +260,7 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> =
  */
 export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   coinbase_attestation: 1,
+  arc_eligibility: 1,
   coinbase_country_attestation: 1,
   oidc_domain_attestation: 3, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
   giwa_attestation: 1,
@@ -286,40 +289,80 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
  *
  * `undefined` = use STATIC_CONFIGS[env].network.
  */
-export const CIRCUIT_NETWORK_OVERRIDES: Record<CircuitName, NetworkConfig | undefined> = {
-  coinbase_attestation: undefined,
-  coinbase_country_attestation: undefined,
-  oidc_domain_attestation: undefined,
-  giwa_attestation: {
+/**
+ * The chain each circuit's verifier lives on. Complete, and per environment.
+ *
+ * There is no default. There used to be: a single "network" per build
+ * environment, with circuits naming a chain only when they differed from it —
+ * so every circuit that said nothing inherited Base, because Base is where
+ * this app started. That is not a property of the project; it was the first
+ * chain and it became the answer for chains nobody had thought about.
+ *
+ * The cost showed up the moment circuits spread: an `arc_eligibility` proof
+ * was verified against the Coinbase contract on Base Sepolia and reported
+ * "failed" while being valid, because the code asked the BUILD what chain it
+ * was on instead of asking the CIRCUIT. Fixing the caller is half of it; the
+ * other half is that the wrong answer had to exist to be returned.
+ *
+ * Adding a circuit now means writing its chain here for all three
+ * environments, and a missing one is a compile error rather than Base.
+ */
+export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkConfig>> = (() => {
+  const BASE_SEPOLIA: NetworkConfig = {
+    chainId: 84532,
+    name: 'Base Sepolia',
+    rpcUrl: 'https://sepolia.base.org',
+    explorerUrl: 'https://sepolia.basescan.org',
+  };
+  const BASE: NetworkConfig = {
+    chainId: 8453,
+    name: 'Base',
+    rpcUrl: 'https://mainnet.base.org',
+    explorerUrl: 'https://basescan.org',
+  };
+  // Circle's Arc, where USDC is the gas token. Testnet only: public mainnet is
+  // 2026-09-16 and Circle has not published a chain id, so a production build
+  // has nothing to point at and says so with the same testnet entry rather
+  // than pretending a mainnet exists.
+  const ARC_TESTNET: NetworkConfig = {
+    chainId: 5042002,
+    name: 'Arc Testnet',
+    rpcUrl: 'https://rpc.testnet.arc.io',
+    explorerUrl: 'https://testnet.arcscan.app',
+  };
+  const GIWA_SEPOLIA: NetworkConfig = {
     chainId: 91342,
     name: 'GIWA Sepolia',
     rpcUrl: 'https://sepolia-rpc.giwa.io/',
     explorerUrl: 'https://sepolia-explorer.giwa.io',
-  },
-  // Korea Mobile ID verifiers currently live on Base Sepolia. OmniOne
-  // Chain (Hyperledger Besu permissioned network) access requires a
-  // signup whose RPC URL is not publicly available; the UI labels the
-  // network as "OmniOne" for the demo and we will repoint these
-  // overrides once OmniOne Chain access is granted.
-  mdl_kr_ownership: {
+  };
+  // Korea Mobile ID verifiers live on Base Sepolia for now. OmniOne Chain
+  // (Hyperledger Besu, permissioned) needs a signup whose RPC is not public;
+  // the UI labels it "OmniOne" and these repoint once access is granted.
+  const OMNIONE_TESTNET: NetworkConfig = {
     chainId: 84532,
     name: 'OmniOne Chain Testnet',
     rpcUrl: 'https://sepolia.base.org',
     explorerUrl: 'https://sepolia.basescan.org',
-  },
-  mdl_kr_age: {
-    chainId: 84532,
-    name: 'OmniOne Chain Testnet',
-    rpcUrl: 'https://sepolia.base.org',
-    explorerUrl: 'https://sepolia.basescan.org',
-  },
-  mdl_kr_region: {
-    chainId: 84532,
-    name: 'OmniOne Chain Testnet',
-    rpcUrl: 'https://sepolia.base.org',
-    explorerUrl: 'https://sepolia.basescan.org',
-  },
-};
+  };
+
+  const testnetish = (coinbaseChain: NetworkConfig): Record<CircuitName, NetworkConfig> => ({
+    coinbase_attestation: coinbaseChain,
+    coinbase_country_attestation: coinbaseChain,
+    oidc_domain_attestation: coinbaseChain,
+    arc_eligibility: ARC_TESTNET,
+    giwa_attestation: GIWA_SEPOLIA,
+    mdl_kr_ownership: OMNIONE_TESTNET,
+    mdl_kr_age: OMNIONE_TESTNET,
+    mdl_kr_region: OMNIONE_TESTNET,
+  });
+
+  return {
+    development: testnetish(BASE_SEPOLIA),
+    staging: testnetish(BASE_SEPOLIA),
+    production: testnetish(BASE),
+  };
+})();
 
 /**
  * Fallback verifier addresses (used when runtime fetch fails).
@@ -328,6 +371,8 @@ export const CIRCUIT_NETWORK_OVERRIDES: Record<CircuitName, NetworkConfig | unde
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
+    // Arc Testnet (0xCbC8E63f...), deployed 2026-09-09.
+    arc_eligibility: '0xCbC8E63fF92659E8B44cFF117D33005Bb669a018',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     // GIWA PoC verifier — same address across env (testnet-only PoC)
@@ -339,6 +384,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   },
   staging: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
+    // Arc Testnet (0xCbC8E63f...), deployed 2026-09-09.
+    arc_eligibility: '0xCbC8E63fF92659E8B44cFF117D33005Bb669a018',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
@@ -348,6 +395,10 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
+    // Testnet only. No mainnet deployment exists, and the empty string is what
+    // the surrounding table uses for "none" -- a caller gets "no verifier"
+    // rather than an address that reverts with nothing to point at.
+    arc_eligibility: '',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
     giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',

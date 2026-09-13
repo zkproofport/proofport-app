@@ -1,4 +1,5 @@
 import {useState, useCallback} from 'react';
+import {signedIn, signInFailed, type SignInResult} from './signInResult';
 import {
   MICROSOFT_CLIENT_ID,
   MICROSOFT_AUTHORITY,
@@ -18,7 +19,7 @@ export interface UseMicrosoftAuthReturn {
   idToken: string | null;
   isReady: boolean;
   error: string | null;
-  promptSignIn: () => Promise<string | null>;
+  promptSignIn: () => Promise<SignInResult>;
   reset: () => void;
 }
 
@@ -26,7 +27,7 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const promptSignIn = useCallback(async (): Promise<string | null> => {
+  const promptSignIn = useCallback(async (): Promise<SignInResult> => {
     setError(null);
     setIdToken(null);
 
@@ -60,27 +61,34 @@ export const useMicrosoftAuth = (): UseMicrosoftAuthReturn => {
       if (result.type === 'success' && result.params?.id_token) {
         const token = result.params.id_token;
         setIdToken(token);
-        return token;
+        return signedIn(token);
       }
 
       if (result.type === 'cancel' || result.type === 'dismiss') {
-        setError('Microsoft sign-in was cancelled');
-        return null;
+        const message = 'Microsoft sign-in was cancelled';
+        setError(message);
+        return signInFailed(message, true);
       }
 
       if (result.type === 'error') {
         const msg = result.params?.error_description || result.params?.error || 'Microsoft sign-in failed';
         setError(msg);
-        throw new Error(msg);
+        return signInFailed(msg);
       }
 
-      throw new Error('Microsoft Sign-In succeeded but no id_token returned. Check Azure AD app registration.');
+      const noToken =
+        'Microsoft Sign-In returned without an id_token. Check the Azure AD app registration.';
+      setError(noToken);
+      return signInFailed(noToken);
     } catch (e: unknown) {
+      // Returned, not thrown. A thrown error and a returned one were handled by
+      // two different branches in the proof screen, and only one of them showed
+      // the reason.
       const err = e as {message?: string};
       const msg = err.message || String(e);
       console.error('[MicrosoftAuth] Error:', msg);
       setError(msg);
-      throw new Error(msg);
+      return signInFailed(msg);
     }
   }, []);
 

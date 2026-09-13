@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import {Toggle} from '../../components/ui/molecules/Toggle';
 import {MenuItem} from '../../components/ui/molecules/MenuItem';
 import {Select} from '../../components/ui/molecules/Select';
-import {USER_FACING_NETWORKS, isNetworkVisible, OPENSTOA_ENABLED, type NetworkId} from '../../config';
+import {visibleNetworkCategories, OPENSTOA_ENABLED, type NetworkCategoryId} from '../../config';
 import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import {useThemeColors} from '../../context';
@@ -174,15 +174,16 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
                 paddingHorizontal: 0,
               },
             ]}>
-            <Select<NetworkId>
+            <Select<NetworkCategoryId>
               label={t('host.more.defaultNetwork')}
-              value={(settings.defaultNetwork as NetworkId) ?? 'base'}
-              // Developer-only networks (e.g. GIWA Testnet PoC) hidden
-              // unless Developer Mode is on or the user already had it
-              // selected — preserves the option to switch away without
-              // re-enabling dev mode.
-              options={USER_FACING_NETWORKS.filter((n) =>
-                isNetworkVisible(n, settings.developerMode, settings.defaultNetwork),
+              value={(settings.defaultNetwork as NetworkCategoryId) ?? 'base'}
+              // Same list the Verify tab shows, from src/config/networks.ts.
+              // Developer-only networks stay hidden unless Developer Mode is on
+              // or the user already had one selected, so they can switch away
+              // without re-enabling the flag.
+              options={visibleNetworkCategories(
+                settings.developerMode,
+                settings.defaultNetwork,
               ).map((n) => ({
                 value: n.id,
                 label: t(n.labelKey),

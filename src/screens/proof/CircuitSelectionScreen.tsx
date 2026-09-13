@@ -8,22 +8,18 @@ import {useThemeColors} from '../../context';
 import {useSettings} from '../../hooks';
 import {getCircuitIcon} from '../../utils';
 import {
-  USER_FACING_NETWORKS,
-  NETWORK_INDEPENDENT_CIRCUITS,
-  isNetworkVisible,
+  visibleNetworkCategories,
+  circuitsForCategory,
   type CircuitName,
-  type NetworkId,
+  type NetworkCategoryId,
 } from '../../config';
 import type {ProofStackParamList} from '../../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'CircuitSelection'>;
 
-// "other" lives at the UI layer only — it's a bucket for circuits that
-// aren't bound to any specific chain (currently OIDC). All real chains
-// come from USER_FACING_NETWORKS in src/config/networks.ts.
-type CategoryId = NetworkId | 'other';
-
-const OTHER_KEY = 'other' as const;
+// Both the network list and the "which circuits are in it" answer come from
+// src/config/networks.ts, which the More tab reads too.
+type CategoryId = NetworkCategoryId;
 
 // The default-network setting (settings.defaultNetwork) is the single source
 // of truth for the Verify-tab category. `useSettings` already refreshes on
@@ -73,6 +69,19 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     titleKey: 'host.proof.circuitSelection.coinbaseCountry.title',
     descriptionKey: 'host.proof.circuitSelection.coinbaseCountry.description',
     navigate: (nav) => nav.navigate('CountryInput'),
+  },
+  {
+    // Arc Eligibility — the same Coinbase attestation, with the wallet signing
+    // one EIP-712 action instead of an opaque signal hash. It routes through
+    // ArcActionInput because the action is the circuit's whole point: without
+    // one there is nothing to put in the two public-input slots that make this
+    // circuit different, and the proof would be a coinbase_attestation proof
+    // wearing another name.
+    id: 'arc_eligibility',
+    titleKey: 'host.proof.circuitSelection.arcEligibility.title',
+    descriptionKey: 'host.proof.circuitSelection.arcEligibility.description',
+    navigate: (nav) => nav.navigate('ArcActionInput'),
+    experimental: true,
   },
   {
     id: 'giwa_attestation',
@@ -146,28 +155,20 @@ export const CircuitSelectionScreen: React.FC = () => {
 
   const developerMode = !loading && settings ? settings.developerMode : false;
   const categoryOptions: SelectOption<CategoryId>[] = useMemo(
-    () => [
-      ...USER_FACING_NETWORKS.filter((n) =>
-        isNetworkVisible(n, developerMode, category),
-      ).map((n) => ({
-        value: n.id as CategoryId,
+    () =>
+      visibleNetworkCategories(developerMode, category).map((n) => ({
+        value: n.id,
         label: t(n.labelKey),
       })),
-      {
-        value: OTHER_KEY,
-        label: t('host.proof.circuitSelection.network.other'),
-      },
-    ],
     [t, developerMode, category],
   );
 
 
   // Resolve which CircuitName IDs belong in the current category.
-  const visibleCircuitIds: ReadonlyArray<CircuitName> = useMemo(() => {
-    if (category === OTHER_KEY) return NETWORK_INDEPENDENT_CIRCUITS;
-    const net = USER_FACING_NETWORKS.find((n) => n.id === category);
-    return net?.circuits ?? [];
-  }, [category]);
+  const visibleCircuitIds: ReadonlyArray<CircuitName> = useMemo(
+    () => circuitsForCategory(category),
+    [category],
+  );
 
   const visibleCards = useMemo(
     () =>

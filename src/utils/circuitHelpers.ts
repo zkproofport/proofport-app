@@ -126,11 +126,15 @@ export async function signMessage(
   };
 }
 
-export function recoverPublicKey(messageHash: string, signature: string): string {
-  const ethSignedHash = ethers.utils.hashMessage(ethers.utils.arrayify(messageHash));
-  const recoveredPubKey = ethers.utils.recoverPublicKey(ethSignedHash, signature);
-  return recoveredPubKey;
-}
+/*
+ * Public-key recovery used to live here, in two functions -- one that added
+ * the personal_sign prefix and one that did not. Both are gone: the caller had
+ * to know which signature it was holding, and picking wrong returns a
+ * well-formed key for a wallet nobody controls rather than failing.
+ *
+ * `src/utils/signedAction.ts` now decides what is signed and recovers it, in
+ * one place, so the question cannot be answered differently twice.
+ */
 
 export function createUnsignedTxHash(rawTx: string): string {
   const tx = ethers.utils.parseTransaction(rawTx);
@@ -206,6 +210,18 @@ export function computeNullifier(
 export interface AttesterCircuitInputs {
   // Public inputs
   signal_hash: string[];
+  /**
+   * EIP-712 hashes, present only for `arc_eligibility`.
+   *
+   * That circuit's `fn main` puts them BETWEEN `signal_hash` and the Merkle
+   * root, and bb reads the vector positionally with no field names, so their
+   * place in `flattenCircuitInputs` is the whole contract. They were missing
+   * entirely until 2026-09-12: the app signed the typed action and then sent
+   * the Coinbase-shaped vector, which the prover rejected one second in with
+   * `MoproError.NoirError` and nothing naming the cause.
+   */
+  domain_separator?: string[];
+  action_hash?: string[];
   signer_list_merkle_root: string[];
   scope: string[];
   nullifier: string[];
@@ -225,8 +241,22 @@ export interface AttesterCircuitInputs {
 }
 
 export function flattenCircuitInputs(inputs: AttesterCircuitInputs): string[] {
+  const arcHashes =
+    inputs.domain_separator && inputs.action_hash
+      ? [...inputs.domain_separator, ...inputs.action_hash]
+      : [];
+  // One or the other alone is a caller that built half an action. bb would
+  // accept the shorter vector as some other circuit's and fail opaquely.
+  if (Boolean(inputs.domain_separator) !== Boolean(inputs.action_hash)) {
+    throw new Error(
+      'arc_eligibility needs BOTH domain_separator and action_hash, or neither. ' +
+        `Got domain_separator=${Boolean(inputs.domain_separator)}, action_hash=${Boolean(inputs.action_hash)}.`,
+    );
+  }
+
   return [
     ...inputs.signal_hash,
+    ...arcHashes,
     ...inputs.signer_list_merkle_root,
     ...inputs.scope,
     ...inputs.nullifier,
