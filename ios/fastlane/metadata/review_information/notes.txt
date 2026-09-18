@@ -1,54 +1,72 @@
-ZKProofport generates zero-knowledge proofs on the device itself. Nothing about
-a proof is computed on a server.
+ZKProofport 1.3.1 (build 9) is an on-device zero-knowledge proof generation app.
+
+CRYPTOCURRENCY AND THE WALLET
+
+No cryptocurrency buying, selling, swapping, trading or transfers are provided.
+There is no Trade tab or trading page. The main navigation is Verify, Wallet,
+the QR scanner, History and More.
+
+Reown AppKit / WalletConnect connects an existing external wallet. For
+wallet-based proofs, the user approves a message signature (personal_sign) to
+demonstrate control of the wallet. This is not a cryptocurrency transaction or
+asset-transfer authorization. No embedded wallet or custody is provided;
+private keys remain in the external wallet.
+
+The app reads existing public attestations and can check proofs with a
+read-only verifier contract call. It does not submit blockchain transactions
+or spend gas. Coinbase references concern existing identity attestations, not
+Coinbase trading or exchange functionality.
+
+PURPOSE AND PROOF FLOW
+
+A compatible dapp can request a proof through our SDK. The app opens the
+request and generates the proof locally on the device. The finished proof and
+its public verification inputs return to the requesting dapp through the
+relay. Private proof inputs are not sent to that dapp. The dapp may verify the
+proof on-chain or off-chain. The Verify tab also supports standalone proving.
+There is no remote proving server or AI service in this app.
+
+Supported proofs:
+- Coinbase KYC: possession of an existing Coinbase identity attestation.
+- Coinbase Country: whether the attested country satisfies a country-list
+  inclusion or exclusion requirement.
+- OIDC Domain: an email-domain fact without disclosing the full email address
+  to the requesting service.
 
 HOW TO TEST
 
-The two entries on the first "Verify" screen read an attestation that Coinbase
-issues on the Base network:
+OIDC Domain requires no wallet or Coinbase attestation:
+1. In Verify, change the network picker from Base to Other.
+2. Select OIDC Domain.
+3. Leave Domain to prove empty and keep the default Scope.
+4. Choose Any Email as the verification mode.
+5. Select Sign in with Google and use an ordinary personal Google account.
+6. Follow the on-device proof generation progress.
 
-  Coinbase KYC Verification
-  Coinbase Country Verification
+The Coinbase entries under Base require a wallet that already holds the
+corresponding Coinbase attestation. A new wallet without it cannot complete
+these proofs. The review recording demonstrates all three proof flows.
 
-Both need a wallet that already holds such an attestation, so they cannot be
-completed with a brand-new test wallet. Tapping either one is still worth doing:
-the screen connects a wallet (WalletConnect), reads the chain, and then explains
-what is missing rather than failing silently — which shows the flow and the
-error handling without an attestation in hand.
+NETWORK USE
 
-If you have a wallet holding a Coinbase attestation on Base, connect it and tap
-"Generate Proof". The proof is built on the device; a progress list names each
-step, and it takes roughly 30-60 seconds on an iPhone. Nothing about the wallet
-or the attestation leaves the device except the finished proof.
+- WalletConnect: external wallet communication and message signing.
+- Public Base RPC providers and base.easscan.org: attestation queries.
+- Google / Microsoft: supported identity sign-in.
+- GitHub: download public proving circuits and keys, checked before use.
+- relay.zkproofport.app: return a completed proof for a dapp-originated request.
+- Configured RPC endpoints: read-only proof verification.
 
-THE THIRD PROOF, WHICH YOU CAN COMPLETE WITHOUT AN ATTESTATION
+There is no analytics, crash-reporting or advertising SDK.
 
-The picker at the top of the Verify screen selects a network. Switching it from
-"Base" to "Other" reveals:
+ACCOUNTS, PURCHASES AND REGIONS
 
-  OIDC Domain
+No ZKProofport account, registration or password is created. External sign-in
+uses an existing identity-provider account. No in-app purchases, user posts,
+comments or messaging are provided. Features are identical across regions;
+the user can choose the interface language.
 
-This one needs no on-chain attestation. It proves that you belong to a work
-email domain (a Google Workspace or Microsoft 365 organisation) without
-revealing the address itself. You type a domain, sign in with Google or
-Microsoft, and the app builds the proof on the device from the identity token
-they return.
-
-No ZKProofport account exists and none is created. The sign-in is Google's or
-Microsoft's own, against whatever work account you already have; we never see a
-password. If you do not have a work account to hand, the two Coinbase entries
-above still demonstrate the flow.
-
-The remaining networks in that picker ("Giwa", "OmniOne") are hidden unless
-Developer Mode is switched on, and are not part of this submission.
-
-WHAT THE APP DOES WITH THE NETWORK
-
-Proof generation is local. The app reaches the network for two things:
-downloading the public verification circuits, and reading attestations from the
-Base and Ethereum networks. There is no server-side proof service.
+History > Clear All removes saved proof records. More > Clear Local Data
+clears local app data. More > Export Proof History exports the saved records.
 
 PRIVACY POLICY
-
 https://github.com/zkproofport/proofport-app/blob/main/docs/legal/privacy-policy.md
-
-The same link is inside the app, under More > About > Legal.
