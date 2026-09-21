@@ -50,23 +50,56 @@ function cacheKey(env: Environment, circuit: CircuitName): string {
   return `${CACHE_PREFIX}/${env}/${circuit}`;
 }
 
+/** How long a resolved tag is used without asking GitHub again. */
+const RELEASE_TAG_TTL_MS = 60 * 60 * 1000;
+
 /**
- * Resolve the latest GitHub Release tag for production.
- * Caches the tag for 1 hour to avoid excessive API calls.
+ * The release tag this device last resolved, whatever its age.
+ *
+ * Separate from the TTL check because the two questions are different: "is it
+ * fresh enough to skip the network" and "is there a real tag here at all". The
+ * second one is what keeps an offline launch working.
+ */
+async function readCachedReleaseTag(): Promise<{tag: string; fetchedAt: number} | null> {
+  try {
+    const raw = await AsyncStorage.getItem(RELEASE_TAG_CACHE_KEY);
+    if (!raw) return null;
+    const {tag, fetchedAt} = JSON.parse(raw);
+    // A stored entry that is not a tag is not a tag. Storage can hold a
+    // truncated write or a value from an older shape of this record.
+    if (typeof tag !== 'string' || !tag) return null;
+    return {tag, fetchedAt: typeof fetchedAt === 'number' ? fetchedAt : 0};
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The latest GitHub Release tag, or null when this device has never seen one.
+ *
+ * Fresh cache -> that tag. Otherwise ask GitHub; and when GitHub cannot be
+ * asked — offline, timed out, HTTP 403 because the unauthenticated API allows
+ * 60 calls an hour per IP and a carrier NAT shares one — fall back to the tag
+ * this device resolved LAST TIME, however old it is.
+ *
+ * A stale tag is a real tag: it is the release the circuit files on disk
+ * actually came from, so reusing it keeps an offline app working on the bytes
+ * it already verified. What must never be substituted is a DIFFERENT source.
+ * Returning null here is how the caller learns it has nothing.
  */
 async function resolveReleaseTag(repo: string): Promise<string | null> {
-  try {
-    const cached = await AsyncStorage.getItem(RELEASE_TAG_CACHE_KEY);
-    if (cached) {
-      const {tag, fetchedAt} = JSON.parse(cached);
-      const oneHour = 60 * 60 * 1000;
-      if (Date.now() - fetchedAt < oneHour) {
-        return tag;
-      }
-    }
+  const cached = await readCachedReleaseTag();
+  if (cached && Date.now() - cached.fetchedAt < RELEASE_TAG_TTL_MS) {
+    return cached.tag;
+  }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const controller = new AbortController();
+  // Cleared in `finally`, not after the await: when fetch REJECTS — which is
+  // the offline case, the one this whole function is about — a timer left
+  // running holds the process for another ten seconds and then aborts a
+  // request nobody is waiting for.
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
     const response = await fetch(
       `https://api.github.com/repos/${repo}/releases/latest`,
       {
@@ -74,21 +107,25 @@ async function resolveReleaseTag(repo: string): Promise<string | null> {
         signal: controller.signal,
       },
     );
-    clearTimeout(timeoutId);
-    if (!response.ok) return null;
 
-    const release = await response.json();
-    const tag = release.tag_name;
-    if (!tag) return null;
-
-    await AsyncStorage.setItem(
-      RELEASE_TAG_CACHE_KEY,
-      JSON.stringify({tag, fetchedAt: Date.now()}),
-    );
-    return tag;
+    if (response.ok) {
+      const release = await response.json();
+      const tag = release?.tag_name;
+      if (typeof tag === 'string' && tag) {
+        await AsyncStorage.setItem(
+          RELEASE_TAG_CACHE_KEY,
+          JSON.stringify({tag, fetchedAt: Date.now()}),
+        );
+        return tag;
+      }
+    }
   } catch {
-    return null;
+    // Falls through to the stale tag below.
+  } finally {
+    clearTimeout(timeoutId);
   }
+
+  return cached?.tag ?? null;
 }
 
 /**
@@ -241,9 +278,23 @@ export async function getDeploymentInfo(
 }
 
 /**
- * Resolve the base URL for circuit file downloads based on environment.
- * Development: raw GitHub URL from main branch.
- * Production: raw GitHub URL from latest release tag (falls back to main).
+ * Where a release-pinned build reads circuit data from.
+ *
+ * Development and staging read `main`. Production reads the latest GitHub
+ * Release tag, and when no tag can be produced it THROWS.
+ *
+ * It used to answer `main` in that case, and that is the shape this repository
+ * bans: the download succeeds, against bytes nobody released. The failure is
+ * invisible from here — the digest manifest is published beside the file at the
+ * same ref, so `main`'s circuit and `main`'s digests agree — and it is
+ * asymmetric: `resolveBroadcastUrl` returns null on the very same failure, so
+ * the verifier ADDRESS stays at the release's while the circuit bytes come from
+ * `main`. One unreachable API call was enough to pair a circuit with a verifier
+ * that was never deployed for it.
+ *
+ * Offline is not that case: `resolveReleaseTag` reuses the last tag this device
+ * saw. Throwing here means there is no tag at all — a first launch that has
+ * never reached GitHub — and then there is nothing to download from.
  */
 export async function resolveCircuitBaseUrl(env: Environment): Promise<string> {
   const config = STATIC_CONFIGS[env];
@@ -254,8 +305,15 @@ export async function resolveCircuitBaseUrl(env: Environment): Promise<string> {
     return source.baseUrl.replace(/\/broadcast$/, '');
   }
 
-  // Release mode: resolve tag first
   const tag = await resolveReleaseTag(source.repo);
-  if (!tag) return GITHUB_RAW('main');
+  if (!tag) {
+    throw new Error(
+      `No circuits release tag for the ${env} build: ` +
+        `https://api.github.com/repos/${source.repo}/releases/latest could not be read ` +
+        'and this device has no tag cached from an earlier launch. ' +
+        'Refusing to read circuit data from main — an untagged circuit would be ' +
+        "proved against the release's verifier address.",
+    );
+  }
   return GITHUB_RAW(tag);
 }

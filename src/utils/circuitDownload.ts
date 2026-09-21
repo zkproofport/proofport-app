@@ -160,6 +160,33 @@ async function copyBundledCircuitFile(
   return downloadCircuitFileFromGitHub(circuitName, extension, env, onProgress, log);
 }
 
+/**
+ * Which ref THIS circuit reads from. One answer, three readers.
+ *
+ * Circuits that are not officially supported -- the experimental Arc one and
+ * the planned ones (GIWA, the three Korea mDL predicates) -- exist only on
+ * main, never in a release tag, so they are always fetched from main
+ * regardless of environment. Asking for the derived list rather than naming
+ * them is what stops the next circuit from being forgotten here; Arc was, for
+ * exactly as long as it sat in neither of two lists.
+ *
+ * The download URL, the cache-staleness check and the metadata written beside
+ * the files each used to work this out on their own, and only the first one
+ * knew about the main-only circuits. The other two asked for the ENVIRONMENT's
+ * base URL, so on a production build they recorded and compared a release tag
+ * for files that had come from main — a stored value that was simply untrue,
+ * and one that now decides whether a release-tag build is allowed to throw.
+ */
+export async function circuitBaseUrl(
+  circuitName: string,
+  env: Environment,
+): Promise<string> {
+  if (DEV_ONLY_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
+    return GITHUB_RAW('main');
+  }
+  return resolveCircuitBaseUrl(env);
+}
+
 async function getCircuitFileUrl(
   circuitName: string,
   extension: string,
@@ -167,15 +194,7 @@ async function getCircuitFileUrl(
 ): Promise<string> {
   const configPath = getCircuitFilePaths(circuitName);
   if (configPath) {
-    // Circuits that are not officially supported -- the experimental Arc one
-    // and the planned ones (GIWA, the three Korea mDL predicates) -- exist only
-    // on main, never in a release tag, so they are always fetched from main
-    // regardless of environment. Asking for the derived list rather than
-    // naming them is what stops the next circuit from being forgotten here;
-    // Arc was, for exactly as long as it sat in neither of two lists.
-    const baseUrl = DEV_ONLY_CIRCUIT_IDS.includes(circuitName as CircuitName)
-      ? GITHUB_RAW('main')
-      : await resolveCircuitBaseUrl(env);
+    const baseUrl = await circuitBaseUrl(circuitName, env);
     return buildFilePath(baseUrl, circuitName, extension, configPath);
   }
 
@@ -184,7 +203,7 @@ async function getCircuitFileUrl(
     return buildFilePath(legacyConfig.repoBase, circuitName, extension, legacyConfig);
   }
 
-  const baseUrl = await resolveCircuitBaseUrl(env);
+  const baseUrl = await circuitBaseUrl(circuitName, env);
   return `${baseUrl}/${circuitName}/target/${circuitName}.${extension}`;
 }
 
@@ -406,7 +425,7 @@ async function shouldInvalidateCache(
 
   const stored = await getStoredCircuitVersion(circuitName);
   const expectedVersion = CIRCUIT_DATA_VERSIONS[circuitName as CircuitName] ?? 0;
-  const currentBaseUrl = await resolveCircuitBaseUrl(env);
+  const currentBaseUrl = await circuitBaseUrl(circuitName, env);
   // hasCachedFiles only matters when there is no stored metadata, so skip the
   // extra disk hit otherwise.
   const hasCachedFiles = stored ? false : await allCircuitFilesExist(circuitName);
@@ -459,7 +478,9 @@ export async function downloadCircuitFiles(
 
   const configPath = getCircuitFilePaths(circuitName);
   if (configPath) {
-    const baseUrl = await resolveCircuitBaseUrl(env);
+    // The ref the files ACTUALLY came from, so the next launch compares like
+    // with like.
+    const baseUrl = await circuitBaseUrl(circuitName, env);
     await storeCircuitVersion(circuitName, baseUrl);
   }
 
