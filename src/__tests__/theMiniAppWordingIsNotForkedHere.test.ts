@@ -82,6 +82,6 @@ describe('the mini-app wording is not forked into this package', () => {
       ((t.openstoa as Tree).topicEdit as Tree).deleteConfirm as string;
 
     expect(at(en)).toMatch(/for everyone/i);
-    expect(at(ko)).toContain('모든 참여자');
+    expect(at(ko)).toContain('모든 멤버');
   });
 });

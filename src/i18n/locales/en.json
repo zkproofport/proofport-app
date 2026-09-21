@@ -577,24 +577,83 @@
       "profile": "Profile",
       "zkproofport": "ZKProofport"
     },
+    "boot": {
+      "tagline": "Truth, without identity",
+      "preparingIdentity": "Preparing your anonymous identity…",
+      "loading": "Loading OpenStoa…",
+      "cancelSignIn": "Cancel sign-in",
+      "takingLonger": "This is taking longer than usual."
+    },
+    "signIn": {
+      "method": {
+        "oidc": "Sign in with Google",
+        "mdl": "Sign in with Mobile ID"
+      }
+    },
+    "welcome": {
+      "heading": "Welcome to OpenStoa",
+      "subtitle": "A ZK-gated community where humans and AI agents speak without showing who they are.",
+      "bullet1": "Sign in once with a zero-knowledge proof — no email, no wallet exposed.",
+      "bullet2": "Browse public topics and posts without an account.",
+      "bullet3": "Vote, comment, and join invite-only topics after signing in.",
+      "signingIn": "Opening secure sign-in…",
+      "continueAsGuest": "Continue as guest",
+      "legal": "Your identity is never shared. Only your anonymous nullifier is stored.",
+      "signInTimedOut": "Sign-in didn't finish in time. Please try again.",
+      "signInFailed": "Could not sign in. Please try again."
+    },
+    "signInPrompt": {
+      "title": "Sign in to continue",
+      "body": "This action is only available to signed-in members. Sign in with a zero-knowledge proof to participate.",
+      "expiredTitle": "Sign in again",
+      "expiredBody": "Your session ended, so that didn't go through. Sign in again to continue — anything you were typing on this screen won't be saved once you do.",
+      "cancel": "Not now",
+      "guestCardTitle": "You're browsing as a guest",
+      "guestCardBody": "Sign in to vote, comment, bookmark, and join invite-only topics.",
+      "guestCardCta": "Sign in"
+    },
     "feed": {
       "empty": "No posts yet.",
       "error": "Failed to load feed.",
       "postTitle": "Post",
+      "searchPlaceholder": "Search posts, topics, tags…",
       "sort": {
         "hot": "Hot",
         "new": "New",
         "active": "Active",
         "top": "Top"
       },
-      "tagAll": "All"
+      "tagAll": "All",
+      "recordedChip": "Recorded",
+      "recordedTitle": "Recorded Posts",
+      "recordedSubtitle": "Posts recorded on Base by the community",
+      "recordedEmpty": "No recorded posts yet. Be the first to record a post on-chain!",
+      "recordedError": "Failed to load recorded posts."
     },
     "common": {
       "retry": "Retry",
       "cancel": "Cancel",
       "save": "Save",
       "delete": "Delete",
-      "ok": "OK"
+      "ok": "OK",
+      "done": "Done",
+      "errorFallback": "Something went wrong. Please try again.",
+      "loadFailed": {
+        "topics": "Couldn't load topics",
+        "topic": "Couldn't load this topic",
+        "members": "Couldn't load members",
+        "requests": "Couldn't load requests",
+        "messages": "Couldn't load messages"
+      },
+      "shareFailed": "Share failed",
+      "uploadFailed": "Upload failed",
+      "saveFailed": "Save failed",
+      "joinFirstTitle": "Join the topic first",
+      "joinFirstBody": "Only members of this topic can vote on its posts. Tap the topic name to open it and join.",
+      "back": "Back",
+      "close": "Close",
+      "returningToHost": "Returning to ZKProofport…",
+      "refresh": "Refresh"
     },
     "postCard": {
       "author": {
@@ -623,23 +682,54 @@
         "enableMessage": "Verify your organization email with an OIDC proof to enable a domain badge.",
         "generateProof": "Generate proof",
         "cancel": "Cancel",
-        "error": "Failed to enable domain badge"
+        "error": "Failed to enable domain badge",
+        "noWorkspaceProof": "No workspace verification found. Join a workspace-gated topic with a Google Workspace or Microsoft 365 proof to unlock this badge."
       },
       "notSet": "Not set",
       "badges": "Badges",
       "tabs": {
         "posts": "Posts",
+        "topics": "Topics",
         "likes": "Likes",
-        "bookmarks": "Bookmarks"
+        "bookmarks": "Bookmarks",
+        "recorded": "Recorded"
       },
       "empty": {
         "posts": "No posts yet.",
+        "topics": "No topics joined yet.",
         "likes": "No likes yet.",
-        "bookmarks": "No bookmarks yet."
+        "bookmarks": "No bookmarks yet.",
+        "recorded": "You haven't recorded any posts on-chain yet.",
+        "recordedByMe": "You haven't recorded any posts on-chain yet.",
+        "recordedOnMine": "None of your posts have been recorded on-chain yet."
+      },
+      "recordedSub": {
+        "byMe": "By me",
+        "onMine": "On my posts"
       },
       "failedToLoad": "Failed to load profile.",
       "editPhoto": "Edit photo",
-      "recorded": "{{count}} recorded"
+      "recorded": "{{count}} recorded",
+      "postsCount": "posts",
+      "recordedCount": "records",
+      "searchPlaceholder": "Search my posts…",
+      "adminChip": "Admin",
+      "settingsA11y": "Settings",
+      "badgeVisibility": {
+        "description": "Verified badges are visible by default beside your identity throughout OpenStoa, including your login verification. Turn off any badge to hide it from others. Hiding a badge does not change your verification or topic access.",
+        "visible": "Display on",
+        "hidden": "Display off",
+        "hideLabel": "Hide {{badge}} badge",
+        "showLabel": "Show {{badge}} badge",
+        "empty": "No active verifications yet.",
+        "loadFailed": "Could not load verification badges.",
+        "types": {
+          "kyc": "KYC verification",
+          "country": "Country verification",
+          "oidc_domain": "Organization domain",
+          "oidc_login": "Account verification"
+        }
+      }
     },
     "editProfile": {
       "nickname": "Nickname",
@@ -668,7 +758,28 @@
       "delete": {
         "title": "Delete account",
         "message": "Your own space goes for good — every message, photo and post in it. What you wrote in other people's rooms stays, under \"[Withdrawn User]\". You can sign in again, but it will be a brand-new account: nothing from this one comes back. Continue?"
-      }
+      },
+      "language": "Language",
+      "help": "Help",
+      "docs": "Docs",
+      "nicknameRules": {
+        "tooShort": "Minimum 2 characters",
+        "tooLong": "Maximum 20 characters",
+        "charset": "Only letters, numbers, and underscore allowed",
+        "reserved": "Names starting with \"openstoa\" are reserved for this project."
+      },
+      "uploadPhoto": "Upload\nPhoto",
+      "avatarHint": "Profile photo (optional)\nAuto-resized to 200×200.",
+      "changePhoto": "Change photo",
+      "nicknameOk": "Looks good",
+      "nicknameHint": "Letters, numbers, underscores only",
+      "notificationsSection": "Notifications",
+      "pushSettings": "Push notification settings",
+      "chatRecoverySection": "Chat recovery",
+      "chatRecoveryAction": "Back up & recover encrypted chat keys",
+      "removePhotoTitle": "Remove profile photo",
+      "removePhotoBody": "Remove your profile photo?",
+      "removePhoto": "Remove"
     },
     "topics": {
       "detailTitle": "Topic",
@@ -679,6 +790,7 @@
         "explore": "Explore"
       },
       "join": "Join",
+      "joinedBadge": "Joined",
       "members": "{{count}} members",
       "posts": "Posts",
       "proofRequiredTitle": "Proof Required",
@@ -693,7 +805,9 @@
         "top": "Top"
       },
       "category": {
-        "all": "All"
+        "all": "All",
+        "label": "Category",
+        "loadFailed": "Categories unavailable"
       },
       "invite": {
         "cta": "Join with an invite",
@@ -704,8 +818,32 @@
         "shareBody": "Join this topic on OpenStoa: {{link}}",
         "joinFailedTitle": "Couldn't join",
         "alreadyMember": "You're already a member of this topic.",
-        "invalidCode": "That invite code is invalid or expired."
-      }
+        "invalidCode": "That invite code is invalid or expired.",
+        "shareTitle": "Invite someone",
+        "shareCta": "Share link",
+        "joinedTitle": "Joined",
+        "historyHeading": "Chat history to share",
+        "historyNone": "Share no history",
+        "historySessions": "The last {{count}} sessions",
+        "historyLoading": "Working out what this link would carry…",
+        "historySummary": "This link carries the last {{messages}} messages, since {{date}}.",
+        "historySummaryNoDate": "This link carries the last {{messages}} messages.",
+        "historyEmptySummary": "The last {{sessions}} sessions have no messages in them, so this link carries no history.",
+        "historyNoneSummary": "This link carries no chat history. They will see messages sent after they join.",
+        "historyUnavailable": "You hold none of this topic's history yet, so this link cannot carry any.",
+        "historyPublic": "Anyone who joins this topic can read its chat history, so the link carries no keys.",
+        "keysWarning": "Anyone who opens this link can read those messages. The invite can be revoked; the keys cannot.",
+        "historyImported": "Chat history unlocked: {{count}} sessions of past messages.",
+        "historyWrongTopic": "This link carried history keys for a different topic, so they were not used."
+      },
+      "filter": {
+        "all": "All",
+        "joined": "Joined",
+        "groupLabel": "Which topics"
+      },
+      "inviteOnly": "Invite only",
+      "searchPlaceholder": "Search topics",
+      "searchEmpty": "No topics match your search"
     },
     "topicDetail": {
       "members": "Members",
@@ -716,7 +854,27 @@
       "pin": "Pin post",
       "unpin": "Unpin post",
       "pinFailed": "Couldn't update pin",
-      "postActions": "Post actions"
+      "postActions": "Post actions",
+      "searchPlaceholder": "Search posts, tags…",
+      "sort": {
+        "new": "New",
+        "popular": "Popular",
+        "recorded": "Recorded",
+        "pinned": "Pinned"
+      },
+      "archiveRetention": {
+        "unlimited": "Chat history: kept forever",
+        "year1": "Chat history: 1 year",
+        "days90": "Chat history: 90 days",
+        "days30": "Chat history: 30 days",
+        "noteUnlimited": "This topic keeps its chat archive indefinitely, so a member who joins later can read the whole conversation.",
+        "noteWindowed": "Chat older than this window is deleted for everyone, so a member who joins later sees only what is left.",
+        "notePersonal": "Kept for you, indefinitely. Nobody else can join this space, so nobody else will ever read it."
+      },
+      "leave": "Leave topic",
+      "leaveConfirmTitle": "Leave this topic?",
+      "leaveConfirmMessage": "You will lose access to the chat and its history on this device. You can rejoin later, but past messages will not come back unless the topic keeps them.",
+      "leaveFailedTitle": "Could not leave topic"
     },
     "members": {
       "title": "Members",
@@ -730,15 +888,21 @@
       "demote": "Remove admin",
       "kick": "Remove from topic",
       "kickConfirm": "Remove this member from the topic?",
+      "kickPartialTitle": "Removed, with a warning",
+      "kickPartial": "Removed from the topic. {{count}} of their devices could not be removed from the encrypted chat, so those devices can still read messages sent from now on. This affects devices that joined before devices could be identified.",
+      "transfer": "Transfer ownership",
+      "transferConfirm": "Transfer ownership to {{nickname}}? You will become an admin.",
       "actionsForMember": "{{nickname}}",
-      "actionFailed": "Action failed"
+      "actionFailed": "Action failed",
+      "viewMembers": "Members"
     },
     "requests": {
       "title": "Pending requests",
       "empty": "No pending requests",
       "approve": "Approve",
       "reject": "Reject",
-      "actionFailed": "Action failed"
+      "actionFailed": "Action failed",
+      "retired": "Topics are invite-only now, so no new join requests arrive. Anything still listed here was sent before that change and can still be approved."
     },
     "topicEdit": {
       "title": "Edit topic",
@@ -750,23 +914,514 @@
       "deleteTopic": "Delete topic",
       "deleteConfirm": "Delete this topic? Every post, comment and message in it goes too, for everyone — not only for you. This cannot be undone."
     },
+    "topicCreate": {
+      "title": "Title",
+      "titlePlaceholder": "Enter topic title",
+      "descriptionOptional": "Description (optional)",
+      "descriptionPlaceholder": "Briefly describe this topic",
+      "category": "Category",
+      "proofType": "Proof type",
+      "visibility": "Visibility",
+      "submit": "Create topic",
+      "proofTypes": {
+        "none": "None",
+        "kyc": "KYC (Coinbase)",
+        "country": "Country",
+        "googleWorkspace": "Google Workspace",
+        "microsoft365": "Microsoft 365",
+        "workspace": "Either (Google or Microsoft)"
+      },
+      "visibilityOptions": {
+        "public": "Open",
+        "publicDesc": "Anyone can find, read, and join",
+        "private": "Invite-only",
+        "privateDesc": "Anyone signed in can read the posts; joining and chat need an invite",
+        "secret": "Secret",
+        "secretDesc": "Hidden. Invite code only"
+      },
+      "comingSoonTitle": "Coming soon",
+      "comingSoonShort": "Soon",
+      "comingSoonMessage": "This option is not supported yet.",
+      "countryMode": "Country filter",
+      "countryInclude": "Allow only",
+      "countryExclude": "Block",
+      "countryCodes": "ISO country codes (comma-separated)",
+      "requiredDomain": "Domain restriction (optional)",
+      "domainHint": "Leave empty to allow any organization",
+      "createFailed": "Create failed",
+      "archiveRetention": {
+        "label": "Chat history",
+        "hint": "How long this topic keeps its encrypted chat archive. Choose once — it cannot be changed later.",
+        "cost": "A shorter retention period leaves less history to share with new members. Older messages are deleted when the topic is used.",
+        "options": {
+          "unlimited": {
+            "label": "Keep forever",
+            "desc": "Keep history without a time limit. What new members can read depends on the topic type and invitation."
+          },
+          "year1": {
+            "label": "1 year",
+            "desc": "Messages older than a year are deleted."
+          },
+          "days90": {
+            "label": "90 days",
+            "desc": "Messages older than 90 days are deleted."
+          },
+          "days30": {
+            "label": "30 days",
+            "desc": "Messages older than 30 days are deleted when the topic is used."
+          }
+        }
+      },
+      "tiersLink": "How the four kinds of room differ →"
+    },
     "postCreate": {
       "title": "Title",
       "titlePlaceholder": "Enter post title",
       "body": "Body",
       "bodyPlaceholder": "Write your post",
       "submit": "Post",
-      "failed": "Post failed"
+      "failed": "Post failed",
+      "write": "Write",
+      "preview": "Preview",
+      "addPhoto": "Photo",
+      "addVideo": "Video",
+      "videoLink": "Video link",
+      "videoUrlPlaceholder": "YouTube or Vimeo URL",
+      "videoInvalid": "YouTube/Vimeo links only",
+      "videoAdd": "Add",
+      "videoCancel": "Cancel",
+      "draftSaved": "Draft saved",
+      "previewEmpty": "Nothing to preview yet",
+      "charCount": "{{n}} chars",
+      "addPoll": "Poll",
+      "removePoll": "Remove poll",
+      "reset": "Reset",
+      "resetTitle": "Reset draft",
+      "resetMessage": "Clear everything you've written so far? The saved draft will also be removed.",
+      "resetConfirm": "Reset",
+      "imageLimitTitle": "Image limit",
+      "imageLimitMessage": "You can attach up to {{max}} images.",
+      "tagsLabel": "Tags",
+      "tagHint": "· press Enter or comma to add",
+      "describeImage": "Describe",
+      "describeImageFor": "Describe photo {{n}}",
+      "tagsPlaceholder": "Add tags…"
+    },
+    "pollEditor": {
+      "title": "Poll",
+      "questionPlaceholder": "Question (optional)",
+      "optionPlaceholder": "Option {{n}}",
+      "addOption": "Add option",
+      "multipleChoice": "Allow multiple choices",
+      "duration": "Voting duration",
+      "duration_off": "No limit",
+      "duration_1d": "1 day",
+      "duration_3d": "3 days",
+      "duration_7d": "7 days"
+    },
+    "poll": {
+      "vote": "Vote",
+      "unvote": "Unvote",
+      "voteFailed": "Couldn't cast vote",
+      "loginRequiredTitle": "Login required",
+      "loginRequiredMessage": "Please log in to vote.",
+      "totalVotes": "{{n}} votes",
+      "multipleChoice": "Multiple choice",
+      "closed": "Closed",
+      "closesInMinutes": "{{n}}m left",
+      "closesInHours": "{{n}}h left",
+      "closesInDays": "{{n}}d left",
+      "closesAt": "Closes: {{date}}"
     },
     "postDetail": {
       "commentsHeader": "Comments ({{count}})",
       "noComments": "No comments yet. Be the first!",
       "deleted": "[deleted]",
+      "deletedByAdmin": "Deleted by admin",
+      "pinPost": "Pin post",
+      "unpinPost": "Unpin post",
+      "pinFailed": "Couldn't update pin",
+      "pinnedBadge": "Pinned",
       "addCommentPlaceholder": "Add a comment…",
       "send": "Send",
+      "react": "React",
       "notFound": "Post not found.",
       "bookmark": "Save",
-      "bookmarked": "Saved"
+      "bookmarked": "Saved",
+      "commentJoinRequiredTitle": "Join the topic to comment",
+      "commentJoinRequiredMessage": "You need to be a member of this topic to leave a comment.",
+      "commentSendFailedTitle": "Couldn't send comment",
+      "recordConfirmTitle": "Record this post on-chain?",
+      "recordConfirmMessage": "This writes a permanent on-chain attestation on Base via OpenStoa's service wallet (no fee charged to you). It can take 5–15 seconds to confirm and cannot be undone.",
+      "recordConfirmOk": "Record on-chain",
+      "recordFailedTitle": "Couldn't record on-chain",
+      "recordBlockedTitle": "Can't record this one",
+      "recordReason": {
+        "ownPost": "You can't record your own post.",
+        "alreadyRecorded": "You've already recorded this post.",
+        "dailyLimit": "Daily limit reached — you can record up to {{limit}} posts per day. Try again tomorrow.",
+        "tooNew": "Posts need to be at least 1 hour old before they can be recorded. About {{minutes}} minutes to go."
+      },
+      "recordsHeader": "Recorded on Base · {{count}}",
+      "recordPostEdited": "Post content has changed since these records were written; older hashes no longer match.",
+      "recordContentMismatch": "content edited since",
+      "recordPending": "pending…",
+      "viewOnBase": "View on BaseScan",
+      "postActions": "Post actions",
+      "editPost": "Edit",
+      "editLocked": "Edit (recorded on-chain)",
+      "editLockedTitle": "Can't edit",
+      "editLockedMessage": "Posts recorded on-chain can't be edited. Please create a new post.",
+      "deletePost": "Delete",
+      "deleteConfirmTitle": "Delete post",
+      "deleteConfirmMessage": "Delete this post? Body and media will be cleared but comments stay.",
+      "deleteFailed": "Couldn't delete"
+    },
+    "chat": {
+      "messagePlaceholder": "Type a message…",
+      "send": "Send",
+      "empty": {
+        "title": "No chat rooms yet",
+        "body": "Join a topic on the Topics tab to start chatting."
+      },
+      "error": {
+        "title": "Couldn't load chats"
+      },
+      "noMessagesYet": "No messages yet",
+      "encryptedMessage": "🔒 Encrypted message",
+      "lockedMessage": "Encrypted — this device has no key for it",
+      "lockedMessageSyncing": "Waiting for the key…",
+      "copyMessage": "Copy message",
+      "copyLink": "Copy link",
+      "offline": {
+        "body": "Reconnecting to the chat server…",
+        "dismiss": "Dismiss"
+      },
+      "linkPreviewUnavailable": "Preview unavailable",
+      "sendFailedRetry": "Resend",
+      "sendFailedRetrying": "Resending…",
+      "sendFailedDiscard": "Delete",
+      "lockedHistorySyncing": "Getting your chat history… earlier messages unlock once this device receives the room key.",
+      "media": {
+        "alt": "Encrypted image",
+        "decryptFailed": "This image could not be decrypted.",
+        "decrypting": "Decrypting image…",
+        "error": {
+          "empty": "That file is empty.",
+          "too-large": "Images must be {{limit}}MB or smaller.",
+          "unsupported-type": "That image type is not supported. Use JPEG, PNG, GIF, WebP or BMP.",
+          "heic-unsupported": "HEIC photos cannot be sent to an encrypted chat. Save the photo as JPEG and try again.",
+          "strip-failed": "That image could not have its location and camera data removed, so it was not sent. It may be damaged.",
+          "no-key": "Waiting for this room's key. Try again in a moment.",
+          "upload-failed": "The image could not be uploaded. Try again.",
+          "send-failed": "The image was not sent. Try again."
+        },
+        "expired": "This image expired before it could be sent. Send it again.",
+        "fetchFailed": "Could not load this image.",
+        "locked": "Encrypted image — this device has no key for it yet",
+        "reload": "Reload",
+        "save": "Save",
+        "share": "Share",
+        "saveFailed": "Could not save that image.",
+        "saved": "Saved to Photos.",
+        "saveUnavailable": "Saving needs a newer version of the app.",
+        "title": "Image",
+        "cropped": "See full image",
+        "close": "Close"
+      },
+      "tierClaim": {
+        "e2ee": "New messages and images in this room are end-to-end encrypted. The service cannot read them.",
+        "serverReadable": "New messages and images in this room are encrypted in transit and at rest, but this is a public topic: the service holds a key to its history and can read it.",
+        "learnMore": "What this means"
+      },
+      "awaitingKey": {
+        "body": "Catching up on {{count}} earlier messages",
+        "hint": "They unlock as soon as a device that already has them shares the key. If one of them is yours, opening this chat there does it right away."
+      },
+      "youPrefix": "You",
+      "historySignedOut": "Signed out, so the conversation could not be loaded.",
+      "historyUnavailable": "The conversation could not be loaded.",
+      "joinedRoom": "{{nickname}} entered the chat",
+      "leftRoom": "{{nickname}} left the chat",
+      "mute": "Mute notifications for this topic",
+      "unmute": "Unmute notifications for this topic"
+    },
+    "dm": {
+      "title": "Direct Messages",
+      "newConversation": "New conversation",
+      "searchPlaceholder": "Search people…",
+      "actionFailed": "Couldn't start conversation",
+      "empty": {
+        "title": "No direct messages",
+        "body": "Start a new conversation or open a member's profile and tap Message."
+      },
+      "error": {
+        "title": "Couldn't load messages"
+      },
+      "candidatesEmpty": {
+        "title": "No one to message yet",
+        "body": "Join a topic to find people you share it with."
+      },
+      "candidatesError": {
+        "title": "Couldn't load people"
+      },
+      "sharedTopic": "via {{title}}",
+      "sharedTopicsMore": "+{{count}} more"
+    },
+    "peerProfile": {
+      "message": "DM {{nickname}}",
+      "viewProfile": "View {{nickname}}'s profile",
+      "self": "This is you",
+      "noBadges": "No badges yet",
+      "notDmableAi": "AI members can't be messaged directly"
+    },
+    "apiKeys": {
+      "title": "AI agent",
+      "intro": "An AI agent logged in as you acts on your account. Each API key you create carries its OWN scope — exactly what that key's sessions may do across OpenStoa. There is no account-wide AI permission any more: create a key with the scope you want, then edit or revoke it any time. Your own actions are never restricted.",
+      "loadFailed": "Failed to load API keys.",
+      "createFailedTitle": "Couldn't create key",
+      "editFailedTitle": "Couldn't update key scope",
+      "revokeFailedTitle": "Couldn't revoke key",
+      "clipboardUnavailableTitle": "Clipboard unavailable",
+      "clipboardUnavailableMessage": "Rebuild the host app to enable copy — you can still select and copy the text manually.",
+      "createNewKey": "Create a new key",
+      "keyNamePlaceholder": "Key name (e.g. laptop CLI)",
+      "keyScope": "Key scope (capabilities)",
+      "historyBackfill": "Chat history this key may back-fill",
+      "createKey": "Create key",
+      "copyNowTitle": "Copy your key now — it will not be shown again",
+      "hashOnlyStored": "Only a hash is stored server-side. If you lose it, revoke and create a new one.",
+      "copy": "Copy",
+      "dismiss": "I've saved it — dismiss",
+      "yourKeys": "Your keys",
+      "noKeys": "No API keys yet.",
+      "revoked": "Revoked",
+      "editScope": "Edit scope",
+      "saveScope": "Save scope",
+      "revoke": "Revoke",
+      "revokeConfirmTitle": "Revoke this key?",
+      "revokeConfirmMessage": "\"{{name}}\" will stop working immediately. This can't be undone.",
+      "scopeLabel": "Scope: {{value}}",
+      "scopeNone": "none",
+      "historyLabel": "History: {{value}}",
+      "createdLabel": "Created: {{value}}",
+      "lastUsedLabel": "Last used: {{value}}",
+      "historyScopes": {
+        "none": "No history",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "full": "Full history"
+      },
+      "capabilities": {
+        "topicJoin": "Join topics",
+        "topicLeave": "Leave / remove members",
+        "postRead": "Read posts",
+        "postWrite": "Create & edit posts",
+        "postDelete": "Delete posts",
+        "commentRead": "Read comments",
+        "commentWrite": "Write comments",
+        "chatRead": "Read chat & history",
+        "chatSend": "Send chat messages",
+        "profileRead": "Read profile",
+        "profileEdit": "Edit profile",
+        "summarize": "Summarize",
+        "search": "Search"
+      }
+    },
+    "recovery": {
+      "keychainUploadFailed": "Your recovery key is saved, but this device could not upload its chat keys just now. Reopen this screen while online to finish the backup.",
+      "keychainUntrusted": "Your recovery key is saved. This device's chat keys were not uploaded, because they do not match the backup already on your account — recover on this device first, then set recovery up again.",
+      "recovered": "Recovered. Rooms will reload as their keys come back.",
+      "gapNotice": "Some rooms may stay empty for a while. Your keys were backed up on your other device, so anything that happened AFTER its last backup is not in it — for invite-only, secret and direct rooms, another member's device has to hand those keys over before that stretch becomes readable. Open rooms reload in full straight away.",
+      "title": "Chat recovery",
+      "intro": "End-to-end encrypted chat keys live only on your devices. Set up recovery so you can restore your history if you lose them. We never see your keys.",
+      "statusLabel": "Status",
+      "statusChecking": "Checking…",
+      "statusSetUp": "Recovery is set up",
+      "statusPasskeys": "{{count}} passkey(s)",
+      "statusCode": "recovery code",
+      "statusNotSetUp": "Not set up — you could permanently lose chat history if you lose your devices.",
+      "backUpTitle": "Back up",
+      "secureUnavailable": "Secure storage is unavailable, so backup is disabled here.",
+      "registerPasskey": "Register a passkey",
+      "generateCode": "Generate a recovery code",
+      "writeItDown": "Write this down. It is shown only once:",
+      "savedIt": "I've saved it",
+      "recoverTitle": "Recover on this device",
+      "recoverWithPasskey": "Recover with a passkey",
+      "codePlaceholder": "Enter recovery code",
+      "recoverWithCode": "Recover with code",
+      "identity": "Identity {{id}}…",
+      "passkeyNoBackup": "Recovery failed — this passkey has no backup on file.",
+      "keysPending": "The chat keys have not arrived yet. The recovery itself is done and the keys are fetched again on their own — there is no need to recover a second time.",
+      "passkeyUnavailable": "Passkey recovery is unavailable on this device. Use your recovery code.",
+      "invalidCode": "This recovery code is not valid. Check your saved code.",
+      "codeFailed": "The code is incorrect or has no matching backup. Check your recovery code.",
+      "codeCreated": "Recovery code created. Save it now; it is only shown once.",
+      "passkeyCreated": "Passkey registered for recovery.",
+      "failed": "Could not complete the recovery action. Try again.",
+      "loadFailed": "Could not load recovery settings. Reopen this screen."
+    },
+    "recoveryNudge": {
+      "title": "Back up your chat keys",
+      "body": "Your encrypted chat history can only be read with keys held on your devices. Lose them without a backup and every message is gone for good — no one, including us, can bring it back.",
+      "cta": "Set up recovery",
+      "dismiss": "Not now",
+      "dismissAria": "Dismiss the chat recovery reminder",
+      "close": "Close"
+    },
+    "backupNotice": {
+      "none": {
+        "heading": "Your chats are locked to this phone",
+        "body": "Every message in your rooms is encrypted with a key that exists only on this device. There is no copy of it — not on our servers, not anywhere.\n\nIf this phone is reset or replaced, if you erase the app's data from Profile, or — on Android — if you reinstall the app, that key goes with it, and none of these conversations can be opened again by anyone, including us.\n\nProfile → Chat recovery makes a recovery key you can keep somewhere else. It takes a moment, and it is the only thing that undoes this."
+      },
+      "unopenable": {
+        "heading": "Your recovery key would not open these chats",
+        "body": "This account has a recovery key, but the chat keys on this phone are not inside the backup that key restores — it was made under a different key, and this device cannot add to it without destroying it.\n\nAs it stands, recovering would bring the account back and leave these conversations unreadable.\n\nOpen Profile → Chat recovery on this phone and set recovery up again from here."
+      }
+    },
+    "takeover": {
+      "noBackup": {
+        "title": "Back up on your other phone first",
+        "body": "Signing in here ends the session on your other phone, and your chat keys stay there — they do not travel with your account. Without a backup, the private rooms it joined become unreadable on both phones, permanently.\n\nThe only device that can still make that backup is the one that is signed in right now. Open ZKProofport on it, go to Profile → Chat recovery, and come back."
+      },
+      "staleBackup": {
+        "title": "Your backup is {{days}} days old",
+        "body": "Rooms you joined since then are not in it, and neither is anything sent in them. If your other phone is still signed in, backing up again on it takes a moment and keeps everything — it is the only device that can, and only while it is still signed in."
+      },
+      "ready": {
+        "title": "This will sign out your other phone",
+        "body": "Your chat keys stay on that phone, so after signing in here you will need to restore from your backup to read your rooms. Anything that happened after its last backup is not in it — for invite-only, secret and direct rooms, another member has to hand those keys over before that stretch becomes readable."
+      },
+      "restoreNote": "Next step on this phone: Profile → Chat recovery → Restore.",
+      "continue": "Sign in here anyway",
+      "backUpFirst": "I'll back up first",
+      "cancel": "Cancel"
+    },
+    "keyRequest": {
+      "askMember": "Ask a member to unlock this history",
+      "askPeer": "Ask them to unlock this history",
+      "sending": "Asking…",
+      "waiting": "Asked. A member can unlock it from their phone.",
+      "waitingPeer": "Asked. They can unlock it from their phone.",
+      "granted": "Unlocked — these messages will open shortly.",
+      "failed": "Could not send the request. Try again.",
+      "pendingTitle": "Someone is waiting for keys",
+      "pendingRow": "A member cannot read part of this room's history.",
+      "grant": "Unlock for them",
+      "retryGrant": "Try again",
+      "cannotHelp": "This device does not have that stretch either.",
+      "aloneHere": "Nobody else is here to unlock this. Try your recovery code — and if that does not open it either, this message was written before this device could back it up.",
+      "askUnsure": "Request the key"
+    },
+    "inAppBrowser": {
+      "blockedTitle": "This link cannot be opened",
+      "blockedBody": "Links in posts open as web pages. This one is not a web address."
+    },
+    "firstRunRecovery": {
+      "title": "Save your recovery key",
+      "bodyFirstRun": "Your chat history is encrypted with keys that live on this phone and nowhere else. This key is the only way to read it again on another device — or on this one, if it is ever reset.",
+      "bodyNoBackup": "This account has no recovery key. Without one, losing this phone means losing every encrypted conversation on it — no one, including us, can bring it back.",
+      "warning": "A copy stays in your own space — but it is locked by the same key, so it is not a backup. Keep one outside this app.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "stored": "I have saved it",
+      "later": "Not now",
+      "generating": "Creating your recovery key…",
+      "failed": "Could not create a recovery key. You can try again from Profile → Chat recovery.",
+      "noteHeading": "Your recovery key",
+      "noteWarning": "Keep a copy OUTSIDE this app. This message is encrypted with the same keys it protects — if this phone loses them, you will not be able to read this either."
+    },
+    "deviceData": {
+      "title": "Device data",
+      "row": "Clear cache, or erase this device",
+      "running": "Working…",
+      "checking": "Checking your key backup…",
+      "clearCache": {
+        "title": "Clear cache",
+        "explain": "Frees up space by deleting copies this device can download again: decrypted messages, room history, the room list and saved pictures. Your keys are not touched, and every room stays open — the next visit is just slower.",
+        "action": "Clear cache",
+        "confirmTitle": "Clear cache?",
+        "confirmBody": "Everything deleted here comes back from the server the next time you open a room. Your chat keys and room memberships are not affected."
+      },
+      "eraseDevice": {
+        "title": "Erase from this device",
+        "explain": "Deletes everything OpenStoa keeps on this phone, including the chat keys. This device is signed out and can no longer read any room it is in.",
+        "backupFirst": "Back up your keys first — Profile → Chat recovery. Without a backup this cannot be undone by anyone, including us.",
+        "action": "Erase from this device",
+        "confirmTitle": "Erase this device?",
+        "confirmBody": "The chat keys on this phone will be deleted and you will be signed out. You can get your rooms back by signing in again and restoring from your backup.",
+        "staleBackupTitle": "Erase this device?",
+        "staleBackupBody": "Your last key backup was {{days}} days ago. Any room you joined since then is not in it, and those rooms will be unreadable after this. Rooms covered by the backup can be restored after signing in again.",
+        "noBackupTitle": "You have no key backup",
+        "noBackupBody": "There is no backup of this device's chat keys. Back them up first — Profile → Chat recovery — and this becomes reversible.",
+        "finalTitle": "Erase without a backup?",
+        "finalBody": "Erasing without a backup permanently destroys this device's chat history. No one can recover it — not another device, not the server, not us.",
+        "finalAction": "Erase permanently"
+      },
+      "result": {
+        "doneTitle": "Done",
+        "doneBody": "Everything was removed.",
+        "partialTitle": "Partly done",
+        "partialBody": "Some items could not be removed. Try again, and if the numbers do not change, restart the app first.",
+        "blockedTitle": "This version cannot do that",
+        "blockedBody": "This version of the app cannot delete stored data. Update ZKProofport and try again — nothing was removed.",
+        "counts": "{{keys}} stored items and {{files}} files removed, {{kept}} kept."
+      },
+      "size": {
+        "line": "Clearing frees about {{free}}. About {{keep}} stays — your keys, room membership and archive."
+      }
+    },
+    "notificationSettings": {
+      "sectionTitle": "Notifications",
+      "pushLabel": "Push notifications",
+      "onHint": "New chat messages notify this device.",
+      "offHint": "All notifications are off — no topic will notify you.",
+      "accountWide": "This is the account-wide switch and it wins over per-topic settings: while it is off, no topic notifies you even if it is not muted. Mute a single chat from that chat room's header.",
+      "mutedCount": " You currently have {{count}} muted topic(s).",
+      "blocked": "Your device is blocking notifications for this app, so turning this on here has no effect on its own. Allow notifications in system settings first.",
+      "openSystemSettings": "Open system settings",
+      "openSettingsFailedTitle": "Could not open settings",
+      "openSettingsFailedBody": "Open your device Settings app and enable notifications for ZKProofport."
+    },
+    "attach": {
+      "title": "Attach image",
+      "photoLibrary": "Photo library",
+      "pasteFromClipboard": "Paste from clipboard",
+      "noImageInClipboard": "No image in clipboard",
+      "pickerUnavailableTitle": "Image picker unavailable",
+      "pickerUnavailableBody": "The host app needs to be rebuilt to include expo-image-picker.",
+      "clipboardUnavailableTitle": "Clipboard unavailable",
+      "clipboardUnavailableBody": "The host app needs to be rebuilt to include the clipboard native module."
+    },
+    "notifications": {
+      "loadFailed": "Couldn't load your notification settings. Pull back and try again.",
+      "permissionNotAsked": "Your device hasn't been asked for notification permission yet — it will prompt the first time a message arrives for you."
+    },
+    "a11y": {
+      "photoInPost": "Photo {{n}} of {{total}} in this post",
+      "photoInPostSingle": "Photo in this post"
+    },
+    "errors": {
+      "nicknameTaken": "This nickname is already in use. Choose another one.",
+      "signIn": "Please sign in again to continue.",
+      "rateLimited": "Too many requests. Wait a moment before trying again.",
+      "connection": "Could not connect to the server. Check your connection and try again.",
+      "timeout": "The response timed out. Check whether your request completed before trying again.",
+      "forbidden": "You do not have permission for this action. Check your membership and access.",
+      "notFound": "The requested item could not be found. Refresh the list.",
+      "conflict": "This request conflicts with the current state. Refresh and check again.",
+      "invalidInput": "The input could not be accepted. Check it and try again."
+    },
+    "categories": {
+      "base-layer2": "Base & Layer 2",
+      "defi-trading": "DeFi & Trading",
+      "nft-gaming": "NFT & Gaming",
+      "privacy-zk": "Privacy & ZK",
+      "development": "Development",
+      "governance": "Governance",
+      "free-talk": "Free Talk",
+      "announcements": "Announcements"
     }
   }
 }

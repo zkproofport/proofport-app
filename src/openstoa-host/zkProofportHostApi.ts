@@ -31,6 +31,8 @@ import {
 import { registerForPushWithDeps } from './pushRegistration';
 import { clearDeliveredForTopic, CHAT_CHANNEL_ID } from './pushClearing';
 import { fetchWithDeadline } from './fetchWithDeadline';
+import { requestTopicProof } from './topicProofRelay';
+import { getActiveProofRequest } from '../stores/activeProofRequestStore';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type {
   HostApi,
@@ -956,12 +958,14 @@ export function createZkProofportHostApi(
       }
     },
 
-    generateProof: async (_inputs: ProofInputs): Promise<ProofResult> => {
-      // TODO: bridge into the existing host proof-generation hooks
-      // (useCoinbaseKyc, useCoinbaseCountry, useOidcDomain) so that the
-      // OpenStoa mini-app can request topic-level proofs (country, domain).
-      throw new Error('HostApi.generateProof: not yet wired to mopro');
-    },
+    generateProof: (inputs: ProofInputs): Promise<ProofResult> => requestTopicProof(inputs, {
+      baseUrl,
+      getToken: readOpenStoaToken,
+      isProofActive: () => getActiveProofRequest() !== null,
+      triggerDeepLink,
+      returnToOpenStoa: () => { jumpToOpenStoaTab(); },
+      showError: code => showError(code),
+    }),
 
     exitToHost: (targetTab) => {
       const nav = getNavigation();

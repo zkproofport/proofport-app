@@ -40,6 +40,8 @@ const SAME_ON_PURPOSE: Record<string, string> = {
   'host.tabs.openstoa': 'product name',
   'host.wallet.title': 'product name',
   'openstoa.members.actionsForMember': 'the whole value is a placeholder',
+  'openstoa.topicCreate.proofTypes.googleWorkspace': 'product name',
+  'openstoa.topicCreate.proofTypes.microsoft365': 'product name',
   'openstoa.tabs.zkproofport': 'product name',
 };
 
