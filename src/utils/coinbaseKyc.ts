@@ -13,7 +13,7 @@ import {
   AttesterCircuitInputs,
   SimpleMerkleTree,
   bytesToNoirInput,
-  computeNullifier,
+  nullifierForCircuit,
   computeScope,
   extractPubkeyCoordinates,
   hexToByteArray,
@@ -81,7 +81,15 @@ export function prepareCircuitInputs(
   coinbaseSignerIndex: number,
   scopeString: string,
   /**
-   * The two EIP-712 hashes, for `arc_eligibility` only.
+   * Which circuit this vector is for.
+   *
+   * Required, and with no default: the nullifier formula differs per circuit,
+   * and guessing produces a proof that fails with "Nullifier mismatch" and
+   * nothing pointing here.
+   */
+  circuitId: string,
+  /**
+   * The two EIP-712 hashes, for the circuits that bind an action.
    *
    * They are PUBLIC INPUTS of that circuit, so a vector built without them is
    * not a shorter one — it is a different circuit's, and the prover says only
@@ -121,7 +129,7 @@ export function prepareCircuitInputs(
   }
 
   const scopeBytes = computeScope(scopeString);
-  const nullifierBytes = computeNullifier(userAddress, signalHash, scopeBytes);
+  const nullifierBytes = nullifierForCircuit(circuitId, userAddress, signalHash, scopeBytes);
 
   // The same two values the verifying contract recomputes from the call it is
   // about to run, and the same two the wallet signed over.
@@ -133,7 +141,14 @@ export function prepareCircuitInputs(
     : {};
 
   return {
-    signal_hash: bytesToNoirInput(Array.from(signalHash)),
+    /*
+     * Zero when an action is bound. The action-binding circuits assert that
+     * `signal_hash` is empty in that mode, because a proof carrying both
+     * leaves each verifier to decide which half to believe.
+     */
+    signal_hash: bytesToNoirInput(
+      publicHashes ? new Array(32).fill(0) : Array.from(signalHash),
+    ),
     ...arcHashes,
     signer_list_merkle_root: bytesToNoirInput(hexToByteArray(merkleRoot)),
     scope: bytesToNoirInput(Array.from(scopeBytes)),

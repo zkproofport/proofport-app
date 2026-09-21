@@ -374,6 +374,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
           inputs.rawTransaction,
           signerIndex,
           inputs.scopeString,
+          CIRCUIT_NAME,
         );
 
         const scopeHex = baseInputs.scope;

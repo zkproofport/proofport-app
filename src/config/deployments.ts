@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BROADCAST_PATHS,
   CIRCUITS_WITH_BROADCAST,
+  CIRCUIT_NETWORKS,
   FALLBACK_VERIFIERS,
   STATIC_CONFIGS,
   GITHUB_RAW,
@@ -136,7 +137,20 @@ async function resolveBroadcastUrl(
   env: Environment,
 ): Promise<string | null> {
   const config = STATIC_CONFIGS[env];
-  const chainId = config.network.chainId;
+  /*
+   * The CIRCUIT's chain, not the build's.
+   *
+   * This read `config.network.chainId` — what chain the environment is
+   * nominally on — and every circuit verified on Base was fine by accident.
+   * GIWA is not on Base: its verifier lives on GIWA Sepolia (91342), so
+   * asking the build produced `…/8453/run-latest.json`, a path that does not
+   * exist. A 404 here is silent, so the address would simply never refresh
+   * and nobody would see why.
+   *
+   * `CIRCUIT_NETWORKS` is exhaustive over the circuit list per environment,
+   * so there is no default to fall through to.
+   */
+  const chainId = CIRCUIT_NETWORKS[env][circuit].chainId;
   const pathFn = BROADCAST_PATHS[circuit];
   if (!pathFn) return null;
 

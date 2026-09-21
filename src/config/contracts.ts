@@ -183,8 +183,12 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
   oidc_domain_attestation: (chainId) =>
     `DeployOidcDomainAttestation.s.sol/${chainId}/run-latest.json`,
-  // giwa_attestation is a PoC — addresses come from FALLBACK_VERIFIERS only
-  giwa_attestation: null,
+  // Was `null` with a note that GIWA addresses come from the built-in
+  // fallbacks only. They do not have to: `forge script` writes this broadcast
+  // on every deploy exactly like the others, so a redeployed GIWA verifier now
+  // reaches a device instead of waiting for someone to edit a constant.
+  giwa_attestation: (chainId) =>
+    `DeployGiwaAttestation.s.sol/${chainId}/run-latest.json`,
   mdl_kr_ownership: (chainId) =>
     `DeployMdlKrOwnership.s.sol/${chainId}/run-latest.json`,
   mdl_kr_age: (chainId) =>
@@ -260,10 +264,15 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> =
  */
 export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   coinbase_attestation: 1,
-  arc_eligibility: 1,
+  // v2: the circuit gained the optional EIP-712 action and stopped deriving
+  // its nullifier from signal_hash, so every cached file on a device is for a
+  // circuit that no longer exists.
+  arc_eligibility: 2,
   coinbase_country_attestation: 1,
   oidc_domain_attestation: 3, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
-  giwa_attestation: 1,
+  // v2: the circuit signs an EIP-712 action when one is supplied, dropped
+  // signal_hash from the nullifier, and grew from 128 to 192 public inputs.
+  giwa_attestation: 2,
   // Split into 3 independent circuits sharing the canonical ci identifier.
   // v4: nullifier formula changed to keccak(keccak(ci) || scope), matching
   // the OIDC-domain-attestation pattern. signal_hash, cx_integrity_root,
@@ -372,11 +381,15 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   development: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     // Arc Testnet (0xCbC8E63f...), deployed 2026-09-09.
-    arc_eligibility: '0xCbC8E63fF92659E8B44cFF117D33005Bb669a018',
+    arc_eligibility: '0x2aEB66292f631ceb6225ffA2439B1f2b4b15e44a',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
-    // GIWA PoC verifier — same address across env (testnet-only PoC)
-    giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
+    // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
+    // Redeployed 2026-09-22 for the circuit that signs an EIP-712 action; the
+    // previous contract is still live and still verifies the OLD circuit, so
+    // an app left on the old address would fail every new proof while looking
+    // like a proof problem.
+    giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
     // Korea mDL — three independent verifiers on Base Sepolia (v4 circuits).
     mdl_kr_ownership: '0x7602D09d24E6E16efF5AB981646872886376763E',
     mdl_kr_age:       '0xcFF90FF8cEADc98f625300dc976eD85A3AA943Ba',
@@ -385,10 +398,10 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   staging: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     // Arc Testnet (0xCbC8E63f...), deployed 2026-09-09.
-    arc_eligibility: '0xCbC8E63fF92659E8B44cFF117D33005Bb669a018',
+    arc_eligibility: '0x2aEB66292f631ceb6225ffA2439B1f2b4b15e44a',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
-    giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
+    giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
     mdl_kr_ownership: '0x7602D09d24E6E16efF5AB981646872886376763E',
     mdl_kr_age:       '0xcFF90FF8cEADc98f625300dc976eD85A3AA943Ba',
     mdl_kr_region:    '0x435F0448F02F5Df9659D460181116BCaF37E518E',
@@ -401,7 +414,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     arc_eligibility: '',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
-    giwa_attestation: '0xEb9eb5452790Cfe549fF83CEB3Dbe1C432231492',
+    giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
     // Korea mDL not yet deployed to a mainnet. Pinning to the Base
     // Sepolia addresses (v4 circuits) until OmniOne Chain mainnet access
     // is granted.

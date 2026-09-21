@@ -804,7 +804,19 @@ export const ProofGenerationScreen: React.FC = () => {
         const scopeStr = deep?.scope || 'proofport:giwa-poc';
 
         await giwaHook.generateProofWithSteps(
-          {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, scopeString: scopeStr},
+          {
+            userAddress: walletAddress,
+            rawTransaction: txResult.rawTransaction,
+            signerIndex: 0,
+            scopeString: scopeStr,
+            // Optional here, unlike arc_eligibility: the GIWA circuit signs
+            // the typed action when one arrives and its signal hash when none
+            // does. Passing it is what makes the request's action reach the
+            // wallet screen instead of being dropped on the way.
+            action:
+              route.params?.action ??
+              (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action,
+          },
           ethereum, addLog,
         );
       } else {

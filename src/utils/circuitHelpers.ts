@@ -199,6 +199,80 @@ export function computeNullifier(
 }
 
 /**
+ * The nullifier for a circuit whose secret material is the WALLET and a
+ * constant compiled into that circuit -- not `signal_hash`.
+ *
+ * `computeNullifier` above matches the Coinbase-shaped circuits, which hash
+ * the address together with `signal_hash`. That value is a public input those
+ * circuits never constrain, so the one-per-person property they are built on
+ * rests on every caller choosing to compute the same hash. `giwa_attestation`
+ * stopped doing that on 2026-09-22: its preimage is the address and
+ * keccak256(circuit id), and the circuit holds that hash as a literal, so
+ * there is nothing for a prover to vary.
+ *
+ * The id goes in so the same wallet proving two different things produces two
+ * unrelated nullifiers, which is what `signal_hash` used to carry.
+ *
+ * MUST equal what the circuit recomputes. If these disagree the proof simply
+ * fails, with "Nullifier mismatch" and nothing pointing here.
+ */
+/**
+ * Which nullifier formula a circuit uses.
+ *
+ * A table because the answer differs per circuit and the wrong one does not
+ * misbehave -- it produces a proof that fails with "Nullifier mismatch",
+ * pointing at nothing. `arc_eligibility` and `giwa_attestation` moved to the
+ * wallet-and-constant formula when they gained their optional action: their
+ * `signal_hash` is zero in action mode, so a nullifier taken from it would
+ * give one wallet two identities in one scope.
+ *
+ * Mirrors NULLIFIER_FROM_WALLET_AND_TAG in proofport-ai; both must match
+ * coinbase-libs/src/nullifier.nr, which is the only one that decides.
+ */
+const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, boolean>> = Object.freeze({
+  coinbase_attestation: false,
+  coinbase_country_attestation: false,
+  arc_eligibility: true,
+  giwa_attestation: true,
+});
+
+/** The nullifier this circuit expects, by its own rule. No default. */
+export function nullifierForCircuit(
+  circuitId: string,
+  userAddress: string,
+  signalHash: Uint8Array,
+  scopeBytes: Uint8Array,
+): Uint8Array {
+  const fromWallet = NULLIFIER_FROM_WALLET_AND_TAG[circuitId];
+  if (fromWallet === undefined) {
+    throw new Error(
+      `No nullifier rule for circuit '${circuitId}'. Add it to NULLIFIER_FROM_WALLET_AND_TAG in circuitHelpers.ts.`,
+    );
+  }
+  return fromWallet
+    ? computeWalletNullifier(userAddress, circuitId, scopeBytes)
+    : computeNullifier(userAddress, signalHash, scopeBytes);
+}
+
+export function computeWalletNullifier(
+  userAddress: string,
+  circuitId: string,
+  scopeBytes: Uint8Array,
+): Uint8Array {
+  const circuitTag = ethers.utils.arrayify(
+    ethers.utils.keccak256(ethers.utils.toUtf8Bytes(circuitId)),
+  );
+  const userSecret = ethers.utils.arrayify(
+    ethers.utils.keccak256(
+      ethers.utils.concat([ethers.utils.arrayify(userAddress), circuitTag]),
+    ),
+  );
+  return ethers.utils.arrayify(
+    ethers.utils.keccak256(ethers.utils.concat([userSecret, scopeBytes])),
+  );
+}
+
+/**
  * Circuit-agnostic input shape for attester circuits (Coinbase, GIWA, …).
  *
  * Field names (`coinbase_signer_merkle_proof`, `coinbase_attester_pubkey_x`,

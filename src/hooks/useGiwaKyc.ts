@@ -36,6 +36,7 @@ import {
   GIWA_AUTHORIZED_SIGNERS,
 } from '../utils/giwaKyc';
 import {flattenCircuitInputs} from '../utils/circuitHelpers';
+import type {TypedAction} from '../config/circuitIds';
 import {
   getVerifierAddress,
   getVerifierAbi,
@@ -57,6 +58,15 @@ export interface GiwaKycProofInputs {
   rawTransaction: string;
   signerIndex: number;
   scopeString: string;
+  /**
+   * The EIP-712 action this proof authorizes, when a dapp sent one.
+   *
+   * Optional, and the circuit is what makes it optional: with an action the
+   * wallet signs the typed data and `signal_hash` goes out as zeros; without
+   * one it personal_signs `signal_hash` and the EIP-712 pair goes out as
+   * zeros. The circuit refuses a request that fills both.
+   */
+  action?: TypedAction;
 }
 
 export interface EthereumProvider {
@@ -229,11 +239,21 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
 
         // Step 3: signal hash
         updateStep('signal', {status: 'in_progress'});
-        const signalPreimage = ethers.utils.solidityPack(
-          ['address', 'string', 'string'],
-          [inputs.userAddress, inputs.scopeString, CIRCUIT_NAME],
-        );
-        currentSignalHash = ethers.utils.arrayify(ethers.utils.keccak256(signalPreimage));
+        /*
+         * With an action there is no signal hash: the circuit asserts it is
+         * empty, because a proof that carries both leaves each verifier to
+         * decide which half to believe.
+         */
+        if (inputs.action) {
+          currentSignalHash = new Uint8Array(32);
+          addLog('[Signal] Action bound -- signal_hash goes out as zeros');
+        } else {
+          const signalPreimage = ethers.utils.solidityPack(
+            ['address', 'string', 'string'],
+            [inputs.userAddress, inputs.scopeString, CIRCUIT_NAME],
+          );
+          currentSignalHash = ethers.utils.arrayify(ethers.utils.keccak256(signalPreimage));
+        }
         setSignalHash(currentSignalHash);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
         updateStep('signal', {
@@ -248,8 +268,16 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           throw new Error('Wallet provider not available');
         }
         const messageHex = ethers.utils.hexlify(currentSignalHash);
+        // One decision for the request, the recovery and the circuit inputs.
+        // Three separate reads of `inputs.action` is how the Coinbase flow
+        // drifted apart twice in one day.
+        const signed = whatTheWalletSigns(messageHex, inputs.action);
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
+        if (inputs.action) {
+          addLog(`[Sign] Typed action: ${inputs.action.primaryType}`);
+          addLog(`[Sign] Contract: ${inputs.action.domain.verifyingContract}`);
+        }
 
         if (isSigningRef.current) {
           throw new Error('Signing already in progress');
@@ -257,9 +285,14 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
 
         try {
           isSigningRef.current = true;
+          // `personal_sign` takes [message, from]; `eth_signTypedData_v4`
+          // takes [from, payload]. The order differs and is easy to reverse.
           const result = await ethereum.request({
-            method: 'personal_sign',
-            params: [messageHex, from],
+            method: signed.method,
+            params:
+              signed.method === 'personal_sign'
+                ? [...signed.params, from]
+                : [from, ...signed.params],
           });
           userSignature = result as string;
           if (!userSignature) throw new Error('Empty signature returned');
@@ -280,10 +313,11 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
 
         // Step 5: recover pubkey
         updateStep('pubkey', {status: 'in_progress'});
-        // Through the one place that decides what was signed. This circuit
-        // has no typed action, so it is personal_sign over the signal hash --
-        // said once, in src/utils/signedAction.ts, rather than assumed here.
-        userPubkey = recoverSignerPubkey(whatTheWalletSigns(messageHex), userSignature);
+        // Against whatever was actually signed. Recovering a typed-data
+        // signature as though it were personal_sign returns a well-formed key
+        // for a wallet nobody controls, and the circuit then fails on "User
+        // pubkey does not match address" -- pointing at the address.
+        userPubkey = recoverSignerPubkey(signed, userSignature);
         updateStep('pubkey', {
           status: 'completed',
           detail: `${userPubkey.slice(0, 20)}...`,
@@ -303,6 +337,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           inputs.rawTransaction,
           signerIndex,
           inputs.scopeString,
+          signed.publicHashes,
         );
         const flatInputs = flattenCircuitInputs(circuitInputs);
         updateStep('inputs', {

@@ -512,6 +512,10 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           inputs.rawTransaction,
           signerIndex,
           inputs.scopeString,  // NEW: scope string for nullifier
+          // This hook serves coinbase_attestation and arc_eligibility, and
+          // they derive their nullifiers differently -- so the circuit is
+          // named rather than assumed.
+          circuitName,
           // The two hashes that are PUBLIC INPUTS of the action-bound
           // circuit, from the same resolution the signature and the recovery
           // used. Leaving them out does not shorten the proof — it builds a
