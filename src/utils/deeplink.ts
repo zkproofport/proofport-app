@@ -1,6 +1,7 @@
 import {showReturnNotice, type ReturnNoticeKind} from './returnNoticeBridge';
 import {ALL_CIRCUIT_IDS, isCircuitId, type CircuitName} from '../config/circuitIds';
 import {checkAction, type TypedAction} from './typedAction';
+import {circuitActionBinding} from '../config/circuitIds';
 
 /**
  * The circuit a deep link may name. Alias of the SDK's canonical id union —
@@ -310,21 +311,37 @@ export function validateProofRequest(
     // If userAddress is not provided, app will prompt wallet connection
   }
 
-  // Arc eligibility: the action is what the wallet signs and what the proof
-  // binds to, so a request without a usable one cannot be honoured. Checked
-  // with the same function the demo screen uses -- there is one definition of
-  // a valid action, and a deep link is the untrusted way in.
-  if (request.circuit === 'arc_eligibility') {
-    const inputs = request.inputs as Partial<ArcEligibilityInputs>;
-    if (!inputs.action) {
-      return {
-        valid: false,
-        error: 'Missing required action for arc_eligibility. The circuit proves that a wallet authorised ONE EIP-712 action; there is nothing to prove without it.',
-      };
-    }
-    const checked = checkAction(inputs.action);
-    if ('error' in checked) {
-      return {valid: false, error: `Invalid action for arc_eligibility: ${checked.error}`};
+  /*
+   * The action, decided by the circuit's own entry in the SDK's table rather
+   * than by naming a circuit here.
+   *
+   * This compared against `arc_eligibility` and nothing else, which was right
+   * while one circuit bound an action and that circuit required one. Two
+   * circuits do now and both are optional, so the question moved to
+   * `circuitActionBinding` -- the same answer the SDK gives a dapp before the
+   * link is ever built, instead of a second opinion that can drift from it.
+   */
+  {
+    const action = (request.inputs as {action?: unknown} | undefined)?.action;
+    const binding = circuitActionBinding(request.circuit);
+    if (binding === 'none') {
+      if (action !== undefined) {
+        return {
+          valid: false,
+          error: `${request.circuit} has no action inputs, so an action sent with it would not be proved.`,
+        };
+      }
+    } else if (binding === 'required' || action !== undefined) {
+      if (!action) {
+        return {
+          valid: false,
+          error: `Missing required action for ${request.circuit}. The circuit proves that a wallet authorised ONE EIP-712 action; there is nothing to prove without it.`,
+        };
+      }
+      const checked = checkAction(action as Parameters<typeof checkAction>[0]);
+      if ('error' in checked) {
+        return {valid: false, error: `Invalid action for ${request.circuit}: ${checked.error}`};
+      }
     }
   }
 

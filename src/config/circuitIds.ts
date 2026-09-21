@@ -139,6 +139,20 @@ export {
   validateTypedAction,
   parseTypedAction,
 } from '@zkproofport-app/sdk/typedAction';
+
+/**
+ * Whether a circuit binds an EIP-712 action, and whether it must.
+ *
+ * Re-exported here for the same reason the id list is: this file is the app's
+ * one door to the SDK. The deep-link validator needs the answer and must not
+ * hold a second copy of it -- the copy would be what a dapp is told by the
+ * SDK before the link is built, disagreeing with what the app decides after.
+ */
+export {
+  CIRCUIT_ACTION_BINDING,
+  circuitActionBinding,
+} from '@zkproofport-app/sdk/circuits';
+export type {CircuitActionBinding} from '@zkproofport-app/sdk/circuits';
 export type {TypedAction} from '@zkproofport-app/sdk/typedAction';
 
 /**
