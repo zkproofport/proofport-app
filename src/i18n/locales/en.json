@@ -416,7 +416,8 @@
         "errFieldName": "Field name '{{field}}' must start with a letter and use only letters, digits and underscores.",
         "errFieldTwice": "Field '{{field}}' is listed twice.",
         "errBool": "{{field}} must be true or false.",
-        "errBytes32": "{{field}} must be 0x followed by 64 hex characters."
+        "errBytes32": "{{field}} must be 0x followed by 64 hex characters.",
+        "circuitLabel": "Circuit"
       }
     },
     "proofRequest": {

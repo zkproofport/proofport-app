@@ -1,5 +1,5 @@
 /**
- * ArcActionInputScreen — the EIP-712 action an `arc_eligibility` proof binds to.
+ * The EIP-712 action a proof binds to, for any circuit that can carry one.
  *
  * Every other circuit that needs something from the user has a screen for it:
  * the country list, the OIDC domain, the Korea mDL predicate. Arc had none, so
@@ -9,9 +9,15 @@
  * missing half; the hook now refuses that combination rather than substituting.
  *
  * In the shipped product a dapp supplies the action through the SDK, and the
- * user never sees this screen. It exists for testing a circuit whose verifier
- * lives only on a testnet, which is why it sits behind Developer Mode with the
- * rest of the Arc network.
+ * user never sees this screen. It exists for testing circuits whose verifiers
+ * live only on testnets, which is why it sits behind Developer Mode.
+ *
+ * WHICH CIRCUIT. A parameter, and switchable here, because Arc stopped being
+ * the only one: `giwa_attestation` binds an action too, and both now treat it
+ * as optional. The list of circuits offered comes from the SDK's action table
+ * rather than from names typed in here, so a third one appears by itself. The
+ * chain in the signed domain follows the chosen circuit for the same reason --
+ * a wallet refuses typed data whose chain id is not the one it is on.
  *
  * The user picks an action and fills its fields. Writing your own is one of the
  * choices rather than the only one, because an action a dapp would send is a
@@ -21,7 +27,8 @@
  */
 import React, {useCallback, useMemo, useState} from 'react';
 import {Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, View} from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTranslation} from 'react-i18next';
 import {Button, Card, Divider, Icon, KeyboardSafeScroll, Select} from '../../components/ui';
@@ -29,12 +36,20 @@ import type {SelectOption} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import type {TypedAction} from '../../utils/typedAction';
-import {CIRCUIT_IDS, getNetworkConfigForCircuit} from '../../config';
+import {ALL_CIRCUIT_IDS, CIRCUIT_ACTION_BINDING, getNetworkConfigForCircuit} from '../../config';
+import type {CircuitName} from '../../config';
 
 type Navigation = NativeStackNavigationProp<ProofStackParamList, 'ArcActionInput'>;
+type Route = RouteProp<ProofStackParamList, 'ArcActionInput'>;
 
-/** The chain the action is signed for. Read from config, never typed in. */
-const ARC = getNetworkConfigForCircuit(CIRCUIT_IDS.ARC_ELIGIBILITY);
+/**
+ * The circuits that can carry an action, from the SDK's table. Not a list
+ * typed here: one of those is how `giwa_attestation` sat unserved for a day
+ * after its circuit could take an action.
+ */
+const ACTION_CIRCUITS = ALL_CIRCUIT_IDS.filter(
+  (id) => CIRCUIT_ACTION_BINDING[id] !== 'none',
+);
 
 type FieldId = 'to' | 'amount' | 'nonce';
 
@@ -127,7 +142,19 @@ const BYTES32 = /^0x[0-9a-fA-F]{64}$/;
 export const ArcActionInputScreen: React.FC = () => {
   const {t} = useTranslation();
   const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
   const {colors: themeColors} = useThemeColors();
+
+  /*
+   * The circuit this action is for. It arrives from the caller and can be
+   * switched here, because the two circuits that take an action differ only
+   * in which chain and verifier the signature is bound to -- and testing one
+   * should not mean going back a screen.
+   */
+  const [circuit, setCircuit] = useState<CircuitName>(route.params.circuit);
+  // The chain of the CHOSEN circuit. A wallet refuses typed data whose domain
+  // names a chain it is not on, so this cannot be a constant.
+  const network = getNetworkConfigForCircuit(circuit);
 
   const [choice, setChoice] = useState<Choice>(ACTION_SHAPES[0].primaryType);
   const [appName, setAppName] = useState('MyVault');
@@ -139,6 +166,14 @@ export const ArcActionInputScreen: React.FC = () => {
   const editField = useCallback((index: number, patch: Partial<CustomField>) => {
     setCustomFields(prev => prev.map((field, at) => (at === index ? {...field, ...patch} : field)));
   }, []);
+
+  const circuitOptions: SelectOption<CircuitName>[] = useMemo(
+    () => ACTION_CIRCUITS.map(id => ({
+      value: id,
+      label: `${id}  ·  ${getNetworkConfigForCircuit(id).name}`,
+    })),
+    [],
+  );
 
   const actionOptions: SelectOption<Choice>[] = useMemo(
     () => [
@@ -190,7 +225,7 @@ export const ArcActionInputScreen: React.FC = () => {
 
       return {
         action: {
-          domain: {name: appName.trim(), version: '1', chainId: ARC.chainId, verifyingContract: contract.trim()},
+          domain: {name: appName.trim(), version: '1', chainId: network.chainId, verifyingContract: contract.trim()},
           types: {[name]: customFields.map(field => ({name: field.name.trim(), type: field.type}))},
           primaryType: name,
           message: custom,
@@ -216,7 +251,7 @@ export const ArcActionInputScreen: React.FC = () => {
         domain: {
           name: appName.trim(),
           version: '1',
-          chainId: ARC.chainId,
+          chainId: network.chainId,
           verifyingContract: contract.trim(),
         },
         types: {[shape.primaryType]: shape.fields.map(f => ({name: f.id, type: f.type}))},
@@ -235,10 +270,10 @@ export const ArcActionInputScreen: React.FC = () => {
     // link and a person testing on their own has no reason to choose one.
     // The proof screen settles it, identically for every circuit.
     navigation.navigate('ProofGeneration', {
-      circuitId: CIRCUIT_IDS.ARC_ELIGIBILITY,
+      circuitId: circuit,
       action: parsed.action,
     });
-  }, [navigation, parsed]);
+  }, [navigation, parsed, circuit]);
 
   const inputStyle = (filled: boolean) => ({
     backgroundColor: themeColors.background.secondary,
@@ -268,6 +303,25 @@ export const ArcActionInputScreen: React.FC = () => {
             {t('host.proof.arcAction.description')}
           </Text>
         </Card>
+
+        {circuitOptions.length > 1 ? (
+          <Card style={styles.sectionCard}>
+            {/*
+              Shown only when more than one circuit can carry an action, so
+              this disappears by itself if that ever stops being true. The
+              label is the circuit id and its chain, untranslated on purpose:
+              the id is what every other layer spells, and a translated name
+              here would be a second name for the same thing.
+            */}
+            <Select<CircuitName>
+              label={t('host.proof.arcAction.circuitLabel')}
+              value={circuit}
+              options={circuitOptions}
+              onChange={setCircuit}
+              pickerTitle={t('host.proof.arcAction.circuitLabel')}
+            />
+          </Card>
+        ) : null}
 
         <Card style={styles.sectionCard}>
           <Select<Choice>
@@ -314,7 +368,7 @@ export const ArcActionInputScreen: React.FC = () => {
                 autoCorrect={false}
               />
               <Text style={[styles.fieldHint, {color: themeColors.text.tertiary}]}>
-                {t('host.proof.arcAction.contractHint', {chain: ARC.name, chainId: ARC.chainId})}
+                {t('host.proof.arcAction.contractHint', {chain: network.name, chainId: network.chainId})}
               </Text>
             </Card>
 

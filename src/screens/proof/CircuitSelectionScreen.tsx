@@ -71,16 +71,19 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     navigate: (nav) => nav.navigate('CountryInput'),
   },
   {
-    // Arc Eligibility — the same Coinbase attestation, with the wallet signing
-    // one EIP-712 action instead of an opaque signal hash. It routes through
-    // ArcActionInput because the action is the circuit's whole point: without
-    // one there is nothing to put in the two public-input slots that make this
-    // circuit different, and the proof would be a coinbase_attestation proof
-    // wearing another name.
+    // Arc Eligibility — the same Coinbase attestation, with the wallet able to
+    // sign one EIP-712 action instead of an opaque signal hash. It routes
+    // through the action screen because the action is what makes this circuit
+    // worth picking by hand; the circuit accepts a request without one, and a
+    // dapp that wants that sends it through the SDK.
+    //
+    // That screen can switch to any other circuit which binds an action, so
+    // giwa_attestation's action path is reachable from here too. Its own
+    // entry below goes straight to the proof, which is the plain attestation.
     id: 'arc_eligibility',
     titleKey: 'host.proof.circuitSelection.arcEligibility.title',
     descriptionKey: 'host.proof.circuitSelection.arcEligibility.description',
-    navigate: (nav) => nav.navigate('ArcActionInput'),
+    navigate: (nav, id) => nav.navigate('ArcActionInput', {circuit: id}),
     experimental: true,
   },
   {

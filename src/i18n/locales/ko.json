@@ -416,7 +416,8 @@
         "errFieldName": "필드 이름 '{{field}}' 은 영문자로 시작하고 영문자·숫자·밑줄만 쓸 수 있습니다.",
         "errFieldTwice": "필드 '{{field}}' 이 두 번 있습니다.",
         "errBool": "{{field}} 은 true 또는 false 여야 합니다.",
-        "errBytes32": "{{field}} 은 0x 뒤에 16진수 64자여야 합니다."
+        "errBytes32": "{{field}} 은 0x 뒤에 16진수 64자여야 합니다.",
+        "circuitLabel": "회로"
       }
     },
     "proofRequest": {

@@ -1,4 +1,5 @@
 import type { ProofRequest } from '../utils/deeplink';
+import type { CircuitName } from '../config/circuitIds';
 import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -27,11 +28,18 @@ export type ProofStackParamList = {
   DomainInput: undefined;
   MdlKrInput: { variant: 'ownership' | 'age' | 'region' };
   /**
-   * The EIP-712 action an arc_eligibility proof binds to. Collected by
-   * ArcActionInputScreen; in the shipped product a dapp supplies it through
-   * the SDK and this screen is never reached.
+   * Build an EIP-712 action for a circuit that can bind one.
+   *
+   * The circuit is a parameter, not a constant: arc_eligibility was the only
+   * one when this screen was written, and giwa_attestation binds an action
+   * too. Which circuits qualify comes from the SDK's action table, so the
+   * screen never holds a list of its own.
+   *
+   * In the shipped product a dapp supplies the action through the SDK and
+   * nobody reaches this screen; it exists to test circuits whose verifiers
+   * live only on testnets, behind Developer Mode.
    */
-  ArcActionInput: undefined;
+  ArcActionInput: {circuit: CircuitName};
   /** OACX widget WebView screen. provider = OacxProvider string, scope = scopeString. */
   OacxWebView: { provider: string; scope: string };
   ProofGeneration: {
