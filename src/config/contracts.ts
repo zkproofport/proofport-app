@@ -408,10 +408,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
-    // Testnet only. No mainnet deployment exists, and the empty string is what
-    // the surrounding table uses for "none" -- a caller gets "no verifier"
-    // rather than an address that reverts with nothing to point at.
-    arc_eligibility: '',
+    // This experimental circuit uses Arc Testnet in every build environment.
+    arc_eligibility: '0x2aEB66292f631ceb6225ffA2439B1f2b4b15e44a',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
     giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',

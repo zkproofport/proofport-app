@@ -809,7 +809,7 @@ export const ProofGenerationScreen: React.FC = () => {
             rawTransaction: txResult.rawTransaction,
             signerIndex: 0,
             scopeString: scopeStr,
-            // Optional here, unlike arc_eligibility: the GIWA circuit signs
+            // Optional, as with arc_eligibility: the GIWA circuit signs
             // the typed action when one arrives and its signal hash when none
             // does. Passing it is what makes the request's action reach the
             // wallet screen instead of being dropped on the way.

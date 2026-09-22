@@ -77,9 +77,7 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     // worth picking by hand; the circuit accepts a request without one, and a
     // dapp that wants that sends it through the SDK.
     //
-    // That screen can switch to any other circuit which binds an action, so
-    // giwa_attestation's action path is reachable from here too. Its own
-    // entry below goes straight to the proof, which is the plain attestation.
+    // Both action-capable circuits expose this screen from their own card.
     id: 'arc_eligibility',
     titleKey: 'host.proof.circuitSelection.arcEligibility.title',
     descriptionKey: 'host.proof.circuitSelection.arcEligibility.description',
@@ -90,7 +88,7 @@ const CIRCUIT_REGISTRY: ReadonlyArray<CircuitDescriptor> = [
     id: 'giwa_attestation',
     titleKey: 'host.proof.circuitSelection.giwaKyc.title',
     descriptionKey: 'host.proof.circuitSelection.giwaKyc.description',
-    navigate: (nav, id) => nav.navigate('ProofGeneration', {circuitId: id}),
+    navigate: (nav, id) => nav.navigate('ArcActionInput', {circuit: id}),
     experimental: true,
   },
   // Korea Mobile ID — three independent Noir circuits sharing the same

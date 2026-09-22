@@ -26,6 +26,7 @@ import {
   recoverSignerPubkey,
   clearProofCache,
   ensureStorageAvailable,
+  ensureWalletOnChain,
   loadVkFromAssets,
   downloadCircuitFiles,
   allCircuitFilesExist,
@@ -276,6 +277,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         const from = selectedAddr || inputs.userAddress;
         if (inputs.action) {
           addLog(`[Sign] Typed action: ${inputs.action.primaryType}`);
+          await ensureWalletOnChain(ethereum, CIRCUIT_NAME, addLog);
           addLog(`[Sign] Contract: ${inputs.action.domain.verifyingContract}`);
         }
 

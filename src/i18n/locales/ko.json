@@ -371,9 +371,11 @@
       "txTitle": "트랜잭션",
       "explorerTitle": "탐색기",
       "arcAction": {
-        "heroLabel": "ARC",
+        "stackTitle": "행동 인가",
+        "identityOnly": "인증만 증명 (행동 없음)",
+        "heroLabel": "행동",
         "title": "액션을 승인했음을 증명",
-        "description": "아크 자격 증명은 지갑이 서명한 액션 하나에만 묶입니다. 실제로는 댑이 SDK 로 액션을 보내고, 이 화면은 흐름을 직접 해보라고 미리 채워둔 것입니다 — 무엇이든 고쳐도 됩니다.",
+        "description": "행동을 선택하고 입력 내용을 확인한 뒤 지갑에서 서명하세요. 예시 값을 바꾸어 앱에서 바로 증명을 테스트할 수 있습니다. 행동 없이 인증만 증명할 수도 있습니다.",
         "actionLabel": "액션",
         "deposit": "예치",
         "depositDesc": "컨트랙트에 금액을 넣습니다.",

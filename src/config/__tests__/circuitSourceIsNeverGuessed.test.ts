@@ -47,7 +47,7 @@ const TAG_KEY = '@proofport/deployment/release-tag';
 const HOUR = 60 * 60 * 1000;
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const {resolveCircuitBaseUrl} = require('../deployments');
+const {resolveCircuitBaseUrl, fetchDeploymentAddress, getVerifierAddress} = require('../deployments');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {circuitBaseUrl} = require('../../utils/circuitDownload');
 
@@ -192,4 +192,81 @@ describe('the circuits that live only on main', () => {
       expect(await circuitBaseUrl(circuit, 'production')).toContain('/v1.3.0');
     },
   );
+});
+
+describe('a verifier follows the circuit bytes', () => {
+  const arc = '0x2aeb66292f631ceb6225ffa2439b1f2b4b15e44a';
+  const giwa = '0x5da234546874304f8c51bbeed00fc632938211c1';
+  const oldGiwa = '0xeb9eb5452790cfe549ff83ceb3dbe1c432231492';
+
+  function broadcasts(currentGiwa = giwa) {
+    const fetchMock = jest.fn(async (url: string) => {
+      if (url.endsWith('/releases/latest')) {
+        return {ok: true, json: async () => ({tag_name: 'v1.3.0'})};
+      }
+      const records: Record<string, {chain: number; address: string}> = {
+        '/main/broadcast/DeployArcEligibility.s.sol/5042002/run-latest.json': {chain: 5042002, address: arc},
+        '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: currentGiwa},
+        '/v1.3.0/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: oldGiwa},
+        '/v1.3.0/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json': {chain: 8453, address: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382'},
+        '/main/broadcast/DeployCoinbaseAttestation.s.sol/84532/run-latest.json': {chain: 84532, address: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c'},
+      };
+      const path = url.replace('https://raw.githubusercontent.com/zkproofport/circuits', '');
+      const record = records[path];
+      if (!record) return {ok: false, status: 404, json: async () => ({})};
+      return {ok: true, json: async () => ({
+        chain: record.chain, timestamp: 1790092800, commit: 'fixture', libraries: [],
+        transactions: [{contractName: 'HonkVerifier', contractAddress: record.address}],
+      })};
+    });
+    (globalThis as {fetch?: unknown}).fetch = fetchMock;
+    return fetchMock;
+  }
+
+  it.each(['development', 'staging', 'production'])(
+    '%s resolves Arc and GIWA to the current main verifiers', async env => {
+      const fetchMock = broadcasts();
+      expect(await fetchDeploymentAddress('arc_eligibility', env)).toBe(arc);
+      expect(await fetchDeploymentAddress('giwa_attestation', env)).toBe(giwa);
+      expect(fetchMock.mock.calls.every(([url]) => url.includes('/main/broadcast/'))).toBe(true);
+    },
+  );
+
+  it('keeps supported production verifiers on the release and staging on main', async () => {
+    broadcasts();
+    expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBe('0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382');
+    expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBe('0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c');
+  });
+
+  it.each(['arc_eligibility', 'giwa_attestation'])(
+    'ignores the old unversioned %s cache and has an offline verifier', async circuit => {
+      mockDisk.set(`@proofport/deployment/production/${circuit}`, JSON.stringify({address: oldGiwa}));
+      const fetchMock = githubFails('offline');
+      const address = await getVerifierAddress(circuit, 'production');
+      expect(address.toLowerCase()).toBe(circuit === 'arc_eligibility' ? arc : giwa);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps a refreshed experimental verifier available offline', async () => {
+    const redeployed = '0x2222222222222222222222222222222222222222';
+    broadcasts(redeployed);
+    expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBe(redeployed);
+    githubFails('offline');
+    expect(await getVerifierAddress('giwa_attestation', 'production')).toBe(redeployed);
+  });
+
+  it('ignores a cache for an earlier experimental circuit data version', async () => {
+    mockDisk.set('@proofport/deployment/production/giwa_attestation/v1', JSON.stringify({address: oldGiwa}));
+    githubFails('offline');
+    expect((await getVerifierAddress('giwa_attestation', 'production')).toLowerCase()).toBe(giwa);
+  });
+
+  it('retains the supported-circuit cache when GitHub is unavailable', async () => {
+    const cached = '0x1111111111111111111111111111111111111111';
+    mockDisk.set('@proofport/deployment/production/coinbase_attestation', JSON.stringify({address: cached}));
+    githubFails('offline');
+    expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBeNull();
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe(cached);
+  });
 });

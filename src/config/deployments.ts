@@ -16,10 +16,12 @@ import {
   BROADCAST_PATHS,
   CIRCUITS_WITH_BROADCAST,
   CIRCUIT_NETWORKS,
+  CIRCUIT_DATA_VERSIONS,
   FALLBACK_VERIFIERS,
   STATIC_CONFIGS,
   GITHUB_RAW,
 } from './contracts';
+import {DEV_ONLY_CIRCUIT_IDS} from './circuitIds';
 import type {CircuitName, Environment} from './contracts';
 
 const CACHE_PREFIX = '@proofport/deployment';
@@ -48,6 +50,11 @@ interface CachedDeployment {
 }
 
 function cacheKey(env: Environment, circuit: CircuitName): string {
+  // Experimental circuit bytes and verifiers change together on main. A
+  // cache from an earlier circuit must not override the current verifier.
+  if (DEV_ONLY_CIRCUIT_IDS.includes(circuit)) {
+    return `${CACHE_PREFIX}/${env}/${circuit}/v${CIRCUIT_DATA_VERSIONS[circuit]}`;
+  }
   return `${CACHE_PREFIX}/${env}/${circuit}`;
 }
 
@@ -153,6 +160,12 @@ async function resolveBroadcastUrl(
   const chainId = CIRCUIT_NETWORKS[env][circuit].chainId;
   const pathFn = BROADCAST_PATHS[circuit];
   if (!pathFn) return null;
+
+  // These circuits download their bytes from main in every build environment.
+  // Their verifier must come from the same source, never an older release.
+  if (DEV_ONLY_CIRCUIT_IDS.includes(circuit)) {
+    return `${GITHUB_RAW('main')}/broadcast/${pathFn(chainId)}`;
+  }
 
   const source = config.broadcastSource;
 

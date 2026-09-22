@@ -188,7 +188,7 @@ Proof responses are POST-ed to the callback URL as JSON:
 
 ## Circuit Files
 
-Circuit files are downloaded from GitHub at runtime and cached locally. The app supports four circuits:
+Circuit files are downloaded from GitHub at runtime and cached locally. Attestation circuits include:
 
 1. **coinbase_attestation**: Coinbase KYC attestation
    - Input: Coinbase attestation + signer signature
@@ -203,13 +203,38 @@ Circuit files are downloaded from GitHub at runtime and cached locally. The app 
    - Output: Proof of email domain affiliation without revealing email
 
 4. **arc_eligibility** (experimental, Developer Mode only): action-bound Coinbase KYC
-   - Input: the same Coinbase attestation, plus one EIP-712 action the wallet signs
+   - Input: the same Coinbase attestation, optionally binding one EIP-712 action the wallet signs
    - Output: a proof carrying the action's domain separator and struct hash, so a
      verifier checks WHICH action was authorised — not merely that someone eligible
      signed something
    - The verifier is deployed on Arc Testnet (chain 5042002) and nowhere else, which
      is why the whole Arc network sits behind Developer Mode. In a shipped product a
      dapp supplies the action through the SDK; the in-app screen exists for testing.
+
+5. **giwa_attestation** (experimental, Developer Mode only): GIWA account attestation
+   - Input: a GIWA-attested wallet, optionally binding one EIP-712 action.
+   - Verification network: GIWA Sepolia (chain 91342).
+
+### Standalone action testing
+
+With Developer Mode enabled, choose Arc or GIWA in the Verify tab and open its
+circuit card. Both open the action input screen without a relay request. Select
+Deposit, Withdraw, Transfer, or a custom action, then enter the app name, contract,
+and field values. The signed domain follows the selected circuit's network,
+including when the circuit is changed within the input screen.
+
+Generate proof asks the wallet to switch to that network and signs the structured
+action with `eth_signTypedData_v4`. This signs an authorization; it does not execute
+the sample Deposit or transfer funds. Prove identity only keeps the action-free
+`personal_sign` flow, whose hash may appear as unreadable characters in the wallet.
+
+The local iOS `build_ipa` lane explicitly maps both the app and notification
+extension to their development provisioning profiles when exporting the IPA.
+
+Experimental circuit files and verifier broadcasts read `main` in every build,
+including production. Their verifier cache follows the circuit data version so
+an address cached for older circuit bytes cannot override the current verifier.
+Supported production circuits continue reading their release tag.
 
 ### Download Locations
 

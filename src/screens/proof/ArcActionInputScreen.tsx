@@ -259,7 +259,7 @@ export const ArcActionInputScreen: React.FC = () => {
         message,
       },
     };
-  }, [shape, appName, contract, values, customName, customFields, t]);
+  }, [shape, appName, contract, values, customName, customFields, network.chainId, t]);
 
   const error = 'error' in parsed ? parsed.error : null;
 
@@ -497,6 +497,14 @@ export const ArcActionInputScreen: React.FC = () => {
           size="large"
           style={styles.continueButton}
         />
+        {CIRCUIT_ACTION_BINDING[circuit] === 'optional' ? (
+          <Button
+            title={t('host.proof.arcAction.identityOnly')}
+            onPress={() => navigation.navigate('ProofGeneration', {circuitId: circuit})}
+            variant="secondary"
+            size="large"
+          />
+        ) : null}
       </KeyboardSafeScroll>
     </SafeAreaView>
   );

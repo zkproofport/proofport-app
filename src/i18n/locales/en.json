@@ -371,9 +371,11 @@
       "txTitle": "Transaction",
       "explorerTitle": "Explorer",
       "arcAction": {
-        "heroLabel": "ARC",
+        "stackTitle": "Action authorization",
+        "identityOnly": "Prove identity only (no action)",
+        "heroLabel": "ACTION",
         "title": "Prove you authorised an action",
-        "description": "An Arc eligibility proof binds to exactly one action your wallet signs. A dapp sends the action through the SDK; here it is filled in already so you can try the flow — change anything you like.",
+        "description": "Choose an action and review its details before signing in your wallet. These sample values let you test the proof directly in the app. You can also prove identity without an action.",
         "actionLabel": "Action",
         "deposit": "Deposit",
         "depositDesc": "Put an amount into the contract.",

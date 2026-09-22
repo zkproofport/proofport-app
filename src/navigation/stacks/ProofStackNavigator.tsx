@@ -43,7 +43,7 @@ const ProofStackNavigator: React.FC = () => {
       <Stack.Screen
         name="ArcActionInput"
         component={ArcActionInputScreen}
-        options={{title: 'Arc Eligibility'}}
+        options={{title: t('host.proof.arcAction.stackTitle')}}
       />
       <Stack.Screen
         name="MdlKrInput"

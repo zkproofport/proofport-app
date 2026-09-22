@@ -47,9 +47,8 @@ export type ProofStackParamList = {
     proofRequest?: ProofRequest;
     countryInputs?: { countryList: string[]; isIncluded: boolean };
     /**
-     * The EIP-712 action an arc_eligibility proof binds to. Present only for
-     * that circuit, from ArcActionInput or a deep link. The hook refuses
-     * arc_eligibility without one rather than proving another circuit.
+     * Optional EIP-712 action for an action-capable circuit, supplied by the
+     * standalone input screen or a deep link.
      */
     action?: import('../utils/typedAction').TypedAction;
     /** Scope override from an input screen. */

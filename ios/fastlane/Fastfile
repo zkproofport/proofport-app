@@ -386,6 +386,14 @@ platform :ios do
       clean: true,
       xcargs: "APP_ENV=#{app_env}",
       export_xcargs: "-allowProvisioningUpdates",
+      export_options: {
+        signingStyle: "manual",
+        teamID: "R4G32CVY29",
+        provisioningProfiles: {
+          "com.masselabs.zkproofport" => "match Development com.masselabs.zkproofport",
+          "com.masselabs.zkproofport.OpenStoaNSE" => "match Development com.masselabs.zkproofport.OpenStoaNSE",
+        },
+      },
     )
   end
 end

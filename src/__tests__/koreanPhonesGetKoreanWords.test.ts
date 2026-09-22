@@ -27,7 +27,6 @@ const SAME_ON_PURPOSE: Record<string, string> = {
   'host.history.detail.dapp': 'product term, used untranslated in Korean too',
   'host.more.networkBase': 'Base is the chain name',
   'host.proof.circuitSelection.network.base': 'Base is the chain name',
-  'host.proof.arcAction.heroLabel': 'Arc is the chain name',
   'host.proof.circuitSelection.experimentalBadge': 'shown as an English badge in both',
   'host.proof.domain.googleWorkspace': 'product name',
   'host.proof.domain.microsoft365': 'product name',
