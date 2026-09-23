@@ -17,6 +17,26 @@
 
 * **release:** one run that decides the version, tags it, and ships it ([aaef596](https://github.com/zkproofport/proofport-app/commit/aaef59626ff1e4ef5397baf32fb829b8263bcc22))
 
+## [1.4.0](https://github.com/zkproofport/proofport-app/compare/app-v1.3.1...app-v1.4.0) (2026-09-23)
+
+
+### Features
+
+* add Arc action proofs and unify wallet networks ([3882e38](https://github.com/zkproofport/proofport-app/commit/3882e3879dc75a085d841c839d5c3e17dbb9725f))
+* build an action for any circuit that can bind one ([de4029a](https://github.com/zkproofport/proofport-app/commit/de4029ab663344f1904a7322373a7420a749705e))
+* connect mobile topic proofs and synchronize Korean UI ([d27a840](https://github.com/zkproofport/proofport-app/commit/d27a840c54343848fff22279208125031b50a168))
+* read the action rule from the published SDK ([15f0c60](https://github.com/zkproofport/proofport-app/commit/15f0c60c7f745dd54aafb879daa75937671681ca))
+* redesign proof review wallet history and settings flows ([aecdf3e](https://github.com/zkproofport/proofport-app/commit/aecdf3e969c5f00fe68d464fe0870deb1eb8d4b2))
+* sign an optional EIP-712 action for giwa and arc proofs ([3adcc03](https://github.com/zkproofport/proofport-app/commit/3adcc03d3ffa931f834ee27fe50fc6cfed911a69))
+
+
+### Bug Fixes
+
+* keep circuit downloads aligned with verified release sources ([3fbf8d6](https://github.com/zkproofport/proofport-app/commit/3fbf8d666b15a0d14635ec3b5a89e817f84a33cf))
+* keep giwa and arc action proofs aligned in production ([c4f1d6a](https://github.com/zkproofport/proofport-app/commit/c4f1d6a1e23042072351e5391ebb16a085392ce6))
+* pin the app to the synchronized OpenStoa mobile source ([e78d944](https://github.com/zkproofport/proofport-app/commit/e78d944daac63116f3d88925188d888570ae573a))
+* **scripts:** sign from the base64 key, so no .p8 has to sit anywhere ([bd82021](https://github.com/zkproofport/proofport-app/commit/bd820216e163a21251860598568b0e8ccdb5bf16))
+
 ## [1.2.2](https://github.com/zkproofport/proofport-app/compare/app-v1.2.1...app-v1.2.2) (2026-09-04)
 
 
