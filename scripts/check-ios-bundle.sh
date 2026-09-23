@@ -21,6 +21,7 @@ bundle exec ruby -rxcodeproj -e '
 mkdir -p "$BUNDLE_CHECK_DIR/build/ProofportApp.app"
 PROJECT_DIR="$APP_ROOT/ios" \
 PROJECT_ROOT="$APP_ROOT" \
+NODE_BINARY="$(command -v node)" \
 PODS_ROOT="$APP_ROOT/ios/Pods" \
 CONFIGURATION=Release \
 CONFIGURATION_BUILD_DIR="$BUNDLE_CHECK_DIR/build" \
