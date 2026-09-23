@@ -233,6 +233,12 @@ jobs:
         # same reason, unnoticed, because the lockfile was gitignored.
         run: npm ci --legacy-peer-deps
 
+      - name: Verify Release JavaScript bundle
+        working-directory: proofport-app
+        env:
+          APP_ENV: ${{ inputs.environment }}
+        run: bash scripts/check-ios-bundle.sh
+
       - name: Install CocoaPods
         run: cd proofport-app/ios && bundle exec pod install --repo-update
 
@@ -280,6 +286,14 @@ jobs:
         with:
           name: ProofportApp.ipa
           path: proofport-app/ios/build/ProofportApp.ipa
+
+      - name: Preserve iOS build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: ~/Library/Logs/gym/*.log
+          if-no-files-found: ignore
 
   build-android:
     name: Build Android
