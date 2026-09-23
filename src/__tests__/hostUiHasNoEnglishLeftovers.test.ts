@@ -40,7 +40,6 @@ const NOT_RENDERED = new Set([
   'screens/WalletScreen.tsx',
   'components/LogViewer.tsx',
   'components/ActionButtons.tsx',
-  'components/ProofRequestModal.tsx',
 ]);
 
 /** Behind the developer-mode toggle; a person never sees these by accident. */
@@ -53,6 +52,25 @@ const ENGLISH_ON_PURPOSE = new Set([
   'MLS PoC (ts-mls 0x0001)', // a developer-mode entry, labelled as such beside it
   'Phase 0 PoC (dev)', // the heading over that developer-mode entry
 ]);
+
+// Only these protocol field names, as literal labels on the read-only data
+// viewer, stay untranslated. They are not button text or global exceptions.
+const RAW_REVIEW_LABELS: Record<string, ReadonlySet<string>> = {
+  'components/ActionReviewCard.tsx': new Set(['domain', 'message', 'types']),
+  'components/ProofRequestModal.tsx': new Set(['requestId', 'circuit', 'callbackUrl', 'dappName', 'message']),
+};
+
+function isRawReviewLabel(file: string, prop: string, word: string): boolean {
+  const literal = prop.match(/^label=(["'])([^"']+)\1/);
+  return literal?.[2] === word && RAW_REVIEW_LABELS[file]?.has(word) === true;
+}
+
+function isTranslatedArrayItem(file: string, prop: string, word: string): boolean {
+  // The scanner sees the local key fragment inside t(valueKey('item')). That
+  // fragment is translated, unlike label="item". Do not exempt other labels.
+  return file === 'components/ReadonlyValue.tsx' && word === 'item'
+    && /t\(valueKey\(['"]item['"]\),\s*\{index: Number\(key\) \+ 1\}\)/.test(prop);
+}
 
 /** Every source file, not only the ones that can hold a `<Text>`. */
 function walkAll(dir: string): string[] {
@@ -152,6 +170,7 @@ describe('the host app does not fall back to English', () => {
     const found: string[] = [];
     for (const f of FILES) {
       const text = fs.readFileSync(f, 'utf8');
+      const relative = path.relative(SRC, f);
       text.split('\n').forEach((line, i) => {
         PROPS_THAT_CARRY_WORDS.lastIndex = 0;
         for (let p = PROPS_THAT_CARRY_WORDS.exec(line); p !== null; p = PROPS_THAT_CARRY_WORDS.exec(line)) {
@@ -160,12 +179,21 @@ describe('the host app does not fall back to English', () => {
             const word = q[2];
             if (!/[A-Za-z]{3}/.test(word) || /[가-힣]/.test(word)) continue;
             if (notASentence(word) || ENGLISH_ON_PURPOSE.has(word)) continue;
+            if (isRawReviewLabel(relative, p[0], word) || isTranslatedArrayItem(relative, p[0], word)) continue;
             found.push(`${path.relative(SRC, f)}:${i + 1}  ${word}`);
           }
         }
       });
     }
     expect([...new Set(found)].sort()).toEqual([]);
+  });
+
+  it('raw request-key exceptions cannot hide untranslated button text or another screen', () => {
+    expect(isRawReviewLabel('components/ActionReviewCard.tsx', 'label="domain"', 'domain')).toBe(true);
+    expect(isRawReviewLabel('components/ActionReviewCard.tsx', 'buttonText="domain"', 'domain')).toBe(false);
+    expect(isRawReviewLabel('components/ActionReviewCard.tsx', 'label="Continue"', 'Continue')).toBe(false);
+    expect(isRawReviewLabel('screens/LoadingScreen.tsx', 'label="domain"', 'domain')).toBe(false);
+    expect(isTranslatedArrayItem('components/ReadonlyValue.tsx', 'label="item"', 'item')).toBe(false);
   });
 
   it('the files named as unrendered really are unrendered', () => {

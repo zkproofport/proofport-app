@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -65,7 +65,7 @@ export const ProofCompleteScreen: React.FC = () => {
   const shortProofHash = proofHex.length > 18
     ? `${proofHex.slice(0, 10)}...${proofHex.slice(-8)}`
     : proofHex;
-  const formattedDate = new Date(parseInt(timestamp)).toLocaleString();
+  const formattedDate = new Date(parseInt(timestamp, 10)).toLocaleString();
   const canonical = canonicalCircuitId(circuitId);
   const circuitName = getCircuitDisplayName(circuitId);
 
@@ -99,7 +99,7 @@ export const ProofCompleteScreen: React.FC = () => {
     ? giwaHook
     : (isCountryCircuit ? countryHook : kycHook);
   const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = activeHook;
-  const {logs, addLog} = useLogs();
+  const {addLog} = useLogs();
 
   const handleCopyProof = () => {
     Clipboard.setString(proofHex);
@@ -196,7 +196,9 @@ export const ProofCompleteScreen: React.FC = () => {
 
   const handleGenerateAnother = () => {
     resetProofCache();
-    navigation.popToTop();
+    // A cold deep link can make generation the first route in this stack.
+    // Discard that completed instance instead of popping back to its spent refs.
+    navigation.reset({index: 0, routes: [{name: 'CircuitSelection'}]});
   };
 
   return (

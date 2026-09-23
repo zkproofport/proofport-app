@@ -95,11 +95,10 @@ describe('the two proof settings survive being turned off and on', () => {
     expect(s.language).toBe('ko');
   });
 
-  it('a corrupt file falls back to the defaults instead of throwing', async () => {
+  it('a corrupt file reports failure without replacing the saved settings', async () => {
     mockDisk.set(KEY, '{not json');
-    const s = await settingsStore.get();
-    expect(s.autoSaveProofs).toBe(true);
-    expect(s.confirmBeforeGenerate).toBe(true);
+    await expect(settingsStore.get()).rejects.toThrow();
+    expect(mockDisk.get(KEY)).toBe('{not json');
   });
 
   it('reset puts both switches back on', async () => {

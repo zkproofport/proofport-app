@@ -21,7 +21,7 @@ const MoreStackNavigator: React.FC = () => {
       <Stack.Screen
         name="MoreMain"
         component={MoreMainScreen}
-        options={{ title: t('host.more.title') }}
+        options={{ title: t('host.more.title'), headerShown: false }}
       />
       <Stack.Screen
         name="About"

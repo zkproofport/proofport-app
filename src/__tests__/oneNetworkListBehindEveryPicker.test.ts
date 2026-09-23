@@ -1,14 +1,7 @@
 /**
- * Two screens let you choose a network, and they used to build the list twice.
- *
- * The Verify tab appended "Other" — the bucket for a proof tied to no chain —
- * and the More tab's default-network setting did not. Both write the SAME
- * setting, so after choosing "Other" in one, the other showed a picker with no
- * matching row and no way back to it. Nobody noticed because each list looked
- * complete on its own screen.
- *
- * So: one list, in src/config/networks.ts, and this fails if a picker starts
- * assembling its own again.
+ * More owns the default-network picker. The proof home selects a purpose
+ * without changing that preference. Network options still come from config,
+ * including the chain-independent category and any saved developer network.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -22,7 +15,6 @@ import {
 const APP_ROOT = path.resolve(__dirname, '..', '..');
 
 const PICKERS = [
-  'src/screens/proof/CircuitSelectionScreen.tsx',
   'src/screens/more/MoreMainScreen.tsx',
 ];
 
@@ -34,7 +26,7 @@ describe('one network list behind every picker', () => {
     expect(source).not.toContain('USER_FACING_NETWORKS.filter');
   });
 
-  it('offers the same rows to both, "Other" included', () => {
+  it('offers every configured row, "Other" included', () => {
     const ids = visibleNetworkCategories(true).map((n) => n.id);
     expect(ids).toContain(OTHER_NETWORK);
     expect(ids).toEqual(NETWORK_CATEGORIES.map((n) => n.id));

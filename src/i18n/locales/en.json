@@ -5,7 +5,8 @@
     "delete": "Delete",
     "retry": "Retry",
     "loading": "Loading…",
-    "ok": "OK"
+    "ok": "OK",
+    "back": "Back"
   },
   "shared": {
     "webView": {
@@ -43,22 +44,26 @@
       "showLiveLogs": "Show live logs",
       "useOmniOneCxUi": "Use OmniOne CX UI",
       "exportProofHistory": "Export Proof History",
-      "clearLocalData": "Clear Local Data",
+      "clearLocalData": "Delete proof history",
       "exportTitle": "Export Proof History",
-      "exportMessage": "Export your proof history as JSON file?",
+      "exportMessage": "Share a JSON copy of the proof history stored on this device?",
       "export": "Export",
       "exportError": "Failed to export proof history",
-      "clearTitle": "Clear Local Data",
-      "clearMessage": "This will delete all locally stored proofs and settings. This action cannot be undone.",
-      "clear": "Clear",
-      "clearSuccess": "Local data cleared",
-      "clearError": "Failed to clear local data",
+      "clearTitle": "Delete proof history?",
+      "clearMessage": "This deletes the proof history stored on this device. Your settings and saved wallets stay unchanged. This cannot be undone.",
+      "clear": "Delete history",
+      "clearSuccess": "Proof history deleted.",
+      "clearError": "Could not delete proof history.",
       "versionSupport": "Version, Support",
       "openStoaEnabled": "OpenStoa mini-app",
       "openStoaEnabledHint": "Overrides what this build shipped with. Applies on the next launch.",
       "openStoaRestartRequired": "Restart the app to apply this change.",
       "networkArc": "Arc Testnet",
-      "networkOther": "Other"
+      "networkOther": "Other",
+      "subtitle": "Make ZKProofport work your way.",
+      "sectionAbout": "ABOUT",
+      "saveError": "Could not save this setting. Please try again.",
+      "loadError": "Could not load settings."
     },
     "about": {
       "tagline": "Privacy-first zero-knowledge proof generation",
@@ -72,12 +77,16 @@
       "devModeEnabledMsg": "Live logs and debug options are now available in settings.",
       "devModeDisabledMsg": "Developer options have been hidden.",
       "openURLError": "Cannot open {{title}}",
-      "openURLFailed": "Failed to open {{title}}"
+      "openURLFailed": "Failed to open {{title}}",
+      "version": "Version {{version}}"
     },
     "settings": {
       "languageTitle": "Language",
       "english": "English",
-      "korean": "한국어"
+      "korean": "한국어",
+      "languageDescription": "Choose the language used throughout the app.",
+      "languageSaveError": "The language changed for now, but could not be saved for your next launch.",
+      "languageChangeError": "Could not change the language. Please try again."
     },
     "wallet": {
       "title": "WalletConnect",
@@ -92,7 +101,7 @@
       "fullAddress": "Full Address",
       "clearWalletConnectCache": "Clear WalletConnect Cache",
       "noWalletConnected": "No Wallet Connected",
-      "noWalletDescription": "Connect your wallet to generate zero-knowledge proofs",
+      "noWalletDescription": "Choose a proof wallet below to connect.",
       "walletDetails": "Wallet Details",
       "address": "Address",
       "status": "Status",
@@ -101,14 +110,28 @@
       "copied": "Copied!",
       "selectWallet": "Select a wallet to connect:",
       "connected": "Connected",
-      "notBound": "Not bound",
-      "circuitWallets": "Circuit wallets",
-      "circuitWalletsHint": "Each circuit binds to its own wallet at connect time. Tap Connect to link a wallet to a circuit; Clear unbinds. A wallet shows as Connected only while it is the currently active session.",
-      "notBoundHint": "not bound — tap Connect to link a wallet",
+      "notBound": "Not set",
+      "circuitWallets": "Proof wallets",
+      "circuitWalletsHint": "Choose the wallet that holds each credential.",
+      "notBoundHint": "Connect a wallet to use these proofs.",
       "connect": "Connect",
       "reconnect": "Reconnect",
       "connecting": "Connecting…",
-      "clear": "Clear"
+      "clear": "Remove saved wallet",
+      "home": {
+        "title": "Your wallets",
+        "subtitle": "Manage the wallets you use for proofs.",
+        "currentWallet": "Current connection",
+        "loadingAddress": "Loading address…",
+        "unknownNetwork": "Network unavailable",
+        "disconnectSession": "Disconnect current wallet",
+        "saved": "Saved · not connected",
+        "expired": "Saved wallet expired · reconnect",
+        "rememberDays": "Remembered for {{days}}d {{hours}}h",
+        "rememberHours": "Remembered for {{hours}}h",
+        "rememberSoon": "Remembered for less than an hour",
+        "connectionHint": "One wallet can be connected at a time. Disconnect keeps your saved wallet; remove clears its registration."
+      }
     },
     "loading": {
       "tagline": "Privacy-Preserving Identity Proofs",
@@ -151,12 +174,55 @@
         "verifierContract": "Verifier Contract",
         "proofHash": "Proof Hash",
         "walletAddress": "Wallet Address",
-        "title": "Proof Detail"
+        "title": "Proof Detail",
+        "requester": "Requested by",
+        "conditions": "Proof conditions",
+        "notSaved": "Request details were not saved for this record.",
+        "noAction": "No additional action was included.",
+        "technical": "Technical details",
+        "technicalHint": "Network, addresses and identifiers",
+        "missingTitle": "Record not found",
+        "missingText": "This proof record may have been deleted from this device.",
+        "backToHistory": "Back to history",
+        "deleteRecord": "Delete this record",
+        "deleteRecordTitle": "Delete proof record?",
+        "deleteRecordMessage": "Only this saved history record will be deleted from this device. This cannot be undone.",
+        "deleting": "Deleting…",
+        "deleteFailed": "The record could not be deleted. You can try again.",
+        "copyValue": "Copy {{label}}",
+        "copy": "Copy",
+        "notRecorded": "Not recorded",
+        "verificationNote": "These are the saved verification results.",
+        "verificationGenerated": "Not verified",
+        "verificationPending": "Not completed",
+        "circuitId": "Proof type ID",
+        "scope": "Scope",
+        "scopeString": "Scope text"
       },
       "statusLabel": "Status",
       "dateLabel": "Date",
       "networkLabel": "Network",
-      "proofHashLabel": "Proof Hash"
+      "proofHashLabel": "Proof Hash",
+      "dateUnavailable": "Date unavailable",
+      "states": {
+        "started": "Started",
+        "generating": "Generating",
+        "pending": "Not verified",
+        "generated": "Generated",
+        "verified": "Verified",
+        "failed": "Generation failed",
+        "verified_failed": "Verification failed"
+      },
+      "home": {
+        "title": "Proof history",
+        "subtitle": "Review your proof requests and their results.",
+        "count": "{{count}} records saved on this device",
+        "manual": "Created in this app",
+        "unknownRequester": "Requester not saved",
+        "retry": "Try again",
+        "errorText": "Your history could not be loaded. Try again.",
+        "emptyText": "Completed and in-progress proof requests appear here when history is enabled."
+      }
     },
     "scan": {
       "permissionTitle": "Camera Access Required",
@@ -420,6 +486,78 @@
         "errBool": "{{field}} must be true or false.",
         "errBytes32": "{{field}} must be 0x followed by 64 hex characters.",
         "circuitLabel": "Circuit"
+      },
+      "home": {
+        "brand": "ZKProofport",
+        "title": "What would you like to prove?",
+        "subtitle": "Choose only the facts you need",
+        "scanTitle": "Did a service request a proof?",
+        "scanDescription": "Scan its QR code to open the requested proof",
+        "searchPlaceholder": "Search proofs",
+        "clearSearch": "Clear search",
+        "available": "Available proofs",
+        "emptyTitle": "No matching proofs",
+        "emptyDescription": "Try another search or category.",
+        "purposes": {
+          "all": "All",
+          "organization": "Organization",
+          "identity": "Identity",
+          "country": "Country"
+        },
+        "organization": {
+          "title": "Organization account",
+          "description": "Prove your affiliation without sharing your email address",
+          "provider": "Google Workspace · Microsoft 365"
+        },
+        "identity": {
+          "title": "KYC status",
+          "description": "Prove that you completed Coinbase identity verification",
+          "provider": "Coinbase"
+        },
+        "country": {
+          "title": "Country eligibility",
+          "description": "Prove your Coinbase-registered country meets a condition",
+          "provider": "Coinbase"
+        },
+        "laboratoryTitle": "Laboratory",
+        "laboratoryDescription": "Explore test proofs",
+        "laboratoryBadge": "Test"
+      },
+      "laboratory": {
+        "title": "Laboratory",
+        "description": "These test features are separate from actual eligibility verification.",
+        "experimental": "Experimental",
+        "networks": "Network proofs",
+        "mobileId": "Korea Mobile ID",
+        "giwa": {
+          "title": "KYC test",
+          "description": "Test identity attestation and action signing on GIWA testnet",
+          "provider": "GIWA testnet · Mock attestation data",
+          "sectionTitle": "GIWA"
+        },
+        "arc": {
+          "title": "Eligibility test",
+          "description": "Test eligibility and action signing with a Coinbase attestation",
+          "provider": "Arc testnet · Coinbase attestation",
+          "sectionTitle": "Arc"
+        },
+        "ownership": {
+          "title": "ID ownership",
+          "description": "Choose which mobile ID attributes to prove",
+          "provider": "Korea Mobile ID"
+        },
+        "age": {
+          "title": "Age requirement",
+          "description": "Prove you meet a minimum age that you set",
+          "provider": "Korea Mobile ID"
+        },
+        "region": {
+          "title": "Residence region",
+          "description": "Prove you live in a selected province or city",
+          "provider": "Korea Mobile ID"
+        },
+        "heroTitle": "Explore proofs for testing",
+        "poc": "PoC"
       }
     },
     "proofRequest": {
@@ -434,7 +572,125 @@
       "expiresAt": "Expires at",
       "noExpiry": "No expiry",
       "reject": "Reject",
-      "generate": "Generate Proof"
+      "generate": "Generate Proof",
+      "review": {
+        "title": "Proof request",
+        "back": "Back",
+        "requester": "Requester",
+        "requesterProvided": "The name, icon and message above were supplied with this request.",
+        "proofCondition": "Requested condition",
+        "actionTitle": "Requested action",
+        "actionDescription": "Review the requested data before signing.",
+        "disclosureTitle": "What will be sent",
+        "disclosureDescription": "The generated proof and its public inputs will be sent to the delivery endpoint. Public inputs depend on the proof and the requested conditions.",
+        "deliveryEndpoint": "Proof delivery endpoint",
+        "deliveryDescription": "This is the callback destination supplied in the request. It does not verify the requester’s identity or website.",
+        "technicalDetails": "Technical details",
+        "originalRequest": "Original request data",
+        "expired": "This request has expired or has an invalid expiry. Decline it and request a new one.",
+        "unsupported": "This app does not support the circuit named in this request. You can decline this request.",
+        "confirm": "Confirm and continue",
+        "cancel": "Cancel",
+        "actionMessage": "Message",
+        "primaryType": "Primary type",
+        "sharedTitle": "Information shared",
+        "privateTitle": "Information kept private",
+        "checkRequest": "Check the requesting service and conditions.",
+        "values": {
+          "emptyString": "Empty text",
+          "emptyArray": "Empty list",
+          "emptyObject": "Empty object",
+          "null": "Null value",
+          "missing": "Not provided",
+          "circular": "Circular reference",
+          "text": "Text",
+          "fields": "Fields",
+          "list": "List",
+          "items": "{{count}} items",
+          "entries": "{{count}} fields",
+          "item": "Item {{index}}"
+        }
+      },
+      "presentation": {
+        "fields": {
+          "organization": "Organization requirement",
+          "provider": "Sign-in provider",
+          "requirement": "Requested condition",
+          "countries": "Requested countries (country codes)",
+          "countryRule": "Country condition",
+          "disclosures": "Attributes checked by hash commitment",
+          "ageThreshold": "Minimum age (years, by birth year)",
+          "currentYear": "Year used for the age check",
+          "targetRegion": "Required region of residence",
+          "userAddress": "Authentication wallet",
+          "additional": "Additional request data: {{field}}"
+        },
+        "values": {
+          "notProvided": "Not supplied in the request",
+          "null": "No value (null)",
+          "empty": "Empty text",
+          "emptyList": "Empty list",
+          "domainAccount": "An account at {{domain}}",
+          "countryIncluded": "Attested country must be in the list",
+          "countryExcluded": "Attested country must not be in the list",
+          "noAttributes": "No personal attributes selected",
+          "unknownProvider": "Unsupported sign-in provider: {{provider}}"
+        },
+        "providers": {
+          "google": "Google Workspace account",
+          "microsoft": "Microsoft 365 account"
+        },
+        "attributes": {
+          "name": "Name match",
+          "birth": "Date of birth match",
+          "sex": "Sex match",
+          "telno": "Phone number match"
+        },
+        "oidc": {
+          "title": "Prove your organization account",
+          "shared": "Organization condition result · participation identifier · organization domain · sign-in provider",
+          "private": "Full email address · original sign-in token"
+        },
+        "kyc": {
+          "title": "Prove that you completed KYC",
+          "requirement": "Coinbase KYC completed",
+          "shared": "KYC completion result · participation identifier",
+          "private": "Name · date of birth · original identity document"
+        },
+        "country": {
+          "title": "Prove the country condition",
+          "shared": "Country condition result · requested country list and inclusion rule · participation identifier",
+          "private": "Original attested country value · original identity document"
+        },
+        "arc": {
+          "title": "Prove your Arc eligibility",
+          "requirement": "Ownership of a Coinbase-attested wallet",
+          "shared": "Eligibility result · participation identifier · action and domain hashes when an action is requested",
+          "private": "KYC personal information · original wallet signature"
+        },
+        "giwa": {
+          "title": "Prove your GIWA attestation",
+          "requirement": "Ownership of a GIWA-attested wallet",
+          "shared": "GIWA condition result · participation identifier · action and domain hashes when an action is requested",
+          "private": "KYC personal information · original wallet signature"
+        },
+        "ownership": {
+          "title": "Prove mobile identity ownership",
+          "requirement": "Mobile identity ownership condition",
+          "shared": "Ownership condition result · participation identifier · selected attribute flags and hash commitment",
+          "private": "Original identity document · personal identity code (CI)"
+        },
+        "age": {
+          "title": "Prove the age condition",
+          "shared": "Age condition result · minimum age and reference year · participation identifier",
+          "private": "Date of birth · personal identity code (CI)"
+        },
+        "region": {
+          "title": "Prove your region of residence",
+          "shared": "Region condition result · requested region hash · participation identifier",
+          "private": "Street address · personal identity code (CI)"
+        }
+      }
     },
     "errors": {
       "codeLine": "Error Code: {{code}}",
@@ -570,6 +826,16 @@
         "title": "Disconnect Failed",
         "description": "The wallet did not let go of the session. Disconnecting from inside the wallet app usually clears it."
       }
+    },
+    "browser": {
+      "back": "Go back",
+      "forward": "Go forward",
+      "reload": "Reload page",
+      "share": "Share page",
+      "loadErrorTitle": "Could not load this page",
+      "loadErrorDescription": "Check your connection and try again.",
+      "shareError": "Could not share this page. Please try again.",
+      "retry": "Try again"
     }
   },
   "openstoa": {

@@ -10,6 +10,9 @@ export function getActiveProofRequest(): ProofRequest | null {
   return _activeRequest;
 }
 
-export function clearActiveProofRequest(): void {
-  _activeRequest = null;
+/** Async completion may clear only its own request; app reset may clear all. */
+export function clearActiveProofRequest(expectedRequest?: ProofRequest): void {
+  if (expectedRequest === undefined || _activeRequest === expectedRequest) {
+    _activeRequest = null;
+  }
 }

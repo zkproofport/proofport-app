@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { ProofStackParamList } from '../types';
 import {
   CircuitSelectionScreen,
+  LaboratoryScreen,
   CountryInputScreen,
   DomainInputScreen,
   MdlKrInputScreen,
@@ -28,7 +29,12 @@ const ProofStackNavigator: React.FC = () => {
       <Stack.Screen
         name="CircuitSelection"
         component={CircuitSelectionScreen}
-        options={{ title: t('host.tabs.verify') }}
+        options={{ title: t('host.tabs.verify'), headerShown: false }}
+      />
+      <Stack.Screen
+        name="Laboratory"
+        component={LaboratoryScreen}
+        options={{ title: t('host.proof.laboratory.title'), headerShown: false }}
       />
       <Stack.Screen
         name="CountryInput"
@@ -48,7 +54,7 @@ const ProofStackNavigator: React.FC = () => {
       <Stack.Screen
         name="MdlKrInput"
         component={MdlKrInputScreen}
-        options={{ title: 'Korea Mobile ID' }}
+        options={{ title: t('host.proof.circuitSelection.mdlKr.title') }}
       />
       <Stack.Screen
         name="ProofGeneration"
@@ -63,7 +69,7 @@ const ProofStackNavigator: React.FC = () => {
           headerBackVisible: false,
           headerRight: () => (
             <TouchableOpacity
-              onPress={() => navigation.popToTop()}
+              onPress={() => navigation.reset({index: 0, routes: [{name: 'CircuitSelection'}]})}
               hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
               <Text style={{fontSize: 16, fontWeight: '600', color: themeColors.info[500]}}>{t('host.proof.complete.done')}</Text>
             </TouchableOpacity>

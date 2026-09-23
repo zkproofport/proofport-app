@@ -3,7 +3,7 @@ import './src/config/AppKitConfig';
 
 import 'react-native-gesture-handler';
 import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import {Linking} from 'react-native';
+import {Linking, Platform} from 'react-native';
 // Phase 6 push (design §13): a tapped chat notification deep-links into the
 // OpenStoa chat room for `data.topicId`. The payload is content-free / near-blind
 // (only the topic id) so nothing here handles message content (SI-1).
@@ -15,8 +15,10 @@ import {
   NavigationContainerRef,
   CommonActions,
   type NavigationAction,
+  type NavigationState,
 } from '@react-navigation/native';
 import {createNavigationQueue} from './src/utils/navigationQueue';
+import {reviewBlockReason} from './src/utils/requestReview';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppKitProvider, AppKit} from '@reown/appkit-react-native';
 import {appKit} from './src/config';
@@ -39,7 +41,22 @@ import {
 import type {ProofRequest} from './src/types';
 import {setActiveProofRequest, clearActiveProofRequest} from './src/stores/activeProofRequestStore';
 import {registerDeepLinkHandler} from './src/utils/deepLinkBridge';
+import {registerReturnNoticeHandler, type ReturnNoticeKind} from './src/utils/returnNoticeBridge';
 import {useAppStateReset} from './src/hooks';
+
+/** A proof may keep running while the user visits another tab or its ID WebView. */
+function hasGenerationScreen(state: NavigationState | undefined): boolean {
+  const proofStack = state?.routes.find(route => route.name === 'ProofTab')?.state;
+  if (!proofStack) return false;
+  let generating = false;
+  const currentIndex = proofStack.index ?? 0;
+  for (let index = 0; index <= currentIndex; index++) {
+    const screen = proofStack.routes[index]?.name;
+    if (screen === 'ProofGeneration' || screen === 'OacxWebView') generating = true;
+    if (screen === 'ProofComplete') generating = false;
+  }
+  return generating;
+}
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -47,6 +64,20 @@ const App: React.FC = () => {
     null,
   );
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [returnNotice, setReturnNotice] = useState<{kind: ReturnNoticeKind; visible: boolean} | null>(null);
+  // UIKit cannot present a sibling native Modal until the previous one has
+  // actually dismissed. False React visibility alone is not that boundary.
+  const modalOwner = useRef<'review' | 'reviewClosing' | 'notice' | 'noticeClosing' | null>(null);
+  const queuedReturnNotice = useRef<ReturnNoticeKind | null>(null);
+  const returnAfterDismissal = useRef<(() => Promise<void>) | null>(null);
+  const pendingRequestRef = useRef<ProofRequest | null>(null);
+  // Incoming relay validation is superseded only by another arrival or reset.
+  // Consuming the displayed review must not discard a newer in-flight request.
+  const relaySequence = useRef(0);
+  const pendingRelaySequence = useRef(0);
+  // Review/arrival activity separately invalidates a delayed external return.
+  const requestSequence = useRef(0);
+  const generationNavigationPending = useRef(false);
   const navigationRef = useRef<NavigationContainerRef<TabParamList>>(null);
   // Track currently active request to prevent processing while modal is open
   const activeRequestId = useRef<string | null>(null);
@@ -76,21 +107,105 @@ const App: React.FC = () => {
     [navigationQueue],
   );
 
+  const showPendingReview = useCallback(() => {
+    if (!pendingRequestRef.current || generationNavigationPending.current ||
+        hasGenerationScreen(navigationRef.current?.getRootState())) return;
+    queuedReturnNotice.current = null;
+    if (modalOwner.current === 'notice') {
+      modalOwner.current = Platform.OS === 'ios' ? 'noticeClosing' : null;
+      setReturnNotice(notice => notice && {...notice, visible: false});
+    }
+    if (modalOwner.current === 'noticeClosing' || modalOwner.current === 'reviewClosing') return;
+    modalOwner.current = 'review';
+    setShowRequestModal(true);
+  }, []);
+
+  const closeReview = useCallback(() => {
+    if (modalOwner.current === 'review') {
+      modalOwner.current = Platform.OS === 'ios' ? 'reviewClosing' : null;
+    }
+    setShowRequestModal(false);
+  }, []);
+
+  const presentReturnNotice = useCallback((kind: ReturnNoticeKind) => {
+    // An incoming request takes precedence over an older return suggestion.
+    if (pendingRequestRef.current) return;
+    if (modalOwner.current === 'reviewClosing' || modalOwner.current === 'noticeClosing') {
+      queuedReturnNotice.current = kind;
+      return;
+    }
+    if (modalOwner.current === 'review') return;
+    modalOwner.current = 'notice';
+    setReturnNotice({kind, visible: true});
+  }, []);
+
+  useEffect(() => registerReturnNoticeHandler(presentReturnNotice), [presentReturnNotice]);
+
+  const handleReviewDismissed = useCallback(() => {
+    if (modalOwner.current !== 'reviewClosing') return;
+    modalOwner.current = null;
+    showPendingReview();
+    const notice = queuedReturnNotice.current;
+    queuedReturnNotice.current = null;
+    if (notice) presentReturnNotice(notice);
+    const returnToApp = returnAfterDismissal.current;
+    returnAfterDismissal.current = null;
+    if (returnToApp) void returnToApp();
+  }, [showPendingReview, presentReturnNotice]);
+
+  const finishReturnAfterReview = useCallback(async (returnToApp: () => Promise<void>) => {
+    if (modalOwner.current === 'reviewClosing') returnAfterDismissal.current = returnToApp;
+    else await returnToApp();
+  }, []);
+
+  const handleNoticeDismissed = useCallback(() => {
+    if (modalOwner.current !== 'noticeClosing') return;
+    modalOwner.current = null;
+    setReturnNotice(null);
+    showPendingReview();
+    const notice = queuedReturnNotice.current;
+    queuedReturnNotice.current = null;
+    if (notice) presentReturnNotice(notice);
+  }, [showPendingReview, presentReturnNotice]);
+
+  const dismissReturnNotice = useCallback(() => {
+    if (modalOwner.current !== 'notice') return;
+    modalOwner.current = 'noticeClosing';
+    setReturnNotice(notice => notice && {...notice, visible: false});
+    // React Native exposes onDismiss only on iOS; Android uses a Dialog.
+    if (Platform.OS !== 'ios') handleNoticeDismissed();
+  }, [handleNoticeDismissed]);
+
+  const handleNavigationStateChange = useCallback(() => {
+    const generating = hasGenerationScreen(navigationRef.current?.getRootState());
+    if (generating) generationNavigationPending.current = false;
+    showPendingReview();
+  }, [showPendingReview]);
+
   const handleNavigationReady = useCallback(() => {
     navigationReadyRef.current = true;
     navigationQueue.flush();
-  }, [navigationQueue]);
+    handleNavigationStateChange();
+  }, [navigationQueue, handleNavigationStateChange]);
 
   // Reset handler for when app returns from background after timeout
   const handleAppReset = useCallback(() => {
     console.log('[App] Resetting app state due to background timeout...');
 
     // Clear any pending proof request
+    requestSequence.current += 1;
+    relaySequence.current += 1;
+    pendingRelaySequence.current = 0;
+    generationNavigationPending.current = false;
+    pendingRequestRef.current = null;
     setPendingRequest(null);
-    setShowRequestModal(false);
+    closeReview();
+    if (isLoading) modalOwner.current = null;
+    queuedReturnNotice.current = null;
+    returnAfterDismissal.current = null;
     activeRequestId.current = null;
     clearActiveProofRequest();
-  }, []);
+  }, [closeReview, isLoading]);
 
   // Auto-reset when app returns from background after 10 minutes
   useAppStateReset({onReset: handleAppReset});
@@ -141,8 +256,12 @@ const App: React.FC = () => {
       return;
     }
 
+    // Only the latest incoming request may replace the review card.
+    const sequence = ++relaySequence.current;
+    requestSequence.current += 1;
     // Validate requestId with relay server — reject unregistered requests
     const relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl, request.inputs as Record<string, unknown>);
+    if (sequence !== relaySequence.current) return;
     if (!relayValidation.valid) {
       showGlobalError('E1006', relayValidation.error);
       sendProofResponse(
@@ -157,37 +276,18 @@ const App: React.FC = () => {
       return;
     }
 
-    // mDL: skip the generic confirmation modal. The mobile-ID-type bottom
-    // sheet inside ProofGenerationScreen is the confirmation + entry point;
-    // the modal's wallet / Coinbase-shaped UI does not apply to the on-device
-    // mDL flow. Navigate straight to proof generation — queued when the
-    // navigator is not up yet, and the request is claimed only after the
-    // navigation actually runs (see navigateOrQueue).
-    if (request.circuit.startsWith('mdl_kr_')) {
-      console.log('[App] mDL request — navigating directly:', request.requestId);
-      setActiveProofRequest(request);
-      navigateOrQueue(
-        CommonActions.navigate({
-          name: 'ProofTab',
-          params: {
-            screen: 'ProofGeneration',
-            params: {circuitId: request.circuit, proofRequest: request},
-          },
-        }),
-        request.requestId,
-      );
-      setPendingRequest(null);
-      return;
-    }
-
     // Mark this as the active request. Safe to claim here for the modal path:
     // it is React state, so it renders whenever the tree comes up.
     activeRequestId.current = request.requestId;
 
-    console.log('[App] Valid proof request, showing modal:', request.requestId);
+    console.log('[App] Valid proof request, waiting for review:', request.requestId);
+    pendingRequestRef.current = request;
+    pendingRelaySequence.current = sequence;
     setPendingRequest(request);
-    setShowRequestModal(true);
-  }, [navigateOrQueue]);
+    // Preserve the active request until its generation screen has left. A
+    // newly reviewed request must never replace a running proof's callback.
+    showPendingReview();
+  }, [showPendingReview]);
 
   // Listen for deep links
   useEffect(() => {
@@ -275,12 +375,27 @@ const App: React.FC = () => {
     return () => sub.remove();
   }, [openOpenStoaChat]);
 
-  const handleAcceptRequest = useCallback(() => {
-    if (!pendingRequest) return;
+  const handleAcceptRequest = useCallback((reviewedRequest: ProofRequest) => {
+    if (!pendingRequest || reviewedRequest !== pendingRequest ||
+        pendingRequestRef.current !== reviewedRequest || modalOwner.current !== 'review') return false;
+    if (generationNavigationPending.current ||
+        hasGenerationScreen(navigationRef.current?.getRootState())) return false;
+
+    const validation = validateProofRequest(reviewedRequest);
+    const expired = reviewBlockReason(reviewedRequest) === 'expired';
+    if (!validation.valid || expired) {
+      showGlobalError('E1002', validation.error ?? 'Request has expired');
+      return false;
+    }
+
+    // Consume this review synchronously, before a second press can navigate.
+    pendingRequestRef.current = null;
+    requestSequence.current += 1;
+    generationNavigationPending.current = true;
 
     console.log('[App] Accepting request:', pendingRequest.requestId);
     console.log('[App] Request callbackUrl:', pendingRequest.callbackUrl);
-    setShowRequestModal(false);
+    closeReview();
 
     // Set active request in store before navigation
     setActiveProofRequest(pendingRequest);
@@ -296,19 +411,19 @@ const App: React.FC = () => {
     // on the way in.
     const circuitId = pendingRequest.circuit;
 
-    // Use nested-navigation form so the inner ProofStack receives the screen.
-    // `StackActions.push('ProofGeneration', ...)` against the root tab navigator
-    // silently no-ops because the screen lives inside ProofStack, not the
-    // root TabNavigator — that left the user stranded on Verify home after
-    // accepting the proof request modal.
+    // Reset the nested proof stack to fresh route keys. Plain NAVIGATE reuses
+    // a current ProofGeneration instance, including its auto-start/cache refs.
+    // The nested state also removes an earlier generation below ProofComplete.
     navigateOrQueue(
       CommonActions.navigate({
         name: 'ProofTab',
         params: {
-          screen: 'ProofGeneration',
-          params: {
-            circuitId,
-            proofRequest: pendingRequest,
+          state: {
+            index: 1,
+            routes: [
+              {name: 'CircuitSelection'},
+              {name: 'ProofGeneration', params: {circuitId, proofRequest: pendingRequest}},
+            ],
           },
         },
       }),
@@ -319,13 +434,21 @@ const App: React.FC = () => {
     activeRequestId.current = null;
     setPendingRequest(null);
     // Note: activeProofRequest is cleared by ProofGenerationScreen after proof is sent
-  }, [pendingRequest, navigateOrQueue]);
+    return true;
+  }, [pendingRequest, navigateOrQueue, closeReview]);
 
   const handleRejectRequest = useCallback(async () => {
-    if (!pendingRequest) return;
+    if (!pendingRequest || pendingRequestRef.current !== pendingRequest || modalOwner.current !== 'review') return;
 
     console.log('[App] Rejecting request:', pendingRequest.requestId);
-    setShowRequestModal(false);
+    // A newer request may already be awaiting relay validation while this
+    // older card remains visible. Stay here to review that incoming request.
+    const wasLatestIncoming = pendingRelaySequence.current === relaySequence.current;
+    pendingRequestRef.current = null;
+    const sequence = ++requestSequence.current;
+    closeReview();
+    activeRequestId.current = null;
+    setPendingRequest(null);
 
     await sendProofResponse(
       {
@@ -347,14 +470,13 @@ const App: React.FC = () => {
     // mini-app's own login request has the same shape as declining a dapp's,
     // and backgrounding the app on that path is the same defect as on the
     // success path.
-    if (requesterIsAnotherApp(pendingRequest.origin)) {
-      await returnToRequester(pendingRequest.returnScheme, 'declined');
-    }
-
-    // Clear active request so new requests can be processed
-    activeRequestId.current = null;
-    setPendingRequest(null);
-  }, [pendingRequest]);
+    const returnIfCurrent = async () => {
+      if (wasLatestIncoming && sequence === requestSequence.current && requesterIsAnotherApp(pendingRequest.origin)) {
+        await returnToRequester(pendingRequest.returnScheme, 'declined');
+      }
+    };
+    await finishReturnAfterReview(returnIfCurrent);
+  }, [pendingRequest, closeReview, finishReturnAfterReview]);
 
   if (isLoading) {
     return (
@@ -367,7 +489,8 @@ const App: React.FC = () => {
   }
 
   const inner = (
-    <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}>
+    <NavigationContainer ref={navigationRef} onReady={handleNavigationReady}
+      onStateChange={handleNavigationStateChange}>
       <TabNavigator />
     </NavigationContainer>
   );
@@ -381,6 +504,7 @@ const App: React.FC = () => {
         request={pendingRequest}
         onAccept={handleAcceptRequest}
         onReject={handleRejectRequest}
+        onDismiss={handleReviewDismissed}
       />
     </AppKitProvider>
   );
@@ -399,7 +523,8 @@ const App: React.FC = () => {
                   delivered but the app could not hand the user back on its own.
                   Mounted here, inside ThemeProvider, so it can be raised from
                   the utility layer at any point in the deep-link flow. */}
-              <ReturnNoticeModal />
+              <ReturnNoticeModal kind={returnNotice?.kind ?? null} visible={returnNotice?.visible ?? false}
+                onRequestClose={dismissReturnNotice} onDismiss={handleNoticeDismissed} />
             </ErrorProvider>
           </ThemeProvider>
         </SafeAreaProvider>

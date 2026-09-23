@@ -1,200 +1,47 @@
-import {useTranslation} from 'react-i18next';
 import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import {Icon} from '../atoms/Icon';
-import {Badge} from '../atoms/Badge';
-import {useThemeColors} from '../../../context';
-
-type ProofStatus = 'verified' | 'pending' | 'failed' | 'generated';
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {useProofUiColors} from '../../../theme/proofUi';
+import {ProofUiIcon, type ProofUiIconName} from '../../ProofUiIcon';
+import {HistoryStatusBadge} from '../../../screens/history/HistoryStatusBadge';
 
 interface ProofHistoryCardProps {
-  circuitIcon: string;
+  id: string;
+  circuitIcon: ProofUiIconName;
   circuitName: string;
-  status: ProofStatus;
+  requester: string;
+  status: string;
   date: string;
-  network: string;
-  proofHash: string;
-  dappName?: string;
-  onPress?: () => void;
-  onDelete?: () => void;
+  onPress: () => void;
 }
 
-const truncateHash = (hash: string): string => {
-  if (hash.length <= 13) return hash;
-  return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
-};
-
-const getStatusBadge = (status: ProofStatus) => {
-  switch (status) {
-    case 'verified':
-      return <Badge variant="success" text="Verified" />;
-    case 'generated':
-      return <Badge variant="info" text="Generated" />;
-    case 'pending':
-      return <Badge variant="warning" text="Pending" />;
-    case 'failed':
-      return <Badge variant="error" text="Failed" />;
-  }
-};
-
-export const ProofHistoryCard: React.FC<ProofHistoryCardProps> = ({
-  circuitIcon,
-  circuitName,
-  status,
-  date,
-  network,
-  proofHash,
-  dappName,
-  onPress,
-  onDelete,
-}) => {
-  const {t} = useTranslation();
-  const {colors: themeColors} = useThemeColors();
-
-  const cardStyle = {
-    backgroundColor: themeColors.background.secondary,
-    borderColor: themeColors.border.primary,
-    borderWidth: 1,
-    borderRadius: 16,
-  };
-
-  const content = (
-    <View style={[styles.container, cardStyle]}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.iconContainer}>
-            <Icon name={circuitIcon as any} size="md" color={themeColors.info[500]} />
-          </View>
-          <View style={styles.nameContainer}>
-            <Text style={[styles.circuitName, {color: themeColors.text.primary}]}>{circuitName}</Text>
-            {dappName && <Text style={[styles.dappName, {color: themeColors.text.tertiary}]}>via {dappName}</Text>}
-          </View>
-        </View>
-        <View style={styles.headerRight}>
-          {onPress && <Icon name="chevron-right" size="sm" color={themeColors.text.tertiary} />}
-        </View>
+export function ProofHistoryCard({id, circuitIcon, circuitName, requester, status, date, onPress}: ProofHistoryCardProps) {
+  const colors = useProofUiColors();
+  return <TouchableOpacity testID={`history-record-${id}`} accessibilityRole="button"
+    onPress={onPress} activeOpacity={0.75}
+    style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
+    <View style={styles.top}>
+      <View style={[styles.icon, {backgroundColor: colors.inset}]}>
+        <ProofUiIcon name={circuitIcon} size={25} color={colors.blue} />
       </View>
-      <View style={[styles.divider, {backgroundColor: themeColors.border.primary}]} />
-      <View style={styles.details}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.statusLabel')}</Text>
-          {getStatusBadge(status)}
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.dateLabel')}</Text>
-          <Text style={[styles.detailValue, {color: themeColors.text.secondary}]}>{date}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.networkLabel')}</Text>
-          <Text style={[styles.detailValue, {color: themeColors.text.secondary}]}>{network}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, {color: themeColors.text.tertiary}]}>{t('host.history.proofHashLabel')}</Text>
-          <Text style={[styles.detailValue, styles.hash, {color: themeColors.text.secondary}]}>
-            {truncateHash(proofHash)}
-          </Text>
-        </View>
+      <View style={styles.body}>
+        <Text style={[styles.title, {color: colors.text}]}>{circuitName}</Text>
+        <Text numberOfLines={2} style={[styles.requester, {color: colors.secondary}]}>{requester}</Text>
       </View>
-      {onDelete && (
-        <>
-          <View style={[styles.divider, {backgroundColor: themeColors.border.primary}]} />
-          <TouchableOpacity
-            onPress={onDelete}
-            style={styles.deleteRow}
-            activeOpacity={0.7}
-            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-            <Icon name="trash-2" size="xs" color={themeColors.error[500]} />
-            <Text style={[styles.deleteText, {color: themeColors.error[500]}]}>{t('common.delete')}</Text>
-          </TouchableOpacity>
-        </>
-      )}
+      <ProofUiIcon name="chevron-right" size={18} color={colors.muted} />
     </View>
-  );
-
-  if (onPress) {
-    return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.touchWrapper}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-  return <View style={styles.touchWrapper}>{content}</View>;
-};
-
+    <View style={[styles.bottom, {borderColor: colors.border}]}>
+      <Text style={[styles.date, {color: colors.muted}]}>{date}</Text>
+      <HistoryStatusBadge status={status} />
+    </View>
+  </TouchableOpacity>;
+}
 const styles = StyleSheet.create({
-  touchWrapper: {
-    marginBottom: 12,
-  },
-  container: {
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  nameContainer: {
-    flex: 1,
-  },
-  circuitName: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  dappName: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    marginBottom: 12,
-  },
-  details: {
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 13,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  hash: {
-    fontFamily: 'monospace',
-  },
-  deleteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 12,
-    gap: 6,
-  },
-  deleteText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
+  card: {borderRadius: 14, borderWidth: 1, padding: 16, gap: 14},
+  top: {flexDirection: 'row', alignItems: 'center', gap: 13},
+  icon: {width: 44, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center'},
+  body: {flex: 1, minWidth: 0, gap: 4},
+  title: {fontSize: 16, lineHeight: 23, fontWeight: '600'},
+  requester: {fontSize: 13, lineHeight: 19},
+  bottom: {borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap'},
+  date: {fontSize: 12, lineHeight: 18, flexShrink: 1},
 });

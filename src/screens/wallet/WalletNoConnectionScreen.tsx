@@ -1,46 +1,32 @@
 import React from 'react';
-import {View, Text, StyleSheet, ScrollView} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 import {useTranslation} from 'react-i18next';
-import {Icon} from '../../components/ui/atoms/Icon';
-import {useThemeColors} from '../../context';
-import {typography, spacing} from '../../theme';
+import {ProofUiIcon} from '../../components/ProofUiIcon';
+import {useProofUiColors} from '../../theme/proofUi';
 import {CircuitWalletsCard} from './CircuitWalletsCard';
+import {WalletScreenLayout} from './WalletScreenLayout';
 
-// No global "Connect Wallet" button: a wallet is only meaningful in the
-// context of a specific circuit binding. Users pick the wallet via each
-// circuit row in CircuitWalletsCard, which opens the picker AND binds the
-// chosen wallet to that circuit on success.
-export const WalletNoConnectionScreen: React.FC = () => {
+export function WalletNoConnectionScreen() {
+  const colors = useProofUiColors();
   const {t} = useTranslation();
-  const { colors: themeColors } = useThemeColors();
-  return (
-    <ScrollView
-      style={{flex: 1, backgroundColor: themeColors.background.primary}}
-      contentContainerStyle={styles.contentContainer}>
-      <View style={styles.emptyStateContainer}>
-        <View style={{width: 80, height: 80, borderRadius: 40, backgroundColor: themeColors.background.secondary, justifyContent: 'center', alignItems: 'center', marginBottom: spacing[6]}}>
-          <Icon name="link" size="xl" color={themeColors.text.secondary} />
-        </View>
-
-        <Text style={{...typography.heading.h1, color: themeColors.text.primary, marginBottom: spacing[3], textAlign: 'center'}}>{t('host.wallet.noWalletConnected')}</Text>
-        <Text style={{...typography.body.medium, color: themeColors.text.secondary, textAlign: 'center', marginBottom: spacing[6], paddingHorizontal: spacing[4]}}>
-          {t('host.wallet.noWalletDescription')}
-        </Text>
+  return <WalletScreenLayout>
+    <View style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
+      <View style={[styles.icon, {backgroundColor: colors.inset}]}>
+        <ProofUiIcon name="wallet" size={26} color={colors.blue} />
       </View>
-
-      <CircuitWalletsCard />
-    </ScrollView>
-  );
-};
+      <View style={styles.body}>
+        <Text style={[styles.title, {color: colors.text}]}>{t('host.wallet.noWalletConnected')}</Text>
+        <Text style={[styles.description, {color: colors.secondary}]}>{t('host.wallet.noWalletDescription')}</Text>
+      </View>
+    </View>
+    <CircuitWalletsCard />
+  </WalletScreenLayout>;
+}
 
 const styles = StyleSheet.create({
-  contentContainer: {
-    flexGrow: 1,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[6],
-  },
-  emptyStateContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing[8],
-  },
+  card: {flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, borderWidth: 1, padding: 18},
+  icon: {width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center'},
+  body: {flex: 1},
+  title: {fontSize: 16, lineHeight: 23, fontWeight: '600', marginBottom: 5},
+  description: {fontSize: 13, lineHeight: 20},
 });

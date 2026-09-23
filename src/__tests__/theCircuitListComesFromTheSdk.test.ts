@@ -51,6 +51,7 @@ import {
 } from '../config/contracts';
 import {NETWORK_INDEPENDENT_CIRCUITS, USER_FACING_NETWORKS} from '../config/networks';
 import {getCircuitDisplayName, getCircuitIcon} from '../utils/circuit';
+import {getProofRequestPresentation} from '../utils/proofRequestPresentation';
 
 const SRC = path.join(__dirname, '..');
 const read = (...p: string[]) => fs.readFileSync(path.join(SRC, ...p), 'utf8');
@@ -199,18 +200,22 @@ describe('every app table covers every published circuit', () => {
     expect([...placed].sort()).toEqual([...ALL_CIRCUIT_IDS].sort());
   });
 
-  it('the tables that are not typed by CircuitName still name every circuit', () => {
+  it('wallet routing and request presentation both cover every circuit', () => {
     /*
-     * `circuitWalletStore` and `ProofRequestModal` are read as text rather than
-     * imported: both pull React Native in, and this suite runs on plain node.
-     * They are `Record<CircuitName, …>` in the source, so tsc holds them; this
-     * only catches the case where somebody loosens the type to `string`.
+     * The wallet store pulls in React Native, so keep its source check. Request
+     * presentation now lives in a pure typed utility: exercise that behavior
+     * instead of demanding a duplicate circuit table inside the modal.
      */
     const wallet = read('stores', 'circuitWalletStore.ts');
-    const modal = read('components', 'ProofRequestModal.tsx');
     for (const id of ALL_CIRCUIT_IDS) {
       expect([id, wallet.includes(`${id}:`)]).toEqual([id, true]);
-      expect([id, modal.includes(`${id}:`)]).toEqual([id, true]);
+      const presentation = getProofRequestPresentation({
+        circuit: id, inputs: {}, requestId: 'coverage', callbackUrl: 'https://requester.test', createdAt: 1,
+      }, key => key);
+      expect(presentation.title).toMatch(/^host\.proofRequest\.presentation\.[a-z]+\.title$/);
+      expect(presentation.shared).toMatch(/^host\.proofRequest\.presentation\.[a-z]+\.shared$/);
+      expect(presentation.private).toMatch(/^host\.proofRequest\.presentation\.[a-z]+\.private$/);
+      expect(presentation.conditions.length).toBeGreaterThan(0);
     }
   });
 });

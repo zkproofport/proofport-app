@@ -1,376 +1,167 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  Alert,
-  NativeModules,
-  Share,
-  ActivityIndicator,
-  Pressable,
-  TouchableOpacity,
-} from 'react-native';
-import { useTranslation } from 'react-i18next';
-import {Toggle} from '../../components/ui/molecules/Toggle';
-import {MenuItem} from '../../components/ui/molecules/MenuItem';
+import {ActivityIndicator, Alert, NativeModules, Pressable, ScrollView, Share, StyleSheet, Text, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useTranslation} from 'react-i18next';
 import {Select} from '../../components/ui/molecules/Select';
+import {ProofUiIcon} from '../../components/ProofUiIcon';
 import {visibleNetworkCategories, OPENSTOA_ENABLED, type NetworkCategoryId} from '../../config';
 import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
-import {useThemeColors} from '../../context';
+import {useError, useThemeColors} from '../../context';
+import {useProofUiColors} from '../../theme/proofUi';
 import type {MoreTabScreenProps} from '../../navigation/types';
+import type {AppSettings} from '../../stores/settingsStore';
 import {getVersionDisplay} from '../../utils/version';
+import {SettingsGroup, SettingsRow, SettingsToggle} from './SettingsParts';
+import {languageOption} from './languages';
 
-const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({
-  navigation,
-}) => {
-  const { t } = useTranslation();
-  const {settings, loading, updateSettings} = useSettings();
-  // Seeded from the value the app BOOTED with, so the switch shows what is
-  // actually in effect right now — not the pending choice.
-  const [openStoaOverride, setOpenStoaOverride] = React.useState(OPENSTOA_ENABLED);
-
-  const handleOpenStoaOverride = React.useCallback((next: boolean) => {
-    setOpenStoaOverride(next);
-    NativeModules.AppEnv?.setOpenStoaOverride?.(next);
-    Alert.alert(
-      t('host.more.openStoaEnabled'),
-      t('host.more.openStoaRestartRequired'),
-    );
-  }, [t]);
+const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({navigation}) => {
+  const {t, i18n} = useTranslation();
+  const colors = useProofUiColors();
+  const {showError} = useError();
+  const {settings, loading, error, updateSettings, refresh} = useSettings();
   const {exportToJSON, clearAll} = useProofHistory();
-  const {mode, colors: themeColors, setThemeMode} = useThemeColors();
+  const {mode, setThemeMode} = useThemeColors();
+  const [openStoaOverride, setOpenStoaOverride] = React.useState(OPENSTOA_ENABLED);
+  const [restartRequired, setRestartRequired] = React.useState(false);
+  const [dataNotice, setDataNotice] = React.useState(false);
+  const [dataBusy, setDataBusy] = React.useState(false);
+  const dataOperation = React.useRef(false);
 
-  const handleExportHistory = async () => {
-    Alert.alert(
-      t('host.more.exportTitle'),
-      t('host.more.exportMessage'),
-      [
-        {text: t('common.cancel'), style: 'cancel'},
-        {
-          text: t('host.more.export'),
-          onPress: async () => {
-            try {
-              const json = await exportToJSON();
-              await Share.share({
-                message: json,
-                title: t('host.more.exportTitle'),
-              });
-            } catch (error) {
-              Alert.alert(t('common.ok'), t('host.more.exportError'));
-            }
-          },
-        },
-      ],
-    );
+  React.useEffect(() => {
+    if (error && !settings) showError('E5002', t('host.more.loadError'));
+  }, [error, settings, showError, t]);
+
+  const saveSetting = async (partial: Partial<AppSettings>) => {
+    try {await updateSettings(partial);}
+    catch {showError('E5001', t('host.more.saveError'));}
   };
 
-  const handleClearData = async () => {
-    Alert.alert(
-      t('host.more.clearTitle'),
-      t('host.more.clearMessage'),
-      [
-        {text: t('common.cancel'), style: 'cancel'},
-        {
-          text: t('host.more.clear'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearAll();
-              Alert.alert(t('common.ok'), t('host.more.clearSuccess'));
-            } catch (error) {
-              Alert.alert(t('common.ok'), t('host.more.clearError'));
-            }
-          },
-        },
-      ],
-    );
+  const handleOpenStoaOverride = async (next: boolean) => {
+    try {
+      // This native preference is read before JS starts; apply it next launch.
+      const write = NativeModules.AppEnv?.setOpenStoaOverride;
+      if (!write) throw new Error('OpenStoa override is unavailable');
+      await write(next);
+      setOpenStoaOverride(next);
+      setRestartRequired(true);
+    } catch {showError('E5001', t('host.more.saveError'));}
   };
+
+  const runDataAction = async (action: 'export' | 'clear') => {
+    if (dataOperation.current) return;
+    dataOperation.current = true;
+    setDataBusy(true);
+    setDataNotice(false);
+    try {
+      if (action === 'clear') {
+        await clearAll();
+        setDataNotice(true);
+      } else {
+        const json = await exportToJSON();
+        await Share.share({message: json, title: t('host.more.exportTitle')});
+      }
+    } catch {
+      showError(action === 'clear' ? 'E5001' : 'E9999', t(action === 'clear' ? 'host.more.clearError' : 'host.more.exportError'));
+    } finally {
+      dataOperation.current = false;
+      setDataBusy(false);
+    }
+  };
+
+  const handleExportHistory = () => Alert.alert(t('host.more.exportTitle'), t('host.more.exportMessage'), [
+    {text: t('common.cancel'), style: 'cancel'},
+    {text: t('host.more.export'), onPress: () => runDataAction('export')},
+  ]);
+  const handleClearData = () => Alert.alert(t('host.more.clearTitle'), t('host.more.clearMessage'), [
+    {text: t('common.cancel'), style: 'cancel'},
+    {text: t('host.more.clear'), style: 'destructive', onPress: () => runDataAction('clear')},
+  ]);
 
   if (loading || !settings) {
-    return (
-      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={[styles.loadingText, {color: themeColors.text.secondary}]}>{t('common.loading')}</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, {backgroundColor: colors.background}]}>
+      <View style={styles.loading}>
+        {loading ? <ActivityIndicator color={colors.blue} /> : <ProofUiIcon name="info" color={colors.secondary} />}
+        <Text style={[styles.subtitle, {color: colors.secondary}]}>{t(loading ? 'common.loading' : 'host.more.loadError')}</Text>
+        {!loading && <Pressable accessibilityRole="button" onPress={refresh} style={styles.retry}>
+          <Text style={[styles.label, {color: colors.blue}]}>{t('common.retry')}</Text>
+        </Pressable>}
+      </View>
+    </SafeAreaView>;
   }
 
-  return (
-    <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}>
-        <Text style={[styles.header, {color: themeColors.text.primary}]}>{t('host.more.title')}</Text>
+  return <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, {backgroundColor: colors.background}]}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
+        <Text style={[styles.brand, {color: colors.secondary}]}>ZKProofport</Text>
+        <Text accessibilityRole="header" style={[styles.title, {color: colors.text}]}>{t('host.more.title')}</Text>
+        <Text style={[styles.subtitle, {color: colors.secondary}]}>{t('host.more.subtitle')}</Text>
+      </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionGeneral')}</Text>
-          <TouchableOpacity
-            style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
-            onPress={() => navigation.navigate('SettingsLanguage')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.language')}</Text>
-            <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
-          </TouchableOpacity>
-          {/* History lives in "More" only when OpenStoa owns the 4th tab.
-              When OPENSTOA_ENABLED is false, History is its own tab, so this
-              row is hidden to avoid a duplicate entry point. */}
-          {OPENSTOA_ENABLED && (
-            <TouchableOpacity
-              style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}
-              onPress={() => navigation.navigate('HistoryMain')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.history')}</Text>
-              <Text style={[styles.settingValue, {color: themeColors.text.secondary}]}>›</Text>
-            </TouchableOpacity>
-          )}
-          <View style={[styles.settingItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Text style={[styles.settingLabel, {color: themeColors.text.primary}]}>{t('host.more.theme')}</Text>
-            <View style={styles.themeOptions}>
-              <Pressable
-                style={[
-                  styles.themeOption,
-                  {borderColor: mode === 'dark' ? '#3B82F6' : themeColors.border.primary},
-                  mode === 'dark' && styles.themeOptionActive,
-                ]}
-                onPress={() => setThemeMode('dark')}>
-                <Text style={[
-                  styles.themeOptionText,
-                  {color: mode === 'dark' ? '#3B82F6' : themeColors.text.secondary},
-                ]}>{t('host.more.themeDark')}</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.themeOption,
-                  {borderColor: mode === 'light' ? '#3B82F6' : themeColors.border.primary},
-                  mode === 'light' && styles.themeOptionActive,
-                ]}
-                onPress={() => setThemeMode('light')}>
-                <Text style={[
-                  styles.themeOptionText,
-                  {color: mode === 'light' ? '#3B82F6' : themeColors.text.secondary},
-                ]}>{t('host.more.themeLight')}</Text>
-              </Pressable>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.settingItem,
-              {
-                backgroundColor: themeColors.background.secondary,
-                borderColor: themeColors.border.primary,
-                // Override the row flex so the Select picker stretches to
-                // fill the card width — otherwise label + value collapse
-                // onto each other in shrink-wrap mode.
-                flexDirection: 'column',
-                alignItems: 'stretch',
-                paddingVertical: 0,
-                paddingHorizontal: 0,
-              },
-            ]}>
-            <Select<NetworkCategoryId>
-              label={t('host.more.defaultNetwork')}
-              value={(settings.defaultNetwork as NetworkCategoryId) ?? 'base'}
-              // Same list the Verify tab shows, from src/config/networks.ts.
-              // Developer-only networks stay hidden unless Developer Mode is on
-              // or the user already had one selected, so they can switch away
-              // without re-enabling the flag.
-              options={visibleNetworkCategories(
-                settings.developerMode,
-                settings.defaultNetwork,
-              ).map((n) => ({
-                value: n.id,
-                label: t(n.labelKey),
-              }))}
-              onChange={(next) => updateSettings({defaultNetwork: next})}
-              pickerTitle={t('host.more.defaultNetwork')}
-            />
+      <SettingsGroup title={t('host.more.sectionGeneral')}>
+        <SettingsRow testID="more-language" icon="country" title={t('host.more.language')}
+          value={languageOption(i18n.language).label} onPress={() => navigation.navigate('SettingsLanguage')} />
+        <View style={[styles.themeRow, {borderColor: colors.border}]}>
+          <View style={styles.themeLabel}><ProofUiIcon name={mode === 'dark' ? 'moon' : 'sun'} size={21} color={colors.secondary} />
+            <Text style={[styles.label, {color: colors.text}]}>{t('host.more.theme')}</Text></View>
+          <View style={[styles.themeOptions, {backgroundColor: colors.inset}]}>
+            {(['dark', 'light'] as const).map(choice => <Pressable key={choice} testID={`more-theme-${choice}`}
+              accessibilityRole="radio" accessibilityState={{selected: mode === choice}}
+              onPress={() => setThemeMode(choice)} style={[styles.themeOption, mode === choice && {backgroundColor: colors.card}]}>
+              <Text style={[styles.themeOptionText, {color: mode === choice ? colors.text : colors.secondary}]}>{t(choice === 'dark' ? 'host.more.themeDark' : 'host.more.themeLight')}</Text>
+            </Pressable>)}
           </View>
         </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionProofSettings')}</Text>
-          <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Toggle
-              value={settings.autoSaveProofs}
-              onValueChange={(value) => updateSettings({autoSaveProofs: value})}
-              label={t('host.more.autoSaveProofs')}
-            />
-          </View>
-          <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-            <Toggle
-              value={settings.confirmBeforeGenerate}
-              onValueChange={(value) => updateSettings({confirmBeforeGenerate: value})}
-              label={t('host.more.confirmBeforeGenerate')}
-            />
-          </View>
+        <View style={[styles.divider, {borderColor: colors.border}]}>
+          <Select<NetworkCategoryId> testID="more-network" icon="country" label={t('host.more.defaultNetwork')}
+            value={settings.defaultNetwork as NetworkCategoryId}
+            options={visibleNetworkCategories(settings.developerMode, settings.defaultNetwork).map(network => ({value: network.id, label: t(network.labelKey)}))}
+            onChange={next => saveSetting({defaultNetwork: next})} pickerTitle={t('host.more.defaultNetwork')} />
         </View>
+        {/* OpenStoa owns the fourth tab when enabled; only then keep History here. */}
+        {OPENSTOA_ENABLED && <SettingsRow testID="more-history" icon="history" title={t('host.more.history')} separated onPress={() => navigation.navigate('HistoryMain')} />}
+      </SettingsGroup>
 
-        {settings.developerMode && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionDeveloper')}</Text>
-            <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-              <Toggle
-                value={settings.showLiveLogs}
-                onValueChange={(value) => updateSettings({showLiveLogs: value})}
-                label={t('host.more.showLiveLogs')}
-              />
-            </View>
-            <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-              <Toggle
-                value={settings.useOmniOneCxUi}
-                onValueChange={(value) => updateSettings({useOmniOneCxUi: value})}
-                label={t('host.more.useOmniOneCxUi')}
-              />
-            </View>
-            {/*
-              Overrides the BUILD's OpenStoa flag. Written natively, not to
-              AsyncStorage: JS reads the flag at module load — the push-tap
-              bridge starts at import time — so the value has to be settled
-              before the first line of JS runs. That is why this applies on the
-              next launch and says so, rather than half-switching the app now.
-            */}
-            <View style={[styles.toggleItem, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-              <Toggle
-                value={openStoaOverride}
-                onValueChange={handleOpenStoaOverride}
-                label={t('host.more.openStoaEnabled')}
-              />
-            </View>
-            <Text style={[styles.toggleHint, {color: themeColors.text.tertiary}]}>
-              {t('host.more.openStoaEnabledHint')}
-            </Text>
-          </View>
-        )}
+      <SettingsGroup title={t('host.more.sectionProofSettings')}>
+        <SettingsToggle testID="more-auto-save" label={t('host.more.autoSaveProofs')} value={settings.autoSaveProofs} onValueChange={value => saveSetting({autoSaveProofs: value})} />
+        <SettingsToggle testID="more-confirm" label={t('host.more.confirmBeforeGenerate')} value={settings.confirmBeforeGenerate} onValueChange={value => saveSetting({confirmBeforeGenerate: value})} separated />
+      </SettingsGroup>
 
+      {settings.developerMode && <SettingsGroup title={t('host.more.sectionDeveloper')}>
+        <SettingsToggle testID="more-live-logs" label={t('host.more.showLiveLogs')} value={settings.showLiveLogs} onValueChange={value => saveSetting({showLiveLogs: value})} />
+        <SettingsToggle testID="more-omnione" label={t('host.more.useOmniOneCxUi')} value={settings.useOmniOneCxUi} onValueChange={value => saveSetting({useOmniOneCxUi: value})} separated />
+        <SettingsToggle testID="more-openstoa" label={t('host.more.openStoaEnabled')} value={openStoaOverride} onValueChange={handleOpenStoaOverride}
+          description={t('host.more.openStoaEnabledHint')} separated />
+        {restartRequired && <Text accessibilityLiveRegion="polite" style={[styles.notice, {color: colors.blue}]}>{t('host.more.openStoaRestartRequired')}</Text>}
+      </SettingsGroup>}
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{t('host.more.sectionData')}</Text>
-          <MenuItem
-            icon="download"
-            title={t('host.more.exportProofHistory')}
-            onPress={handleExportHistory}
-          />
-          <MenuItem
-            icon="trash-2"
-            title={t('host.more.clearLocalData')}
-            onPress={handleClearData}
-          />
-        </View>
+      <View style={styles.dataSection}>
+        <SettingsGroup title={t('host.more.sectionData')}>
+          <SettingsRow testID="more-export-history" icon="download" title={t('host.more.exportProofHistory')} onPress={handleExportHistory} disabled={dataBusy} />
+          <SettingsRow testID="more-clear-history" icon="trash" title={t('host.more.clearLocalData')} onPress={handleClearData} destructive disabled={dataBusy} separated />
+        </SettingsGroup>
+        {dataBusy && <ActivityIndicator color={colors.blue} accessibilityLabel={t('common.loading')} />}
+        {dataNotice && <Text testID="more-data-notice" accessibilityLiveRegion="polite" style={[styles.notice, {color: colors.blue}]}>{t('host.more.clearSuccess')}</Text>}
+      </View>
 
-        <View style={[styles.separator, {backgroundColor: themeColors.border.primary}]} />
-
-        <MenuItem
-          icon="info"
-          title={t('host.more.about')}
-          subtitle={t('host.more.versionSupport')}
-          onPress={() => navigation.navigate('About')}
-        />
-
-        <Text style={[styles.version, {color: themeColors.text.tertiary}]}>{getVersionDisplay()}</Text>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      <SettingsGroup title={t('host.more.sectionAbout')}>
+        <SettingsRow testID="more-about" icon="info" title={t('host.more.about')} description={t('host.more.versionSupport')}
+          value={getVersionDisplay()} onPress={() => navigation.navigate('About')} />
+      </SettingsGroup>
+    </ScrollView>
+  </SafeAreaView>;
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 24,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  settingLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  settingValue: {
-    fontSize: 15,
-  },
-  toggleItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  // Sits under a toggle whose effect is deferred, so the switch flipping is not
-  // mistaken for the change having happened.
-  toggleHint: {
-    fontSize: 12,
-    lineHeight: 16,
-    paddingHorizontal: 16,
-    marginTop: -4,
-    marginBottom: 8,
-  },
-  separator: {
-    height: 1,
-    marginBottom: 16,
-  },
-  version: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 32,
-    marginBottom: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-  },
-  themeOptions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  themeOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  themeOptionActive: {
-    backgroundColor: 'rgba(99, 102, 241, 0.16)',
-  },
-  themeOptionText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
+  screen: {flex: 1}, content: {paddingHorizontal: 20, paddingTop: 16, paddingBottom: 36, gap: 24},
+  header: {gap: 8}, brand: {fontSize: 17, fontWeight: '600', marginBottom: 12},
+  title: {fontSize: 27, lineHeight: 35, fontWeight: '700'}, subtitle: {fontSize: 14, lineHeight: 21},
+  label: {fontSize: 15, lineHeight: 21, fontWeight: '500'},
+  themeRow: {paddingHorizontal: 16, paddingVertical: 11, gap: 12, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth},
+  themeLabel: {flexDirection: 'row', alignItems: 'center', gap: 13}, themeOptions: {flexDirection: 'row', padding: 3, borderRadius: 10},
+  themeOption: {minHeight: 38, minWidth: 58, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center'},
+  themeOptionText: {fontSize: 13, fontWeight: '600'}, divider: {borderTopWidth: StyleSheet.hairlineWidth},
+  notice: {fontSize: 13, lineHeight: 19, paddingHorizontal: 16, paddingBottom: 12}, dataSection: {gap: 12},
+  loading: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14}, retry: {padding: 16},
 });
-
 export default MoreMainScreen;

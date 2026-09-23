@@ -17,6 +17,10 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({params: {circuit: mockCircuit}}),
 }));
 jest.mock('react-i18next', () => ({useTranslation: () => ({t: mockT})}));
+jest.mock('react-native-vector-icons/Feather', () => 'Feather');
+jest.mock('../../components/ProofUiIcon', () => ({ProofUiIcon: 'ProofUiIcon'}));
+jest.mock('../../context/ThemeContext', () => ({useThemeColors: () => ({mode: 'dark'})}));
+jest.mock('react-native-safe-area-context', () => ({SafeAreaView: 'SafeAreaView'}));
 jest.mock('../../components/ui', () => ({
   Button: 'Button', Card: 'Card', Divider: 'Divider', Icon: 'Icon',
   KeyboardSafeScroll: 'KeyboardSafeScroll', Select: 'Select', CircuitCard: 'CircuitCard',
@@ -52,7 +56,7 @@ jest.mock('../../utils/giwaKyc', () => ({
   verifyGiwaAttestationTx: () => ({valid: true, signerAddress: '0x1111111111111111111111111111111111111111'}),
 }));
 
-import {CircuitSelectionScreen} from '../proof/CircuitSelectionScreen';
+import {LaboratoryScreen} from '../proof/LaboratoryScreen';
 import {ArcActionInputScreen} from '../proof/ArcActionInputScreen';
 import {useGiwaKyc, type UseGiwaKycReturn} from '../../hooks/useGiwaKyc';
 import {whatTheWalletSigns} from '../../utils/signedAction';
@@ -87,10 +91,9 @@ function generateAction(): TypedAction {
 
 describe('standalone GIWA action input', () => {
   it('opens action inputs directly from the GIWA circuit card', async () => {
-    await mount(CircuitSelectionScreen);
-    const card = tree.root.findAllByType('CircuitCard' as never).find(c => c.props.title === 'host.proof.circuitSelection.giwaKyc.title');
-    expect(card).toBeDefined();
-    act(() => card!.props.onPress());
+    await mount(LaboratoryScreen);
+    const card = tree.root.findByProps({testID: 'proof-card-giwa_attestation'});
+    act(() => card.props.onPress());
     expect(mockNavigate).toHaveBeenCalledWith('ArcActionInput', {circuit: 'giwa_attestation'});
   });
 

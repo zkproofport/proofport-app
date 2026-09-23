@@ -19,7 +19,7 @@ const HistoryStackNavigator: React.FC = () => {
       <Stack.Screen
         name="HistoryMain"
         component={ProofHistoryScreen}
-        options={{ title: t('host.more.history') }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="HistoryDetail"

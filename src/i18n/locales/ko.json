@@ -5,7 +5,8 @@
     "delete": "삭제",
     "retry": "다시 시도",
     "loading": "불러오는 중…",
-    "ok": "확인"
+    "ok": "확인",
+    "back": "뒤로"
   },
   "shared": {
     "webView": {
@@ -17,7 +18,7 @@
     "tabs": {
       "openstoa": "OpenStoa",
       "history": "기록",
-      "verify": "검증",
+      "verify": "증명",
       "scan": "스캔",
       "wallet": "지갑",
       "more": "더보기"
@@ -43,22 +44,26 @@
       "showLiveLogs": "라이브 로그 표시",
       "useOmniOneCxUi": "OmniOne CX UI 사용",
       "exportProofHistory": "증명 기록 내보내기",
-      "clearLocalData": "로컬 데이터 삭제",
+      "clearLocalData": "증명 기록 삭제",
       "exportTitle": "증명 기록 내보내기",
-      "exportMessage": "증명 기록을 JSON 파일로 내보낼까요?",
+      "exportMessage": "이 기기에 저장된 증명 기록을 JSON 형식으로 공유할까요?",
       "export": "내보내기",
       "exportError": "증명 기록 내보내기에 실패했어요",
-      "clearTitle": "로컬 데이터 삭제",
-      "clearMessage": "로컬에 저장된 모든 증명과 설정이 삭제돼요. 이 작업은 되돌릴 수 없어요.",
-      "clear": "삭제",
-      "clearSuccess": "로컬 데이터가 삭제됐어요",
-      "clearError": "로컬 데이터 삭제에 실패했어요",
+      "clearTitle": "증명 기록을 삭제할까요?",
+      "clearMessage": "이 기기에 저장된 증명 기록을 삭제합니다. 설정과 저장된 지갑은 유지됩니다. 삭제한 기록은 복구할 수 없습니다.",
+      "clear": "기록 삭제",
+      "clearSuccess": "증명 기록을 삭제했습니다.",
+      "clearError": "증명 기록을 삭제하지 못했습니다.",
       "versionSupport": "버전, 지원",
       "openStoaEnabled": "OpenStoa 미니앱",
       "openStoaEnabledHint": "이 빌드의 설정을 덮어씁니다. 앱을 다시 시작하면 적용됩니다.",
       "openStoaRestartRequired": "앱을 다시 시작하면 적용됩니다.",
       "networkArc": "Arc 테스트넷",
-      "networkOther": "기타"
+      "networkOther": "기타",
+      "subtitle": "내게 맞게 ZKProofport를 설정하세요.",
+      "sectionAbout": "앱 정보",
+      "saveError": "설정을 저장하지 못했습니다. 다시 시도해 주세요.",
+      "loadError": "설정을 불러오지 못했습니다."
     },
     "about": {
       "tagline": "개인정보 보호 최우선 영지식 증명 생성",
@@ -72,12 +77,16 @@
       "devModeEnabledMsg": "설정에서 라이브 로그와 디버그 옵션을 사용할 수 있어요.",
       "devModeDisabledMsg": "개발자 옵션이 숨겨졌어요.",
       "openURLError": "{{title}}을(를) 열 수 없어요",
-      "openURLFailed": "{{title}} 열기에 실패했어요"
+      "openURLFailed": "{{title}} 열기에 실패했어요",
+      "version": "버전 {{version}}"
     },
     "settings": {
       "languageTitle": "언어",
       "english": "English",
-      "korean": "한국어"
+      "korean": "한국어",
+      "languageDescription": "앱에서 사용할 언어를 선택하세요.",
+      "languageSaveError": "언어는 변경되었지만 다음 실행을 위한 설정을 저장하지 못했습니다.",
+      "languageChangeError": "언어를 변경하지 못했습니다. 다시 시도해 주세요."
     },
     "wallet": {
       "title": "WalletConnect",
@@ -92,7 +101,7 @@
       "fullAddress": "전체 주소",
       "clearWalletConnectCache": "WalletConnect 캐시 삭제",
       "noWalletConnected": "연결된 지갑 없음",
-      "noWalletDescription": "영지식 증명을 생성하려면 지갑을 연결해 주세요",
+      "noWalletDescription": "아래에서 증명에 사용할 지갑을 연결하세요.",
       "walletDetails": "지갑 정보",
       "address": "주소",
       "status": "상태",
@@ -101,14 +110,28 @@
       "copied": "복사됨!",
       "selectWallet": "연결할 지갑을 선택하세요:",
       "connected": "연결됨",
-      "notBound": "지정되지 않음",
-      "circuitWallets": "회로별 지갑",
-      "circuitWalletsHint": "회로마다 연결할 때 각자의 지갑에 묶입니다. 연결을 눌러 지갑을 회로에 묶고, 지우기로 풉니다. 지금 활성인 세션일 때만 \"연결됨\"으로 보입니다.",
-      "notBoundHint": "지정되지 않음 — 연결을 눌러 지갑을 묶으세요",
+      "notBound": "미등록",
+      "circuitWallets": "증명용 지갑",
+      "circuitWalletsHint": "인증을 받은 지갑을 증명별로 관리하세요.",
+      "notBoundHint": "이 증명에 사용할 지갑을 연결하세요.",
       "connect": "연결",
       "reconnect": "다시 연결",
       "connecting": "연결 중…",
-      "clear": "지우기"
+      "clear": "등록 삭제",
+      "home": {
+        "title": "내 지갑",
+        "subtitle": "증명에 사용할 지갑을 관리하세요.",
+        "currentWallet": "현재 연결된 지갑",
+        "loadingAddress": "주소 확인 중…",
+        "unknownNetwork": "네트워크 확인 불가",
+        "disconnectSession": "현재 지갑 연결 해제",
+        "saved": "저장됨 · 연결 안 됨",
+        "expired": "저장 기간 만료 · 다시 연결하세요",
+        "rememberDays": "지갑 기억 기간 {{days}}일 {{hours}}시간 남음",
+        "rememberHours": "지갑 기억 기간 {{hours}}시간 남음",
+        "rememberSoon": "지갑 기억 기간 1시간 미만",
+        "connectionHint": "한 번에 하나의 지갑이 연결됩니다. 연결 해제는 지갑을 기억하고, 등록 삭제는 저장된 지갑을 지웁니다."
+      }
     },
     "loading": {
       "tagline": "프라이버시를 지키는 신원 증명",
@@ -151,12 +174,55 @@
         "verifierContract": "검증 컨트랙트",
         "proofHash": "증명 해시",
         "walletAddress": "지갑 주소",
-        "title": "증명 상세"
+        "title": "증명 상세",
+        "requester": "요청자",
+        "conditions": "증명 조건",
+        "notSaved": "이 기록에는 요청 상세 정보가 저장되지 않았어요.",
+        "noAction": "추가 작업이 포함되지 않았어요.",
+        "technical": "기술 정보",
+        "technicalHint": "네트워크, 주소 및 식별자",
+        "missingTitle": "기록을 찾을 수 없어요",
+        "missingText": "이 기기에서 이미 삭제된 증명 기록일 수 있어요.",
+        "backToHistory": "기록 목록으로",
+        "deleteRecord": "이 기록 삭제",
+        "deleteRecordTitle": "증명 기록을 삭제할까요?",
+        "deleteRecordMessage": "이 기기에 저장된 해당 증명 기록만 삭제돼요. 삭제한 기록은 복구할 수 없어요.",
+        "deleting": "삭제 중…",
+        "deleteFailed": "기록을 삭제하지 못했어요. 다시 시도할 수 있어요.",
+        "copyValue": "{{label}} 복사",
+        "copy": "복사",
+        "notRecorded": "저장되지 않음",
+        "verificationNote": "기록에 저장된 검증 결과예요.",
+        "verificationGenerated": "검증하지 않음",
+        "verificationPending": "완료되지 않음",
+        "circuitId": "증명 유형 ID",
+        "scope": "증명 범위",
+        "scopeString": "범위 문자열"
       },
       "statusLabel": "상태",
       "dateLabel": "날짜",
       "networkLabel": "네트워크",
-      "proofHashLabel": "증명 해시"
+      "proofHashLabel": "증명 해시",
+      "dateUnavailable": "날짜 정보 없음",
+      "states": {
+        "started": "시작됨",
+        "generating": "생성 중",
+        "pending": "검증 전",
+        "generated": "생성 완료",
+        "verified": "검증 완료",
+        "failed": "생성 실패",
+        "verified_failed": "검증 실패"
+      },
+      "home": {
+        "title": "증명 기록",
+        "subtitle": "요청받은 증명과 처리 결과를 확인하세요.",
+        "count": "이 기기에 저장된 기록 {{count}}개",
+        "manual": "앱에서 직접 생성",
+        "unknownRequester": "요청자 정보 없음",
+        "retry": "다시 시도",
+        "errorText": "증명 기록을 불러오지 못했어요. 다시 시도해 주세요.",
+        "emptyText": "기록 저장을 켜면 진행 중이거나 완료된 증명 요청이 여기에 표시돼요."
+      }
     },
     "scan": {
       "permissionTitle": "카메라 접근 권한 필요",
@@ -420,6 +486,78 @@
         "errBool": "{{field}} 은 true 또는 false 여야 합니다.",
         "errBytes32": "{{field}} 은 0x 뒤에 16진수 64자여야 합니다.",
         "circuitLabel": "회로"
+      },
+      "home": {
+        "brand": "ZKProofport",
+        "title": "무엇을 증명할까요?",
+        "subtitle": "필요한 사실만 선택하세요",
+        "scanTitle": "서비스에서 요청받았나요?",
+        "scanDescription": "QR을 스캔하면 필요한 증명으로 연결돼요",
+        "searchPlaceholder": "증명 검색",
+        "clearSearch": "검색 지우기",
+        "available": "사용 가능한 증명",
+        "emptyTitle": "일치하는 증명이 없어요",
+        "emptyDescription": "다른 검색어나 분류를 선택해 보세요.",
+        "purposes": {
+          "all": "전체",
+          "organization": "소속",
+          "identity": "신원",
+          "country": "국가"
+        },
+        "organization": {
+          "title": "조직 계정",
+          "description": "이메일 주소를 공개하지 않고 소속을 증명해요",
+          "provider": "Google Workspace · Microsoft 365"
+        },
+        "identity": {
+          "title": "KYC 완료 여부",
+          "description": "Coinbase에서 신원 인증을 마쳤음을 증명해요",
+          "provider": "Coinbase"
+        },
+        "country": {
+          "title": "국가 조건",
+          "description": "Coinbase에 등록된 국가가 조건에 맞는지 증명해요",
+          "provider": "Coinbase"
+        },
+        "laboratoryTitle": "실험실",
+        "laboratoryDescription": "테스트 증명 둘러보기",
+        "laboratoryBadge": "테스트"
+      },
+      "laboratory": {
+        "title": "실험실",
+        "description": "실제 자격 인증과 구분되는 테스트 기능입니다.",
+        "experimental": "실험적 기능",
+        "networks": "네트워크 증명",
+        "mobileId": "한국 모바일 신분증",
+        "giwa": {
+          "title": "KYC 테스트",
+          "description": "GIWA 테스트넷의 신원 인증 증명과 동작 서명을 테스트해요",
+          "provider": "GIWA 테스트넷 · 모의 인증 데이터",
+          "sectionTitle": "GIWA"
+        },
+        "arc": {
+          "title": "자격 테스트",
+          "description": "Coinbase 인증을 바탕으로 자격 증명과 동작 서명을 테스트해요",
+          "provider": "Arc 테스트넷 · Coinbase 인증",
+          "sectionTitle": "Arc"
+        },
+        "ownership": {
+          "title": "신분증 보유",
+          "description": "모바일 신분증에서 증명할 속성을 선택해요",
+          "provider": "한국 모바일 신분증"
+        },
+        "age": {
+          "title": "나이 조건",
+          "description": "설정한 최소 나이 조건을 충족하는지 증명해요",
+          "provider": "한국 모바일 신분증"
+        },
+        "region": {
+          "title": "거주 지역",
+          "description": "선택한 시·도에 거주하는지 증명해요",
+          "provider": "한국 모바일 신분증"
+        },
+        "heroTitle": "테스트용 증명을 살펴보세요",
+        "poc": "PoC"
       }
     },
     "proofRequest": {
@@ -434,7 +572,125 @@
       "expiresAt": "만료 시각",
       "noExpiry": "만료 없음",
       "reject": "거절",
-      "generate": "증명 만들기"
+      "generate": "증명 만들기",
+      "review": {
+        "title": "증명 요청",
+        "back": "뒤로",
+        "requester": "요청자",
+        "requesterProvided": "위 이름, 아이콘과 메시지는 요청에 포함된 정보입니다.",
+        "proofCondition": "요청된 조건",
+        "actionTitle": "요청된 액션",
+        "actionDescription": "서명하기 전에 요청 내용을 확인하세요.",
+        "disclosureTitle": "전송되는 정보",
+        "disclosureDescription": "생성된 증명과 공개 입력값이 증명 전달 주소로 전송됩니다. 공개 입력값은 증명 종류와 요청 조건에 따라 달라집니다.",
+        "deliveryEndpoint": "증명 전달 주소",
+        "deliveryDescription": "요청에 지정된 콜백 전송 대상입니다. 요청자의 신원이나 웹사이트를 확인한 주소는 아닙니다.",
+        "technicalDetails": "기술 상세",
+        "originalRequest": "원본 요청 데이터",
+        "expired": "요청이 만료되었거나 만료 시간이 올바르지 않습니다. 거절한 뒤 새 요청을 받아 주세요.",
+        "unsupported": "이 앱에서 지원하지 않는 증명 식별자입니다. 이 요청을 거절할 수 있습니다.",
+        "confirm": "확인하고 계속",
+        "cancel": "취소",
+        "actionMessage": "메시지",
+        "primaryType": "기본 타입",
+        "sharedTitle": "전달되는 정보",
+        "privateTitle": "전달하지 않는 정보",
+        "checkRequest": "요청한 서비스와 조건을 확인하세요",
+        "values": {
+          "emptyString": "빈 문자열",
+          "emptyArray": "빈 목록",
+          "emptyObject": "빈 객체",
+          "null": "null 값",
+          "missing": "제공되지 않음",
+          "circular": "순환 참조",
+          "text": "문자열",
+          "fields": "항목",
+          "list": "목록",
+          "items": "{{count}}개 항목",
+          "entries": "{{count}}개 필드",
+          "item": "항목 {{index}}"
+        }
+      },
+      "presentation": {
+        "fields": {
+          "organization": "조직 조건",
+          "provider": "인증 제공자",
+          "requirement": "요청 조건",
+          "countries": "대상 국가 (국가 코드)",
+          "countryRule": "국가 조건",
+          "disclosures": "해시로 일치 여부를 확인할 항목",
+          "ageThreshold": "최소 연령 (세·출생연도 기준)",
+          "currentYear": "연령 계산 기준 연도",
+          "targetRegion": "거주 지역 조건",
+          "userAddress": "인증 지갑",
+          "additional": "추가 요청 데이터: {{field}}"
+        },
+        "values": {
+          "notProvided": "요청에 지정되지 않음",
+          "null": "값 없음 (null)",
+          "empty": "빈 문자열",
+          "emptyList": "빈 목록",
+          "domainAccount": "{{domain}} 계정 보유",
+          "countryIncluded": "인증 국가가 목록에 포함됨",
+          "countryExcluded": "인증 국가가 목록에 포함되지 않음",
+          "noAttributes": "개인정보 항목 선택 없음",
+          "unknownProvider": "지원하지 않는 인증 제공자: {{provider}}"
+        },
+        "providers": {
+          "google": "Google Workspace 계정",
+          "microsoft": "Microsoft 365 계정"
+        },
+        "attributes": {
+          "name": "이름 일치",
+          "birth": "생년월일 일치",
+          "sex": "성별 일치",
+          "telno": "전화번호 일치"
+        },
+        "oidc": {
+          "title": "조직 계정을 증명해주세요",
+          "shared": "조직 충족 여부 · 참여용 식별값 · 조직 도메인 · 인증 제공자",
+          "private": "이메일 주소 원문 · 로그인 토큰 원문"
+        },
+        "kyc": {
+          "title": "KYC 완료 여부를 증명해주세요",
+          "requirement": "Coinbase KYC 완료",
+          "shared": "KYC 완료 여부 · 참여용 식별값",
+          "private": "이름 · 생년월일 · 신분증 원문"
+        },
+        "country": {
+          "title": "국가 조건을 증명해주세요",
+          "shared": "국가 조건 충족 여부 · 요청 국가 목록과 포함 조건 · 참여용 식별값",
+          "private": "인증 국가 원문 · 신분증 원문"
+        },
+        "arc": {
+          "title": "Arc 인증 조건을 증명해주세요",
+          "requirement": "Coinbase 인증 지갑 보유",
+          "shared": "인증 조건 충족 여부 · 참여용 식별값 · 작업 요청 시 작업과 도메인의 해시값",
+          "private": "KYC 개인정보 · 지갑 서명 원문"
+        },
+        "giwa": {
+          "title": "GIWA 인증 조건을 증명해주세요",
+          "requirement": "GIWA 인증 지갑 보유",
+          "shared": "GIWA 조건 충족 여부 · 참여용 식별값 · 작업 요청 시 작업과 도메인의 해시값",
+          "private": "KYC 개인정보 · 지갑 서명 원문"
+        },
+        "ownership": {
+          "title": "모바일 신분증 보유를 증명해주세요",
+          "requirement": "모바일 신분증 보유 조건",
+          "shared": "보유 조건 충족 여부 · 참여용 식별값 · 선택 항목 표시와 해시값",
+          "private": "신분증 원문 · 개인 식별정보(CI)"
+        },
+        "age": {
+          "title": "연령 조건을 증명해주세요",
+          "shared": "연령 조건 충족 여부 · 최소 연령과 기준 연도 · 참여용 식별값",
+          "private": "생년월일 · 개인 식별정보(CI)"
+        },
+        "region": {
+          "title": "거주 지역 조건을 증명해주세요",
+          "shared": "지역 조건 충족 여부 · 요청 지역의 해시값 · 참여용 식별값",
+          "private": "상세 주소 · 개인 식별정보(CI)"
+        }
+      }
     },
     "errors": {
       "codeLine": "오류 코드: {{code}}",
@@ -570,6 +826,16 @@
         "title": "연결 해제에 실패했습니다",
         "description": "지갑이 세션을 놓지 않았습니다. 지갑 앱 안에서 연결을 끊으면 대개 정리됩니다."
       }
+    },
+    "browser": {
+      "back": "뒤로 이동",
+      "forward": "앞으로 이동",
+      "reload": "페이지 새로고침",
+      "share": "페이지 공유",
+      "loadErrorTitle": "페이지를 불러오지 못했습니다",
+      "loadErrorDescription": "인터넷 연결을 확인한 뒤 다시 시도해 주세요.",
+      "shareError": "페이지를 공유하지 못했습니다. 다시 시도해 주세요.",
+      "retry": "다시 시도"
     }
   },
   "openstoa": {

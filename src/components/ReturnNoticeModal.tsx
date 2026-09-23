@@ -1,12 +1,16 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React from 'react';
 import {Modal, View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {useThemeColors} from '../context';
 import {Icon} from './ui';
-import {
-  registerReturnNoticeHandler,
-  type ReturnNoticeKind,
-} from '../utils/returnNoticeBridge';
+import type {ReturnNoticeKind} from '../utils/returnNoticeBridge';
+
+interface ReturnNoticeModalProps {
+  kind: ReturnNoticeKind | null;
+  visible: boolean;
+  onRequestClose: () => void;
+  onDismiss: () => void;
+}
 
 /**
  * "Your proof was delivered — now switch back yourself."
@@ -21,21 +25,16 @@ import {
  * generated and delivered successfully, and the only open question is where the
  * user goes next. Dressing that up in a red icon and an "Error Code: E…" line
  * would tell them something untrue. This is the success-side counterpart of
- * that modal and follows the same shape: a bottom sheet, registered through a
- * bridge so the utility layer can raise it without React in scope, rendered
- * once at the App root next to `<ErrorModal />`.
+ * that modal and follows the same shape: a bottom sheet rendered once at the
+ * App root next to `<ErrorModal />`. App receives its bridge events and waits
+ * for native dismissal before presenting the next proof review.
  */
-export const ReturnNoticeModal: React.FC = () => {
-  const [kind, setKind] = useState<ReturnNoticeKind | null>(null);
+export const ReturnNoticeModal: React.FC<ReturnNoticeModalProps> = ({
+  kind, visible, onRequestClose: dismiss, onDismiss,
+}) => {
   const {colors} = useThemeColors();
   const {t} = useTranslation();
 
-  useEffect(() => {
-    registerReturnNoticeHandler(next => setKind(next));
-  }, []);
-
-  const dismiss = useCallback(() => setKind(null), []);
-  const visible = kind !== null;
   // `delivered` is the floor, not a guess: an unregistered variant must still
   // produce a readable modal rather than a raw i18n key.
   const variant: ReturnNoticeKind = kind ?? 'delivered';
@@ -45,6 +44,7 @@ export const ReturnNoticeModal: React.FC = () => {
       visible={visible}
       animationType="slide"
       transparent={true}
+      onDismiss={onDismiss}
       onRequestClose={dismiss}>
       <View style={styles.overlay}>
         <View

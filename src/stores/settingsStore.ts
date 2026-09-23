@@ -35,39 +35,42 @@ const DEFAULT_SETTINGS: AppSettings = {
   useOmniOneCxUi: true,
 };
 
+// Every partial update reads after the preceding write settles. More, theme,
+// and developer settings share this queue even when they use separate hooks.
+let pendingMutation: Promise<void> = Promise.resolve();
+function serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = pendingMutation.then(operation);
+  pendingMutation = result.then(() => {}, () => {});
+  return result;
+}
+
 export const settingsStore = {
   async get(): Promise<AppSettings> {
-    try {
-      const json = await AsyncStorage.getItem(SETTINGS_KEY);
-      if (!json) {
-        return DEFAULT_SETTINGS;
-      }
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(json) };
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-      return DEFAULT_SETTINGS;
+    const json = await AsyncStorage.getItem(SETTINGS_KEY);
+    if (json === null) return {...DEFAULT_SETTINGS};
+    const saved: unknown = JSON.parse(json);
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+      throw new Error('Saved settings must be a JSON object.');
     }
+    // Missing keys in older versions acquire their initial defaults. A failed
+    // read or corrupt payload must reject, so an update cannot erase it.
+    return {...DEFAULT_SETTINGS, ...saved};
   },
 
-  async update(partial: Partial<AppSettings>): Promise<AppSettings> {
-    try {
-      const current = await this.get();
-      const updated = { ...current, ...partial };
+  update(partial: Partial<AppSettings>): Promise<AppSettings> {
+    const requested = {...partial};
+    return serializeMutation(async () => {
+      const current = await settingsStore.get();
+      const updated = {...current, ...requested};
       await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
       return updated;
-    } catch (error) {
-      console.error('Failed to update settings:', error);
-      throw error;
-    }
+    });
   },
 
-  async reset(): Promise<AppSettings> {
-    try {
+  reset(): Promise<AppSettings> {
+    return serializeMutation(async () => {
       await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
-      return DEFAULT_SETTINGS;
-    } catch (error) {
-      console.error('Failed to reset settings:', error);
-      throw error;
-    }
+      return {...DEFAULT_SETTINGS};
+    });
   },
 };

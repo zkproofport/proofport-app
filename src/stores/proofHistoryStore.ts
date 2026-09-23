@@ -1,3 +1,4 @@
+import type {HistoryReviewSnapshot} from '../utils/historyReview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PROOF_HISTORY_KEY = '@zkproofport:proofHistory:items';
@@ -17,6 +18,7 @@ export interface ProofHistoryItem {
   source?: 'manual' | 'deeplink';
   dappName?: string;
   requestId?: string;
+  review?: HistoryReviewSnapshot;
 }
 
 export const proofHistoryStore = {
@@ -27,6 +29,7 @@ export const proofHistoryStore = {
         return [];
       }
       const items = JSON.parse(json);
+      if (!Array.isArray(items)) throw new Error('Invalid proof history storage.');
       return items.map((item: any) => {
         if (!item.offChainStatus && !item.onChainStatus) {
           const oldStatus = item.status || 'pending';
@@ -61,7 +64,7 @@ export const proofHistoryStore = {
       });
     } catch (error) {
       console.error('Failed to load proof history:', error);
-      return [];
+      throw error;
     }
   },
 

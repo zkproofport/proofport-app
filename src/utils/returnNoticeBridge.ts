@@ -3,7 +3,7 @@
  *
  * Mirrors `errorBridge.ts`. The notice is raised from `deeplink.ts`, a plain
  * utility module with no React in scope, so it cannot call a hook or a context.
- * `ReturnNoticeModal` registers itself as the handler once, at mount, and the
+ * App registers the handler so it can coordinate native modal dismissal, and the
  * utility layer calls `showReturnNotice()` without knowing anything about the
  * component tree.
  *
@@ -26,8 +26,11 @@ type ReturnNoticeHandler = (kind: ReturnNoticeKind) => void;
 
 let _returnNoticeHandler: ReturnNoticeHandler | null = null;
 
-export function registerReturnNoticeHandler(handler: ReturnNoticeHandler): void {
+export function registerReturnNoticeHandler(handler: ReturnNoticeHandler): () => void {
   _returnNoticeHandler = handler;
+  return () => {
+    if (_returnNoticeHandler === handler) _returnNoticeHandler = null;
+  };
 }
 
 /**

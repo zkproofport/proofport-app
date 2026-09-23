@@ -2,29 +2,34 @@ import React from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {NativeStackNavigationOptions, NativeStackHeaderProps} from '@react-navigation/native-stack';
-import {useThemeColors} from '../context';
+import {useProofUiColors} from '../theme/proofUi';
+import {ProofUiIcon} from '../components/ProofUiIcon';
+import {useTranslation} from 'react-i18next';
 
 const StackHeader = ({navigation, options, back}: NativeStackHeaderProps) => {
   const insets = useSafeAreaInsets();
-  const { colors: themeColors } = useThemeColors();
+  const colors = useProofUiColors();
+  const {t} = useTranslation();
   const title = options.title || '';
   const showBack = !!back && options.headerBackVisible !== false;
   const HeaderRight = options.headerRight;
 
   return (
-    <View style={[styles.headerContainer, {paddingTop: insets.top, backgroundColor: themeColors.background.primary}]}>
+    <View style={[styles.headerContainer, {paddingTop: insets.top, backgroundColor: colors.background}]}>
       <View style={styles.headerContent}>
         {showBack ? (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
             onPress={() => navigation.goBack()}
             style={styles.backButton}
             hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-            <Text style={[styles.backChevron, {color: themeColors.text.primary}]}>{'‹'}</Text>
+            <ProofUiIcon name="arrow-left" size={24} color={colors.text} />
           </Pressable>
         ) : (
           <View style={styles.headerSpacer} />
         )}
-        <Text style={[styles.headerTitle, {color: themeColors.text.primary}]} numberOfLines={1}>
+        <Text style={[styles.headerTitle, {color: colors.text}]} numberOfLines={1}>
           {title}
         </Text>
         {HeaderRight ? (
@@ -44,11 +49,11 @@ export const stackScreenOptions: NativeStackNavigationOptions = {
 };
 
 export function useStackScreenOptions(): NativeStackNavigationOptions {
-  const { colors: themeColors } = useThemeColors();
+  const colors = useProofUiColors();
   return {
     header: (props: NativeStackHeaderProps) => <StackHeader {...props} />,
     contentStyle: {
-      backgroundColor: themeColors.background.primary,
+      backgroundColor: colors.background,
     },
   };
 }
@@ -67,11 +72,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: HEADER_HEIGHT,
     justifyContent: 'center',
-  },
-  backChevron: {
-    fontSize: 34,
-    fontWeight: '300',
-    marginTop: -2,
   },
   headerTitle: {
     flex: 1,

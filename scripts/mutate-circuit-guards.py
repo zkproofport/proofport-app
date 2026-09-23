@@ -217,11 +217,11 @@ MUTATIONS: list[Mutation] = [
         name="proof-request-modal-row-removed",
         defect="a request naming a circuit the modal has no row for shows the "
         "raw id to the person deciding whether to hand over a proof",
-        path="src/components/ProofRequestModal.tsx",
+        path="src/utils/proofRequestPresentation.ts",
         old="  mdl_kr_age: {",
         new="  mdl_kr_age_TYPO: {",
         guard=SDK_GUARD,
-        expect_case="not typed by CircuitName still name every circuit",
+        expect_case="wallet routing and request presentation both cover every circuit",
     ),
     Mutation(
         name="sdk-version-unpinned",

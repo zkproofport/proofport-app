@@ -26,8 +26,10 @@
 import {useTranslation} from 'react-i18next';
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import {Card} from '../../components/ui';
-import {useThemeColors, useError} from '../../context';
+import {ProofUiIcon} from '../../components/ProofUiIcon';
+import {useProofUiColors} from '../../theme/proofUi';
+import type {TFunction} from 'i18next';
+import {useError} from '../../context';
 import {useWallet} from '../../hooks/useWallet';
 import {useSettings} from '../../hooks/useSettings';
 import {getCircuitDisplayName} from '../../utils/circuit';
@@ -42,7 +44,7 @@ import {
   WALLET_BINDING_ROWS,
   circuitsInWalletGroup,
 } from '../../stores/circuitWalletStore';
-import {ALL_CIRCUIT_IDS, DEV_ONLY_CIRCUIT_IDS, type CircuitName} from '../../config';
+import {DEV_ONLY_CIRCUIT_IDS, type CircuitName} from '../../config';
 
 // Group representatives — one row per wallet-binding group. OIDC and Korea
 /**
@@ -78,17 +80,20 @@ interface Entry {
   expired: boolean;
 }
 
-function formatTtl(entry: Entry): string {
-  if (entry.expired) return 'expired — will rebind';
-  const left = entry.savedAt + CIRCUIT_WALLET_TTL_MS - Date.now();
+function formatTtl(entry: Entry, t: TFunction): string {
+  const left = Math.max(0, entry.savedAt + CIRCUIT_WALLET_TTL_MS - Date.now());
+  if (entry.expired || left === 0) return t('host.wallet.home.expired');
   const days = Math.floor(left / (24 * 60 * 60 * 1000));
   const hours = Math.floor((left % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  if (days >= 1) return `${days}d ${hours}h left`;
-  return `${hours}h left`;
+  if (days >= 1) return t('host.wallet.home.rememberDays', {days, hours});
+  if (hours >= 1) return t('host.wallet.home.rememberHours', {hours});
+  return t('host.wallet.home.rememberSoon');
 }
 
-function short(addr: string): string {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+function groupName(group: string): string {
+  const names: Record<string, string> = {coinbase: 'Coinbase', giwa: 'GIWA'};
+  if (!names[group]) throw new Error(`Unknown wallet group '${group}'.`);
+  return names[group];
 }
 
 function rowStatus(entry: Entry | null, account: string | null): Status {
@@ -100,7 +105,7 @@ function rowStatus(entry: Entry | null, account: string | null): Status {
 }
 
 export const CircuitWalletsCard: React.FC = () => {
-  const {colors: themeColors} = useThemeColors();
+  const colors = useProofUiColors();
   const {t} = useTranslation();
   const {account, connect, disconnect} = useWallet();
   const {showError} = useError();
@@ -183,7 +188,7 @@ export const CircuitWalletsCard: React.FC = () => {
         setPendingBindTarget(null);
       }
     },
-    [account, connect, disconnect],
+    [account, connect, disconnect, setPendingBindTarget, showError],
   );
 
   const handleClear = useCallback(
@@ -209,7 +214,7 @@ export const CircuitWalletsCard: React.FC = () => {
         setBusy(null);
       }
     },
-    [account, disconnect, refresh],
+    [account, disconnect, refresh, showError],
   );
 
   // Disconnect-only (Connected row): drop the global session but keep the
@@ -229,186 +234,113 @@ export const CircuitWalletsCard: React.FC = () => {
         setBusy(null);
       }
     },
-    [account, disconnect, refresh],
+    [account, disconnect, refresh, showError],
   );
 
   return (
-    <Card style={styles.card}>
-      <Text
-        style={{
-          fontSize: 12,
-          fontWeight: '600',
-          color: themeColors.text.secondary,
-          letterSpacing: 0.5,
-          textTransform: 'uppercase',
-          marginBottom: 8,
-        }}>
-        {t('host.wallet.circuitWallets')}
-      </Text>
-      <Text style={{fontSize: 13, color: themeColors.text.secondary, marginBottom: 16}}>
-        {t('host.wallet.circuitWalletsHint')}
-      </Text>
-      {visibleCircuits.map((c) => {
+    <View style={styles.section}>
+      <View style={styles.heading}>
+        <Text style={[styles.sectionTitle, {color: colors.text}]}>{t('host.wallet.circuitWallets')}</Text>
+        <Text style={[styles.hint, {color: colors.secondary}]}>{t('host.wallet.circuitWalletsHint')}</Text>
+      </View>
+      {visibleCircuits.map(c => {
         const e = entries[c] ?? null;
         const status = rowStatus(e, account);
+        const connected = status === 'connected';
+        const group = walletGroupKey(c);
         const isBusy = busy === c;
-        return (
-          <View key={c} style={styles.row}>
-            <View style={{flex: 1, paddingRight: 12}}>
-              {/*
-                * `flexWrap` and a shrinkable label, because a row now names
-                * every circuit in its wallet group — "Coinbase KYC · Coinbase
-                * Country · Arc Eligibility (Experimental)" wraps to two lines
-                * on a phone. Without these the label kept its natural width,
-                * pushed the status pill out of this column, and drew it on top
-                * of the buttons: "연결됨연결 해제" in one place.
-                */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: 8,
-                  marginBottom: 4,
-                }}>
-                <Text style={[styles.label, {color: themeColors.text.primary, flexShrink: 1}]}>
-                  {circuitsInWalletGroup(c).map(getCircuitDisplayName).join(' · ')}
-                </Text>
-                <StatusPill status={status} />
-              </View>
-              {e ? (
-                <>
-                  <Text style={[styles.mono, {color: themeColors.text.secondary}]}>
-                    {short(e.address)}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: e.expired ? '#EF4444' : themeColors.text.tertiary,
-                      marginTop: 2,
-                    }}>
-                    {formatTtl(e)}
-                  </Text>
-                </>
-              ) : (
-                <Text style={{fontSize: 12, color: themeColors.text.tertiary, marginTop: 2}}>
-                  {t('host.wallet.notBoundHint')}
-                </Text>
-              )}
+        return <View key={c} testID={`wallet-binding-${group}`}
+          style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
+          <View style={styles.identity}>
+            <View style={[styles.icon, {backgroundColor: colors.inset, borderColor: colors.border}]}>
+              <ProofUiIcon name="shield" size={23} color={colors.blue} />
             </View>
-
-            <View style={{gap: 8, alignItems: 'flex-end'}}>
-              {status === 'unbound' && (
-                <ActionButton
-                  variant="primary"
-                  label={isBusy ? t('host.wallet.connecting') : t('host.wallet.connect')}
-                  disabled={isBusy}
-                  onPress={() => handleConnect(c)}
-                />
-              )}
-              {status === 'inactive' && (
-                <>
-                  <ActionButton
-                    variant="primary"
-                    label={isBusy ? t('host.wallet.connecting') : t('host.wallet.reconnect')}
-                    disabled={isBusy}
-                    onPress={() => handleConnect(c)}
-                  />
-                  <ActionButton
-                    variant="ghost-red"
-                    label={t('host.wallet.clear')}
-                    disabled={isBusy}
-                    onPress={() => handleClear(c, false)}
-                  />
-                </>
-              )}
-              {status === 'connected' && (
-                <>
-                  <ActionButton
-                    variant="primary"
-                    label={t('host.wallet.disconnect')}
-                    disabled={isBusy}
-                    onPress={() => handleDisconnectOnly(c)}
-                  />
-                  <ActionButton
-                    variant="ghost-red"
-                    label={t('host.wallet.clear')}
-                    disabled={isBusy}
-                    onPress={() => handleClear(c, true)}
-                  />
-                </>
-              )}
-            </View>
+            <Text style={[styles.groupName, {color: colors.text}]}>{groupName(group)}</Text>
+            <StatusPill status={status} />
           </View>
-        );
+          <Text style={[styles.circuits, {color: colors.secondary}]}>
+            {circuitsInWalletGroup(c).map(getCircuitDisplayName).join(' · ')}
+          </Text>
+          {e ? <View style={[styles.savedAddress, {backgroundColor: colors.inset}]}>
+            <Text selectable accessibilityLabel={e.address} style={[styles.address, {color: colors.text}]}>{e.address}</Text>
+            <Text style={[styles.ttl, {color: colors.secondary}]}>{formatTtl(e, t)}</Text>
+          </View> : <Text style={[styles.hint, {color: colors.secondary}]}>{t('host.wallet.notBoundHint')}</Text>}
+          <View style={styles.actions}>
+            {status === 'unbound' && <ActionButton testID={`wallet-bind-${group}`} variant="primary"
+              label={isBusy ? t('host.wallet.connecting') : t('host.wallet.connect')}
+              disabled={isBusy} onPress={() => handleConnect(c)} />}
+            {status === 'inactive' && <ActionButton testID={`wallet-bind-${group}`} variant="primary"
+              label={isBusy ? t('host.wallet.connecting') : t('host.wallet.reconnect')}
+              disabled={isBusy} onPress={() => handleConnect(c)} />}
+            {status === 'connected' && <ActionButton testID={`wallet-disconnect-${group}`} variant="secondary"
+              label={t('host.wallet.disconnect')} disabled={isBusy} onPress={() => handleDisconnectOnly(c)} />}
+            {status !== 'unbound' && <ActionButton testID={`wallet-clear-${group}`} variant="remove"
+              label={t('host.wallet.clear')} disabled={isBusy} onPress={() => handleClear(c, connected)} />}
+          </View>
+        </View>;
       })}
-    </Card>
-  );
-};
-
-const StatusPill: React.FC<{status: Status}> = ({status}) => {
-  const {t} = useTranslation();
-  const style =
-    status === 'connected'
-      ? {bg: 'rgba(34, 197, 94, 0.16)', fg: '#22C55E', text: t('host.wallet.connected')}
-      : status === 'inactive'
-      ? {bg: 'rgba(234, 179, 8, 0.16)', fg: '#EAB308', text: t('host.wallet.inactive')}
-      : {bg: 'rgba(148, 163, 184, 0.16)', fg: '#94A3B8', text: t('host.wallet.notBound')};
-  return (
-    <View style={{paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: style.bg}}>
-      <Text style={{fontSize: 10, fontWeight: '700', color: style.fg, letterSpacing: 0.5, textTransform: 'uppercase'}}>
-        {style.text}
-      </Text>
+      <View style={styles.footnote}>
+        <ProofUiIcon name="info" size={16} color={colors.secondary} />
+        <Text style={[styles.hint, styles.flex, {color: colors.secondary}]}>{t('host.wallet.home.connectionHint')}</Text>
+      </View>
     </View>
   );
 };
 
-const ActionButton: React.FC<{
-  label: string;
-  variant: 'primary' | 'ghost-red';
-  disabled?: boolean;
-  onPress: () => void;
-}> = ({label, variant, disabled, onPress}) => {
-  const styleByVariant =
-    variant === 'primary'
-      ? {borderColor: '#3B82F6', bg: 'rgba(59, 130, 246, 0.12)', fg: '#3B82F6'}
-      : {borderColor: '#EF4444', bg: 'transparent', fg: '#EF4444'};
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      style={{
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: styleByVariant.borderColor,
-        backgroundColor: styleByVariant.bg,
-        opacity: disabled ? 0.5 : 1,
-        minWidth: 96,
-        alignItems: 'center',
-      }}>
-      <Text style={{color: styleByVariant.fg, fontSize: 13, fontWeight: '600'}}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-};
+function StatusPill({status}: {status: Status}) {
+  const {t} = useTranslation();
+  const colors = useProofUiColors();
+  const statuses: Record<Status, {color: string; label: string}> = {
+    connected: {color: '#2CBF91', label: 'host.wallet.connected'},
+    inactive: {color: colors.gold, label: 'host.wallet.home.saved'},
+    unbound: {color: colors.secondary, label: 'host.wallet.notBound'},
+  };
+  const value = statuses[status];
+  if (!value) throw new Error(`Unknown wallet status '${status}'.`);
+  return <View style={[styles.status, {backgroundColor: colors.inset}]}>
+    <View style={[styles.dot, {backgroundColor: value.color}]} />
+    <Text style={[styles.statusLabel, {color: value.color}]}>{t(value.label)}</Text>
+  </View>;
+}
+
+function ActionButton({label, variant, disabled, onPress, testID}: {
+  label: string; variant: 'primary' | 'secondary' | 'remove'; disabled?: boolean;
+  onPress: () => void; testID: string;
+}) {
+  const colors = useProofUiColors();
+  const variants = {
+    primary: {backgroundColor: colors.blue, borderColor: colors.blue, color: '#FFFFFF'},
+    secondary: {backgroundColor: colors.inset, borderColor: colors.border, color: colors.text},
+    remove: {backgroundColor: colors.card, borderColor: colors.border, color: colors.secondary},
+  };
+  const style = variants[variant];
+  if (!style) throw new Error(`Unknown wallet action style '${variant}'.`);
+  return <TouchableOpacity testID={testID} accessibilityRole="button" accessibilityState={{disabled: !!disabled}}
+    onPress={onPress} disabled={disabled}
+    style={[styles.button, {backgroundColor: style.backgroundColor, borderColor: style.borderColor, opacity: disabled ? 0.5 : 1}]}>
+    <Text style={[styles.buttonLabel, {color: style.color}]}>{label}</Text>
+  </TouchableOpacity>;
+}
 
 const styles = StyleSheet.create({
-  card: {marginBottom: 24},
-  row: {
-    flexDirection: 'row',
-    // Top, not centre: the left column is two or three lines now and centring
-    // floated the buttons into the middle of the text.
-    alignItems: 'flex-start',
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-  },
-  label: {fontSize: 14, fontWeight: '600'},
-  mono: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-  },
+  section: {gap: 12},
+  heading: {gap: 6, marginBottom: 2},
+  sectionTitle: {fontSize: 16, fontWeight: '600', lineHeight: 23},
+  hint: {fontSize: 12, lineHeight: 19},
+  card: {borderWidth: 1, borderRadius: 16, padding: 16, gap: 12},
+  identity: {flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap'},
+  icon: {width: 38, height: 38, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center'},
+  groupName: {flex: 1, minWidth: 80, fontSize: 17, fontWeight: '600', lineHeight: 24},
+  circuits: {fontSize: 12, lineHeight: 19},
+  savedAddress: {padding: 12, borderRadius: 9, gap: 4},
+  address: {fontSize: 14, lineHeight: 21, fontVariant: ['tabular-nums']},
+  ttl: {fontSize: 11, lineHeight: 17},
+  actions: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
+  button: {flex: 1, minWidth: 110, minHeight: 44, padding: 10, borderWidth: 1, borderRadius: 9, alignItems: 'center', justifyContent: 'center'},
+  buttonLabel: {fontSize: 13, lineHeight: 20, fontWeight: '600', textAlign: 'center'},
+  status: {flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7},
+  statusLabel: {fontSize: 11, fontWeight: '600'},
+  dot: {width: 5, height: 5, borderRadius: 3},
+  footnote: {flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingHorizontal: 2, marginTop: 2},
+  flex: {flex: 1},
 });

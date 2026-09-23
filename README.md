@@ -9,6 +9,9 @@ React Native mobile app for generating zero-knowledge proofs on mobile devices u
 - **OIDC Domain Attestation**: Prove email domain affiliation (Google, Google Workspace, Microsoft 365) via OIDC JWT without revealing email
 - **Microsoft 365 Support**: Authenticate with Microsoft 365 organizational accounts
 - **QR-based Deep Linking**: Scan QR codes to receive proof requests from external dApps
+- **Proof Home**: Search and filter organization account, Coinbase KYC, and country proofs, with a direct QR scanner entry
+- **Laboratory**: Active GIWA, Arc, and Korean mobile ID ownership, age, and region proof flows
+- **Request Review**: Review incoming proof conditions and read-only EIP-712 action keys and values before continuing to signing and generation
 - **Wallet Integration**: Connect external wallets over WalletConnect (Reown AppKit)
 - **Proof History**: Persistent storage and viewing of generated proofs
 - **Runtime Circuit Downloads**: Circuit files (JSON, SRS, VK) downloaded from GitHub at startup
@@ -68,7 +71,7 @@ proofport-app/
 ├── App.tsx                     # Entry point, deep link handling, provider setup
 ├── src/
 │   ├── screens/
-│   │   ├── proof/             # Proof generation: circuit selection, generation, completion
+│   │   ├── proof/             # Proof home, laboratory, inputs, generation, completion
 │   │   ├── wallet/            # Wallet connection over WalletConnect
 │   │   ├── history/           # Proof history viewing and details
 │   │   ├── scan/              # QR code scanning for deep link requests
@@ -78,7 +81,9 @@ proofport-app/
 │   │   └── CoinbaseKycScreen.tsx # Legacy Coinbase flow
 │   ├── components/
 │   │   ├── ui/                # Atomic design: atoms, molecules, organisms
-│   │   ├── ProofRequestModal.tsx     # Deep link request modal
+│   │   ├── ProofRequestModal.tsx     # Full-screen incoming request review
+│   │   ├── ActionReviewCard.tsx      # Typed-action summary and field details
+│   │   ├── ReadonlyValue.tsx         # Recursive read-only action and request data
 │   │   ├── ActionButtons.tsx         # CTA buttons
 │   │   ├── Header.tsx               # Navigation header
 │   │   ├── LogViewer.tsx            # Debug output panel
@@ -131,7 +136,9 @@ proofport-app/
 The app uses a bottom tab navigation with 5 main sections:
 
 1. **Proof** (ProofStackNavigator)
-   - Circuit Selection: Choose attestation type
+   - Proof Home: Search and filter organization account, Coinbase KYC, and country proofs; open the QR scanner
+   - Laboratory: GIWA, Arc, and Korean mobile ID proofs remain available without a developer-mode requirement
+   - Input Screens: Standalone proof parameters; manual action entry is limited to standalone testing
    - Proof Generation: Generate ZK proof
    - Proof Complete: Show success and proof data
 
@@ -155,6 +162,10 @@ The app uses a bottom tab navigation with 5 main sections:
 ## Deep Link Protocol
 
 The app receives proof requests from external dApps via the `proofport://` URI scheme.
+
+Incoming requests, including Korean mobile ID, open a full-screen review before proof generation. The review shows circuit-specific conditions and disclosure summaries. When the dApp includes an EIP-712 action, a compact card displays its primary type; its chevron opens a separate message view with the original field names and values in rows. Nested objects, arrays, domain fields, type definitions, and request metadata can be expanded without displaying serialized JSON. Values are not converted into token amounts or interpreted as a particular business operation. The app passes the reviewed request to the existing signing flow; it does not ask the user to recreate the dApp's inputs.
+
+The callback address identifies where the proof will be delivered, not a verified website identity. Expired and unsupported requests cannot be accepted, and rejecting a request retains the existing cancellation callback and return-to-requester flow.
 
 ### Request Format
 

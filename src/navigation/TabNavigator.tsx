@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Platform, StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
@@ -25,6 +25,8 @@ import {
 } from '../openstoa-host/unreadBadge';
 import { useThemeColors } from '../context';
 import { useCurrentLanguage } from '../i18n';
+import {ProofUiIcon} from '../components/ProofUiIcon';
+import {useProofUiColors} from '../theme/proofUi';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -40,9 +42,12 @@ const ScanTabButton: React.FC<any> = ({ onPress, accessibilityState }) => {
     <TouchableOpacity
       style={styles.scanButtonContainer}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={t('host.tabs.scan')}
+      accessibilityState={accessibilityState}
       activeOpacity={0.8}>
-      <View style={[styles.scanButton, !focused && [styles.scanButtonInactive, { backgroundColor: themeColors.background.tertiary }]]}>
-        <Feather name="camera" size={24} color={focused ? '#FFFFFF' : themeColors.text.secondary} />
+      <View style={styles.scanButton}>
+        <ProofUiIcon name="qr" size={25} color="#FFFFFF" />
       </View>
       <Text style={[
         styles.scanLabel,
@@ -120,6 +125,7 @@ const TabNavigator: React.FC = () => {
     openStoaUnread > 0 ? (openStoaUnread > 99 ? '99+' : String(openStoaUnread)) : undefined;
 
   const { mode, colors: themeColors } = useThemeColors();
+  const proofColors = useProofUiColors();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   // Explicit subscription to languageChanged events; using useTranslation's
@@ -128,7 +134,7 @@ const TabNavigator: React.FC = () => {
   const lang = useCurrentLanguage();
 
   const baseTabBarStyle = {
-    backgroundColor: themeColors.background.primary,
+    backgroundColor: proofColors.background,
     borderTopWidth: 1,
     borderTopColor: themeColors.background.secondary,
     paddingTop: 8,
@@ -161,7 +167,7 @@ const TabNavigator: React.FC = () => {
         tabBarStyle: isFullScreenModalRoute(route)
           ? { display: 'none' }
           : baseTabBarStyle,
-        tabBarActiveTintColor: themeColors.text.primary,
+        tabBarActiveTintColor: proofColors.blue,
         tabBarInactiveTintColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)',
         tabBarLabelStyle: styles.tabBarLabel,
       })}
@@ -172,7 +178,7 @@ const TabNavigator: React.FC = () => {
         options={{
           tabBarLabel: t('host.tabs.verify'),
           tabBarIcon: ({ size, color }) => (
-            <Feather name="shield" size={size} color={color} />
+            <Feather name="file-text" size={size} color={color} />
           ),
         }}
       />
@@ -302,10 +308,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 4,
-  },
-  scanButtonInactive: {
-    backgroundColor: '#2D3748',
-    shadowOpacity: 0,
   },
 });
 

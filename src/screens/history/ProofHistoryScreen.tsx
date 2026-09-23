@@ -1,257 +1,102 @@
 import React from 'react';
-import {View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, Alert, TouchableOpacity} from 'react-native';
-import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useNavigation, useNavigationState} from '@react-navigation/native';
 import {useTranslation} from 'react-i18next';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import type {MoreStackParamList} from '../../navigation/types';
+import type {HistoryStackParamList} from '../../navigation/types';
 import {ProofHistoryCard} from '../../components/ui/organisms/ProofHistoryCard';
-import {Icon} from '../../components/ui/atoms/Icon';
-import {useProofHistory} from '../../hooks/useProofHistory';
+import {ProofUiIcon} from '../../components/ProofUiIcon';
+import {formatReviewScalar} from '../../components/ReadonlyValue';
+import {canonicalCircuitId} from '../../config/circuitIds';
+import {useProofUiColors} from '../../theme/proofUi';
+import {getProofRequestPresentation} from '../../utils/proofRequestPresentation';
+import {formatHistoryDate, historyMonth} from '../../utils/historyPresentation';
 import type {ProofHistoryItem} from '../../stores';
-import {useThemeColors} from '../../context';
-import {getCircuitIcon} from '../../utils';
-
-const formatDate = (timestamp: string): string => {
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
-
-const groupProofsByMonth = (proofs: ProofHistoryItem[]) => {
-  const groups: {[key: string]: ProofHistoryItem[]} = {};
-
-  proofs.forEach(proof => {
-    const date = new Date(proof.timestamp);
-    const monthYear = date.toLocaleDateString('en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
-
-    if (!groups[monthYear]) {
-      groups[monthYear] = [];
-    }
-    groups[monthYear].push(proof);
-  });
-
-  return groups;
-};
-
-const mapOverallToDisplayStatus = (overallStatus: string): 'pending' | 'failed' | 'generated' => {
-  switch (overallStatus) {
-    case 'verified':
-    case 'generated': return 'generated';
-    case 'failed':
-    case 'verified_failed': return 'failed';
-    default: return 'pending';
-  }
-};
+import {useHistoryRecords} from './useHistoryRecords';
 
 const ProofHistoryScreen: React.FC = () => {
-  const {t} = useTranslation();
-  const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
-  const {items: proofs, loading, error, removeItem, clearAll, refresh} = useProofHistory();
-  const { colors: themeColors } = useThemeColors();
-
-  // Refresh history when screen gains focus (e.g., coming back from detail or proof completion)
-  useFocusEffect(
-    React.useCallback(() => {
-      refresh();
-    }, [refresh])
-  );
-
-  const groupedProofs = groupProofsByMonth(proofs);
-  const totalProofs = proofs.length;
-  const generatedCount = proofs.filter(p => p.overallStatus === 'generated' || p.overallStatus === 'verified').length;
-  const failedCount = proofs.filter(p => p.overallStatus === 'failed' || p.overallStatus === 'verified_failed').length;
-
-  const handleDeleteItem = (id: string, circuitName: string) => {
-    Alert.alert(
-      t('host.history.deleteTitle'),
-      t('host.history.deleteMessage', {name: circuitName}),
-      [
-        {text: t('common.cancel'), style: 'cancel'},
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: () => removeItem(id).catch(console.error),
-        },
-      ],
-    );
-  };
-
-  const handleClearAll = () => {
-    Alert.alert(
-      t('host.history.clearAllTitle'),
-      t('host.history.clearAllMessage'),
-      [
-        {text: t('common.cancel'), style: 'cancel'},
-        {
-          text: t('host.history.clearAll'),
-          style: 'destructive',
-          onPress: () => clearAll().catch(console.error),
-        },
-      ],
-    );
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
-        <View style={styles.emptyState}>
-          <ActivityIndicator size="large" color={themeColors.info[500]} />
-          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>{t('host.history.loadingText')}</Text>
-        </View>
-      </SafeAreaView>
-    );
+  const {t, i18n} = useTranslation();
+  const colors = useProofUiColors();
+  const navigation = useNavigation<NativeStackNavigationProp<HistoryStackParamList>>();
+  const nested = useNavigationState(state => state.index > 0);
+  const {items, loading, failed, refresh} = useHistoryRecords();
+  const grouped = new Map<string, ProofHistoryItem[]>();
+  // Newest first, with undated legacy records after dated records.
+  const ordered = [...items].sort((a, b) => {
+    const aTime = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : NaN;
+    const bTime = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : NaN;
+    if (Number.isNaN(aTime)) return Number.isNaN(bTime) ? 0 : 1;
+    if (Number.isNaN(bTime)) return -1;
+    return bTime - aTime;
+  });
+  for (const item of ordered) {
+    const month = historyMonth(item.timestamp, i18n.language);
+    const group = grouped.get(month);
+    if (group) group.push(item);
+    else grouped.set(month, [item]);
   }
-
-  if (error) {
-    return (
-      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
-        <View style={styles.emptyState}>
-          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>{t('host.history.errorTitle')}</Text>
-          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>{error.message}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (proofs.length === 0) {
-    return (
-      <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
-        <View style={styles.emptyState}>
-          <View style={{marginBottom: 16}}>
-            <Icon name="shield" size="xl" color={themeColors.text.secondary} />
-          </View>
-          <Text style={[styles.emptyStateTitle, {color: themeColors.text.primary}]}>{t('host.history.emptyTitle')}</Text>
-          <Text style={[styles.emptyStateText, {color: themeColors.text.secondary}]}>
-            {t('host.history.emptyText')}
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={[styles.container, {backgroundColor: themeColors.background.primary}]}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}>
-        {Object.entries(groupedProofs).map(([monthYear, monthProofs]) => (
-          <View key={monthYear} style={styles.section}>
-            <Text style={[styles.sectionTitle, {color: themeColors.text.secondary}]}>{monthYear}</Text>
-            {monthProofs.map(proof => (
-              <ProofHistoryCard
-                key={proof.id}
-                circuitIcon={getCircuitIcon(proof.circuitId)}
-                circuitName={proof.circuitName}
-                status={mapOverallToDisplayStatus(proof.overallStatus)}
-                date={formatDate(proof.timestamp)}
-                network={proof.network}
-                proofHash={proof.proofHash}
-                dappName={proof.dappName}
-                onPress={() => navigation.navigate('HistoryDetail', { proofId: proof.id })}
-                onDelete={() => handleDeleteItem(proof.id, proof.circuitName)}
-              />
-            ))}
-          </View>
-        ))}
-
-        <View style={[styles.summary, {backgroundColor: themeColors.background.secondary, borderColor: themeColors.border.primary}]}>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>{t('host.history.totalProofs')}</Text>
-            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{totalProofs}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>{t('host.history.generated')}</Text>
-            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{generatedCount}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, {color: themeColors.text.secondary}]}>{t('host.history.failed')}</Text>
-            <Text style={[styles.summaryValue, {color: themeColors.text.primary}]}>{failedCount}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.clearAllButton, {borderColor: `rgba(239, 68, 68, 0.3)`}]}
-          onPress={handleClearAll}
-          activeOpacity={0.7}>
-          <Text style={[styles.clearAllText, {color: themeColors.error[500]}]}>{t('host.history.clearAll')}</Text>
+  return <SafeAreaView edges={nested ? ['left', 'right'] : ['top', 'left', 'right']}
+    style={[styles.screen, {backgroundColor: colors.background}]}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
+        {!nested && <>
+          <Text style={[styles.brand, {color: colors.secondary}]}>{t('host.proof.home.brand')}</Text>
+          <Text style={[styles.title, {color: colors.text}]}>{t('host.history.home.title')}</Text>
+        </>}
+        <Text style={[styles.subtitle, {color: colors.secondary}]}>{t('host.history.home.subtitle')}</Text>
+      </View>
+      {loading && <View style={styles.state}>
+        <ActivityIndicator color={colors.blue} />
+        <Text style={[styles.stateText, {color: colors.secondary}]}>{t('host.history.loadingText')}</Text>
+      </View>}
+      {!loading && failed && <View testID="history-load-error" style={[styles.state, {backgroundColor: colors.card, borderColor: colors.border}]}>
+        <ProofUiIcon name="info" size={30} color={colors.gold} />
+        <Text style={[styles.stateTitle, {color: colors.text}]}>{t('host.history.home.errorText')}</Text>
+        <TouchableOpacity testID="history-retry" accessibilityRole="button" onPress={refresh}
+          style={[styles.button, {backgroundColor: colors.blue}]}>
+          <Text style={styles.buttonText}>{t('host.history.home.retry')}</Text>
         </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      </View>}
+      {!loading && !failed && items.length === 0 && <View testID="history-empty" style={[styles.state, {backgroundColor: colors.card, borderColor: colors.border}]}>
+        <ProofUiIcon name="shield" size={34} color={colors.blue} />
+        <Text style={[styles.stateTitle, {color: colors.text}]}>{t('host.history.emptyTitle')}</Text>
+        <Text style={[styles.stateText, {color: colors.secondary}]}>{t('host.history.home.emptyText')}</Text>
+      </View>}
+      {!loading && !failed && items.length > 0 && <>
+        <Text style={[styles.count, {color: colors.muted}]}>{t('host.history.home.count', {count: items.length})}</Text>
+        {[...grouped].map(([month, records]) => <View key={month} style={styles.group}>
+          <Text style={[styles.month, {color: colors.secondary}]}>{month}</Text>
+          {records.map(item => {
+            const circuit = canonicalCircuitId(item.circuitId);
+            if (!circuit) throw new Error(`Unknown history circuit '${item.circuitId}'.`);
+            const presentation = getProofRequestPresentation({circuit, inputs: {}}, t);
+            const requester = item.dappName ? formatReviewScalar(item.dappName, t)
+              : t(item.source === 'deeplink' ? 'host.history.home.unknownRequester' : 'host.history.home.manual');
+            return <ProofHistoryCard key={item.id} id={item.id} circuitIcon={presentation.icon}
+              circuitName={presentation.title} requester={requester} status={item.overallStatus}
+              date={formatHistoryDate(item.timestamp, i18n.language)}
+              onPress={() => navigation.navigate('HistoryDetail', {proofId: item.id})} />;
+          })}
+        </View>)}
+      </>}
+    </ScrollView>
+  </SafeAreaView>;
 };
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 15,
-    textAlign: 'center',
-  },
-  summary: {
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-    borderWidth: 1,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  summaryLabel: {
-    fontSize: 15,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  clearAllButton: {
-    marginTop: 16,
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  clearAllText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  screen: {flex: 1},
+  content: {paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 22},
+  header: {gap: 8},
+  brand: {fontSize: 17, fontWeight: '600', marginBottom: 12},
+  title: {fontSize: 27, lineHeight: 35, fontWeight: '700'},
+  subtitle: {fontSize: 14, lineHeight: 21},
+  count: {fontSize: 12, lineHeight: 18},
+  group: {gap: 10},
+  month: {fontSize: 13, lineHeight: 19, fontWeight: '600', marginBottom: 2},
+  state: {padding: 25, paddingVertical: 34, alignItems: 'center', gap: 14, borderRadius: 14, borderWidth: 1, borderColor: 'transparent'},
+  stateTitle: {fontSize: 17, fontWeight: '600', lineHeight: 24, textAlign: 'center'},
+  stateText: {fontSize: 14, lineHeight: 21, textAlign: 'center'},
+  button: {minHeight: 44, borderRadius: 10, justifyContent: 'center', paddingHorizontal: 22},
+  buttonText: {fontSize: 14, fontWeight: '600', color: '#FFFFFF'},
 });
-
 export default ProofHistoryScreen;

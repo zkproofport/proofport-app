@@ -1,430 +1,251 @@
-import React from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  type ImageSourcePropType,
-} from 'react-native';
-import {
-  normalizeReturnScheme,
-  type ProofRequest,
-  type CoinbaseKycInputs,
-  type OidcDomainInputs,
-} from '../utils/deeplink';
+import {Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image} from 'react-native';
+import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
+import {normalizeReturnScheme, type ProofRequest} from '../utils/deeplink';
+import {isCircuitId} from '../config/circuitIds';
+import {useProofUiColors} from '../theme/proofUi';
+import {deliveryHost, reviewBlockReason} from '../utils/requestReview';
+import {getProofRequestPresentation} from '../utils/proofRequestPresentation';
+import {formatReviewScalar, ReadonlyValue} from './ReadonlyValue';
+import {ProofUiIcon} from './ProofUiIcon';
+import {ActionReviewCard, ActionReviewDetails} from './ActionReviewCard';
 
 interface ProofRequestModalProps {
   visible: boolean;
   request: ProofRequest | null;
-  onAccept: () => void;
+  onAccept: (reviewedRequest: ProofRequest) => boolean;
   onReject: () => void;
+  onDismiss?: () => void;
 }
 
-/**
- * Each circuit's icon, and WHERE its words live — not the words themselves.
- *
- * This file used to carry its own English name and description per circuit,
- * a second copy of what the circuit picker already had translated. On a Korean
- * phone the picker said "Coinbase KYC 인증" and this modal, the screen where a
- * person actually decides whether to hand over a proof, said "Coinbase KYC" in
- * English. Pointing at the picker's entries keeps one set of words.
- */
-const CIRCUIT_INFO: Record<
-  string,
-  {
-    /** An emoji, for a circuit whose issuer has no mark worth showing. */
-    icon?: string;
-    /** The issuer's own mark, which beats an emoji whenever one exists. */
-    iconImage?: ImageSourcePropType;
-    nameKey: string;
-    descriptionKey: string;
-    prefixKey?: string;
-  }
-> = {
-  coinbase_attestation: {
-    icon: '🏦',
-    nameKey: 'host.proof.circuitSelection.coinbaseKyc.title',
-    descriptionKey: 'host.proof.circuitSelection.coinbaseKyc.description',
-  },
-  arc_eligibility: {
-    icon: '🏦',
-    nameKey: 'host.proof.circuitSelection.arcEligibility.title',
-    descriptionKey: 'host.proof.circuitSelection.arcEligibility.description',
-  },
-  coinbase_country_attestation: {
-    icon: '🌍',
-    nameKey: 'host.proof.circuitSelection.coinbaseCountry.title',
-    descriptionKey: 'host.proof.circuitSelection.coinbaseCountry.description',
-  },
-  oidc_domain_attestation: {
-    icon: '🔐',
-    nameKey: 'host.proof.circuitSelection.oidcDomain.title',
-    descriptionKey: 'host.proof.circuitSelection.oidcDomain.description',
-  },
-  giwa_attestation: {
-    // GIWA's own mark, the same one the demo page shows, cut white-on-clear by
-    // scripts/make-giwa-mark.py so it sits on this dark sheet.
-    //
-    // No emoji here, and no flag. Two were tried and both said something false:
-    // 🏯 is a Japanese castle (reached for because 기와 means roof tile), and
-    // 🇰🇷 tells the person holding the phone that the proof is about where they
-    // are from — GIWA is a chain and its attestations are open to anyone on it.
-    // The issuer has a real mark, so the mark is what goes here.
-    iconImage: require('../../assets/giwa-mark.png'),
-    nameKey: 'host.proof.circuitSelection.giwaKyc.title',
-    descriptionKey: 'host.proof.circuitSelection.giwaKyc.description',
-  },
-  // The three Korea mobile ID entries are named "Ownership" / "Age" / "Region"
-  // in the picker, where they sit under a "Korea Mobile ID" heading that
-  // supplies the context. Alone in this modal they would be meaningless, so
-  // the heading is prefixed back on.
-  mdl_kr_ownership: {
-    icon: '🪪',
-    prefixKey: 'host.proof.circuitSelection.mdlKr.title',
-    nameKey: 'host.proof.circuitSelection.mdlKrOwnership.title',
-    descriptionKey: 'host.proof.circuitSelection.mdlKrOwnership.description',
-  },
-  mdl_kr_age: {
-    icon: '🪪',
-    prefixKey: 'host.proof.circuitSelection.mdlKr.title',
-    nameKey: 'host.proof.circuitSelection.mdlKrAge.title',
-    descriptionKey: 'host.proof.circuitSelection.mdlKrAge.description',
-  },
-  mdl_kr_region: {
-    icon: '🪪',
-    prefixKey: 'host.proof.circuitSelection.mdlKr.title',
-    nameKey: 'host.proof.circuitSelection.mdlKrRegion.title',
-    descriptionKey: 'host.proof.circuitSelection.mdlKrRegion.description',
-  },
-};
-
 export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
-  visible,
-  request,
-  onAccept,
-  onReject,
+  visible, request: incomingRequest, onAccept, onReject, onDismiss,
 }) => {
+  // Keep the native host and its last content mounted while iOS dismisses it.
+  // Removing it at visible=false loses the dismissal acknowledgement.
+  const closingRequest = useRef<ProofRequest | null>(null);
+  if (visible && incomingRequest) closingRequest.current = incomingRequest;
+  const request = visible ? incomingRequest : closingRequest.current;
   const {t} = useTranslation();
+  const colors = useProofUiColors();
+  const [now, setNow] = useState(Date.now);
+  const [handledRequest, setHandledRequest] = useState<ProofRequest | null>(null);
+  const [detailsFor, setDetailsFor] = useState<ProofRequest | null>(null);
+  const [actionFor, setActionFor] = useState<ProofRequest | null>(null);
+  const actionOpen = actionFor !== null && actionFor === request;
+  const handled = useRef(new WeakSet<ProofRequest>());
+  // An event retained from the previous review may never approve its successor.
+  const current = useRef({request, visible, actionOpen});
+  current.current = {request: incomingRequest, visible, actionOpen};
+
+  useEffect(() => {
+    setNow(Date.now());
+    if (!visible || request?.expiresAt === undefined) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [visible, request]);
 
   if (!request) return null;
 
-  const circuitInfo = CIRCUIT_INFO[request.circuit];
-  // A request naming a circuit this build does not know must still render —
-  // the person needs to see who is asking and be able to refuse.
-  const circuitName = circuitInfo
-    ? [circuitInfo.prefixKey && t(circuitInfo.prefixKey), t(circuitInfo.nameKey)]
-        .filter(Boolean)
-        .join(' — ')
-    : request.circuit;
-  const circuitDescription = circuitInfo ? t(circuitInfo.descriptionKey) : '';
-  const inputs = request.inputs as CoinbaseKycInputs;
-  // Shown so the user consents to the app switch as part of consenting to the
-  // proof — a request can name any app, and "the proof app opened this" should
-  // never be a surprise. Runs through the same normaliser the switch uses, so
-  // what is displayed is exactly what will be opened.
+  const presentation = isCircuitId(request.circuit) ? getProofRequestPresentation(request, t) : undefined;
+  const blocked = reviewBlockReason(request, now);
+  const finished = handledRequest === request;
+  const detailsExpanded = detailsFor === request;
   const returnTarget = normalizeReturnScheme(request.returnScheme);
+  const inputs = request.inputs as {action?: unknown};
+  const action = inputs?.action;
+  const primary = {color: colors.text};
+  const secondary = {color: colors.secondary};
+  const inset = [styles.inset, {backgroundColor: colors.inset, borderColor: colors.border}];
+  const requesterName = typeof request.dappName === 'string' && request.dappName
+    ? formatReviewScalar(request.dappName, t) : t('host.proofRequest.unknownSite');
 
-  function formatTime(timestamp?: number): string {
-    if (!timestamp) return t('host.proofRequest.noExpiry');
-    return new Date(timestamp).toLocaleTimeString();
+  function canHandle() {
+    return current.current.visible && current.current.request === request && !handled.current.has(request!);
+  }
+  function accept() {
+    if (!canHandle() || current.current.actionOpen || reviewBlockReason(request!)) {
+      setNow(Date.now());
+      return;
+    }
+    // The parent revalidates against its pending request and current clock.
+    // A refused start must leave cancellation and a valid retry available.
+    if (onAccept(request!) !== true) {
+      setNow(Date.now());
+      return;
+    }
+    handled.current.add(request!);
+    setHandledRequest(request);
+  }
+  function reject() {
+    if (!canHandle()) return;
+    handled.current.add(request!);
+    setHandledRequest(request);
+    onReject();
   }
 
-  function getDappHost(url: string): string {
-    try {
-      return new URL(url).host;
-    } catch {
-      return url;
+  function closeAction() {
+    if (current.current.request === request) {
+      current.current.actionOpen = false;
+      setActionFor(null);
     }
   }
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onReject}>
-      <View style={styles.overlay}>
-        <View style={styles.container}>
-          {/* Header */}
+    <Modal visible={visible} animationType="slide" transparent={false}
+      onDismiss={() => {closingRequest.current = null; onDismiss?.();}}
+      presentationStyle="fullScreen" onRequestClose={actionOpen ? closeAction : reject}>
+      <SafeAreaProvider>
+      <SafeAreaView style={[styles.screen, {backgroundColor: colors.background}]}>
+        {actionOpen ? <ActionReviewDetails action={action} onClose={closeAction} /> : <>
           <View style={styles.header}>
-            {circuitInfo?.iconImage ? (
-              <Image
-                source={circuitInfo.iconImage}
-                style={styles.headerMark}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text style={styles.headerIcon}>{circuitInfo?.icon ?? '🔐'}</Text>
-            )}
-            <Text style={styles.headerTitle}>{t('host.proofRequest.title')}</Text>
+            <TouchableOpacity testID="request-back" accessibilityRole="button"
+              accessibilityLabel={t('host.proofRequest.review.back')} onPress={reject}
+              disabled={finished} style={styles.back}>
+              <ProofUiIcon name="arrow-left" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, primary]}>{t('host.proofRequest.review.title')}</Text>
           </View>
-
-          <ScrollView style={styles.content}>
-            {/* Dapp Info */}
-            <View style={styles.dappSection}>
-              {request.dappIcon && (
-                <Image
-                  source={{uri: request.dappIcon}}
-                  style={styles.dappIcon}
-                />
-              )}
-              <View style={styles.dappInfo}>
-                <Text style={styles.dappName}>
-                  {request.dappName || t('host.proofRequest.unknownSite')}
-                </Text>
-                <Text style={styles.dappUrl}>
-                  {getDappHost(request.callbackUrl)}
-                </Text>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+            <View testID="request-card" style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
+              <View style={styles.identity}>
+                {typeof request.dappIcon === 'string' && request.dappIcon
+                  ? <Image source={{uri: request.dappIcon}} style={styles.dappIcon} accessibilityLabel={requesterName} />
+                  : <View style={[styles.dappIcon, styles.initialTile, {backgroundColor: colors.inset, borderColor: colors.border}]}>
+                    <Text style={[styles.initial, primary]}>{Array.from(requesterName)[0]}</Text>
+                  </View>}
+                <View style={styles.requesterBody}>
+                  <Text selectable style={[styles.requester, secondary]}>{requesterName}</Text>
+                  {request.dappName !== undefined && typeof request.dappName !== 'string'
+                    && <ReadonlyValue label="dappName" value={request.dappName} />}
+                  <Text lineBreakStrategyIOS="hangul-word" style={[styles.requestTitle, primary]}>{presentation?.title ?? t('host.proofRequest.review.unsupported')}</Text>
+                  {request.message !== undefined && (typeof request.message === 'string'
+                    ? <Text selectable style={[styles.message, secondary]}>{formatReviewScalar(request.message, t)}</Text>
+                    : <ReadonlyValue label="message" value={request.message} />)}
+                </View>
               </View>
-            </View>
 
-            {/* Request Details */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{circuitName}</Text>
-              <Text style={styles.sectionDescription}>{circuitDescription}</Text>
-            </View>
-
-            {/* Message */}
-            {request.message && (
-              <View style={styles.messageBox}>
-                <Text style={styles.messageText}>{request.message}</Text>
-              </View>
-            )}
-
-            {/* Input Details */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('host.proofRequest.details')}</Text>
-
-              <View style={styles.inputsList}>
-                {request.circuit === 'oidc_domain_attestation' ? (
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>{t('host.proofRequest.domain')}</Text>
-                    <Text style={styles.inputValue} numberOfLines={1}>
-                      {(request.inputs as OidcDomainInputs).domain}
-                    </Text>
+              <View style={inset}>
+                <Text style={[styles.eyebrow, secondary]}>{t('host.proofRequest.review.proofCondition')}</Text>
+                <View style={styles.conditionBody}>
+                  <View style={styles.conditionIcon}><ProofUiIcon name={presentation?.icon ?? 'info'} size={24} color={colors.secondary} /></View>
+                  <View style={styles.conditionValues}>
+                    {presentation ? presentation.conditions.map(({label, value}, index) => (
+                      <ReadonlyValue key={`${index}-${label}`} label={label || undefined} value={value}
+                        layout="stacked" />
+                    )) : <ReadonlyValue value={request.circuit} />}
                   </View>
-                ) : (
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>{t('host.proofRequest.walletAddress')}</Text>
-                    <Text style={styles.inputValue} numberOfLines={1}>
-                      {(request.inputs as CoinbaseKycInputs).userAddress
-                        ? `${(request.inputs as CoinbaseKycInputs).userAddress!.slice(0, 10)}...${(request.inputs as CoinbaseKycInputs).userAddress!.slice(-8)}`
-                        : t('host.proofRequest.willConnectWallet')}
-                    </Text>
-                  </View>
-                )}
+                </View>
+              </View>
 
-                {returnTarget && (
-                  <View style={styles.inputRow}>
-                    <Text style={styles.inputLabel}>{t('host.proofRequest.returnsTo')}</Text>
-                    <Text style={styles.inputValue} numberOfLines={1}>
-                      {returnTarget}
-                    </Text>
+              {presentation && <View style={[inset, styles.disclosures]}>
+                <View style={styles.disclosureRow}>
+                  <ProofUiIcon name="shield" size={20} color={colors.secondary} />
+                  <View style={styles.disclosureBody}>
+                    <Text style={[styles.disclosureTitle, primary]}>{t('host.proofRequest.review.sharedTitle')}</Text>
+                    <Text lineBreakStrategyIOS="hangul-word" style={[styles.note, secondary]}>{presentation.shared}</Text>
                   </View>
-                )}
+                </View>
+                <View style={styles.disclosureRow}>
+                  <ProofUiIcon name="eye-off" size={20} color={colors.secondary} />
+                  <View style={styles.disclosureBody}>
+                    <Text style={[styles.disclosureTitle, primary]}>{t('host.proofRequest.review.privateTitle')}</Text>
+                    <Text lineBreakStrategyIOS="hangul-word" style={[styles.note, secondary]}>{presentation.private}</Text>
+                  </View>
+                </View>
+              </View>}
+
+              {action !== undefined && <ActionReviewCard action={action} onOpen={() => {
+                if (canHandle()) {
+                  current.current.actionOpen = true;
+                  setActionFor(request);
+                }
+              }} />}
+
+              <View style={inset}>
+                <TouchableOpacity testID="request-details" accessibilityRole="button"
+                  accessibilityState={{expanded: detailsExpanded}}
+                  onPress={() => setDetailsFor(detailsExpanded ? null : request)} style={styles.detailsToggle}>
+                  <Text style={[styles.detailsTitle, primary]}>{t('host.proofRequest.review.technicalDetails')}</Text>
+                  <ProofUiIcon name={detailsExpanded ? 'chevron-down' : 'chevron-right'} size={18} color={colors.muted} />
+                </TouchableOpacity>
+                {detailsExpanded && <>
+                  <ReadonlyValue label="requestId" value={request.requestId} />
+                  <ReadonlyValue label="circuit" value={request.circuit} />
+                  <ReadonlyValue label={t('host.proofRequest.review.deliveryEndpoint')} value={deliveryHost(request.callbackUrl)} />
+                  <Text style={[styles.note, secondary]}>{t('host.proofRequest.review.deliveryDescription')}</Text>
+                  <ReadonlyValue label="callbackUrl" value={request.callbackUrl} />
+                  <ReadonlyValue label={t('host.proofRequest.expiresAt')} value={request.expiresAt === undefined
+                    ? t('host.proofRequest.noExpiry')
+                    : Number.isFinite(request.expiresAt) && Math.abs(request.expiresAt) <= 8640000000000000
+                      ? new Date(request.expiresAt).toLocaleString() : String(request.expiresAt)} />
+                  {returnTarget && <ReadonlyValue label={t('host.proofRequest.returnsTo')} value={returnTarget} />}
+                  <ReadonlyValue label={t('host.proofRequest.review.originalRequest')} value={request} initiallyExpanded={false} />
+                </>}
+              </View>
+
+              <View style={styles.infoRow}>
+                <ProofUiIcon name="info" size={16} color={colors.muted} />
+                <Text style={[styles.infoText, {color: colors.muted}]}>{t('host.proofRequest.review.checkRequest')}</Text>
+              </View>
+              {blocked && <Text accessibilityRole="alert" style={[styles.note, {color: colors.gold}]}>{t(`host.proofRequest.review.${blocked}`)}</Text>}
+              <View style={styles.actions}>
+                <TouchableOpacity testID="request-accept" accessibilityRole="button"
+                  accessibilityState={{disabled: !!blocked || finished}} disabled={!!blocked || finished}
+                  style={[styles.button, {backgroundColor: colors.blue}, (blocked || finished) && styles.disabled]} onPress={accept}>
+                  <Text style={[styles.buttonText, styles.confirmText]}>{t('host.proofRequest.review.confirm')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity testID="request-reject" accessibilityRole="button" disabled={finished}
+                  style={[styles.button, styles.cancel, {borderColor: colors.border}]} onPress={reject}>
+                  <Text style={[styles.buttonText, primary]}>{t('host.proofRequest.review.cancel')}</Text>
+                </TouchableOpacity>
               </View>
             </View>
-
-            {/* Expiry Info */}
-            <View style={styles.expiryInfo}>
-              <Text style={styles.expiryLabel}>{t('host.proofRequest.requestId')}: </Text>
-              <Text style={styles.expiryValue}>{request.requestId}</Text>
-            </View>
-            {request.expiresAt && (
-              <View style={styles.expiryInfo}>
-                <Text style={styles.expiryLabel}>{t('host.proofRequest.expiresAt')}: </Text>
-                <Text style={styles.expiryValue}>
-                  {formatTime(request.expiresAt)}
-                </Text>
-              </View>
-            )}
           </ScrollView>
-
-          {/* Actions */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.button, styles.rejectButton]}
-              onPress={onReject}>
-              <Text style={styles.rejectButtonText}>{t('host.proofRequest.reject')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.acceptButton]}
-              onPress={onAccept}>
-              <Text style={styles.acceptButtonText}>{t('host.proofRequest.generate')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+        </>}
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    backgroundColor: '#1e293b',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  headerIcon: {
-    fontSize: 28,
-    marginRight: 10,
-  },
-  // Sized to sit level with the emoji the other circuits use, so swapping a
-  // circuit does not shift the title.
-  headerMark: {
-    width: 28,
-    height: 28,
-    marginRight: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f1f5f9',
-  },
-  content: {
-    padding: 20,
-  },
-  dappSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  dappIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    marginRight: 12,
-  },
-  dappInfo: {
-    flex: 1,
-  },
-  dappName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#f1f5f9',
-    marginBottom: 4,
-  },
-  dappUrl: {
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#f1f5f9',
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: '#94a3b8',
-    lineHeight: 20,
-  },
-  messageBox: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    borderWidth: 1,
-    borderColor: '#6366f1',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-  },
-  messageText: {
-    fontSize: 14,
-    color: '#a5b4fc',
-    lineHeight: 20,
-  },
-  inputsList: {
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    padding: 4,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  inputValue: {
-    fontSize: 14,
-    color: '#f1f5f9',
-    fontWeight: '500',
-  },
-  privateTag: {
-    fontSize: 12,
-    color: '#22c55e',
-    fontStyle: 'italic',
-  },
-  expiryInfo: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  expiryLabel: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  expiryValue: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontFamily: 'monospace',
-  },
-  actions: {
-    flexDirection: 'row',
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  rejectButton: {
-    backgroundColor: '#334155',
-  },
-  rejectButtonText: {
-    color: '#f1f5f9',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  acceptButton: {
-    backgroundColor: '#6366f1',
-  },
-  acceptButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  screen: {flex: 1},
+  header: {flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8},
+  back: {width: 40, minHeight: 44, justifyContent: 'center'},
+  headerTitle: {fontSize: 19, lineHeight: 27, fontWeight: '700', flexShrink: 1},
+  scroll: {flex: 1},
+  content: {paddingHorizontal: 20, paddingTop: 14, paddingBottom: 32},
+  card: {padding: 20, borderRadius: 16, borderWidth: 1, gap: 16},
+  identity: {flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingBottom: 5},
+  dappIcon: {width: 52, height: 52, borderRadius: 12},
+  initialTile: {alignItems: 'center', justifyContent: 'center', borderWidth: 1},
+  initial: {fontSize: 24, lineHeight: 32, fontWeight: '600'},
+  requesterBody: {flex: 1, gap: 5},
+  requester: {fontSize: 12, lineHeight: 17},
+  requestTitle: {fontSize: 20, lineHeight: 29, fontWeight: '700'},
+  message: {fontSize: 13, lineHeight: 20},
+  inset: {paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderWidth: 1},
+  eyebrow: {fontSize: 12, lineHeight: 18},
+  conditionBody: {flexDirection: 'row', alignItems: 'center', gap: 10},
+  conditionIcon: {paddingVertical: 12},
+  conditionValues: {flex: 1, minWidth: 0},
+  disclosures: {gap: 16, paddingVertical: 16},
+  disclosureRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 10},
+  disclosureBody: {flex: 1, gap: 4},
+  disclosureTitle: {fontSize: 13, lineHeight: 18, fontWeight: '600'},
+  note: {fontSize: 12, lineHeight: 19},
+  detailsToggle: {minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12},
+  detailsTitle: {fontSize: 13, lineHeight: 20},
+  infoRow: {flexDirection: 'row', alignItems: 'center', gap: 7},
+  infoText: {fontSize: 11, lineHeight: 17, flex: 1},
+  actions: {gap: 10},
+  button: {minHeight: 46, padding: 12, borderRadius: 9, alignItems: 'center', justifyContent: 'center'},
+  cancel: {borderWidth: 1},
+  buttonText: {fontSize: 15, lineHeight: 22, fontWeight: '600'},
+  confirmText: {color: '#FFFFFF'},
+  disabled: {opacity: 0.45},
 });
 
 export default ProofRequestModal;

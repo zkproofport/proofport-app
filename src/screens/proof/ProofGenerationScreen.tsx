@@ -1,3 +1,4 @@
+import {captureHistoryReview} from '../../utils/historyReview';
 import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {MobileIdTypeSheet, type MdlProvider} from '../../components/MobileIdTypeSheet';
 import {
@@ -39,8 +40,9 @@ import {getCircuitDisplayName} from '../../utils/circuit';
 // Wallet-cache logic now lives in useCircuitWalletGate.
 import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
 import {ethers} from 'ethers';
-import {getActiveProofRequest, setActiveProofRequest} from '../../stores/activeProofRequestStore';
+import {clearActiveProofRequest} from '../../stores/activeProofRequestStore';
 import {ErrorCodes} from '../../constants/errorCodes';
+import {showGlobalError} from '../../utils/errorBridge';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -276,7 +278,9 @@ export const ProofGenerationScreen: React.FC = () => {
   const route = useRoute<ProofGenerationRouteProp>();
   const navigation = useNavigation<NavigationProp>();
   const {t} = useTranslation();
-  const proofRequest = getActiveProofRequest() ?? route.params?.proofRequest;
+  // The route owns this attempt. A previous callback may still be pending in
+  // the active store, or a newer request may already have replaced it there.
+  const proofRequest = route.params?.proofRequest;
 
   const hasAutoStarted = useRef(false);
   const didResetOnMountRef = useRef(false);
@@ -323,6 +327,15 @@ export const ProofGenerationScreen: React.FC = () => {
   const mdlHook = useMdlKr(mdlVariant ?? 'ownership');
   const googleAuth = useGoogleAuth();
   const microsoftAuth = useMicrosoftAuth();
+  const generateKycProof = kycHook.generateProofWithSteps;
+  const generateCountryProof = countryHook.generateProofWithSteps;
+  const generateOidcProof = oidcHook.generateProofWithSteps;
+  const generateGiwaProof = giwaHook.generateProofWithSteps;
+  const generateMdlProof = mdlHook.generateProofWithSteps;
+  const googleReady = googleAuth.isReady;
+  const microsoftReady = microsoftAuth.isReady;
+  const promptGoogleSignIn = googleAuth.promptSignIn;
+  const promptMicrosoftSignIn = microsoftAuth.promptSignIn;
   const hook = isMdl
     ? mdlHook
     : isOidc
@@ -354,6 +367,10 @@ export const ProofGenerationScreen: React.FC = () => {
     onPending: () => {},
     log: addLog,
   });
+  // Hook wrapper objects are rebuilt every render. Depend on the memoized
+  // methods so an ordinary render cannot cancel an approved auto-start timer.
+  const runWalletGate = walletGate.runGate;
+  const recordLookupFailure = walletGate.recordLookupFailure;
   // Track the last `account` we observed; when the gate is in post-picker
   // mode and `account` flips to a new value, we re-fire handleGenerateProof.
   const previousAccountRef = useRef<string | null>(null);
@@ -436,8 +453,10 @@ export const ProofGenerationScreen: React.FC = () => {
   // we hit "Generate" on THIS screen entry. proofStartedAt is null on mount
   // and set only inside handleGenerateProof, so a stale cached proof from a
   // previous screen entry can't trigger this navigation.
+  const parsedProof = hook.parsedProof;
+  const signalHash = 'signalHash' in hook ? hook.signalHash : null;
   useEffect(() => {
-    if (!hook.parsedProof || !proofStartedAt.current) return;
+    if (!parsedProof || !proofStartedAt.current) return;
     // Unreachable without a canonical id — nothing starts a proof without one
     // — but narrowing here keeps the address/network lookups below honest.
     if (!canonical) return;
@@ -447,7 +466,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
     if (historyIdRef.current) {
       proofHistoryStore.update(historyIdRef.current, {
-        proofHash: hook.parsedProof.proofHex,
+        proofHash: parsedProof.proofHex,
         offChainStatus: 'generated',
         onChainStatus: 'generated',
         overallStatus: 'generated',
@@ -463,17 +482,17 @@ export const ProofGenerationScreen: React.FC = () => {
         const inputs = proofRequest.inputs as CoinbaseKycInputs | undefined;
         const scope = inputs?.scope || 'proofport:default';
         const scopeBytes = computeScope(scope);
-        const nullifierBytes = (hook as any).signalHash
-          ? computeNullifier(account || '', (hook as any).signalHash, scopeBytes)
+        const nullifierBytes = signalHash
+          ? computeNullifier(account || '', signalHash, scopeBytes)
           : new Uint8Array(32);
         nullifierHex = ethers.utils.hexlify(nullifierBytes);
       }
 
       const circuitNet = getNetworkConfigForCircuit(resolved);
       sendProof(proofRequest, {
-        proof: hook.parsedProof.proofHex,
-        publicInputs: hook.parsedProof.publicInputsHex,
-        numPublicInputs: hook.parsedProof.numPublicInputs,
+        proof: parsedProof.proofHex,
+        publicInputs: parsedProof.publicInputsHex,
+        numPublicInputs: parsedProof.numPublicInputs,
         nullifier: nullifierHex,
         verificationType: 'off-chain',
         verificationResult: false,
@@ -481,14 +500,14 @@ export const ProofGenerationScreen: React.FC = () => {
         completedAt: generatedAt,
         verifierAddress: getVerifierAddressSync(resolved),
         chainId: circuitNet.chainId,
-      }).then(() => setActiveProofRequest(null)).catch(console.error);
+      }).then(() => clearActiveProofRequest(proofRequest)).catch(console.error);
     }
 
     const circuitNet = getNetworkConfigForCircuit(resolved);
     navigation.navigate('ProofComplete', {
-      proofHex: hook.parsedProof.proofHex,
-      publicInputsHex: hook.parsedProof.publicInputsHex,
-      numPublicInputs: hook.parsedProof.numPublicInputs,
+      proofHex: parsedProof.proofHex,
+      publicInputsHex: parsedProof.publicInputsHex,
+      numPublicInputs: parsedProof.numPublicInputs,
       circuitId,
       timestamp: generatedAt.toString(),
       verification: {
@@ -505,7 +524,7 @@ export const ProofGenerationScreen: React.FC = () => {
     // stale `hook.parsedProof` value can't navigate again.
     proofStartedAt.current = null;
     historyIdRef.current = null;
-  }, [hook.parsedProof, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc, markHistoryFailed]);
+  }, [parsedProof, signalHash, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc]);
 
   // An unrecognised circuit id is refused on arrival, not on button press, so
   // nobody sits looking at a form for a proof the app will not generate.
@@ -547,7 +566,7 @@ export const ProofGenerationScreen: React.FC = () => {
     // effect below will re-invoke handleGenerateProof when account changes.
     let gatedAddress: string | null = null;
     if (!isOidc && !isMdl) {
-      const gateResult = await walletGate.runGate(
+      const gateResult = await runWalletGate(
         canonical,
         getCircuitDisplayName(canonical),
       );
@@ -569,7 +588,20 @@ export const ProofGenerationScreen: React.FC = () => {
     const configName: CircuitName = canonical;
 
     // Read settings directly from store (avoids stale closure from useSettings)
-    const currentSettings = await settingsStore.get();
+    let currentSettings: Awaited<ReturnType<typeof settingsStore.get>>;
+    try {
+      currentSettings = await settingsStore.get();
+    } catch (error) {
+      // Storage failure leaves the user's history preference unknown. Stop
+      // before authentication/proving and keep this attempt available to retry.
+      const details = error instanceof Error ? error.message : String(error);
+      proofStartedAt.current = null;
+      historyIdRef.current = null;
+      setIsSearching(false);
+      setErrorMessage(`[E5002] ${t('host.errors.E5002.description')}`);
+      showGlobalError('E5002', details);
+      return;
+    }
 
     if (currentSettings.autoSaveProofs) {
       try {
@@ -594,6 +626,14 @@ export const ProofGenerationScreen: React.FC = () => {
           source: proofRequest ? 'deeplink' : 'manual',
           dappName: proofRequest?.dappName,
           requestId: proofRequest?.requestId,
+          review: captureHistoryReview({
+            ...route.params?.domainInput,
+            ...route.params?.mdlKrInputs,
+            ...proofRequest?.inputs,
+            ...route.params?.countryInputs,
+            ...(route.params?.scope !== undefined ? {scope: route.params.scope} : {}),
+            ...(route.params?.action !== undefined ? {action: route.params.action} : {}),
+          }),
         });
         historyIdRef.current = item.id;
         addLog(`[History] Record created: ${item.id}`);
@@ -626,7 +666,7 @@ export const ProofGenerationScreen: React.FC = () => {
         if (mdlVariant === 'ownership') {
           const discloseFlags =
             deep?.discloseFlags ?? mInputs?.discloseFlags ?? 0;
-          await mdlHook.generateProofWithSteps(
+          await generateMdlProof(
             {
               variant: 'ownership',
               provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
@@ -648,7 +688,7 @@ export const ProofGenerationScreen: React.FC = () => {
           }
           const currentYear =
             deep?.currentYear ?? mInputs?.currentYear ?? new Date().getFullYear();
-          await mdlHook.generateProofWithSteps(
+          await generateMdlProof(
             {
               variant: 'age',
               provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
@@ -665,7 +705,7 @@ export const ProofGenerationScreen: React.FC = () => {
               'target_region is required — open the Korea mDL input screen first',
             );
           }
-          await mdlHook.generateProofWithSteps(
+          await generateMdlProof(
             {
               variant: 'region',
               provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
@@ -691,10 +731,11 @@ export const ProofGenerationScreen: React.FC = () => {
 
         // Trigger OIDC Sign-In based on provider
         const providerName = providerStr === 'microsoft' ? 'Microsoft' : 'Google';
-        const authHook = providerStr === 'microsoft' ? microsoftAuth : googleAuth;
+        const authReady = providerStr === 'microsoft' ? microsoftReady : googleReady;
+        const promptSignIn = providerStr === 'microsoft' ? promptMicrosoftSignIn : promptGoogleSignIn;
         addLog(`[OIDC] Starting ${providerName} Sign-In...`);
 
-        if (!authHook.isReady) {
+        if (!authReady) {
           const msg = `${providerName} Sign-In is not ready. Please try again.`;
           addLog(`[Error] ${msg}`);
           setErrorMessage(msg);
@@ -706,7 +747,7 @@ export const ProofGenerationScreen: React.FC = () => {
         // One shape for every outcome. The reason arrives WITH the result,
         // so nothing here reads a state value that has not landed yet — which
         // is why every failure used to read "cancelled".
-        const signIn = await authHook.promptSignIn();
+        const signIn = await promptSignIn();
         if (!('token' in signIn)) {
           const msg = signIn.cancelled
             ? `${providerName} Sign-In was cancelled`
@@ -716,7 +757,7 @@ export const ProofGenerationScreen: React.FC = () => {
           markHistoryFailed();
           if (proofRequest) {
             sendError(proofRequest, msg).catch(console.error);
-            setActiveProofRequest(null);
+            clearActiveProofRequest(proofRequest);
           }
           return;
         }
@@ -724,7 +765,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
         addLog(`[OIDC] ${providerName} Sign-In successful — JWT obtained`);
 
-        await oidcHook.generateProofWithSteps(
+        await generateOidcProof(
           {jwtToken, scopeString: scopeStr, domain: domainStr, provider: providerStr},
           addLog,
         );
@@ -746,7 +787,7 @@ export const ProofGenerationScreen: React.FC = () => {
         ? await findGiwaAttestationTransaction(walletAddress, addLog)
         : await findAttestationTransaction(walletAddress, addLog, selector);
       if (!txResult) {
-        await walletGate.recordLookupFailure(configName, walletAddress);
+        await recordLookupFailure(configName, walletAddress);
         const msg = isGiwa
           ? `No GIWA attestation for ${walletAddress.slice(0, 10)}… — pick another wallet.`
           : isCountry
@@ -790,12 +831,12 @@ export const ProofGenerationScreen: React.FC = () => {
           markHistoryFailed();
           if (proofRequest) {
             sendError(proofRequest, msg).catch(console.error);
-            setActiveProofRequest(null);
+            clearActiveProofRequest(proofRequest);
           }
           return;
         }
 
-        await countryHook.generateProofWithSteps(
+        await generateCountryProof(
           {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, countryList, countryListLength: countryList.length, isIncluded, scopeString: scopeStr},
           ethereum, addLog,
         );
@@ -803,7 +844,7 @@ export const ProofGenerationScreen: React.FC = () => {
         const deep = proofRequest?.inputs as CoinbaseKycInputs | undefined;
         const scopeStr = deep?.scope || 'proofport:giwa-poc';
 
-        await giwaHook.generateProofWithSteps(
+        await generateGiwaProof(
           {
             userAddress: walletAddress,
             rawTransaction: txResult.rawTransaction,
@@ -826,7 +867,7 @@ export const ProofGenerationScreen: React.FC = () => {
         // The circuit is named, not inferred. `canonical` is the id the user
         // picked or the deep link asked for; the hook refuses it when the
         // inputs cannot honour it, instead of quietly proving another circuit.
-        await kycHook.generateProofWithSteps(
+        await generateKycProof(
           {
             circuit: canonical,
             userAddress: walletAddress,
@@ -854,7 +895,11 @@ export const ProofGenerationScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [walletGate, addLog, clearLogs, getProvider, kycHook.generateProofWithSteps, countryHook.generateProofWithSteps, oidcHook.generateProofWithSteps, giwaHook.generateProofWithSteps, mdlHook.generateProofWithSteps, isCountry, isOidc, isGiwa, isMdl, proofRequest, route.params, sendError, circuitId, canonical, markHistoryFailed]);
+  }, [runWalletGate, recordLookupFailure, addLog, clearLogs, getProvider,
+    generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateMdlProof,
+    googleReady, microsoftReady, promptGoogleSignIn, promptMicrosoftSignIn,
+    isCountry, isOidc, isGiwa, isMdl, proofRequest, route.params, sendError,
+    circuitId, canonical, flow, mdlVariant, account, markHistoryFailed, t]);
 
   // After the wallet gate opens a picker / reconnect prompt, it sets its
   // internal post-picker flag. When `account` then flips to a new wallet,

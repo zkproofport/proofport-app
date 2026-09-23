@@ -1,115 +1,55 @@
-import React, { useEffect, useReducer } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from 'react-native';
+import React, {useEffect, useReducer} from 'react';
+import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18n from 'i18next';
-import { useThemeColors } from '../../context';
+import {useTranslation} from 'react-i18next';
+import {useError} from '../../context';
+import {useProofUiColors} from '../../theme/proofUi';
+import {SelectOptionList} from '../../components/ui/molecules/Select';
+import {LANGUAGE_OPTIONS, languageOption, type AppLanguage} from './languages';
 
 const LANGUAGE_KEY = 'proofport.language';
 
-// Self-contained language picker that bypasses useTranslation entirely so
-// that the toggle works even when react-i18next's hooks fail to re-render
-// (observed in practice with key={i18n.language} cascades and Suspense
-// boundary issues). The row labels are static brand names and don't need
-// to be translated. The checkmark reflects i18n.language directly via an
-// explicit languageChanged subscription.
 const SettingsLanguageScreen: React.FC = () => {
-  const { colors: themeColors } = useThemeColors();
-  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  const colors = useProofUiColors();
+  const {showError} = useError();
+  const {t} = useTranslation();
+  const [, forceUpdate] = useReducer((value: number) => value + 1, 0);
 
+  // Keep this direct subscription: it also updates the selection when a parent
+  // navigator remounts during the synchronous part of changeLanguage.
   useEffect(() => {
     const handler = () => forceUpdate();
     i18n.on('languageChanged', handler);
-    return () => {
-      i18n.off('languageChanged', handler);
-    };
+    return () => {i18n.off('languageChanged', handler);};
   }, []);
 
-  const currentLang: 'en' | 'ko' = i18n.language === 'ko' ? 'ko' : 'en';
-
-  const handlePress = (target: 'en' | 'ko') => {
-    if (target === currentLang) return;
-    // Fire-and-forget AsyncStorage write so a slow/hung native bridge
-    // can't block the language switch. The change is reflected in UI
-    // immediately by i18n.changeLanguage which is synchronous-then-promise.
-    AsyncStorage.setItem(LANGUAGE_KEY, target).catch((e) => {
-      console.warn('[i18n] AsyncStorage write failed', e);
-    });
-    // i18n.changeLanguage updates i18n.language synchronously and returns
-    // a promise; we don't need to await it for the UI to reflect the new
-    // value on the next render.
-    i18n.changeLanguage(target).catch((e) => {
-      console.warn('[i18n] changeLanguage failed', e);
+  const currentLanguage = languageOption(i18n.language).value;
+  const handlePress = (target: AppLanguage) => {
+    if (target === currentLanguage) return;
+    // Storage must not block the language change if its native bridge stalls.
+    i18n.changeLanguage(target).then(() => {
+      AsyncStorage.setItem(LANGUAGE_KEY, target).catch(() => {
+        showError('E5001', t('host.settings.languageSaveError'));
+      });
+    }).catch(() => {
+      showError('E9999', t('host.settings.languageChangeError'));
     });
     forceUpdate();
   };
 
-  const options: { lang: 'en' | 'ko'; label: string }[] = [
-    { lang: 'en', label: 'English' },
-    { lang: 'ko', label: '한국어' },
-  ];
-
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background.primary }]}>
-      <View style={styles.content}>
-        {options.map(({ lang, label }) => {
-          const isSelected = currentLang === lang;
-          return (
-            <TouchableOpacity
-              key={lang}
-              style={[
-                styles.row,
-                {
-                  backgroundColor: themeColors.background.secondary,
-                  borderColor: themeColors.border.primary,
-                },
-              ]}
-              onPress={() => void handlePress(lang)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.label, { color: themeColors.text.primary }]}>{label}</Text>
-              {isSelected && (
-                <Text style={styles.checkmark}>✓</Text>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+  return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.screen, {backgroundColor: colors.background}]}>
+    <ScrollView contentContainerStyle={styles.content}>
+      <Text style={[styles.description, {color: colors.secondary}]}>{t('host.settings.languageDescription')}</Text>
+      <View style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
+        <SelectOptionList testID="settings-language" value={currentLanguage} options={LANGUAGE_OPTIONS} onChange={handlePress} />
       </View>
-    </SafeAreaView>
-  );
+    </ScrollView>
+  </SafeAreaView>;
 };
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    gap: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  checkmark: {
-    fontSize: 18,
-    color: '#3B82F6',
-    fontWeight: '700',
-  },
+  screen: {flex: 1}, content: {paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32, gap: 20},
+  description: {fontSize: 14, lineHeight: 21}, card: {borderWidth: 1, borderRadius: 14, overflow: 'hidden'},
 });
-
 export default SettingsLanguageScreen;

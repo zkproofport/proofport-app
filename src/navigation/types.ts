@@ -24,6 +24,7 @@ export type HistoryStackParamList = {
 
 export type ProofStackParamList = {
   CircuitSelection: undefined;
+  Laboratory: undefined;
   CountryInput: undefined;
   DomainInput: undefined;
   MdlKrInput: { variant: 'ownership' | 'age' | 'region' };
@@ -37,7 +38,7 @@ export type ProofStackParamList = {
    *
    * In the shipped product a dapp supplies the action through the SDK and
    * nobody reaches this screen; it exists to test circuits whose verifiers
-   * live only on testnets, behind Developer Mode.
+   * are offered in the Laboratory.
    */
   ArcActionInput: {circuit: CircuitName};
   /** OACX widget WebView screen. provider = OacxProvider string, scope = scopeString. */

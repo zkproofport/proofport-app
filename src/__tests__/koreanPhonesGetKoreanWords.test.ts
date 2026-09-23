@@ -24,6 +24,13 @@ const LOCALES = path.resolve(__dirname, '..', 'i18n', 'locales');
  * something to translate. Anything NOT here that matches is a missed string.
  */
 const SAME_ON_PURPOSE: Record<string, string> = {
+  'host.proof.home.brand': 'product name',
+  'host.proof.home.organization.provider': 'provider product names and protocol abbreviation',
+  'host.proof.home.identity.provider': 'provider product name and established KYC abbreviation',
+  'host.proof.home.country.provider': 'provider product name',
+  'host.proof.laboratory.giwa.sectionTitle': 'chain name',
+  'host.proof.laboratory.arc.sectionTitle': 'chain name',
+  'host.proof.laboratory.poc': 'standard proof-of-concept abbreviation',
   'host.history.detail.dapp': 'product term, used untranslated in Korean too',
   'host.more.networkBase': 'Base is the chain name',
   'host.proof.circuitSelection.network.base': 'Base is the chain name',

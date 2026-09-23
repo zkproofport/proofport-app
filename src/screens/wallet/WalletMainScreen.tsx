@@ -4,7 +4,8 @@ import {ALL_CIRCUIT_IDS, getNetworkConfigForCircuit} from '../../config';
 import {useError} from '../../context';
 import {WalletNoConnectionScreen} from './WalletNoConnectionScreen';
 import {WalletConnectedScreen} from './WalletConnectedScreen';
-import {useThemeColors} from '../../context';
+import {useWalletInfo} from '@reown/appkit-react-native';
+import {useTranslation} from 'react-i18next';
 
 /**
  * The name of a chain, from the chains this app already knows.
@@ -25,7 +26,8 @@ function networkName(chainId: number): string {
 }
 
 export const WalletMainScreen: React.FC = () => {
-  const {colors: themeColors} = useThemeColors();
+  const {walletInfo} = useWalletInfo();
+  const {t} = useTranslation();
   const {isWalletConnected, account, chainId, disconnect} = useWallet();
   const {showError} = useError();
 
@@ -49,11 +51,9 @@ export const WalletMainScreen: React.FC = () => {
 
   return (
     <WalletConnectedScreen
-      walletIcon="link-2"
-      walletName="WalletConnect"
+      walletName={walletInfo?.name || 'WalletConnect'}
       address={account || ''}
-      network={chainId ? networkName(chainId) : 'Unknown'}
-      brandColor={themeColors.wallets.walletconnect}
+      network={chainId ? networkName(chainId) : t('host.wallet.home.unknownNetwork')}
       isActive={true}
       onDisconnect={handleDisconnect}
     />
