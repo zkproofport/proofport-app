@@ -35,7 +35,10 @@ platform :ios do
   # So after each rewrite, re-scope the three keys to iphoneos. Device signing
   # is unchanged; the simulator goes back to Xcode's own handling.
   def scope_signing_to_device(path)
-    text = File.read(path)
+    # Actions resolve project paths from ios/, but custom Ruby runs inside
+    # ios/fastlane/. Resolve against the project root before reading or writing.
+    project_path = File.expand_path(path, File.expand_path('..', FastlaneCore::FastlaneFolder.path))
+    text = File.read(project_path)
     {
       'CODE_SIGN_IDENTITY' => nil,
       'CODE_SIGN_STYLE' => nil,
@@ -43,7 +46,7 @@ platform :ios do
     }.each_key do |key|
       text = text.gsub(/^(\s*)#{key} = /) { "#{$1}\"#{key}[sdk=iphoneos*]\" = " }
     end
-    File.write(path, text)
+    File.write(project_path, text)
     UI.message("Scoped signing settings to iphoneos so simulator builds keep their entitlements")
   end
 

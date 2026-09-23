@@ -21,6 +21,8 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import {spawnSync} from 'child_process';
 
 const IOS = path.resolve(__dirname, '..', '..', 'ios');
 const project = () =>
@@ -34,6 +36,56 @@ const DEVICE_ONLY_KEYS = [
 ];
 
 describe('the simulator build keeps its entitlements', () => {
+  it('scopes the real project when fastlane runs Ruby from ios/fastlane', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'proofport-signing-'));
+    const fastlaneDir = path.join(root, 'ios', 'fastlane');
+    const projectDir = path.join(root, 'ios', 'ProofportApp.xcodeproj');
+    fs.mkdirSync(fastlaneDir, {recursive: true});
+    fs.mkdirSync(projectDir, {recursive: true});
+    const target = path.join(projectDir, 'project.pbxproj');
+    fs.writeFileSync(target, [
+      '  CODE_SIGN_STYLE = Manual;',
+      '  CODE_SIGN_IDENTITY = "iPhone Distribution";',
+      '  PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.masselabs.zkproofport";',
+      '  CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;',
+      '',
+    ].join('\n'));
+
+    try {
+      // Register lanes without running signing, builds, or uploads. The helper
+      // itself is loaded unchanged from the production Fastfile.
+      const result = spawnSync('ruby', ['-e', `
+        def default_platform(*) ; end
+        def platform(*) ; yield ; end
+        def desc(*) ; end
+        def lane(*) ; end
+        module UI
+          def self.message(*) ; end
+        end
+        module FastlaneCore
+          class FastlaneFolder
+            def self.path ; './' ; end
+          end
+        end
+        load ARGV.fetch(0)
+        2.times { scope_signing_to_device('ProofportApp.xcodeproj/project.pbxproj') }
+      `, path.join(IOS, 'fastlane', 'Fastfile')], {
+        cwd: fastlaneDir,
+        encoding: 'utf8',
+      });
+      expect({status: result.status, stderr: result.stderr}).toEqual({status: 0, stderr: ''});
+      expect(fs.readFileSync(target, 'utf8')).toBe([
+        '  "CODE_SIGN_STYLE[sdk=iphoneos*]" = Manual;',
+        '  "CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";',
+        '  "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "match AppStore com.masselabs.zkproofport";',
+        '  CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;',
+        '',
+      ].join('\n'));
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true});
+    }
+  });
+
   it.each(DEVICE_ONLY_KEYS)('%s is set for iphoneos only', key => {
     const src = project();
     // The unconditional form is `KEY = value;` at the start of a line, with no
