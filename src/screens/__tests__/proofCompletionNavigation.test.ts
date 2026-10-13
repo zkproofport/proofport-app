@@ -47,7 +47,7 @@ jest.mock('../../utils', () => ({getCircuitDisplayName: () => 'Organization'}));
 jest.mock('../proof', () => ({
   CircuitSelectionScreen: 'CircuitSelection', LaboratoryScreen: 'Laboratory',
   CountryInputScreen: 'CountryInput', DomainInputScreen: 'DomainInput', MdlKrInputScreen: 'MdlKrInput',
-  ArcActionInputScreen: 'ArcActionInput', ProofGenerationScreen: 'ProofGeneration', ProofCompleteScreen: 'ProofComplete',
+  ActionInputScreen: 'ActionInput', ProofGenerationScreen: 'ProofGeneration', ProofCompleteScreen: 'ProofComplete',
 }));
 jest.mock('../auth/OacxWebViewScreen', () => ({OacxWebViewScreen: 'OacxWebView'}));
 jest.mock('../shared/InAppBrowserScreen', () => ({InAppBrowserScreen: 'InAppBrowser'}));
@@ -123,7 +123,7 @@ const entryStacks = [
   ['standalone', ['CircuitSelection', 'ProofGeneration', 'ProofComplete']],
   ['cold deep link', ['ProofGeneration', 'ProofComplete']],
   ['single completion route', ['ProofComplete']],
-  ['laboratory', ['CircuitSelection', 'Laboratory', 'ArcActionInput', 'ProofGeneration', 'ProofComplete']],
+  ['laboratory', ['CircuitSelection', 'Laboratory', 'ActionInput', 'ProofGeneration', 'ProofComplete']],
 ] as const;
 
 describe.each(['done', 'another'] as const)('%s completion exit', exit => {

@@ -3,15 +3,15 @@
  *
  * Base was the first chain this app spoke to and Coinbase the first
  * attestation it read. Neither is a property of the project — it proves on
- * Arc, GIWA and a Korea mobile-ID network too — but both became the answer
+ * GIWA and a Korea mobile-ID network too — but both became the answer
  * wherever nobody had decided one:
  *
  *   - `getNetworkConfig()` returned "the chain this BUILD was made for", and
- *     every circuit that named no chain of its own inherited it. An
- *     `arc_eligibility` proof was verified on Base Sepolia and reported
- *     failed while being valid.
+ *     every circuit that named no chain of its own inherited it. A proof from
+ *     a circuit pinned to another chain was verified on Base Sepolia and
+ *     reported failed while being valid.
  *   - On-chain verification looked up `'coinbase_attestation'` whatever the
- *     circuit, so the Arc proof was checked against the Coinbase contract.
+ *     circuit, so that proof was checked against the Coinbase contract.
  *   - The proof history recorded the literal string 'Sepolia' for every proof.
  *   - The deep-link parser defaulted a missing circuit to Coinbase KYC.
  *

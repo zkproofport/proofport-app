@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {NETWORK_CATEGORIES} from '../config/networks';
 
 const SETTINGS_KEY = '@zkproofport:settings:app';
 
@@ -54,7 +55,19 @@ export const settingsStore = {
     }
     // Missing keys in older versions acquire their initial defaults. A failed
     // read or corrupt payload must reject, so an update cannot erase it.
-    return {...DEFAULT_SETTINGS, ...saved};
+    const merged: AppSettings = {...DEFAULT_SETTINGS, ...saved};
+    // The default network is a picker preference with no behaviour behind it
+    // (CLAUDE.md's display-value exception). A saved network the app no
+    // longer has -- `arc`, removed 2026-10-13 -- would otherwise sit in the
+    // More picker as a raw id with no option to match it.
+    if (!NETWORK_CATEGORIES.some(n => n.id === merged.defaultNetwork)) {
+      console.log(
+        `[settings] saved defaultNetwork '${merged.defaultNetwork}' is not a known network ` +
+          `(${NETWORK_CATEGORIES.map(n => n.id).join(', ')}); showing '${DEFAULT_SETTINGS.defaultNetwork}'`,
+      );
+      merged.defaultNetwork = DEFAULT_SETTINGS.defaultNetwork;
+    }
+    return merged;
   },
 
   update(partial: Partial<AppSettings>): Promise<AppSettings> {

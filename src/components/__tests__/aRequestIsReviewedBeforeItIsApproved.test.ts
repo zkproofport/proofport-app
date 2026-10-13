@@ -273,28 +273,10 @@ describe('a request is reviewed before it is approved', () => {
     expect(text).not.toContain('19');
   });
 
-  it('does not describe an absent Arc action as a requested authorization', () => {
-    render(request({circuit: 'arc_eligibility', inputs: {scope: 'app'}}));
-    const text = renderedText(renderer);
-    expect(text).toContain('host.proofRequest.presentation.arc.title');
-    expect(text).not.toContain('host.proof.circuitSelection.arcEligibility.description');
-    expect(renderer.root.findAllByProps({testID: 'request-action'})).toHaveLength(0);
-  });
-
-  it.each(['en', 'ko'] as const)('uses accurate %s Arc condition copy when no action was requested', language => {
-    mockLanguage = language;
-    render(request({circuit: 'arc_eligibility', inputs: {scope: 'app'}}));
-    const text = renderedText(renderer);
-    const expected = {
-      en: ['Prove your Arc eligibility', 'Ownership of a Coinbase-attested wallet', 'when an action is requested'],
-      ko: ['Arc 인증 조건을 증명해주세요', 'Coinbase 인증 지갑 보유', '작업 요청 시'],
-    };
-    for (const phrase of expected[language]) expect(text).toContain(phrase);
-    expect(text).not.toMatch(/authorizes the requested action|Prove eligibility for the Arc action|요청 작업 승인|승인 작업과 도메인의 해시값/);
-    expect(renderer.root.findAllByProps({testID: 'request-action'})).toHaveLength(0);
-  });
-
-  it.each(['unknown_circuit', '__proto__', 'constructor'])(
+  // `arc_eligibility` was removed from the app on 2026-10-13. A dapp or an old
+  // QR code that still names it must be refused like any unknown circuit,
+  // never routed to another circuit's flow.
+  it.each(['unknown_circuit', '__proto__', 'constructor', 'arc_eligibility'])(
     'refuses unsupported circuit %s while allowing rejection', circuit => {
       const {onAccept, onReject} = render(request({circuit: circuit as ProofRequest['circuit']}));
       expect(renderedText(renderer)).toContain(circuit);

@@ -170,7 +170,7 @@ describe('development and staging', () => {
 });
 
 describe('the circuits that live only on main', () => {
-  it.each(['arc_eligibility', 'giwa_attestation', 'mdl_kr_age'])(
+  it.each(['giwa_attestation', 'mdl_kr_age'])(
     '%s reads main on a production build, with no tag involved',
     async circuit => {
       const fetchMock = githubFails('offline');
@@ -195,7 +195,6 @@ describe('the circuits that live only on main', () => {
 });
 
 describe('a verifier follows the circuit bytes', () => {
-  const arc = '0x2aeb66292f631ceb6225ffa2439b1f2b4b15e44a';
   const giwa = '0x5da234546874304f8c51bbeed00fc632938211c1';
   const oldGiwa = '0xeb9eb5452790cfe549ff83ceb3dbe1c432231492';
 
@@ -205,7 +204,6 @@ describe('a verifier follows the circuit bytes', () => {
         return {ok: true, json: async () => ({tag_name: 'v1.3.0'})};
       }
       const records: Record<string, {chain: number; address: string}> = {
-        '/main/broadcast/DeployArcEligibility.s.sol/5042002/run-latest.json': {chain: 5042002, address: arc},
         '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: currentGiwa},
         '/v1.3.0/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: oldGiwa},
         '/v1.3.0/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json': {chain: 8453, address: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382'},
@@ -224,9 +222,8 @@ describe('a verifier follows the circuit bytes', () => {
   }
 
   it.each(['development', 'staging', 'production'])(
-    '%s resolves Arc and GIWA to the current main verifiers', async env => {
+    '%s resolves GIWA to the current main verifier', async env => {
       const fetchMock = broadcasts();
-      expect(await fetchDeploymentAddress('arc_eligibility', env)).toBe(arc);
       expect(await fetchDeploymentAddress('giwa_attestation', env)).toBe(giwa);
       expect(fetchMock.mock.calls.every(([url]) => url.includes('/main/broadcast/'))).toBe(true);
     },
@@ -238,12 +235,12 @@ describe('a verifier follows the circuit bytes', () => {
     expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBe('0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c');
   });
 
-  it.each(['arc_eligibility', 'giwa_attestation'])(
+  it.each(['giwa_attestation'])(
     'ignores the old unversioned %s cache and has an offline verifier', async circuit => {
       mockDisk.set(`@proofport/deployment/production/${circuit}`, JSON.stringify({address: oldGiwa}));
       const fetchMock = githubFails('offline');
       const address = await getVerifierAddress(circuit, 'production');
-      expect(address.toLowerCase()).toBe(circuit === 'arc_eligibility' ? arc : giwa);
+      expect(address.toLowerCase()).toBe(giwa);
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );

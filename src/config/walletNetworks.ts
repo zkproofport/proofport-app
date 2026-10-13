@@ -3,11 +3,11 @@
  *
  * A WalletConnect session approves a fixed set of chains when it is created.
  * Anything outside that set cannot be signed for, no matter what the wallet has
- * configured on its own side — which is why adding Arc Testnet inside MetaMask
- * by hand did not help: the session had never asked for it.
+ * configured on its own side — which is why adding a circuit's chain inside
+ * MetaMask by hand did not help: the session had never asked for it.
  *
  * This list used to be two chains typed into the connection setup, Ethereum
- * and Base, while the app pinned circuits to Arc, GIWA and a Korea mobile-ID
+ * and Base, while the app pinned circuits to GIWA and a Korea mobile-ID
  * network. Every one of those was unreachable from a connected wallet.
  *
  * So the list is DERIVED: the base network for this build, plus every chain a

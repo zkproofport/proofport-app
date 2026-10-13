@@ -120,12 +120,12 @@ afterEach(async () => {
 });
 
 describe('wallet presentation preserves the binding and live-session distinction', () => {
-  it('renders one Coinbase group for KYC, Country and Arc, and one separate GIWA group', async () => {
+  it('renders one Coinbase group for KYC and Country, and one separate GIWA group', async () => {
     await render();
     const rows = screen!.root.findAll(item => typeof item.type === 'string' && item.props.testID?.startsWith('wallet-binding-'));
     expect(rows.map(row => row.props.testID).sort()).toEqual(['wallet-binding-coinbase', 'wallet-binding-giwa']);
     const coinbase = textOf(findNode('wallet-binding-coinbase'));
-    for (const name of ['Coinbase KYC', 'Coinbase Country', 'Arc Eligibility']) expect(coinbase).toContain(name);
+    for (const name of ['Coinbase KYC', 'Coinbase Country']) expect(coinbase).toContain(name);
     expect(textOf(screen!.root)).not.toMatch(/OIDC Domain|Korea Mobile ID/);
   });
 

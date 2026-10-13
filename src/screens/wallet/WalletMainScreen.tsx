@@ -11,9 +11,9 @@ import {useTranslation} from 'react-i18next';
  * The name of a chain, from the chains this app already knows.
  *
  * This was a hand-typed map of eight chain numbers. It had Goerli and Mumbai —
- * both long dead — and neither Arc (5042002) nor Base Sepolia (84532), which
- * are the two a developer build actually connects to. A wallet on Arc read
- * "Chain 5042002".
+ * both long dead — and neither GIWA Sepolia (91342) nor Base Sepolia (84532),
+ * which are the ones a developer build actually connects to. A wallet on GIWA
+ * Sepolia read "Chain 91342".
  */
 function networkName(chainId: number): string {
   for (const circuit of ALL_CIRCUIT_IDS) {

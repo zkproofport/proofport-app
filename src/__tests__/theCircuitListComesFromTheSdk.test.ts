@@ -82,14 +82,14 @@ function codeOf(file: string): string {
 }
 
 describe('the identifiers come from the published SDK', () => {
-  it('CONTRACT: the SDK is the list — eight canonical ids, none of them hyphenated', () => {
+  it('CONTRACT: the SDK is the list — seven canonical ids, none of them hyphenated', () => {
     /*
      * Not an assertion about the SDK's content so much as a statement of what
      * every other case here is measured against. If this number changes, a
      * circuit was added or removed upstream and the cases below say which of
      * this app's tables have not caught up.
      */
-    expect(ALL_CIRCUIT_IDS.length).toBe(8);
+    expect(ALL_CIRCUIT_IDS.length).toBe(7);
     for (const id of ALL_CIRCUIT_IDS) {
       expect([id, /^[a-z][a-z0-9_]*$/.test(id)]).toEqual([id, true]);
     }
@@ -323,8 +323,9 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
      */
     const loading = codeOf(path.join(SRC, 'screens', 'LoadingScreen.tsx'));
     expect(loading).toMatch(/BASE_CIRCUITS[^=]*=\s*SUPPORTED_CIRCUIT_IDS/);
-    // Experimental AND planned: Arc is neither supported nor planned, and for
-    // one commit it was in neither list, so its files were never prefetched.
+    // Experimental AND planned: an experimental circuit is neither supported
+    // nor planned, and for one commit one was in neither list, so its files
+    // were never prefetched.
     expect(loading).toMatch(/DEV_ONLY_CIRCUITS[^=]*=\s*DEV_ONLY_CIRCUIT_IDS/);
     expect(loading).not.toMatch(/'(coinbase|giwa|oidc|mdl)_/);
     expect(

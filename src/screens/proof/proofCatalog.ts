@@ -51,16 +51,7 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     providerKey: 'host.proof.laboratory.giwa.provider',
     groupKey: 'host.proof.laboratory.giwa.sectionTitle',
     badgeKey: 'host.proof.laboratory.poc',
-    open: navigation => navigation.navigate('ArcActionInput', {circuit: 'giwa_attestation'}),
-  },
-  arc_eligibility: {
-    surface: 'laboratory', purpose: 'identity', icon: 'document',
-    titleKey: 'host.proof.laboratory.arc.title',
-    descriptionKey: 'host.proof.laboratory.arc.description',
-    providerKey: 'host.proof.laboratory.arc.provider',
-    groupKey: 'host.proof.laboratory.arc.sectionTitle',
-    badgeKey: 'host.proof.laboratory.poc',
-    open: navigation => navigation.navigate('ArcActionInput', {circuit: 'arc_eligibility'}),
+    open: navigation => navigation.navigate('ActionInput', {circuit: 'giwa_attestation'}),
   },
   mdl_kr_ownership: {
     surface: 'laboratory', purpose: 'identity', icon: 'id-card',

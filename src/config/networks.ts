@@ -12,7 +12,7 @@
  */
 import type {CircuitName} from './contracts';
 
-export type NetworkId = 'base' | 'giwa' | 'omnione' | 'arc';
+export type NetworkId = 'base' | 'giwa' | 'omnione';
 
 export interface NetworkDescriptor {
   id: NetworkId;
@@ -36,16 +36,6 @@ export const USER_FACING_NETWORKS: ReadonlyArray<NetworkDescriptor> = [
     id: 'giwa',
     labelKey: 'host.more.networkGiwa',
     circuits: ['giwa_attestation'],
-    developerOnly: true,
-  },
-  {
-    // Circle's Arc. Developer-only for the same reason GIWA and OmniOne are:
-    // the verifier is not deployed on any mainnet, the circuit's public-input
-    // layout may still change, and a release build must not offer a proof that
-    // nothing can check.
-    id: 'arc',
-    labelKey: 'host.more.networkArc',
-    circuits: ['arc_eligibility'],
     developerOnly: true,
   },
   {

@@ -221,10 +221,10 @@ export function computeNullifier(
  *
  * A table because the answer differs per circuit and the wrong one does not
  * misbehave -- it produces a proof that fails with "Nullifier mismatch",
- * pointing at nothing. `arc_eligibility` and `giwa_attestation` moved to the
- * wallet-and-constant formula when they gained their optional action: their
- * `signal_hash` is zero in action mode, so a nullifier taken from it would
- * give one wallet two identities in one scope.
+ * pointing at nothing. `giwa_attestation` moved to the wallet-and-constant
+ * formula when it gained its optional action: its `signal_hash` is zero in
+ * action mode, so a nullifier taken from it would give one wallet two
+ * identities in one scope.
  *
  * Mirrors NULLIFIER_FROM_WALLET_AND_TAG in proofport-ai; both must match
  * coinbase-libs/src/nullifier.nr, which is the only one that decides.
@@ -232,7 +232,6 @@ export function computeNullifier(
 const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, boolean>> = Object.freeze({
   coinbase_attestation: false,
   coinbase_country_attestation: false,
-  arc_eligibility: true,
   giwa_attestation: true,
 });
 
@@ -285,14 +284,14 @@ export interface AttesterCircuitInputs {
   // Public inputs
   signal_hash: string[];
   /**
-   * EIP-712 hashes, present only for `arc_eligibility`.
+   * EIP-712 hashes, present only when an action-binding circuit
+   * (`giwa_attestation`) is proving an action.
    *
    * That circuit's `fn main` puts them BETWEEN `signal_hash` and the Merkle
    * root, and bb reads the vector positionally with no field names, so their
-   * place in `flattenCircuitInputs` is the whole contract. They were missing
-   * entirely until 2026-09-12: the app signed the typed action and then sent
-   * the Coinbase-shaped vector, which the prover rejected one second in with
-   * `MoproError.NoirError` and nothing naming the cause.
+   * place in `flattenCircuitInputs` is the whole contract. Leaving them out
+   * sends another circuit's vector shape, which the prover rejects one second
+   * in with `MoproError.NoirError` and nothing naming the cause.
    */
   domain_separator?: string[];
   action_hash?: string[];
@@ -315,7 +314,7 @@ export interface AttesterCircuitInputs {
 }
 
 export function flattenCircuitInputs(inputs: AttesterCircuitInputs): string[] {
-  const arcHashes =
+  const actionHashes =
     inputs.domain_separator && inputs.action_hash
       ? [...inputs.domain_separator, ...inputs.action_hash]
       : [];
@@ -323,14 +322,14 @@ export function flattenCircuitInputs(inputs: AttesterCircuitInputs): string[] {
   // accept the shorter vector as some other circuit's and fail opaquely.
   if (Boolean(inputs.domain_separator) !== Boolean(inputs.action_hash)) {
     throw new Error(
-      'arc_eligibility needs BOTH domain_separator and action_hash, or neither. ' +
+      'An action-bound vector needs BOTH domain_separator and action_hash, or neither. ' +
         `Got domain_separator=${Boolean(inputs.domain_separator)}, action_hash=${Boolean(inputs.action_hash)}.`,
     );
   }
 
   return [
     ...inputs.signal_hash,
-    ...arcHashes,
+    ...actionHashes,
     ...inputs.signer_list_merkle_root,
     ...inputs.scope,
     ...inputs.nullifier,

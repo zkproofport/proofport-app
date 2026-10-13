@@ -32,8 +32,6 @@ const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
  */
 const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
   coinbase_attestation: 'coinbase',
-  // Same Coinbase-attested wallet, so binding once covers both.
-  arc_eligibility: 'coinbase',
   coinbase_country_attestation: 'coinbase',
   giwa_attestation: 'giwa',
   oidc_domain_attestation: 'oidc',
@@ -60,9 +58,6 @@ const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
 export const CIRCUIT_BINDS_A_WALLET = {
   coinbase_attestation: true,
   coinbase_country_attestation: true,
-  // Same Coinbase-attested wallet; it signs an EIP-712 action instead of a
-  // signal hash, which changes nothing about needing a wallet.
-  arc_eligibility: true,
   // Its hook asks for a personal_sign, so a wallet has to be bound.
   giwa_attestation: true,
   // The signature is inside the OIDC identity token. No wallet is read.
@@ -84,10 +79,10 @@ export function walletGroupKey(circuit: CircuitName): CircuitName {
  * because a list computed inside a screen cannot be checked: a test that works
  * the rows out for itself passes with the grouping torn back out.
  *
- * Coinbase KYC, Coinbase Country and Arc share one Coinbase-attested wallet,
- * so they are one entry. Listing them separately showed one binding three
- * times, and since all three read the same stored entry, connecting once made
- * all three say Connected.
+ * Coinbase KYC and Coinbase Country share one Coinbase-attested wallet, so
+ * they are one entry. Listing them separately showed one binding several
+ * times, and since each read the same stored entry, connecting once made all
+ * of them say Connected.
  */
 export const WALLET_BINDING_ROWS: CircuitName[] = (() => {
   const seen = new Set<string>();

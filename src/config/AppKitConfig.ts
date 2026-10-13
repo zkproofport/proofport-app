@@ -21,11 +21,11 @@ const metadata = {
  *
  * A WalletConnect session approves its chains once, at connection time, and
  * nothing outside that set can be signed for afterwards. This was `[mainnet,
- * base]` typed out by hand while circuits were pinned to Arc, GIWA and a Korea
+ * base]` typed out by hand while circuits were pinned to GIWA and a Korea
  * mobile-ID network — so a wallet could never sign for any of them, and adding
  * the network inside MetaMask changed nothing because the session had not
  * asked for it. The symptom was an alert reading "Active chainId is 0x1 but
- * received 0x4cef52" with no way forward.
+ * received 0x…" naming the circuit's chain, with no way forward.
  */
 const networks = walletNetworks();
 

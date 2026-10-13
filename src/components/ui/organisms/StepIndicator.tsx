@@ -154,13 +154,17 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({steps}) => {
   );
 };
 
+export const CONNECTOR_MIN_HEIGHT = 28;
+
 const styles = StyleSheet.create({
   container: {
     paddingVertical: 16,
   },
+  // The row stretches so the connector can fill whatever height the label
+  // takes; a fixed-height line left a gap whenever a label wrapped.
   stepContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
   },
   stepIndicator: {
     alignItems: 'center',
@@ -175,10 +179,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Touches the circle above and the circle below: no margin, and it grows.
   connector: {
     width: 2,
-    height: 24,
-    marginTop: 4,
+    flexGrow: 1,
+    minHeight: CONNECTOR_MIN_HEIGHT,
   },
   stepContent: {
     flex: 1,

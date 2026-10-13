@@ -10,7 +10,7 @@ React Native mobile app for generating zero-knowledge proofs on mobile devices u
 - **Microsoft 365 Support**: Authenticate with Microsoft 365 organizational accounts
 - **QR-based Deep Linking**: Scan QR codes to receive proof requests from external dApps
 - **Proof Home**: Search and filter organization account, Coinbase KYC, and country proofs, with a direct QR scanner entry
-- **Laboratory**: Active GIWA, Arc, and Korean mobile ID ownership, age, and region proof flows
+- **Laboratory**: Active GIWA and Korean mobile ID ownership, age, and region proof flows
 - **Request Review**: Review incoming proof conditions and read-only EIP-712 action keys and values before continuing to signing and generation
 - **Wallet Integration**: Connect external wallets over WalletConnect (Reown AppKit)
 - **Proof History**: Persistent storage and viewing of generated proofs
@@ -137,7 +137,7 @@ The app uses a bottom tab navigation with 5 main sections:
 
 1. **Proof** (ProofStackNavigator)
    - Proof Home: Search and filter organization account, Coinbase KYC, and country proofs; open the QR scanner
-   - Laboratory: GIWA, Arc, and Korean mobile ID proofs remain available without a developer-mode requirement
+   - Laboratory: GIWA and Korean mobile ID proofs remain available without a developer-mode requirement
    - Input Screens: Standalone proof parameters; manual action entry is limited to standalone testing
    - Proof Generation: Generate ZK proof
    - Proof Complete: Show success and proof data
@@ -175,7 +175,7 @@ proofport://proof-request?circuit=<circuit>&signalHash=<hash>&requestId=<id>&cal
 
 ### Parameters
 
-- `circuit` (required): Circuit identifier (`coinbase_attestation`, `coinbase_country_attestation`, `oidc_domain_attestation`, or `arc_eligibility`). The canonical list is `@zkproofport-app/sdk/circuits`; an id not in it is refused rather than proved as something else
+- `circuit` (required): Circuit identifier (`coinbase_attestation`, `coinbase_country_attestation`, `oidc_domain_attestation`, or `giwa_attestation`). The canonical list is `@zkproofport-app/sdk/circuits`; an id not in it is refused rather than proved as something else
 - `signalHash` (required): Anti-replay challenge from the dApp
 - `requestId` (required): Unique request identifier for callback matching
 - `callbackUrl` (required): URL to POST proof response to
@@ -213,26 +213,18 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
    - Input: OIDC JWT from Google or Microsoft
    - Output: Proof of email domain affiliation without revealing email
 
-4. **arc_eligibility** (experimental, Developer Mode only): action-bound Coinbase KYC
-   - Input: the same Coinbase attestation, optionally binding one EIP-712 action the wallet signs
-   - Output: a proof carrying the action's domain separator and struct hash, so a
-     verifier checks WHICH action was authorised — not merely that someone eligible
-     signed something
-   - The verifier is deployed on Arc Testnet (chain 5042002) and nowhere else, which
-     is why the whole Arc network sits behind Developer Mode. In a shipped product a
-     dapp supplies the action through the SDK; the in-app screen exists for testing.
-
-5. **giwa_attestation** (experimental, Developer Mode only): GIWA account attestation
-   - Input: a GIWA-attested wallet, optionally binding one EIP-712 action.
+4. **giwa_attestation** (experimental, Developer Mode only): GIWA account attestation
+   - Input: a GIWA-attested wallet, optionally binding one EIP-712 action the wallet signs.
+   - Output: with an action, a proof carrying the action's domain separator and struct
+     hash, so a verifier checks WHICH action was authorised.
    - Verification network: GIWA Sepolia (chain 91342).
 
 ### Standalone action testing
 
-With Developer Mode enabled, choose Arc or GIWA in the Verify tab and open its
-circuit card. Both open the action input screen without a relay request. Select
+With Developer Mode enabled, choose GIWA in the Verify tab and open its circuit
+card. It opens the action input screen without a relay request. Select
 Deposit, Withdraw, Transfer, or a custom action, then enter the app name, contract,
-and field values. The signed domain follows the selected circuit's network,
-including when the circuit is changed within the input screen.
+and field values. The signed domain follows the selected circuit's network.
 
 Generate proof asks the wallet to switch to that network and signs the structured
 action with `eth_signTypedData_v4`. This signs an authorization; it does not execute

@@ -1,6 +1,6 @@
 /**
- * The EIP-712 action an `arc_eligibility` proof binds to — re-exported, not
- * re-implemented.
+ * The EIP-712 action a `giwa_attestation` proof can bind to — re-exported,
+ * not re-implemented.
  *
  * Both the type and the check live in `@zkproofport-app/sdk`, reached through
  * `src/config/circuitIds.ts` — the app's one door to that package — because a dapp

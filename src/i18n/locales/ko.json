@@ -58,7 +58,6 @@
       "openStoaEnabled": "OpenStoa 미니앱",
       "openStoaEnabledHint": "이 빌드의 설정을 덮어씁니다. 앱을 다시 시작하면 적용됩니다.",
       "openStoaRestartRequired": "앱을 다시 시작하면 적용됩니다.",
-      "networkArc": "Arc 테스트넷",
       "networkOther": "기타",
       "subtitle": "내게 맞게 ZKProofport를 설정하세요.",
       "sectionAbout": "앱 정보",
@@ -280,10 +279,6 @@
         "mdlKrRegion": {
           "title": "지역",
           "description": "거주 지역을 증명해요 (완전 익명)"
-        },
-        "arcEligibility": {
-          "title": "Arc 자격 증명",
-          "description": "자격을 증명하면서 Arc 에서 할 행위 하나를 승인해요"
         }
       },
       "mdlKrInput": {
@@ -392,9 +387,7 @@
         "confirmMessage": "영지식 증명을 생성할까요?",
         "confirmCancel": "취소",
         "confirmGenerate": "생성",
-        "stackTitle": "증명 생성",
-        "arcEligibilityTitle": "Arc 자격 증명 (실험)",
-        "arcEligibilityDescription": "Arc 서비스 이용 자격을 증명하고 행위 하나를 승인해요. 서명하기 전에 지갑이 그 내용을 보여주고, 증명은 그 행위에만 쓰입니다."
+        "stackTitle": "증명 생성"
       },
       "domain": {
         "heroLabel": "OIDC 도메인 인증",
@@ -436,7 +429,7 @@
       },
       "txTitle": "트랜잭션",
       "explorerTitle": "탐색기",
-      "arcAction": {
+      "actionInput": {
         "stackTitle": "행동 인가",
         "identityOnly": "인증만 증명 (행동 없음)",
         "heroLabel": "행동",
@@ -534,12 +527,6 @@
           "description": "GIWA 테스트넷의 신원 인증 증명과 동작 서명을 테스트해요",
           "provider": "GIWA 테스트넷 · 모의 인증 데이터",
           "sectionTitle": "GIWA"
-        },
-        "arc": {
-          "title": "자격 테스트",
-          "description": "Coinbase 인증을 바탕으로 자격 증명과 동작 서명을 테스트해요",
-          "provider": "Arc 테스트넷 · Coinbase 인증",
-          "sectionTitle": "Arc"
         },
         "ownership": {
           "title": "신분증 보유",
@@ -661,12 +648,6 @@
           "title": "국가 조건을 증명해주세요",
           "shared": "국가 조건 충족 여부 · 요청 국가 목록과 포함 조건 · 참여용 식별값",
           "private": "인증 국가 원문 · 신분증 원문"
-        },
-        "arc": {
-          "title": "Arc 인증 조건을 증명해주세요",
-          "requirement": "Coinbase 인증 지갑 보유",
-          "shared": "인증 조건 충족 여부 · 참여용 식별값 · 작업 요청 시 작업과 도메인의 해시값",
-          "private": "KYC 개인정보 · 지갑 서명 원문"
         },
         "giwa": {
           "title": "GIWA 인증 조건을 증명해주세요",

@@ -66,7 +66,9 @@ describe('a proof request is checked before the prover runs', () => {
     'coinbase_attestation_v2',
     'attestation',
     '../coinbase_attestation',
-  ])('refuses the invented spelling %s', (circuit) => {
+    // Removed on 2026-10-13. A link that still names it is an unknown circuit.
+    'arc_eligibility',
+  ])('refuses the invented or removed circuit %s', (circuit) => {
     const r = validateProofRequest(base({circuit} as Partial<ProofRequest>));
     expect(r.valid).toBe(false);
     expect(r.error).toMatch(/Invalid circuit type/);

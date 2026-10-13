@@ -177,8 +177,6 @@ export {GITHUB_RAW};
 export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) | null> = {
   coinbase_attestation: (chainId) =>
     `DeployCoinbaseAttestation.s.sol/${chainId}/run-latest.json`,
-  arc_eligibility: (chainId) =>
-    `DeployArcEligibility.s.sol/${chainId}/run-latest.json`,
   coinbase_country_attestation: (chainId) =>
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
   oidc_domain_attestation: (chainId) =>
@@ -264,10 +262,6 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> =
  */
 export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   coinbase_attestation: 1,
-  // v2: the circuit gained the optional EIP-712 action and stopped deriving
-  // its nullifier from signal_hash, so every cached file on a device is for a
-  // circuit that no longer exists.
-  arc_eligibility: 2,
   coinbase_country_attestation: 1,
   oidc_domain_attestation: 3, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
   // v2: the circuit signs an EIP-712 action when one is supplied, dropped
@@ -307,9 +301,9 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
  * this app started. That is not a property of the project; it was the first
  * chain and it became the answer for chains nobody had thought about.
  *
- * The cost showed up the moment circuits spread: an `arc_eligibility` proof
- * was verified against the Coinbase contract on Base Sepolia and reported
- * "failed" while being valid, because the code asked the BUILD what chain it
+ * The cost showed up the moment circuits spread: a proof for a circuit whose
+ * verifier lives off Base was checked against the Coinbase contract on Base
+ * Sepolia and reported "failed" while being valid, because the code asked the BUILD what chain it
  * was on instead of asking the CIRCUIT. Fixing the caller is half of it; the
  * other half is that the wrong answer had to exist to be returned.
  *
@@ -328,16 +322,6 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
     name: 'Base',
     rpcUrl: 'https://mainnet.base.org',
     explorerUrl: 'https://basescan.org',
-  };
-  // Circle's Arc, where USDC is the gas token. Testnet only: public mainnet is
-  // 2026-09-16 and Circle has not published a chain id, so a production build
-  // has nothing to point at and says so with the same testnet entry rather
-  // than pretending a mainnet exists.
-  const ARC_TESTNET: NetworkConfig = {
-    chainId: 5042002,
-    name: 'Arc Testnet',
-    rpcUrl: 'https://rpc.testnet.arc.io',
-    explorerUrl: 'https://testnet.arcscan.app',
   };
   const GIWA_SEPOLIA: NetworkConfig = {
     chainId: 91342,
@@ -359,7 +343,6 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
     coinbase_attestation: coinbaseChain,
     coinbase_country_attestation: coinbaseChain,
     oidc_domain_attestation: coinbaseChain,
-    arc_eligibility: ARC_TESTNET,
     giwa_attestation: GIWA_SEPOLIA,
     mdl_kr_ownership: OMNIONE_TESTNET,
     mdl_kr_age: OMNIONE_TESTNET,
@@ -380,8 +363,6 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
-    // Arc Testnet (0xCbC8E63f...), deployed 2026-09-09.
-    arc_eligibility: '0x2aEB66292f631ceb6225ffA2439B1f2b4b15e44a',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
@@ -397,8 +378,6 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   },
   staging: {
     coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
-    // Arc Testnet (0xCbC8E63f...), deployed 2026-09-09.
-    arc_eligibility: '0x2aEB66292f631ceb6225ffA2439B1f2b4b15e44a',
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
@@ -408,8 +387,6 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
-    // This experimental circuit uses Arc Testnet in every build environment.
-    arc_eligibility: '0x2aEB66292f631ceb6225ffA2439B1f2b4b15e44a',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
     giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',

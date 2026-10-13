@@ -1,23 +1,21 @@
 /**
  * The EIP-712 action a proof binds to, for any circuit that can carry one.
  *
- * Every other circuit that needs something from the user has a screen for it:
- * the country list, the OIDC domain, the Korea mDL predicate. Arc had none, so
- * picking "Arc Eligibility" reached the proof screen with no action at all —
- * and the hook, which used to choose its circuit from whether an action was
- * present, quietly produced a COINBASE proof instead. This screen is the
- * missing half; the hook now refuses that combination rather than substituting.
+ * Every circuit that needs something from the user has a screen for it: the
+ * country list, the OIDC domain, the Korea mDL predicate. This is the one for
+ * an action-binding circuit (today `giwa_attestation`, where the action is
+ * optional).
  *
  * In the shipped product a dapp supplies the action through the SDK, and the
  * user never sees this screen. It exists for testing circuits whose verifiers
  * live only on testnets, which is why it sits behind Developer Mode.
  *
- * WHICH CIRCUIT. A parameter, and switchable here, because Arc stopped being
- * the only one: `giwa_attestation` binds an action too, and both now treat it
- * as optional. The list of circuits offered comes from the SDK's action table
- * rather than from names typed in here, so a third one appears by itself. The
- * chain in the signed domain follows the chosen circuit for the same reason --
- * a wallet refuses typed data whose chain id is not the one it is on.
+ * WHICH CIRCUIT. A parameter, and switchable here when more than one circuit
+ * can bind an action. The list of circuits offered comes from the SDK's action
+ * table rather than from names typed in here, so another one appears by
+ * itself. The chain in the signed domain follows the chosen circuit for the
+ * same reason -- a wallet refuses typed data whose chain id is not the one it
+ * is on.
  *
  * The user picks an action and fills its fields. Writing your own is one of the
  * choices rather than the only one, because an action a dapp would send is a
@@ -39,8 +37,8 @@ import type {TypedAction} from '../../utils/typedAction';
 import {ALL_CIRCUIT_IDS, CIRCUIT_ACTION_BINDING, getNetworkConfigForCircuit} from '../../config';
 import type {CircuitName} from '../../config';
 
-type Navigation = NativeStackNavigationProp<ProofStackParamList, 'ArcActionInput'>;
-type Route = RouteProp<ProofStackParamList, 'ArcActionInput'>;
+type Navigation = NativeStackNavigationProp<ProofStackParamList, 'ActionInput'>;
+type Route = RouteProp<ProofStackParamList, 'ActionInput'>;
 
 /**
  * The circuits that can carry an action, from the SDK's table. Not a list
@@ -63,14 +61,14 @@ interface ActionShape {
 }
 
 /**
- * The actions a dapp on Arc would ask a wallet to authorise. Adding one here is
+ * The actions a dapp would ask a wallet to authorise. Adding one here is
  * the whole change — the form, the validation and the summary all follow.
  */
 const ACTION_SHAPES: ReadonlyArray<ActionShape> = [
   {
     primaryType: 'Deposit',
-    labelKey: 'host.proof.arcAction.deposit',
-    descKey: 'host.proof.arcAction.depositDesc',
+    labelKey: 'host.proof.actionInput.deposit',
+    descKey: 'host.proof.actionInput.depositDesc',
     fields: [
       {id: 'amount', type: 'uint256'},
       {id: 'nonce', type: 'uint256'},
@@ -78,8 +76,8 @@ const ACTION_SHAPES: ReadonlyArray<ActionShape> = [
   },
   {
     primaryType: 'Withdraw',
-    labelKey: 'host.proof.arcAction.withdraw',
-    descKey: 'host.proof.arcAction.withdrawDesc',
+    labelKey: 'host.proof.actionInput.withdraw',
+    descKey: 'host.proof.actionInput.withdrawDesc',
     fields: [
       {id: 'amount', type: 'uint256'},
       {id: 'nonce', type: 'uint256'},
@@ -87,8 +85,8 @@ const ACTION_SHAPES: ReadonlyArray<ActionShape> = [
   },
   {
     primaryType: 'Transfer',
-    labelKey: 'host.proof.arcAction.transfer',
-    descKey: 'host.proof.arcAction.transferDesc',
+    labelKey: 'host.proof.actionInput.transfer',
+    descKey: 'host.proof.actionInput.transferDesc',
     fields: [
       {id: 'to', type: 'address'},
       {id: 'amount', type: 'uint256'},
@@ -139,7 +137,7 @@ const STARTING_CUSTOM: CustomField[] = [
 const NAME_SHAPE = /^[A-Za-z][A-Za-z0-9_]*$/;
 const BYTES32 = /^0x[0-9a-fA-F]{64}$/;
 
-export const ArcActionInputScreen: React.FC = () => {
+export const ActionInputScreen: React.FC = () => {
   const {t} = useTranslation();
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
@@ -147,8 +145,8 @@ export const ArcActionInputScreen: React.FC = () => {
 
   /*
    * The circuit this action is for. It arrives from the caller and can be
-   * switched here, because the two circuits that take an action differ only
-   * in which chain and verifier the signature is bound to -- and testing one
+   * switched here when several circuits take an action: they differ only in
+   * which chain and verifier the signature is bound to, and testing one
    * should not mean going back a screen.
    */
   const [circuit, setCircuit] = useState<CircuitName>(route.params.circuit);
@@ -184,8 +182,8 @@ export const ArcActionInputScreen: React.FC = () => {
       })),
       {
         value: CUSTOM,
-        label: t('host.proof.arcAction.custom'),
-        description: t('host.proof.arcAction.customDesc'),
+        label: t('host.proof.actionInput.custom'),
+        description: t('host.proof.actionInput.customDesc'),
       },
     ],
     [t],
@@ -195,31 +193,31 @@ export const ArcActionInputScreen: React.FC = () => {
 
   /** The built action, or the first thing wrong with what has been entered. */
   const parsed = useMemo((): {action: TypedAction} | {error: string} => {
-    if (!appName.trim()) return {error: t('host.proof.arcAction.errAppName')};
-    if (!ADDRESS.test(contract.trim())) return {error: t('host.proof.arcAction.errContract')};
+    if (!appName.trim()) return {error: t('host.proof.actionInput.errAppName')};
+    if (!ADDRESS.test(contract.trim())) return {error: t('host.proof.actionInput.errContract')};
 
     if (!shape) {
       const name = customName.trim();
-      if (!NAME_SHAPE.test(name)) return {error: t('host.proof.arcAction.errActionName')};
-      if (!customFields.length) return {error: t('host.proof.arcAction.errNoFields')};
+      if (!NAME_SHAPE.test(name)) return {error: t('host.proof.actionInput.errActionName')};
+      if (!customFields.length) return {error: t('host.proof.actionInput.errNoFields')};
 
       const seen = new Set<string>();
       const custom: Record<string, string | boolean> = {};
       for (const field of customFields) {
         const fieldName = field.name.trim();
-        if (!NAME_SHAPE.test(fieldName)) return {error: t('host.proof.arcAction.errFieldName', {field: field.name || '—'})};
-        if (seen.has(fieldName)) return {error: t('host.proof.arcAction.errFieldTwice', {field: fieldName})};
+        if (!NAME_SHAPE.test(fieldName)) return {error: t('host.proof.actionInput.errFieldName', {field: field.name || '—'})};
+        if (seen.has(fieldName)) return {error: t('host.proof.actionInput.errFieldTwice', {field: fieldName})};
         seen.add(fieldName);
 
         const value = field.value.trim();
         // A value that does not match its declared type is signed and hashed
         // exactly like a correct one, and only fails at a contract that decodes
         // it — much later, and somewhere else.
-        if (field.type === 'address' && !ADDRESS.test(value)) return {error: t('host.proof.arcAction.errAddress', {field: fieldName})};
-        if (field.type === 'uint256' && !DIGITS.test(value)) return {error: t('host.proof.arcAction.errNumber', {field: fieldName})};
-        if (field.type === 'bytes32' && !BYTES32.test(value)) return {error: t('host.proof.arcAction.errBytes32', {field: fieldName})};
-        if (field.type === 'bool' && value !== 'true' && value !== 'false') return {error: t('host.proof.arcAction.errBool', {field: fieldName})};
-        if (field.type === 'string' && !value) return {error: t('host.proof.arcAction.errRequired', {field: fieldName})};
+        if (field.type === 'address' && !ADDRESS.test(value)) return {error: t('host.proof.actionInput.errAddress', {field: fieldName})};
+        if (field.type === 'uint256' && !DIGITS.test(value)) return {error: t('host.proof.actionInput.errNumber', {field: fieldName})};
+        if (field.type === 'bytes32' && !BYTES32.test(value)) return {error: t('host.proof.actionInput.errBytes32', {field: fieldName})};
+        if (field.type === 'bool' && value !== 'true' && value !== 'false') return {error: t('host.proof.actionInput.errBool', {field: fieldName})};
+        if (field.type === 'string' && !value) return {error: t('host.proof.actionInput.errRequired', {field: fieldName})};
         custom[fieldName] = field.type === 'bool' ? value === 'true' : value;
       }
 
@@ -236,12 +234,12 @@ export const ArcActionInputScreen: React.FC = () => {
     const message: Record<string, string> = {};
     for (const f of shape.fields) {
       const v = values[f.id].trim();
-      if (!v) return {error: t('host.proof.arcAction.errRequired', {field: t(`host.proof.arcAction.field.${f.id}`)})};
+      if (!v) return {error: t('host.proof.actionInput.errRequired', {field: t(`host.proof.actionInput.field.${f.id}`)})};
       if (f.type === 'address' && !ADDRESS.test(v)) {
-        return {error: t('host.proof.arcAction.errAddress', {field: t(`host.proof.arcAction.field.${f.id}`)})};
+        return {error: t('host.proof.actionInput.errAddress', {field: t(`host.proof.actionInput.field.${f.id}`)})};
       }
       if (f.type === 'uint256' && !DIGITS.test(v)) {
-        return {error: t('host.proof.arcAction.errNumber', {field: t(`host.proof.arcAction.field.${f.id}`)})};
+        return {error: t('host.proof.actionInput.errNumber', {field: t(`host.proof.actionInput.field.${f.id}`)})};
       }
       message[f.id] = v;
     }
@@ -294,13 +292,13 @@ export const ArcActionInputScreen: React.FC = () => {
 
         <Card style={styles.sectionCard}>
           <Text style={[styles.eyebrow, {color: themeColors.info[400]}]}>
-            {t('host.proof.arcAction.heroLabel')}
+            {t('host.proof.actionInput.heroLabel')}
           </Text>
           <Text style={[styles.heroTitle, {color: themeColors.text.primary}]}>
-            {t('host.proof.arcAction.title')}
+            {t('host.proof.actionInput.title')}
           </Text>
           <Text style={[styles.hint, {color: themeColors.text.secondary}]}>
-            {t('host.proof.arcAction.description')}
+            {t('host.proof.actionInput.description')}
           </Text>
         </Card>
 
@@ -314,22 +312,22 @@ export const ArcActionInputScreen: React.FC = () => {
               here would be a second name for the same thing.
             */}
             <Select<CircuitName>
-              label={t('host.proof.arcAction.circuitLabel')}
+              label={t('host.proof.actionInput.circuitLabel')}
               value={circuit}
               options={circuitOptions}
               onChange={setCircuit}
-              pickerTitle={t('host.proof.arcAction.circuitLabel')}
+              pickerTitle={t('host.proof.actionInput.circuitLabel')}
             />
           </Card>
         ) : null}
 
         <Card style={styles.sectionCard}>
           <Select<Choice>
-            label={t('host.proof.arcAction.actionLabel')}
+            label={t('host.proof.actionInput.actionLabel')}
             value={choice}
             options={actionOptions}
             onChange={setChoice}
-            pickerTitle={t('host.proof.arcAction.actionLabel')}
+            pickerTitle={t('host.proof.actionInput.actionLabel')}
           />
         </Card>
 
@@ -337,14 +335,14 @@ export const ArcActionInputScreen: React.FC = () => {
           <>
             <Card style={styles.sectionCard}>
               <Text style={[styles.eyebrow, {color: themeColors.text.tertiary}]}>
-                {t('host.proof.arcAction.contractLabel')}
+                {t('host.proof.actionInput.contractLabel')}
               </Text>
               <Text style={[styles.fieldName, {color: themeColors.text.secondary}]}>
-                {t('host.proof.arcAction.appNameLabel')}
+                {t('host.proof.actionInput.appNameLabel')}
               </Text>
               <TextInput
                 style={[inputStyle(!!appName), styles.field]}
-                placeholder={t('host.proof.arcAction.appNamePlaceholder')}
+                placeholder={t('host.proof.actionInput.appNamePlaceholder')}
                 placeholderTextColor={themeColors.text.disabled}
                 value={appName}
                 onChangeText={setAppName}
@@ -352,11 +350,11 @@ export const ArcActionInputScreen: React.FC = () => {
                 autoCorrect={false}
               />
               <Text style={[styles.fieldHint, styles.aboveNext, {color: themeColors.text.tertiary}]}>
-                {t('host.proof.arcAction.appNameHint')}
+                {t('host.proof.actionInput.appNameHint')}
               </Text>
 
               <Text style={[styles.fieldName, {color: themeColors.text.secondary}]}>
-                {t('host.proof.arcAction.contractAddressLabel')}
+                {t('host.proof.actionInput.contractAddressLabel')}
               </Text>
               <TextInput
                 style={inputStyle(ADDRESS.test(contract.trim()))}
@@ -368,18 +366,18 @@ export const ArcActionInputScreen: React.FC = () => {
                 autoCorrect={false}
               />
               <Text style={[styles.fieldHint, {color: themeColors.text.tertiary}]}>
-                {t('host.proof.arcAction.contractHint', {chain: network.name, chainId: network.chainId})}
+                {t('host.proof.actionInput.contractHint', {chain: network.name, chainId: network.chainId})}
               </Text>
             </Card>
 
             <Card style={styles.sectionCard}>
               <Text style={[styles.eyebrow, {color: themeColors.text.tertiary}]}>
-                {t('host.proof.arcAction.valuesLabel')}
+                {t('host.proof.actionInput.valuesLabel')}
               </Text>
               {shape.fields.map(f => (
                 <React.Fragment key={f.id}>
                   <Text style={[styles.fieldName, {color: themeColors.text.secondary}]}>
-                    {t(`host.proof.arcAction.field.${f.id}`)}
+                    {t(`host.proof.actionInput.field.${f.id}`)}
                   </Text>
                   <TextInput
                     style={[inputStyle(!!values[f.id]), styles.field]}
@@ -398,11 +396,11 @@ export const ArcActionInputScreen: React.FC = () => {
         ) : (
           <Card style={styles.sectionCard}>
             <Text style={[styles.eyebrow, {color: themeColors.text.tertiary}]}>
-              {t('host.proof.arcAction.customLabel')}
+              {t('host.proof.actionInput.customLabel')}
             </Text>
 
             <Text style={[styles.fieldName, {color: themeColors.text.secondary}]}>
-              {t('host.proof.arcAction.actionNameLabel')}
+              {t('host.proof.actionInput.actionNameLabel')}
             </Text>
             <TextInput
               style={[inputStyle(!!customName), styles.field]}
@@ -419,12 +417,12 @@ export const ArcActionInputScreen: React.FC = () => {
                 <Divider />
                 <View style={styles.rowHeader}>
                   <Text style={[styles.rowHeading, {color: themeColors.text.tertiary}]}>
-                    {t('host.proof.arcAction.fieldNumber', {number: index + 1})}
+                    {t('host.proof.actionInput.fieldNumber', {number: index + 1})}
                   </Text>
                   {customFields.length > 1 && (
                     <TouchableOpacity
                       accessibilityRole="button"
-                      accessibilityLabel={t('host.proof.arcAction.removeField', {number: index + 1})}
+                      accessibilityLabel={t('host.proof.actionInput.removeField', {number: index + 1})}
                       onPress={() => setCustomFields(prev => prev.filter((_, at) => at !== index))}
                       hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}
                       style={styles.rowRemove}>
@@ -434,7 +432,7 @@ export const ArcActionInputScreen: React.FC = () => {
                 </View>
                 <TextInput
                   style={[inputStyle(!!field.name), styles.field]}
-                  placeholder={t('host.proof.arcAction.fieldNamePlaceholder')}
+                  placeholder={t('host.proof.actionInput.fieldNamePlaceholder')}
                   placeholderTextColor={themeColors.text.disabled}
                   value={field.name}
                   onChangeText={name => editField(index, {name})}
@@ -442,15 +440,15 @@ export const ArcActionInputScreen: React.FC = () => {
                   autoCorrect={false}
                 />
                 <Select<FieldType>
-                  label={t('host.proof.arcAction.fieldTypeLabel')}
+                  label={t('host.proof.actionInput.fieldTypeLabel')}
                   value={field.type}
                   options={FIELD_TYPES.map(type => ({value: type, label: type}))}
                   onChange={type => editField(index, {type})}
-                  pickerTitle={t('host.proof.arcAction.fieldTypeLabel')}
+                  pickerTitle={t('host.proof.actionInput.fieldTypeLabel')}
                 />
                 <TextInput
                   style={[inputStyle(!!field.value), styles.field]}
-                  placeholder={t('host.proof.arcAction.fieldValuePlaceholder')}
+                  placeholder={t('host.proof.actionInput.fieldValuePlaceholder')}
                   placeholderTextColor={themeColors.text.disabled}
                   value={field.value}
                   onChangeText={value => editField(index, {value})}
@@ -467,7 +465,7 @@ export const ArcActionInputScreen: React.FC = () => {
               style={[styles.addField, {borderColor: themeColors.border.primary}]}>
               <Icon name="plus" size="sm" color={themeColors.info[400]} />
               <Text style={[styles.addFieldText, {color: themeColors.info[400]}]}>
-                {t('host.proof.arcAction.addField')}
+                {t('host.proof.actionInput.addField')}
               </Text>
             </TouchableOpacity>
           </Card>
@@ -475,7 +473,7 @@ export const ArcActionInputScreen: React.FC = () => {
 
         <Card style={{...styles.sectionCard, backgroundColor: themeColors.background.tertiary}}>
           <Text style={[styles.eyebrow, {color: themeColors.text.tertiary}]}>
-            {t('host.proof.arcAction.summaryLabel')}
+            {t('host.proof.actionInput.summaryLabel')}
           </Text>
           <Text
             style={[
@@ -483,7 +481,7 @@ export const ArcActionInputScreen: React.FC = () => {
               {color: error ? themeColors.warning[400] : themeColors.info[400]},
             ]}>
             {error ??
-              t('host.proof.arcAction.summary', {
+              t('host.proof.actionInput.summary', {
                 action: shape ? t(shape.labelKey) : (parsed as {action: TypedAction}).action.primaryType,
                 app: shape ? appName.trim() : (parsed as {action: TypedAction}).action.domain.name,
               })}
@@ -491,7 +489,7 @@ export const ArcActionInputScreen: React.FC = () => {
         </Card>
 
         <Button
-          title={t('host.proof.arcAction.generate')}
+          title={t('host.proof.actionInput.generate')}
           onPress={start}
           disabled={!!error}
           size="large"
@@ -499,7 +497,7 @@ export const ArcActionInputScreen: React.FC = () => {
         />
         {CIRCUIT_ACTION_BINDING[circuit] === 'optional' ? (
           <Button
-            title={t('host.proof.arcAction.identityOnly')}
+            title={t('host.proof.actionInput.identityOnly')}
             onPress={() => navigation.navigate('ProofGeneration', {circuitId: circuit})}
             variant="secondary"
             size="large"
@@ -530,4 +528,4 @@ const styles = StyleSheet.create({
   continueButton: {marginBottom: 16},
 });
 
-export default ArcActionInputScreen;
+export default ActionInputScreen;

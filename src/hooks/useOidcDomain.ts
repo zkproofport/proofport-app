@@ -64,8 +64,8 @@ export interface UseOidcDomainReturn {
    * `circuit` is required and is checked against what this hook proves. Every
    * hook took only a logger and looked up its own circuit on the BUILD's
    * default network, which is wrong the moment a circuit is pinned elsewhere —
-   * an `arc_eligibility` proof was tested against the Coinbase contract on
-   * Base Sepolia and reported "failed" while being valid.
+   * a proof from a circuit on another chain was tested against the Coinbase
+   * contract on Base Sepolia and reported "failed" while being valid.
    */
   verifyProofOnChain: (
     circuit: CircuitName,

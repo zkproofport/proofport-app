@@ -182,10 +182,10 @@ describe('More settings and local data actions', () => {
     expect(JSON.parse(mockDisk.get(SETTINGS_KEY)!).confirmBeforeGenerate).toBe(true);
   });
   it('keeps a selected developer network available and hides other developer choices', async () => {
-    settings({developerMode: false, defaultNetwork: 'arc'});
+    settings({developerMode: false, defaultNetwork: 'giwa'});
     await render(); await press('more-network');
-    expect(has('more-network-option-arc')).toBe(true);
-    expect(has('more-network-option-giwa')).toBe(false);
+    expect(has('more-network-option-giwa')).toBe(true);
+    expect(has('more-network-option-omnione')).toBe(false);
     expect(has('more-openstoa')).toBe(false);
     expect(has('more-live-logs')).toBe(false);
   });

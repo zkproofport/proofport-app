@@ -1,6 +1,6 @@
 This build redesigns Verify, Wallet, History, and More, and presents dApp proof conditions and EIP-712 actions as cards before signing. This internal test build uses production services.
 
-1. Search and select organization account, Coinbase KYC, and country proofs in Verify. Check that Laboratory opens GIWA, Arc, and Korean mobile ID flows.
+1. Search and select organization account, Coinbase KYC, and country proofs in Verify. Check that Laboratory opens GIWA and Korean mobile ID flows.
 
 2. Request a proof through a dApp QR code or deep link. Check the requested conditions and action type, then tap the chevron to inspect the original field names, values, and nested details. Compare them with the signature request shown by MetaMask.
 

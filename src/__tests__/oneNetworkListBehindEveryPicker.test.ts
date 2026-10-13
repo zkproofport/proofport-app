@@ -38,7 +38,7 @@ describe('one network list behind every picker', () => {
   });
 
   it('keeps a developer-only chain visible while it is the current value', () => {
-    expect(visibleNetworkCategories(false, 'arc').map((n) => n.id)).toContain('arc');
+    expect(visibleNetworkCategories(false, 'giwa').map((n) => n.id)).toContain('giwa');
   });
 
   it('every row names circuits, and "Other" holds the chainless one', () => {
@@ -46,7 +46,7 @@ describe('one network list behind every picker', () => {
       expect(n.circuits.length).toBeGreaterThan(0);
     }
     expect(circuitsForCategory(OTHER_NETWORK)).toContain('oidc_domain_attestation');
-    expect(circuitsForCategory('arc')).toContain('arc_eligibility');
+    expect(circuitsForCategory('giwa')).toContain('giwa_attestation');
   });
 
   it('refuses an unknown network instead of answering with an empty list', () => {

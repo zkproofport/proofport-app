@@ -29,7 +29,6 @@ const SAME_ON_PURPOSE: Record<string, string> = {
   'host.proof.home.identity.provider': 'provider product name and established KYC abbreviation',
   'host.proof.home.country.provider': 'provider product name',
   'host.proof.laboratory.giwa.sectionTitle': 'chain name',
-  'host.proof.laboratory.arc.sectionTitle': 'chain name',
   'host.proof.laboratory.poc': 'standard proof-of-concept abbreviation',
   'host.history.detail.dapp': 'product term, used untranslated in Korean too',
   'host.more.networkBase': 'Base is the chain name',

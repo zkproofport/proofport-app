@@ -1,8 +1,8 @@
 /**
  * A screen that asks for a string nobody wrote shows the KEY to the user.
  *
- * The Arc action screen shipped to the simulator with its heading, its hints,
- * its summary and its button all rendering as `host.proof.arcAction.*` — the
+ * The action input screen shipped to the simulator with its heading, its hints,
+ * its summary and its button all rendering as raw `host.proof.*` keys — the
  * screen was written and the words were never added to either bundle. It is
  * invisible to every other guard here: the translation-file comparison passes
  * because the key is missing from BOTH files equally, the typecheck passes
@@ -27,9 +27,9 @@ const LITERAL_KEY = /\bt\(\s*['"]([a-zA-Z0-9_.]+)['"]/g;
  * than silently escaping the check.
  */
 const COMPUTED_KEYS: Record<string, string> = {
-  'host.proof.arcAction.field.to': 'ArcActionInputScreen — the fields of the chosen action',
-  'host.proof.arcAction.field.amount': 'ArcActionInputScreen — the fields of the chosen action',
-  'host.proof.arcAction.field.nonce': 'ArcActionInputScreen — the fields of the chosen action',
+  'host.proof.actionInput.field.to': 'ActionInputScreen — the fields of the chosen action',
+  'host.proof.actionInput.field.amount': 'ActionInputScreen — the fields of the chosen action',
+  'host.proof.actionInput.field.nonce': 'ActionInputScreen — the fields of the chosen action',
 };
 
 function walk(dir: string, out: string[] = []): string[] {

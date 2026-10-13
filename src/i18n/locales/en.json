@@ -58,7 +58,6 @@
       "openStoaEnabled": "OpenStoa mini-app",
       "openStoaEnabledHint": "Overrides what this build shipped with. Applies on the next launch.",
       "openStoaRestartRequired": "Restart the app to apply this change.",
-      "networkArc": "Arc Testnet",
       "networkOther": "Other",
       "subtitle": "Make ZKProofport work your way.",
       "sectionAbout": "ABOUT",
@@ -280,10 +279,6 @@
         "mdlKrRegion": {
           "title": "Region",
           "description": "Prove your residence region via Korea mobile ID — fully anonymous"
-        },
-        "arcEligibility": {
-          "title": "Arc Eligibility",
-          "description": "Prove you are eligible and authorize one action on Arc"
         }
       },
       "mdlKrInput": {
@@ -392,9 +387,7 @@
         "confirmMessage": "This will generate a zero-knowledge proof. Proceed?",
         "confirmCancel": "Cancel",
         "confirmGenerate": "Generate",
-        "stackTitle": "Generate Proof",
-        "arcEligibilityTitle": "Arc Eligibility (Experimental)",
-        "arcEligibilityDescription": "Prove you are eligible for an Arc service and authorize one action. Your wallet shows the action before you sign, and the proof works only for that action."
+        "stackTitle": "Generate Proof"
       },
       "domain": {
         "heroLabel": "OIDC DOMAIN VERIFICATION",
@@ -436,7 +429,7 @@
       },
       "txTitle": "Transaction",
       "explorerTitle": "Explorer",
-      "arcAction": {
+      "actionInput": {
         "stackTitle": "Action authorization",
         "identityOnly": "Prove identity only (no action)",
         "heroLabel": "ACTION",
@@ -534,12 +527,6 @@
           "description": "Test identity attestation and action signing on GIWA testnet",
           "provider": "GIWA testnet · Mock attestation data",
           "sectionTitle": "GIWA"
-        },
-        "arc": {
-          "title": "Eligibility test",
-          "description": "Test eligibility and action signing with a Coinbase attestation",
-          "provider": "Arc testnet · Coinbase attestation",
-          "sectionTitle": "Arc"
         },
         "ownership": {
           "title": "ID ownership",
@@ -661,12 +648,6 @@
           "title": "Prove the country condition",
           "shared": "Country condition result · requested country list and inclusion rule · participation identifier",
           "private": "Original attested country value · original identity document"
-        },
-        "arc": {
-          "title": "Prove your Arc eligibility",
-          "requirement": "Ownership of a Coinbase-attested wallet",
-          "shared": "Eligibility result · participation identifier · action and domain hashes when an action is requested",
-          "private": "KYC personal information · original wallet signature"
         },
         "giwa": {
           "title": "Prove your GIWA attestation",

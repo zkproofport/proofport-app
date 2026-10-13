@@ -126,7 +126,8 @@ export function canonicalCircuitId(
 }
 
 /**
- * Checking the EIP-712 action an `arc_eligibility` proof binds to.
+ * Checking the EIP-712 action a proof binds to (`giwa_attestation`, when the
+ * request carries one).
  *
  * Re-exported from here because this file is the app's ONE door to the SDK —
  * a contract held by `theCircuitListComesFromTheSdk.test.ts`, and the reason
@@ -164,10 +165,10 @@ export type {TypedAction} from '@zkproofport-app/sdk/typedAction';
  *
  * The SDK's `supported` / `experimental` / `planned` split is what decides it:
  * a supported circuit ships in the release tag and is prefetched for everyone;
- * the other two do not exist in a release tag and would 404. Arc arrived as a
- * third status and briefly fell into NEITHER of the two lists this replaced,
- * which meant its files were never prefetched and were looked for in a release
- * that does not contain them.
+ * the other two do not exist in a release tag and would 404. `experimental`
+ * arrived as a third status and its first circuit briefly fell into NEITHER of
+ * the two lists this replaced, which meant its files were never prefetched and
+ * were looked for in a release that does not contain them.
  */
 export const DEV_ONLY_CIRCUIT_IDS: readonly CircuitName[] = [
   ...EXPERIMENTAL_CIRCUIT_IDS,

@@ -88,18 +88,6 @@ export function prepareCircuitInputs(
    * nothing pointing here.
    */
   circuitId: string,
-  /**
-   * The two EIP-712 hashes, for the circuits that bind an action.
-   *
-   * They are PUBLIC INPUTS of that circuit, so a vector built without them is
-   * not a shorter one — it is a different circuit's, and the prover says only
-   * `MoproError.NoirError`.
-   *
-   * Taken already-computed rather than derived from the action here, so the
-   * hashes in the proof are the SAME values the wallet signed over and the
-   * recovery used. Computing them again in a third place is how they drift.
-   */
-  publicHashes?: {domainSeparator: string; actionHash: string},
 ): AttesterCircuitInputs {
   const merkleTree = new SimpleMerkleTree(AUTHORIZED_SIGNERS);
   const merkleRoot = merkleTree.getRoot();
@@ -131,25 +119,8 @@ export function prepareCircuitInputs(
   const scopeBytes = computeScope(scopeString);
   const nullifierBytes = nullifierForCircuit(circuitId, userAddress, signalHash, scopeBytes);
 
-  // The same two values the verifying contract recomputes from the call it is
-  // about to run, and the same two the wallet signed over.
-  const arcHashes = publicHashes
-    ? {
-        domain_separator: bytesToNoirInput(hexToByteArray(publicHashes.domainSeparator)),
-        action_hash: bytesToNoirInput(hexToByteArray(publicHashes.actionHash)),
-      }
-    : {};
-
   return {
-    /*
-     * Zero when an action is bound. The action-binding circuits assert that
-     * `signal_hash` is empty in that mode, because a proof carrying both
-     * leaves each verifier to decide which half to believe.
-     */
-    signal_hash: bytesToNoirInput(
-      publicHashes ? new Array(32).fill(0) : Array.from(signalHash),
-    ),
-    ...arcHashes,
+    signal_hash: bytesToNoirInput(Array.from(signalHash)),
     signer_list_merkle_root: bytesToNoirInput(hexToByteArray(merkleRoot)),
     scope: bytesToNoirInput(Array.from(scopeBytes)),
     nullifier: bytesToNoirInput(Array.from(nullifierBytes)),

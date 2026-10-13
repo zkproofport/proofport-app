@@ -1,13 +1,11 @@
 /**
  * Sign, recover, and prove must agree about what was signed.
  *
- * The Arc circuit differs from the Coinbase one in exactly ONE line — read
- * from the two `fn main` bodies on 2026-09-12, which are otherwise identical
- * through the nullifier, the Merkle check, the RLP parse and the calldata
- * link:
+ * An action-binding circuit (`giwa_attestation`) branches on ONE line,
+ * depending on whether the request carried an action:
  *
- *   coinbase: message_hash = create_eth_signed_message_hash(signal_hash)
- *   arc:      message_hash = create_eip712_digest(domain_separator, action_hash)
+ *   no action:   message_hash = create_eth_signed_message_hash(signal_hash)
+ *   with action: message_hash = create_eip712_digest(domain_separator, action_hash)
  *
  * The app made that one decision in three separate places — the wallet
  * request, the key recovery, and the circuit inputs — each reading the same
@@ -28,7 +26,7 @@ const ACTION = {
   domain: {
     name: 'MyVault',
     version: '1',
-    chainId: 5042002,
+    chainId: 91342,
     verifyingContract: '0x0000000000000000000000000000000000000000',
   },
   types: {Deposit: [{name: 'amount', type: 'uint256'}]},
@@ -100,7 +98,7 @@ describe('one answer feeds sign, recover and prove', () => {
     const fs = require('fs');
     const path = require('path');
     const hook = fs.readFileSync(
-      path.join(__dirname, '..', '..', 'hooks', 'useCoinbaseKyc.ts'),
+      path.join(__dirname, '..', '..', 'hooks', 'useGiwaKyc.ts'),
       'utf8',
     );
     expect(hook).toContain('const signed = whatTheWalletSigns(');

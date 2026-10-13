@@ -5,11 +5,10 @@
  * call, and read `getNetworkConfig()` — the BUILD's default network. That is
  * right only while every circuit lives on the build's chain.
  *
- * `arc_eligibility` does not: its verifier is deployed on Arc Testnet and
- * nowhere else. So a valid Arc proof was sent to the Coinbase verifier on Base
- * Sepolia and came back "failed" — off-chain green and on-chain red on the
- * same proof, in a simulator on 2026-09-12. Nothing said the call had gone to
- * another chain.
+ * A circuit whose verifier lived on another testnet did not: a valid proof
+ * from it was sent to the Coinbase verifier on Base Sepolia and came back
+ * "failed" — off-chain green and on-chain red on the same proof, in a
+ * simulator on 2026-09-12. Nothing said the call had gone to another chain.
  *
  * The GIWA hook had already been fixed the same way, alone, some time earlier.
  * That is the shape of this defect: it is fixed one circuit at a time, by
@@ -44,7 +43,7 @@ describe('a proof is checked against its own chain', () => {
     const src = fs.readFileSync(path.join(HOOKS, file), 'utf8');
     expect(src).toMatch(/verifyProofOnChain[\s\S]{0,300}circuit: CircuitName/);
     // A literal circuit id in the verifier lookup is how the Coinbase contract
-    // came to be asked about an Arc proof.
+    // came to be asked about another circuit's proof.
     expect(src).not.toMatch(/getVerifierAddress\('[a-z_]+'\)/);
   });
 

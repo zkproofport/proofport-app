@@ -3,9 +3,9 @@
  *
  * `eth_signTypedData_v4` is refused when the domain's `chainId` is not the
  * wallet's active chain — MetaMask answers "Active chainId is 0x1 but received
- * 0x4cef52" and stops there. Nothing in this app asked the wallet to switch, so
- * a person testing the Arc flow saw that sentence and had to add the network by
- * hand, from values nobody had written down.
+ * 0x…" and stops there. Nothing in this app asked the wallet to switch, so a
+ * person testing an action-bound flow saw that sentence and had to add the
+ * network by hand, from values nobody had written down.
  *
  * Two requests, in order, because a wallet cannot switch to a chain it does not
  * know: ask to switch, and if the chain is unrecognised, ask to add it and
@@ -57,19 +57,15 @@ function addChainParams(circuit: CircuitName) {
 
 /**
  * The chain's gas token. Exported because the wallet-connection session needs
- * the same answer when it declares which chains it wants.
- *
- * Arc's is USDC, which is unusual enough to be worth stating: one balance with
- * two views, an 18-decimal native one and a 6-decimal ERC-20 one at
- * `0x3600…0000`. A wallet sending native value uses the 18, so that is what
- * goes here. Every other chain this app touches pays gas in ether.
+ * the same answer when it declares which chains it wants. Every chain this app
+ * touches pays gas in ether; a chain missing here is an error, not ether by
+ * default.
  */
 const NATIVE_CURRENCIES = new Map([
   [1, {name: 'Ether', symbol: 'ETH', decimals: 18}],
   [8453, {name: 'Ether', symbol: 'ETH', decimals: 18}],
   [84532, {name: 'Ether', symbol: 'ETH', decimals: 18}],
   [91342, {name: 'Ether', symbol: 'ETH', decimals: 18}],
-  [5042002, {name: 'USD Coin', symbol: 'USDC', decimals: 18}],
 ]);
 
 export function nativeCurrencyFor(chainId: number) {

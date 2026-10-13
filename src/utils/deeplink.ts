@@ -36,18 +36,18 @@ export interface OidcDomainInputs {
 }
 
 /**
- * What an `arc_eligibility` request carries. Same shape the SDK sends, because
- * the type IS the SDK's — see src/utils/typedAction.ts.
+ * What a `giwa_attestation` request carries. The action type is the SDK's —
+ * see src/utils/typedAction.ts.
  *
- * The action is required and is checked on arrival: a deep link is the one
- * place a stranger's data reaches the prover, and the circuit binds the
- * signature to whatever is in here.
+ * The action is optional, and when present it is checked on arrival: a deep
+ * link is the one place a stranger's data reaches the prover, and the circuit
+ * binds the signature to whatever is in here.
  */
-export interface ArcEligibilityInputs {
+export interface GiwaAttestationInputs {
   userAddress?: string;
   rawTransaction?: string;
-  scope?: string;
-  action: TypedAction;
+  scope: string;
+  action?: TypedAction;
 }
 
 // Empty inputs for circuits that get data from app
@@ -57,7 +57,7 @@ export type CircuitInputs =
   | CoinbaseKycInputs
   | CoinbaseCountryInputs
   | OidcDomainInputs
-  | ArcEligibilityInputs
+  | GiwaAttestationInputs
   | EmptyInputs;
 
 export interface ProofRequest {
@@ -315,9 +315,8 @@ export function validateProofRequest(
    * The action, decided by the circuit's own entry in the SDK's table rather
    * than by naming a circuit here.
    *
-   * This compared against `arc_eligibility` and nothing else, which was right
-   * while one circuit bound an action and that circuit required one. Two
-   * circuits do now and both are optional, so the question moved to
+   * This used to compare against one circuit id, which was right only while
+   * exactly one circuit bound an action. The question lives in
    * `circuitActionBinding` -- the same answer the SDK gives a dapp before the
    * link is ever built, instead of a second opinion that can drift from it.
    */

@@ -1,11 +1,12 @@
 /**
  * bb reads the input vector POSITIONALLY. There are no field names in it.
  *
- * `arc_eligibility` puts `domain_separator` and `action_hash` between
- * `signal_hash` and the Merkle root — 64 values that the app never produced.
- * It signed the typed action, then handed the prover the Coinbase-shaped
- * vector, and the proof died one second in with `MoproError.NoirError`, which
- * names nothing. Seen in a simulator on 2026-09-12.
+ * An action-binding circuit (`giwa_attestation`) puts `domain_separator` and
+ * `action_hash` between `signal_hash` and the Merkle root — 64 values that the
+ * app once never produced. It signed the typed action, then handed the prover
+ * the Coinbase-shaped vector, and the proof died one second in with
+ * `MoproError.NoirError`, which names nothing. Seen in a simulator on
+ * 2026-09-12.
  *
  * A shorter vector is not a shorter proof. It is a different circuit's.
  */
@@ -35,7 +36,7 @@ function coinbaseInputs(): AttesterCircuitInputs {
   };
 }
 
-const arcInputs = (): AttesterCircuitInputs => ({
+const actionInputs = (): AttesterCircuitInputs => ({
   ...coinbaseInputs(),
   domain_separator: new Array(32).fill('D'),
   action_hash: new Array(32).fill('H'),
@@ -50,8 +51,8 @@ describe('the prover gets the circuit’s own vector', () => {
     expect(v.slice(96, 128).every(x => x === 'N')).toBe(true);
   });
 
-  it('puts Arc’s two hashes between the signal hash and the Merkle root', () => {
-    const v = flattenCircuitInputs(arcInputs());
+  it('puts the action’s two hashes between the signal hash and the Merkle root', () => {
+    const v = flattenCircuitInputs(actionInputs());
     expect(v.slice(0, 32).every(x => x === 'S')).toBe(true);
     expect(v.slice(32, 64).every(x => x === 'D')).toBe(true);  // domain separator
     expect(v.slice(64, 96).every(x => x === 'H')).toBe(true);  // action hash
@@ -60,17 +61,17 @@ describe('the prover gets the circuit’s own vector', () => {
     expect(v.slice(160, 192).every(x => x === 'N')).toBe(true);
   });
 
-  it('makes Arc’s vector exactly 64 longer, which is the two hashes', () => {
-    expect(flattenCircuitInputs(arcInputs()).length).toBe(
+  it('makes the action vector exactly 64 longer, which is the two hashes', () => {
+    expect(flattenCircuitInputs(actionInputs()).length).toBe(
       flattenCircuitInputs(coinbaseInputs()).length + 64,
     );
   });
 
   it('matches where the SDK reads scope and nullifier back out', () => {
-    // The SDK's reader says Arc's scope is at 128–159 and its nullifier at
-    // 160–191. If the writer and the reader ever disagree, a proof verifies
+    // With the two hashes in place, scope sits at 128–159 and the nullifier
+    // at 160–191. If the writer and the reader ever disagree, a proof verifies
     // and its scope check fails for reasons nobody can see.
-    const v = flattenCircuitInputs(arcInputs());
+    const v = flattenCircuitInputs(actionInputs());
     expect(v.slice(128, 160).every(x => x === 'C')).toBe(true);
     expect(v.slice(160, 192).every(x => x === 'N')).toBe(true);
   });
@@ -95,7 +96,7 @@ describe('the two hashes are computed from the action, not left out', () => {
     domain: {
       name: 'MyVault',
       version: '1',
-      chainId: 5042002,
+      chainId: 91342,
       verifyingContract: '0x0000000000000000000000000000000000000000',
     },
     types: {Deposit: [{name: 'amount', type: 'uint256'}]},
@@ -123,8 +124,8 @@ describe('the two hashes are computed from the action, not left out', () => {
     // needs a real attestation transaction.
     const fs = require('fs');
     const path = require('path');
-    const src = fs.readFileSync(path.join(__dirname, '..', 'coinbaseKyc.ts'), 'utf8');
-    expect(src).toMatch(/publicHashes\?: \{domainSeparator: string; actionHash: string\}/);
+    const src = fs.readFileSync(path.join(__dirname, '..', 'giwaKyc.ts'), 'utf8');
+    expect(src).toMatch(/action\?: GiwaActionHashes/);
     expect(src).toContain('domain_separator:');
     expect(src).toContain('action_hash:');
     // The hashes are taken already-computed, not derived a second time here.
@@ -134,14 +135,14 @@ describe('the two hashes are computed from the action, not left out', () => {
 
     // And the hook hands the action down, which is the link that was absent.
     const hook = fs.readFileSync(
-      path.join(__dirname, '..', '..', 'hooks', 'useCoinbaseKyc.ts'),
+      path.join(__dirname, '..', '..', 'hooks', 'useGiwaKyc.ts'),
       'utf8',
     );
     // The whole call, from its opening paren to the closing one, so a comment
     // of any length between the arguments does not decide whether this passes.
     const call = hook.slice(
-      hook.indexOf('prepareCircuitInputs('),
-      hook.indexOf(');', hook.indexOf('prepareCircuitInputs(')),
+      hook.indexOf('prepareGiwaCircuitInputs('),
+      hook.indexOf(');', hook.indexOf('prepareGiwaCircuitInputs(')),
     );
     expect(call).toContain('signed.publicHashes,');
   });

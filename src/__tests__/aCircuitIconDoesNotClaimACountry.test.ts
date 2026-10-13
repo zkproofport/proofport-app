@@ -7,7 +7,6 @@ const expectedIcons: Record<CircuitName, string> = {
   oidc_domain_attestation: 'organization',
   coinbase_attestation: 'identity',
   coinbase_country_attestation: 'country',
-  arc_eligibility: 'document',
   giwa_attestation: 'identity',
   mdl_kr_ownership: 'id-card',
   mdl_kr_age: 'age',

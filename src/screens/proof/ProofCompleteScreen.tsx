@@ -135,9 +135,9 @@ export const ProofCompleteScreen: React.FC = () => {
     console.log('[History] Updating on-chain status with ID:', historyIdFromParams);
     try {
       // The circuit this screen is reporting on. Without it the check used to
-      // look up the Coinbase verifier on the build's default chain, so an Arc
-      // proof was tested against another contract on another chain and read
-      // "failed" while being valid.
+      // look up the Coinbase verifier on the build's default chain, so a proof
+      // from a circuit on another chain was tested against another contract
+      // and read "failed" while being valid.
       if (!isCircuitId(circuitId)) {
         addLog(`Cannot verify on-chain: this screen was not told which circuit produced the proof (got '${circuitId}')`);
         setOnChainStatus('failed');

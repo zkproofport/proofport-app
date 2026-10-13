@@ -1,12 +1,12 @@
 /**
  * The Wallet tab shows one row per WALLET, not one per circuit.
  *
- * Coinbase KYC, Coinbase Country and Arc read attestations on the same
+ * Coinbase KYC and Coinbase Country read attestations on the same
  * Coinbase-attested wallet, and the store already binds them under one key.
  * Listing every circuit that needs a signature showed that single binding
- * three times — and since all three read the same stored entry, connecting
- * once made all three rows say Connected. A person who had connected only for
- * Arc saw three chains' wallets apparently connected. Reported 2026-09-12.
+ * once per circuit — and since each read the same stored entry, connecting
+ * once made every row say Connected. A person who had connected for one
+ * circuit saw several wallets apparently connected. Reported 2026-09-12.
  *
  * The row count also depends on asking the RIGHT question. "Does the relay
  * demand a signature on the request" and "does this circuit's proof need a
@@ -35,7 +35,7 @@ const card = () =>
   fs.readFileSync(path.join(__dirname, '..', 'wallet', 'CircuitWalletsCard.tsx'), 'utf8');
 
 describe('one row per wallet, not per circuit', () => {
-  it('shows the three Coinbase-wallet circuits as a single row', () => {
+  it('shows the Coinbase-wallet circuits as a single row', () => {
     const coinbase = rows.filter(
       c => walletGroupKey(c) === walletGroupKey('coinbase_attestation'),
     );

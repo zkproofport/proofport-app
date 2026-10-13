@@ -2,7 +2,7 @@ import React from 'react';
 import TestRenderer, {act} from 'react-test-renderer';
 
 const mockNavigate = jest.fn();
-let mockCircuit = 'arc_eligibility';
+let mockCircuit = 'giwa_attestation';
 const mockNavigation = {navigate: mockNavigate};
 const mockT = (key: string) => key;
 
@@ -57,7 +57,7 @@ jest.mock('../../utils/giwaKyc', () => ({
 }));
 
 import {LaboratoryScreen} from '../proof/LaboratoryScreen';
-import {ArcActionInputScreen} from '../proof/ArcActionInputScreen';
+import {ActionInputScreen} from '../proof/ActionInputScreen';
 import {useGiwaKyc, type UseGiwaKycReturn} from '../../hooks/useGiwaKyc';
 import {whatTheWalletSigns} from '../../utils/signedAction';
 import type {TypedAction} from '../../utils/typedAction';
@@ -66,7 +66,7 @@ let tree: TestRenderer.ReactTestRenderer;
 let errorSpy: jest.SpyInstance;
 beforeEach(() => {
   (globalThis as {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true;
-  mockCircuit = 'arc_eligibility';
+  mockCircuit = 'giwa_attestation';
   mockNavigate.mockClear();
   const original = console.error;
   errorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
@@ -85,7 +85,7 @@ function button(key: string) {
   return tree.root.findAllByType('Button' as never).find(b => b.props.title === key);
 }
 function generateAction(): TypedAction {
-  act(() => button('host.proof.arcAction.generate')!.props.onPress());
+  act(() => button('host.proof.actionInput.generate')!.props.onPress());
   return mockNavigate.mock.calls.at(-1)![1].action;
 }
 
@@ -94,12 +94,11 @@ describe('standalone GIWA action input', () => {
     await mount(LaboratoryScreen);
     const card = tree.root.findByProps({testID: 'proof-card-giwa_attestation'});
     act(() => card.props.onPress());
-    expect(mockNavigate).toHaveBeenCalledWith('ArcActionInput', {circuit: 'giwa_attestation'});
+    expect(mockNavigate).toHaveBeenCalledWith('ActionInput', {circuit: 'giwa_attestation'});
   });
 
   it('builds a readable Deposit request on GIWA without a relay request', async () => {
-    mockCircuit = 'giwa_attestation';
-    await mount(ArcActionInputScreen);
+    await mount(ActionInputScreen);
     const action = generateAction();
     const signed = whatTheWalletSigns('0x' + '00'.repeat(32), action);
     expect(mockNavigate.mock.calls.at(-1)![1].circuitId).toBe('giwa_attestation');
@@ -110,20 +109,16 @@ describe('standalone GIWA action input', () => {
     });
   });
 
-  it('rebuilds the signed domain when only the circuit selection changes', async () => {
-    await mount(ArcActionInputScreen);
-    expect(generateAction().domain.chainId).toBe(5042002);
-    const select = tree.root.findAllByType('Select' as never).find(s => s.props.label === 'host.proof.arcAction.circuitLabel');
-    act(() => select!.props.onChange('giwa_attestation'));
+  it('offers no circuit picker while GIWA is the only circuit that binds an action', async () => {
+    await mount(ActionInputScreen);
+    const select = tree.root.findAllByType('Select' as never).find(s => s.props.label === 'host.proof.actionInput.circuitLabel');
+    expect(select).toBeUndefined();
     expect(generateAction().domain.chainId).toBe(91342);
-    act(() => select!.props.onChange('arc_eligibility'));
-    expect(generateAction().domain.chainId).toBe(5042002);
   });
 
   it('keeps an explicit way to generate GIWA identity without an action', async () => {
-    mockCircuit = 'giwa_attestation';
-    await mount(ArcActionInputScreen);
-    const identity = button('host.proof.arcAction.identityOnly');
+    await mount(ActionInputScreen);
+    const identity = button('host.proof.actionInput.identityOnly');
     expect(identity).toBeDefined();
     act(() => identity!.props.onPress());
     expect(mockNavigate).toHaveBeenCalledWith('ProofGeneration', {circuitId: 'giwa_attestation'});

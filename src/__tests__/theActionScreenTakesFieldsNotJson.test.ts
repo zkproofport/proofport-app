@@ -2,7 +2,7 @@ import {readFileSync} from 'fs';
 import path from 'path';
 
 /**
- * The Arc action screen asks for fields, not hand-written JSON.
+ * The action input screen asks for fields, not hand-written JSON.
  *
  * A raw-JSON box stood here until 2026-09-12: it asked a person to type an
  * EIP-712 type declaration on a phone keyboard, and a stray comma read as a
@@ -11,11 +11,11 @@ import path from 'path';
  * is what a phone can take.
  */
 const source = readFileSync(
-  path.join(__dirname, '..', 'screens', 'proof', 'ArcActionInputScreen.tsx'),
+  path.join(__dirname, '..', 'screens', 'proof', 'ActionInputScreen.tsx'),
   'utf8',
 );
 
-describe('the Arc screen takes fields, not JSON', () => {
+describe('the action screen takes fields, not JSON', () => {
   it('has no JSON box and no hand-written type declaration', () => {
     expect(source).not.toContain('multiline');
     expect(source).not.toContain('parseAction');
@@ -23,9 +23,9 @@ describe('the Arc screen takes fields, not JSON', () => {
   });
 
   it('offers rows that can be added and removed', () => {
-    expect(source).toContain('arcAction.addField');
-    expect(source).toContain('arcAction.removeField');
-    expect(source).toContain('arcAction.fieldTypeLabel');
+    expect(source).toContain('actionInput.addField');
+    expect(source).toContain('actionInput.removeField');
+    expect(source).toContain('actionInput.fieldTypeLabel');
   });
 
   it('offers every EIP-712 type the demo offers, so the two agree', () => {
@@ -38,7 +38,7 @@ describe('the Arc screen takes fields, not JSON', () => {
     // A value that does not match its type is signed and hashed exactly like a
     // correct one, and only fails at a contract that decodes it.
     for (const complaint of ['errAddress', 'errNumber', 'errBytes32', 'errBool', 'errFieldTwice', 'errActionName', 'errNoFields']) {
-      expect(source).toContain(`arcAction.${complaint}`);
+      expect(source).toContain(`actionInput.${complaint}`);
     }
   });
 

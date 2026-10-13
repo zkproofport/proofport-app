@@ -59,7 +59,7 @@ export const useWallet = (
    *
    * AppKit types this `string | number`, and a CAIP form ("eip155:8453") turns
    * into NaN through `Number()`. Taking the part after the colon first means a
-   * wallet on Arc reads as 5042002 rather than "Chain NaN".
+   * wallet on GIWA Sepolia reads as 91342 rather than "Chain NaN".
    */
   const chainId = (() => {
     if (accountChainId === undefined || accountChainId === null) return null;

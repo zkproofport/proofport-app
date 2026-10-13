@@ -31,16 +31,15 @@ export type ProofStackParamList = {
   /**
    * Build an EIP-712 action for a circuit that can bind one.
    *
-   * The circuit is a parameter, not a constant: arc_eligibility was the only
-   * one when this screen was written, and giwa_attestation binds an action
-   * too. Which circuits qualify comes from the SDK's action table, so the
-   * screen never holds a list of its own.
+   * The circuit is a parameter, not a constant (today giwa_attestation).
+   * Which circuits qualify comes from the SDK's action table, so the screen
+   * never holds a list of its own.
    *
    * In the shipped product a dapp supplies the action through the SDK and
    * nobody reaches this screen; it exists to test circuits whose verifiers
    * are offered in the Laboratory.
    */
-  ArcActionInput: {circuit: CircuitName};
+  ActionInput: {circuit: CircuitName};
   /** OACX widget WebView screen. provider = OacxProvider string, scope = scopeString. */
   OacxWebView: { provider: string; scope: string };
   ProofGeneration: {

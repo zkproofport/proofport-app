@@ -1,7 +1,7 @@
 /**
  * One thing, one Korean word for it.
  *
- * The Arc action screen was written with a "범위" field while every other
+ * The action input screen was written with a "범위" field while every other
  * screen in the app calls the same value "스코프". Two names for one thing
  * reads as two different settings, and the person deciding which to fill in
  * has nothing to go on. It is the same failure as one label meaning two

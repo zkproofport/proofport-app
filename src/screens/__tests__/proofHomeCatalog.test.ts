@@ -32,7 +32,7 @@ jest.mock('react-i18next', () => ({
 }));
 // Make an accidental network-preference write observable during interaction.
 jest.mock('../../hooks', () => ({
-  useSettings: () => ({settings: {developerMode: false, defaultNetwork: 'arc'}, loading: false, updateSettings: mockUpdateSettings}),
+  useSettings: () => ({settings: {developerMode: false, defaultNetwork: 'giwa'}, loading: false, updateSettings: mockUpdateSettings}),
 }));
 
 import {CircuitSelectionScreen} from '../proof/CircuitSelectionScreen';
@@ -176,7 +176,7 @@ describe('the active laboratory', () => {
     act(() => {screen = create(React.createElement(LaboratoryScreen));});
     const text = screen.root.findAllByType('Text' as never)
       .map(item => item.children.filter(child => typeof child === 'string').join(''));
-    for (const label of ['GIWA', 'Arc', '한국 모바일 신분증', '신분증 보유', '나이 조건', '거주 지역']) {
+    for (const label of ['GIWA', '한국 모바일 신분증', '신분증 보유', '나이 조건', '거주 지역']) {
       expect(text).toContain(label);
     }
     expect(text.join(' ')).not.toMatch(/연동 준비|이용할 수 없|준비 중/);
@@ -188,15 +188,14 @@ describe('the active laboratory', () => {
     const {LaboratoryScreen} = require('../proof/LaboratoryScreen');
     act(() => {screen = create(React.createElement(LaboratoryScreen));});
     expect(visibleProofs()).toEqual([
-      'giwa_attestation', 'arc_eligibility', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region',
+      'giwa_attestation', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region',
     ]);
     for (const id of visibleProofs()) {
       expect(node(`proof-card-${id}`).props.disabled).not.toBe(true);
       press(`proof-card-${id}`);
     }
     expect(mockNavigate.mock.calls).toEqual([
-      ['ArcActionInput', {circuit: 'giwa_attestation'}],
-      ['ArcActionInput', {circuit: 'arc_eligibility'}],
+      ['ActionInput', {circuit: 'giwa_attestation'}],
       ['MdlKrInput', {variant: 'ownership'}],
       ['MdlKrInput', {variant: 'age'}],
       ['MdlKrInput', {variant: 'region'}],

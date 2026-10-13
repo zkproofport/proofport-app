@@ -71,3 +71,30 @@ it('allows retry after a failed mutation without poisoning the queue', async () 
   await settingsStore.update({autoSaveProofs: false});
   expect(await settingsStore.get()).toMatchObject({theme: 'dark', autoSaveProofs: false});
 });
+
+describe('a saved default network the app no longer has', () => {
+  beforeEach(() => jest.spyOn(console, 'log').mockImplementation(() => {}));
+  afterEach(() => (console.log as jest.Mock).mockRestore());
+
+  it.each(['arc', '', 'ARC', 'base ', '<script>'])('shows the initial network instead of %p', async value => {
+    mockDisk.set(KEY, JSON.stringify({defaultNetwork: value, theme: 'light'}));
+    const settings = await settingsStore.get();
+    expect(settings.defaultNetwork).toBe('base');
+    expect(settings.theme).toBe('light');
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('keeps every network the app still has', async () => {
+    const {NETWORK_CATEGORIES} = require('../../config/networks');
+    for (const {id} of NETWORK_CATEGORIES) {
+      mockDisk.set(KEY, JSON.stringify({defaultNetwork: id}));
+      expect((await settingsStore.get()).defaultNetwork).toBe(id);
+    }
+  });
+
+  it('writes the corrected value back only on the next real update', async () => {
+    mockDisk.set(KEY, JSON.stringify({defaultNetwork: 'arc'}));
+    await settingsStore.update({theme: 'light'});
+    expect(JSON.parse(mockDisk.get(KEY)!)).toMatchObject({defaultNetwork: 'base', theme: 'light'});
+  });
+});

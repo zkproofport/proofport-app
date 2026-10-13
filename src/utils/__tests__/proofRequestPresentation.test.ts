@@ -18,8 +18,8 @@ const present = (circuit: ProofRequest['circuit'], inputs?: Record<string, unkno
 describe('readable circuit-specific proof request conditions', () => {
   it('covers every published circuit with its own purpose and privacy summary', () => {
     const presentations = ALL_CIRCUIT_IDS.map(circuit => present(circuit));
-    expect(presentations).toHaveLength(8);
-    expect(new Set(presentations.map(p => p.title)).size).toBe(8);
+    expect(presentations).toHaveLength(ALL_CIRCUIT_IDS.length);
+    expect(new Set(presentations.map(p => p.title)).size).toBe(ALL_CIRCUIT_IDS.length);
     expect(presentations.every(p => p.conditions.length > 0 && p.shared && p.private)).toBe(true);
     expect(present('oidc_domain_attestation').icon).toBe('organization');
     expect(present('coinbase_attestation').icon).toBe('identity');

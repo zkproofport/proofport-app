@@ -46,8 +46,9 @@ export function setEnvironmentOverride(env: Environment | null): void {
  * It answered "what chain is this build on", and nothing in a multi-chain app
  * has that question. Every caller actually wanted "what chain does THIS
  * CIRCUIT live on" and got Base because Base was the first chain anybody
- * wrote down. An arc_eligibility proof was verified against the Coinbase
- * contract on Base Sepolia and reported failed while being valid.
+ * wrote down. A proof whose verifier lives on another chain was checked
+ * against the Coinbase contract on Base Sepolia and reported failed while
+ * being valid.
  *
  * Use `getNetworkConfigForCircuit(circuit)`. For the set of chains the wallet
  * session must carry, use `walletNetworks()`.

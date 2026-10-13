@@ -58,8 +58,8 @@ import {DEV_ONLY_CIRCUIT_IDS, type CircuitName} from '../../config';
  * no-op for them.
  *
  * This was two names typed out, `coinbase_attestation` and `giwa_attestation`,
- * so `arc_eligibility` and the country proof had no row here at all and no
- * wallet could be bound to them from this screen.
+ * so the country proof had no row here at all and no wallet could be bound
+ * to it from this screen.
  */
 
 // Module-level latch for the "I'm about to bind this circuit on the next

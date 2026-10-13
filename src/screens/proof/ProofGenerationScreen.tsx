@@ -74,10 +74,6 @@ type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'mdl';
 
 const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
   coinbase_attestation: 'coinbase',
-  // Same Coinbase attestation, same screen. What differs is upstream: the
-  // requester supplied a typed action, so the wallet signs that instead of
-  // signal_hash and the proof runs on the action-bound circuit.
-  arc_eligibility: 'coinbase',
   coinbase_country_attestation: 'country',
   oidc_domain_attestation: 'oidc',
   giwa_attestation: 'giwa',
@@ -102,10 +98,6 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
   coinbase_attestation: {
     title: 'host.proof.generation.coinbaseKycTitle',
     description: 'host.proof.generation.coinbaseKycDescription',
-  },
-  arc_eligibility: {
-    title: 'host.proof.generation.arcEligibilityTitle',
-    description: 'host.proof.generation.arcEligibilityDescription',
   },
   coinbase_country_attestation: {
     title: 'host.proof.generation.coinbaseCountryTitle',
@@ -227,7 +219,7 @@ const toUserSteps = (
   searching: boolean,
 ): StepData[] => {
   const steps: StepData[] = [
-    {id: 'wallet', label: 'Wallet connected', status: walletConnected ? 'complete' : 'pending', icon: 'wallet'},
+    {id: 'wallet', label: 'Wallet connected', status: walletConnected ? 'complete' : 'pending', icon: 'credit-card'},
     {id: 'attestation', label: 'Fetching attestation', status: searching ? 'active' : 'pending', icon: 'search'},
     {id: 'transaction', label: 'Fetching raw transaction', status: 'pending', icon: 'download'},
     {id: 'signer', label: 'Verifying attester signer', status: 'pending', icon: 'shield'},
@@ -850,9 +842,8 @@ export const ProofGenerationScreen: React.FC = () => {
             rawTransaction: txResult.rawTransaction,
             signerIndex: 0,
             scopeString: scopeStr,
-            // Optional, as with arc_eligibility: the GIWA circuit signs
-            // the typed action when one arrives and its signal hash when none
-            // does. Passing it is what makes the request's action reach the
+            // Optional: the GIWA circuit signs the typed action when one
+            // arrives and its signal hash when none does. Passing it is what makes the request's action reach the
             // wallet screen instead of being dropped on the way.
             action:
               route.params?.action ??
@@ -865,8 +856,8 @@ export const ProofGenerationScreen: React.FC = () => {
         const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
 
         // The circuit is named, not inferred. `canonical` is the id the user
-        // picked or the deep link asked for; the hook refuses it when the
-        // inputs cannot honour it, instead of quietly proving another circuit.
+        // picked or the deep link asked for; the hook refuses any id it does
+        // not prove, instead of quietly proving another circuit.
         await generateKycProof(
           {
             circuit: canonical,
@@ -874,14 +865,6 @@ export const ProofGenerationScreen: React.FC = () => {
             rawTransaction: txResult.rawTransaction,
             signerIndex: 0,
             scopeString: scopeStr,
-            // Present only for arc_eligibility. A dapp sends it through the
-            // SDK and it arrives in the deep link's inputs, already checked by
-            // validateProofRequest; the demo screen is the other way in. The
-            // hook refuses the mismatched combinations rather than choosing a
-            // circuit for us.
-            action:
-              route.params?.action ??
-              (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action,
           },
           ethereum, addLog,
         );

@@ -163,12 +163,12 @@ async function copyBundledCircuitFile(
 /**
  * Which ref THIS circuit reads from. One answer, three readers.
  *
- * Circuits that are not officially supported -- the experimental Arc one and
- * the planned ones (GIWA, the three Korea mDL predicates) -- exist only on
- * main, never in a release tag, so they are always fetched from main
- * regardless of environment. Asking for the derived list rather than naming
- * them is what stops the next circuit from being forgotten here; Arc was, for
- * exactly as long as it sat in neither of two lists.
+ * Circuits that are not officially supported -- the experimental and planned
+ * ones (GIWA, the three Korea mDL predicates) -- exist only on main, never in
+ * a release tag, so they are always fetched from main regardless of
+ * environment. Asking for the derived list rather than naming them is what
+ * stops the next circuit from being forgotten here; one experimental circuit
+ * was, for exactly as long as it sat in neither of two lists.
  *
  * The download URL, the cache-staleness check and the metadata written beside
  * the files each used to work this out on their own, and only the first one

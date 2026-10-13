@@ -27,9 +27,9 @@ export interface SignedThing {
    * The digest the signature is over.
    *
    * For typed data this is keccak256(0x1901 ++ domainSeparator ++ structHash),
-   * which is what the Arc circuit rebuilds from its own public inputs. For
-   * personal_sign it is the signal hash, and the prefix is added by the wallet
-   * and by whoever recovers.
+   * which is what the action-binding circuit rebuilds from its own public
+   * inputs. For personal_sign it is the signal hash, and the prefix is added
+   * by the wallet and by whoever recovers.
    */
   digest: string;
   /** True when the digest is signed as-is, with no personal_sign prefix. */
