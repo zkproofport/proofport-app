@@ -87,12 +87,26 @@ const storage: Storage = {
   },
 };
 
+/**
+ * External wallets over WalletConnect, and nothing else.
+ *
+ * AppKit turns on email and Google / X / Discord / Apple sign-in by default.
+ * Each of those creates a NEW embedded wallet held through Reown's key
+ * management, not the wallet the person already uses -- so it has no Coinbase
+ * attestation, no GIWA issuance, nothing a circuit here could prove, and the
+ * person ends up with a second wallet they did not ask for. `socials: false`
+ * turns off email and every social provider together (AppKit has one key for
+ * both).
+ */
+export const APPKIT_FEATURES = {socials: false} as const;
+
 export const appKit = createAppKit({
   projectId,
   networks,
   adapters: [new EthersAdapter()],
   metadata,
   storage,
+  features: APPKIT_FEATURES,
   debug: true,
   enableAnalytics: false,
 });
