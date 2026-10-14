@@ -15,7 +15,7 @@ import TestRenderer, {act} from 'react-test-renderer';
 jest.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
-  StyleSheet: {create: (value: unknown) => value, flatten: (value: unknown) => value},
+  StyleSheet: {create: (value: unknown) => value, flatten: (value: unknown) => value, absoluteFillObject: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0}},
   Animated: {
     View: 'AnimatedView',
     Value: class {
@@ -28,7 +28,7 @@ jest.mock('react-native', () => ({
 }));
 jest.mock('react-native-vector-icons/Feather', () => 'Feather');
 jest.mock('../../context', () => ({
-  useThemeColors: () => ({mode: 'dark', colors: {info: {500: '#3B82F6'}}}),
+  useThemeColors: () => ({mode: 'dark', colors: {info: {500: '#3B82F6'}, background: {secondary: '#1A2332'}}}),
 }));
 
 const {StepIndicator, CONNECTOR_MIN_HEIGHT} = require('../ui/organisms/StepIndicator');
@@ -88,6 +88,22 @@ describe('the line between step circles', () => {
       const row = line.parent!.parent!;
       expect(flat(row.props.style).flexDirection).toBe('row');
       expect(flat(row.props.style).alignItems).toBe('stretch');
+    }
+  });
+
+  it('covers the line with an opaque circle while the active one pulses larger', () => {
+    // The active circle scales to 1.2x and grew over the line above it; with a
+    // see-through fill the line showed inside the ring (reported on a phone,
+    // 2026-10-14). The base must be the card's colour and the circle must sit
+    // above its own connector.
+    const circles = render(steps).root.findAll(
+      n => (n.type as unknown) === 'AnimatedView' && n.props.testID === 'step-circle',
+    );
+    expect(circles).toHaveLength(steps.length);
+    for (const c of circles) {
+      const style = flat(c.props.style);
+      expect(style.backgroundColor).toBe('#1A2332');
+      expect(style.zIndex).toBe(1);
     }
   });
 

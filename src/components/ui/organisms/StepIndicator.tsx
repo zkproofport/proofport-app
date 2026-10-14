@@ -101,15 +101,21 @@ const StepItem: React.FC<{step: StepData; isLast: boolean}> = ({
   return (
     <View style={styles.stepContainer}>
       <View style={styles.stepIndicator}>
+        {/* The active circle pulses to 1.2x, so it grows over the line above
+            and below it. An opaque base in the card's own colour hides the line
+            under it; the tint sits on top, and zIndex keeps the circle above
+            its own connector, which is drawn after it. */}
         <Animated.View
+          testID="step-circle"
           style={[
             styles.iconCircle,
             {
-              backgroundColor: `${getStatusColor()}15`,
+              backgroundColor: themeColors.background.secondary,
               borderColor: getStatusColor(),
               transform: [{scale: pulseAnim}],
             },
           ]}>
+          <View style={[styles.iconTint, {backgroundColor: `${getStatusColor()}15`}]} />
           <Icon name={step.icon as any} size="sm" color={getIconColor()} />
         </Animated.View>
         {!isLast && (
@@ -178,6 +184,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
+  },
+  iconTint: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
   },
   // Touches the circle above and the circle below: no margin, and it grows.
   connector: {
