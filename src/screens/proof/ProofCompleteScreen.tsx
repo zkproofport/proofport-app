@@ -16,11 +16,11 @@ import {useTranslation} from 'react-i18next';
 import {Icon, Badge, Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useLogs} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useLogs} from '../../hooks';
 import {useMdlKr} from '../../hooks/useMdlKr';
 import {proofHistoryStore} from '../../stores';
-import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, isCircuitId} from '../../config';
-import {findGiwaAttestationTransaction, getCircuitDisplayName} from '../../utils';
+import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, isCircuitId, type CircuitName} from '../../config';
+import {findGiwaAttestationTransaction, findDojangPlaygroundIssuance, getCircuitDisplayName} from '../../utils';
 
 type ProofCompleteRouteProp = RouteProp<ProofStackParamList, 'ProofComplete'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofComplete'>;
@@ -33,6 +33,13 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofCompl
  * names now come from `getCircuitDisplayName` — one table, so there is nothing
  * left to disagree with.
  */
+
+/** The mDL predicate each Korea Mobile ID circuit proves; the hook takes it at mount. */
+const MDL_VARIANT_OF: Partial<Record<CircuitName, 'ownership' | 'age' | 'region'>> = {
+  mdl_kr_ownership: 'ownership',
+  mdl_kr_age: 'age',
+  mdl_kr_region: 'region',
+};
 
 export const ProofCompleteScreen: React.FC = () => {
   const { colors: themeColors } = useThemeColors();
@@ -74,30 +81,35 @@ export const ProofCompleteScreen: React.FC = () => {
 
   // Keyed on the canonical id, so a legacy route id and the canonical spelling
   // of the same circuit cannot pick different hooks.
-  const isCountryCircuit = canonical === 'coinbase_country_attestation';
   const isOidcCircuit = canonical === 'oidc_domain_attestation';
   const isGiwaCircuit = canonical === 'giwa_attestation';
-  const mdlVariant: 'ownership' | 'age' | 'region' | null =
-    canonical === 'mdl_kr_ownership' ? 'ownership'
-    : canonical === 'mdl_kr_age' ? 'age'
-    : canonical === 'mdl_kr_region' ? 'region'
-    : null;
+  const isDojangCircuit = canonical === 'dojang_playground';
+  // Both live on GIWA Sepolia, so their link goes to its explorer, not EAS Scan.
+  const onGiwaExplorer = isGiwaCircuit || isDojangCircuit;
+  const mdlVariant = canonical ? MDL_VARIANT_OF[canonical] ?? null : null;
   const isMdlCircuit = mdlVariant !== null;
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
+  const dojangHook = useDojangPlayground();
   // useMdlKr requires a variant at hook init. When this screen is not
   // serving an mDL proof, the hook still mounts (rules of hooks) but
   // is never driven.
   const mdlHook = useMdlKr(mdlVariant ?? 'ownership');
-  const activeHook = isMdlCircuit
-    ? mdlHook
-    : isOidcCircuit
-    ? oidcHook
-    : isGiwaCircuit
-    ? giwaHook
-    : (isCountryCircuit ? countryHook : kycHook);
+  const HOOK_OF_CIRCUIT = {
+    coinbase_attestation: kycHook,
+    coinbase_country_attestation: countryHook,
+    oidc_domain_attestation: oidcHook,
+    giwa_attestation: giwaHook,
+    dojang_playground: dojangHook,
+    mdl_kr_ownership: mdlHook,
+    mdl_kr_age: mdlHook,
+    mdl_kr_region: mdlHook,
+  } satisfies Record<CircuitName, unknown>;
+  // Without a known circuit there is no proof cache to verify; on-chain
+  // verification refuses below, and the Coinbase hook only fills the slot.
+  const activeHook = canonical ? HOOK_OF_CIRCUIT[canonical] : kycHook;
   const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = activeHook;
   const {addLog} = useLogs();
 
@@ -165,6 +177,25 @@ export const ProofCompleteScreen: React.FC = () => {
 
   const handleViewEASScan = async () => {
     const addr = walletAddress || '';
+    if (isDojangCircuit) {
+      // The proof's input is the wallet's own Playground issuance; show it.
+      const explorer = getNetworkConfigForCircuit('dojang_playground').explorerUrl;
+      try {
+        const issuance = await findDojangPlaygroundIssuance(addr, line => console.log(line));
+        navigation.navigate('InAppBrowser', {
+          url: `${explorer}/tx/${issuance.txHash}`,
+          title: t('host.proof.txTitle'),
+        });
+        return;
+      } catch (e) {
+        console.warn('[Dojang] issuance lookup failed, showing the address instead:', e);
+      }
+      navigation.navigate('InAppBrowser', {
+        url: `${explorer}/address/${addr}`,
+        title: t('host.proof.explorerTitle'),
+      });
+      return;
+    }
     if (isGiwaCircuit) {
       // GIWA has no easscan — link directly to the attestation tx on
       // the explorer pulled from CIRCUIT_NETWORK_OVERRIDES.giwa_attestation
@@ -308,7 +339,7 @@ export const ProofCompleteScreen: React.FC = () => {
             <>
               <Button
                 title={t(
-                  isGiwaCircuit
+                  onGiwaExplorer
                     ? 'host.proof.complete.viewGiwaExplorer'
                     : 'host.proof.complete.viewEASScan',
                 )}

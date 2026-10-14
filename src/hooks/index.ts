@@ -3,6 +3,8 @@ export type {UseLogsReturn} from './useLogs';
 export {useCoinbaseKyc} from './useCoinbaseKyc';
 export type {UseCoinbaseKycReturn, CoinbaseKycProofInputs} from './useCoinbaseKyc';
 export {useGiwaKyc} from './useGiwaKyc';
+export {useDojangPlayground} from './useDojangPlayground';
+export type {UseDojangPlaygroundReturn, DojangPlaygroundProofInputs} from './useDojangPlayground';
 export type {UseGiwaKycReturn, GiwaKycProofInputs} from './useGiwaKyc';
 export {useCoinbaseCountry} from './useCoinbaseCountry';
 export type {UseCoinbaseCountryReturn, CoinbaseCountryInputs} from './useCoinbaseCountry';

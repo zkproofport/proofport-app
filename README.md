@@ -10,7 +10,7 @@ React Native mobile app for generating zero-knowledge proofs on mobile devices u
 - **Microsoft 365 Support**: Authenticate with Microsoft 365 organizational accounts
 - **QR-based Deep Linking**: Scan QR codes to receive proof requests from external dApps
 - **Proof Home**: Search and filter organization account, Coinbase KYC, and country proofs, with a direct QR scanner entry
-- **Laboratory**: Active GIWA and Korean mobile ID ownership, age, and region proof flows
+- **Laboratory**: Active GIWA, Dojang Playground and Korean mobile ID ownership, age, and region proof flows
 - **Request Review**: Review incoming proof conditions and read-only EIP-712 action keys and values before continuing to signing and generation
 - **Wallet Integration**: Connect external wallets over WalletConnect (Reown AppKit)
 - **Proof History**: Persistent storage and viewing of generated proofs
@@ -175,7 +175,7 @@ proofport://proof-request?circuit=<circuit>&signalHash=<hash>&requestId=<id>&cal
 
 ### Parameters
 
-- `circuit` (required): Circuit identifier (`coinbase_attestation`, `coinbase_country_attestation`, `oidc_domain_attestation`, or `giwa_attestation`). The canonical list is `@zkproofport-app/sdk/circuits`; an id not in it is refused rather than proved as something else
+- `circuit` (required): Circuit identifier (`coinbase_attestation`, `coinbase_country_attestation`, `oidc_domain_attestation`, `giwa_attestation`, or `dojang_playground`). The canonical list is `@zkproofport-app/sdk/circuits`; an id not in it is refused rather than proved as something else
 - `signalHash` (required): Anti-replay challenge from the dApp
 - `requestId` (required): Unique request identifier for callback matching
 - `callbackUrl` (required): URL to POST proof response to
@@ -218,6 +218,19 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
    - Output: with an action, a proof carrying the action's domain separator and struct
      hash, so a verifier checks WHICH action was authorised.
    - Verification network: GIWA Sepolia (chain 91342).
+
+5. **dojang_playground** (experimental, Developer Mode only): Dojang Playground
+   - Input: the connected wallet's own `payAndIssueEAS()` call to the GIWA Playground
+     faucet `0x63CCe2b569A7bC35895ee24306c1512fefc06121` (legacy or EIP-1559), found
+     through the GIWA explorer, re-read over RPC and hashed back before use, plus the
+     wallet's signature over the request (signal hash, or an optional EIP-712 action).
+   - A wallet with no such issuance gets error E2007; an explorer or RPC failure is
+     E3002, never "no issuance".
+   - Verification network: GIWA Sepolia (chain 91342), verifier
+     `0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724`.
+   - Unit fixtures: `scripts/make-dojang-playground-fixtures.py` rewrites
+     `src/utils/__tests__/fixtures/dojangPlayground.json` from the circuits repo's
+     Prover.toml files and the GIWA RPC.
 
 ### Standalone action testing
 

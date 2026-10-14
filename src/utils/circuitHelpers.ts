@@ -233,6 +233,7 @@ const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, boolean>> = Object.
   coinbase_attestation: false,
   coinbase_country_attestation: false,
   giwa_attestation: true,
+  dojang_playground: true,
 });
 
 /** The nullifier this circuit expects, by its own rule. No default. */

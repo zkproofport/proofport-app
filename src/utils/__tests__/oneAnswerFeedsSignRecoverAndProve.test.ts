@@ -94,11 +94,11 @@ describe('one answer feeds sign, recover and prove', () => {
     );
   });
 
-  it('is read by the wallet request, the recovery and the inputs — all three', () => {
+  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts'])('%s reads it in the wallet request, the recovery and the inputs — all three', file => {
     const fs = require('fs');
     const path = require('path');
     const hook = fs.readFileSync(
-      path.join(__dirname, '..', '..', 'hooks', 'useGiwaKyc.ts'),
+      path.join(__dirname, '..', '..', 'hooks', file),
       'utf8',
     );
     expect(hook).toContain('const signed = whatTheWalletSigns(');

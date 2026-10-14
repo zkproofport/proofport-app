@@ -15,12 +15,13 @@
 import {validateProofRequest, isProofportDeepLink} from '../deeplink';
 import type {ProofRequest} from '../deeplink';
 
-/** The seven ids the app accepts. Written out so a silent addition shows up. */
+/** The eight ids the app accepts. Written out so a silent addition shows up. */
 const CANONICAL = [
   'coinbase_attestation',
   'coinbase_country_attestation',
   'oidc_domain_attestation',
   'giwa_attestation',
+  'dojang_playground',
   'mdl_kr_ownership',
   'mdl_kr_age',
   'mdl_kr_region',
@@ -72,6 +73,13 @@ describe('a proof request is checked before the prover runs', () => {
     const r = validateProofRequest(base({circuit} as Partial<ProofRequest>));
     expect(r.valid).toBe(false);
     expect(r.error).toMatch(/Invalid circuit type/);
+  });
+
+  it.each(['giwa_attestation', 'dojang_playground'])('%s needs a scope, and a well-formed userAddress when one is given', circuit => {
+    expect(validateProofRequest(base({circuit, inputs: {}} as Partial<ProofRequest>)).error).toMatch(/Missing required scope/);
+    expect(validateProofRequest(base({circuit, inputs: {scope: 's', userAddress: '0x12'}} as Partial<ProofRequest>)).error)
+      .toMatch(/Invalid userAddress/);
+    expect(validateProofRequest(base({circuit, inputs: {scope: 's'}} as Partial<ProofRequest>)).valid).toBe(true);
   });
 
   it('coinbase_attestation needs a scope', () => {

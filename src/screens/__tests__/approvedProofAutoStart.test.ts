@@ -37,7 +37,7 @@ jest.mock('react-i18next', () => ({useTranslation: () => ({t: mockT})}));
 jest.mock('../../context', () => ({useThemeColors: () => ({colors: jest.requireActual('../../theme').darkColors})}));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
-  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(),
+  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
   useGoogleAuth: () => ({isReady: true, promptSignIn: mockSignIn}),
   useMicrosoftAuth: () => ({isReady: true, promptSignIn: mockSignIn}),
   useWallet: () => ({account: null, isReady: false, getProvider: mockNoop, connect: mockNoop, disconnect: mockNoop}),

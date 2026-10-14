@@ -70,6 +70,14 @@ export const ErrorCodes = {
     description:
       'This request names a proof type the app does not support. Nothing was generated.',
   },
+  // Raised only when the wallet's whole GIWA history was read and holds no
+  // usable Playground issuance. A lookup that did not finish is E3002.
+  E2007: {
+    code: 'E2007',
+    title: 'No Dojang Playground Issuance',
+    description:
+      'This wallet has not issued itself a Dojang in the GIWA Playground. Issue one there with this wallet first, then try again.',
+  },
 
   // Network errors
   E3001: {

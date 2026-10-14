@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -41,6 +42,7 @@ from pathlib import Path
 APP = Path(__file__).resolve().parent.parent
 
 SDK_GUARD = "src/__tests__/theCircuitListComesFromTheSdk.test.ts"
+SDK_PIN = json.loads((APP / "package.json").read_text())["dependencies"]["@zkproofport-app/sdk"]
 SCREEN_GUARD = "src/__tests__/aProofRequestNamesItsCircuitOrIsRefused.test.ts"
 
 
@@ -157,8 +159,9 @@ MUTATIONS: list[Mutation] = [
         defect="importing the package root drags socket.io-client and qrcode "
         "into a phone bundle for a relay client this app does not use",
         path="src/config/circuitIds.ts",
-        old="} from '@zkproofport-app/sdk/circuits';",
-        new="} from '@zkproofport-app/sdk';",
+        # The first of the file's three subpath imports, the id list itself.
+        old="  type CircuitSupportStatus,\n} from '@zkproofport-app/sdk/circuits';",
+        new="  type CircuitSupportStatus,\n} from '@zkproofport-app/sdk';",
         guard=SDK_GUARD,
         expect_case="dependency-free subpath that is imported",
     ),
@@ -187,8 +190,8 @@ MUTATIONS: list[Mutation] = [
         defect="a four-way || chain of literal names decided which circuits are "
         "read from circuits@main",
         path="src/utils/circuitDownload.ts",
-        old="    const baseUrl = PLANNED_CIRCUIT_IDS.includes(circuitName as CircuitName)",
-        new="    const baseUrl = circuitName === 'giwa_attestation'",
+        old="  if (DEV_ONLY_CIRCUIT_IDS.includes(circuitName as CircuitName)) {",
+        new="  if (circuitName === 'giwa_attestation') {",
         guard=SDK_GUARD,
         expect_case="circuits read from main are the planned ones",
     ),
@@ -228,8 +231,10 @@ MUTATIONS: list[Mutation] = [
         defect="a caret lets the id list — which decides what a deep link "
         "proves — move on an overnight resolve",
         path="package.json",
-        old='"@zkproofport-app/sdk": "0.2.12"',
-        new='"@zkproofport-app/sdk": "^0.2.12"',
+        # Read from package.json, so a version bump does not silently retire
+        # this mutation the way the literal 0.2.12 anchor did.
+        old=f'"@zkproofport-app/sdk": "{SDK_PIN}"',
+        new=f'"@zkproofport-app/sdk": "^{SDK_PIN}"',
         guard=SDK_GUARD,
         expect_case="dependency-free subpath that is imported",
     ),

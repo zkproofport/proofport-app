@@ -22,10 +22,10 @@ import {
   LiveLogsPanel,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
 import {useMdlKr} from '../../hooks/useMdlKr';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
-import {findAttestationTransaction, findGiwaAttestationTransaction, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, computeNullifier} from '../../utils';
+import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, nullifierForCircuit} from '../../utils';
 import type {TypedAction} from '../../utils/typedAction';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -70,13 +70,14 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGener
  * the OWNERSHIP heading. Everything is keyed by the canonical id now, and the
  * translation happens once, in `canonicalCircuitId`.
  */
-type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'mdl';
+type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'dojang' | 'mdl';
 
 const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
   coinbase_attestation: 'coinbase',
   coinbase_country_attestation: 'country',
   oidc_domain_attestation: 'oidc',
   giwa_attestation: 'giwa',
+  dojang_playground: 'dojang',
   mdl_kr_ownership: 'mdl',
   mdl_kr_age: 'mdl',
   mdl_kr_region: 'mdl',
@@ -110,6 +111,10 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
   giwa_attestation: {
     title: 'host.proof.generation.giwaKycTitle',
     description: 'host.proof.generation.giwaKycDescription',
+  },
+  dojang_playground: {
+    title: 'host.proof.generation.dojangPlaygroundTitle',
+    description: 'host.proof.generation.dojangPlaygroundDescription',
   },
   mdl_kr_ownership: {
     title: 'host.proof.generation.mdlKrOwnershipTitle',
@@ -300,6 +305,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const isCountry = flow === 'country';
   const isOidc = flow === 'oidc';
   const isGiwa = flow === 'giwa';
+  const isDojang = flow === 'dojang';
   const mdlVariant = canonical ? MDL_VARIANT_OF[canonical] : undefined;
   const isMdl = flow === 'mdl';
   // Document-type bottom sheet for the mDL flow. The chosen provider is held
@@ -313,6 +319,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
+  const dojangHook = useDojangPlayground();
   // useMdlKr requires a variant at hook init. When this screen is not
   // serving an mDL circuit, the hook still mounts (rules of hooks) but
   // is never driven; we keep 'ownership' as the inert default.
@@ -323,20 +330,24 @@ export const ProofGenerationScreen: React.FC = () => {
   const generateCountryProof = countryHook.generateProofWithSteps;
   const generateOidcProof = oidcHook.generateProofWithSteps;
   const generateGiwaProof = giwaHook.generateProofWithSteps;
+  const generateDojangProof = dojangHook.generateProofWithSteps;
   const generateMdlProof = mdlHook.generateProofWithSteps;
   const googleReady = googleAuth.isReady;
   const microsoftReady = microsoftAuth.isReady;
   const promptGoogleSignIn = googleAuth.promptSignIn;
   const promptMicrosoftSignIn = microsoftAuth.promptSignIn;
-  const hook = isMdl
-    ? mdlHook
-    : isOidc
-    ? oidcHook
-    : isGiwa
-    ? giwaHook
-    : isCountry
-    ? countryHook
-    : kycHook;
+  // One row per flow. With no flow the screen refuses the request on arrival
+  // (see the E2006 effect below) and drives no hook; the Coinbase hook is only
+  // what renders its untouched step list meanwhile.
+  const HOOK_OF_FLOW = {
+    coinbase: kycHook,
+    country: countryHook,
+    oidc: oidcHook,
+    giwa: giwaHook,
+    dojang: dojangHook,
+    mdl: mdlHook,
+  } satisfies Record<ProofFlow, unknown>;
+  const hook = flow ? HOOK_OF_FLOW[flow] : kycHook;
 
   // Each entry to this screen starts from a clean slate. Without this, the
   // module-level proof caches inside the hooks (kept across navigations to
@@ -348,6 +359,7 @@ export const ProofGenerationScreen: React.FC = () => {
     countryHook.resetProofCache();
     oidcHook.resetProofCache();
     giwaHook.resetProofCache();
+    dojangHook.resetProofCache();
     mdlHook.resetProofCache();
   }
 
@@ -474,8 +486,10 @@ export const ProofGenerationScreen: React.FC = () => {
         const inputs = proofRequest.inputs as CoinbaseKycInputs | undefined;
         const scope = inputs?.scope || 'proofport:default';
         const scopeBytes = computeScope(scope);
+        // By the circuit's own rule: GIWA and Dojang Playground hash the wallet
+        // with the circuit id, the Coinbase pair hash it with signal_hash.
         const nullifierBytes = signalHash
-          ? computeNullifier(account || '', signalHash, scopeBytes)
+          ? nullifierForCircuit(resolved, account || '', signalHash, scopeBytes)
           : new Uint8Array(32);
         nullifierHex = ethers.utils.hexlify(nullifierBytes);
       }
@@ -768,6 +782,52 @@ export const ProofGenerationScreen: React.FC = () => {
       // The gate already resolved the wallet for this circuit.
       const walletAddress = gatedAddress as string;
 
+      if (isDojang) {
+        addLog('=== Searching for a Dojang Playground issuance ===');
+        let issuance: Awaited<ReturnType<typeof findDojangPlaygroundIssuance>>;
+        try {
+          issuance = await findDojangPlaygroundIssuance(walletAddress, addLog);
+        } catch (e) {
+          const details = e instanceof Error ? e.message : String(e);
+          // `none` is an answer about this wallet; anything else is a lookup
+          // that did not finish, and must not read as "you have none".
+          const noIssuance = e instanceof DojangIssuanceError && e.kind === 'none';
+          const code = noIssuance ? 'E2007' : 'E3002';
+          if (noIssuance) await recordLookupFailure(configName, walletAddress);
+          setErrorMessage(`[${code}] ${t(`host.errors.${code}.description`, {defaultValue: ErrorCodes[code].description})}`);
+          addLog(details);
+          showGlobalError(code, details);
+          markHistoryFailed();
+          return;
+        }
+
+        const provider = await getProvider();
+        if (!provider) {
+          setErrorMessage('No wallet provider available');
+          addLog('No wallet provider available');
+          markHistoryFailed();
+          return;
+        }
+        const deep = proofRequest?.inputs as {scope?: string; action?: TypedAction} | undefined;
+        // A deep link must carry its scope (validateProofRequest refuses one
+        // without); the Laboratory names its own.
+        const scopeStr = route.params?.scope ?? deep?.scope ?? 'proofport:dojang-playground';
+        await generateDojangProof(
+          {
+            userAddress: walletAddress,
+            rawTransaction: issuance.rawTransaction,
+            scopeString: scopeStr,
+            action: route.params?.action ?? deep?.action,
+          },
+          {
+            request: async (args: {method: string; params?: unknown[]}) =>
+              provider.send(args.method, args.params || []),
+          },
+          addLog,
+        );
+        return;
+      }
+
       const selector = isCountry ? SELECTOR_ATTEST_COUNTRY : SELECTOR_ATTEST_ACCOUNT;
       addLog(isGiwa
         ? '=== Searching for GIWA Attestation ==='
@@ -879,9 +939,9 @@ export const ProofGenerationScreen: React.FC = () => {
       setIsSearching(false);
     }
   }, [runWalletGate, recordLookupFailure, addLog, clearLogs, getProvider,
-    generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateMdlProof,
+    generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateDojangProof, generateMdlProof,
     googleReady, microsoftReady, promptGoogleSignIn, promptMicrosoftSignIn,
-    isCountry, isOidc, isGiwa, isMdl, proofRequest, route.params, sendError,
+    isCountry, isOidc, isGiwa, isDojang, isMdl, proofRequest, route.params, sendError,
     circuitId, canonical, flow, mdlVariant, account, markHistoryFailed, t]);
 
   // After the wallet gate opens a picker / reconnect prompt, it sets its

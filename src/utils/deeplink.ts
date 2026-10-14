@@ -36,7 +36,7 @@ export interface OidcDomainInputs {
 }
 
 /**
- * What a `giwa_attestation` request carries. The action type is the SDK's —
+ * What a `giwa_attestation` or `dojang_playground` request carries. The action type is the SDK's —
  * see src/utils/typedAction.ts.
  *
  * The action is optional, and when present it is checked on arrival: a deep
@@ -287,15 +287,21 @@ export function validateProofRequest(
   if (
     request.circuit === 'coinbase_attestation' ||
     request.circuit === 'coinbase_country_attestation' ||
-    request.circuit === 'giwa_attestation'
+    request.circuit === 'giwa_attestation' ||
+    request.circuit === 'dojang_playground'
   ) {
     // KYC-style circuits: userAddress is optional — app will connect wallet if not provided
     const inputs = request.inputs as CoinbaseKycInputs;
     if (inputs.userAddress && !/^0x[a-fA-F0-9]{40}$/.test(inputs.userAddress)) {
       return {valid: false, error: 'Invalid userAddress format'};
     }
-    // Scope is required for coinbase_attestation / giwa_attestation
-    if ((request.circuit === 'coinbase_attestation' || request.circuit === 'giwa_attestation') && !inputs.scope) {
+    // Scope is required: it is a public input, and the nullifier is per scope.
+    if (
+      (request.circuit === 'coinbase_attestation' ||
+        request.circuit === 'giwa_attestation' ||
+        request.circuit === 'dojang_playground') &&
+      !inputs.scope
+    ) {
       return {valid: false, error: 'Missing required scope parameter'};
     }
     // countryList and isIncluded are required for coinbase_country_attestation

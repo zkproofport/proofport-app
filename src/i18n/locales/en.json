@@ -387,7 +387,9 @@
         "confirmMessage": "This will generate a zero-knowledge proof. Proceed?",
         "confirmCancel": "Cancel",
         "confirmGenerate": "Generate",
-        "stackTitle": "Generate Proof"
+        "stackTitle": "Generate Proof",
+        "dojangPlaygroundTitle": "Dojang Playground (Experimental)",
+        "dojangPlaygroundDescription": "Generate a zero-knowledge proof that your wallet issued itself a Dojang in the GIWA Playground on GIWA Sepolia. Connect the wallet you issued it with."
       },
       "domain": {
         "heroLabel": "OIDC DOMAIN VERIFICATION",
@@ -544,7 +546,12 @@
           "provider": "Korea Mobile ID"
         },
         "heroTitle": "Explore proofs for testing",
-        "poc": "PoC"
+        "poc": "PoC",
+        "dojangPlayground": {
+          "title": "Dojang Playground",
+          "description": "Prove the Dojang you issued yourself in the GIWA Playground",
+          "provider": "GIWA testnet · GIWA Playground"
+        }
       }
     },
     "proofRequest": {
@@ -670,6 +677,12 @@
           "title": "Prove your region of residence",
           "shared": "Region condition result · requested region hash · participation identifier",
           "private": "Street address · personal identity code (CI)"
+        },
+        "dojangPlayground": {
+          "title": "Prove your Dojang Playground issuance",
+          "requirement": "A GIWA Playground Dojang issued by this wallet",
+          "shared": "Dojang Playground condition result · participation identifier · action and domain hashes when an action is requested",
+          "private": "Wallet address · original wallet signature · the issuance transaction"
         }
       }
     },
@@ -722,6 +735,10 @@
       "E2006": {
         "title": "Unsupported Proof Type",
         "description": "This request names a proof type the app does not support. Nothing was generated."
+      },
+      "E2007": {
+        "title": "No Dojang Playground Issuance",
+        "description": "This wallet has not issued itself a Dojang in the GIWA Playground. Issue one there with this wallet first, then try again."
       },
       "E3001": {
         "title": "Network Error",

@@ -120,10 +120,11 @@ afterEach(async () => {
 });
 
 describe('wallet presentation preserves the binding and live-session distinction', () => {
-  it('renders one Coinbase group for KYC and Country, and one separate GIWA group', async () => {
+  it('renders one Coinbase group for KYC and Country, and separate GIWA and Dojang Playground groups', async () => {
     await render();
     const rows = screen!.root.findAll(item => typeof item.type === 'string' && item.props.testID?.startsWith('wallet-binding-'));
-    expect(rows.map(row => row.props.testID).sort()).toEqual(['wallet-binding-coinbase', 'wallet-binding-giwa']);
+    expect(rows.map(row => row.props.testID).sort()).toEqual(['wallet-binding-coinbase', 'wallet-binding-dojang', 'wallet-binding-giwa']);
+    expect(textOf(findNode('wallet-binding-dojang'))).toContain('Dojang Playground');
     const coinbase = textOf(findNode('wallet-binding-coinbase'));
     for (const name of ['Coinbase KYC', 'Coinbase Country']) expect(coinbase).toContain(name);
     expect(textOf(screen!.root)).not.toMatch(/OIDC Domain|Korea Mobile ID/);
@@ -134,6 +135,7 @@ describe('wallet presentation preserves the binding and live-session distinction
     await render();
     expect(hasNode('wallet-binding-coinbase')).toBe(true);
     expect(hasNode('wallet-binding-giwa')).toBe(false);
+    expect(hasNode('wallet-binding-dojang')).toBe(false);
   });
 
   it.each([null, OTHER_ADDRESS])('shows a stored wallet as inactive when the live account is %s', async account => {

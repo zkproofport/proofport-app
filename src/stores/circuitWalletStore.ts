@@ -34,6 +34,9 @@ const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
   coinbase_attestation: 'coinbase',
   coinbase_country_attestation: 'coinbase',
   giwa_attestation: 'giwa',
+  // Its own group: the wallet that issued itself a Playground Dojang is not
+  // necessarily the one the GIWA mock attester registered.
+  dojang_playground: 'dojang',
   oidc_domain_attestation: 'oidc',
   // Korea mDL is a web2 (OmniOne CX) flow with no wallet binding.
   // All three predicate circuits share one group so the wallet gate is
@@ -60,6 +63,8 @@ export const CIRCUIT_BINDS_A_WALLET = {
   coinbase_country_attestation: true,
   // Its hook asks for a personal_sign, so a wallet has to be bound.
   giwa_attestation: true,
+  // Same: the wallet signs the request, and its own faucet call is the input.
+  dojang_playground: true,
   // The signature is inside the OIDC identity token. No wallet is read.
   oidc_domain_attestation: false,
   // Web2 (OmniOne CX) flows with no wallet at all.

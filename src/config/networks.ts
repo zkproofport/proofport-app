@@ -35,7 +35,7 @@ export const USER_FACING_NETWORKS: ReadonlyArray<NetworkDescriptor> = [
   {
     id: 'giwa',
     labelKey: 'host.more.networkGiwa',
-    circuits: ['giwa_attestation'],
+    circuits: ['giwa_attestation', 'dojang_playground'],
     developerOnly: true,
   },
   {

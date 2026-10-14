@@ -188,7 +188,7 @@ describe('the active laboratory', () => {
     const {LaboratoryScreen} = require('../proof/LaboratoryScreen');
     act(() => {screen = create(React.createElement(LaboratoryScreen));});
     expect(visibleProofs()).toEqual([
-      'giwa_attestation', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region',
+      'giwa_attestation', 'dojang_playground', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region',
     ]);
     for (const id of visibleProofs()) {
       expect(node(`proof-card-${id}`).props.disabled).not.toBe(true);
@@ -196,6 +196,7 @@ describe('the active laboratory', () => {
     }
     expect(mockNavigate.mock.calls).toEqual([
       ['ActionInput', {circuit: 'giwa_attestation'}],
+      ['ActionInput', {circuit: 'dojang_playground'}],
       ['MdlKrInput', {variant: 'ownership'}],
       ['MdlKrInput', {variant: 'age'}],
       ['MdlKrInput', {variant: 'region'}],

@@ -53,6 +53,14 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     badgeKey: 'host.proof.laboratory.poc',
     open: navigation => navigation.navigate('ActionInput', {circuit: 'giwa_attestation'}),
   },
+  dojang_playground: {
+    surface: 'laboratory', purpose: 'identity', icon: 'document',
+    titleKey: 'host.proof.laboratory.dojangPlayground.title',
+    descriptionKey: 'host.proof.laboratory.dojangPlayground.description',
+    providerKey: 'host.proof.laboratory.dojangPlayground.provider',
+    groupKey: 'host.proof.laboratory.giwa.sectionTitle',
+    open: navigation => navigation.navigate('ActionInput', {circuit: 'dojang_playground'}),
+  },
   mdl_kr_ownership: {
     surface: 'laboratory', purpose: 'identity', icon: 'id-card',
     titleKey: 'host.proof.laboratory.ownership.title',

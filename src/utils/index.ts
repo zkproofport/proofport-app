@@ -18,6 +18,11 @@ export {
   prepareGiwaCircuitInputs,
   GIWA_AUTHORIZED_SIGNERS,
 } from './giwaKyc';
+export {
+  findDojangPlaygroundIssuance,
+  checkDojangIssuanceTx,
+  DojangIssuanceError,
+} from './dojangPlayground';
 export * from './circuitDownload';
 export { getCircuitIcon, getCircuitDisplayName } from './circuit';
 export { prepareOidcInputs, flattenOidcInputs } from './oidcDomain';

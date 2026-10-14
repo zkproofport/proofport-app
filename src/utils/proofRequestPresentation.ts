@@ -27,6 +27,7 @@ const PRESENTATIONS = {
   coinbase_attestation: {icon: 'identity', section: 'kyc', fields: [], requirement: 'kyc.requirement'},
   coinbase_country_attestation: {icon: 'country', section: 'country', fields: ['countryList', 'isIncluded']},
   giwa_attestation: {icon: 'identity', section: 'giwa', fields: [], requirement: 'giwa.requirement'},
+  dojang_playground: {icon: 'identity', section: 'dojangPlayground', fields: [], requirement: 'dojangPlayground.requirement'},
   mdl_kr_ownership: {icon: 'id-card', section: 'ownership', fields: ['discloseFlags'], requirement: 'ownership.requirement'},
   mdl_kr_age: {icon: 'age', section: 'age', fields: ['ageThreshold', 'currentYear']},
   mdl_kr_region: {icon: 'region', section: 'region', fields: ['targetRegion']},

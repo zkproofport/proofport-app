@@ -109,11 +109,23 @@ describe('standalone GIWA action input', () => {
     });
   });
 
-  it('offers no circuit picker while GIWA is the only circuit that binds an action', async () => {
+  it('offers both action-binding circuits, each signing for GIWA Sepolia', async () => {
     await mount(ActionInputScreen);
     const select = tree.root.findAllByType('Select' as never).find(s => s.props.label === 'host.proof.actionInput.circuitLabel');
-    expect(select).toBeUndefined();
+    expect(select).toBeDefined();
+    expect(select!.props.options.map((o: {value: string}) => o.value)).toEqual(['giwa_attestation', 'dojang_playground']);
     expect(generateAction().domain.chainId).toBe(91342);
+
+    act(() => select!.props.onChange('dojang_playground'));
+    const action = generateAction();
+    expect(mockNavigate.mock.calls.at(-1)![1].circuitId).toBe('dojang_playground');
+    expect(action.domain.chainId).toBe(91342);
+  });
+
+  it('opens action inputs directly from the Dojang Playground card', async () => {
+    await mount(LaboratoryScreen);
+    act(() => tree.root.findByProps({testID: 'proof-card-dojang_playground'}).props.onPress());
+    expect(mockNavigate).toHaveBeenCalledWith('ActionInput', {circuit: 'dojang_playground'});
   });
 
   it('keeps an explicit way to generate GIWA identity without an action', async () => {

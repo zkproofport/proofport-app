@@ -187,6 +187,8 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
   // reaches a device instead of waiting for someone to edit a constant.
   giwa_attestation: (chainId) =>
     `DeployGiwaAttestation.s.sol/${chainId}/run-latest.json`,
+  dojang_playground: (chainId) =>
+    `DeployDojangPlayground.s.sol/${chainId}/run-latest.json`,
   mdl_kr_ownership: (chainId) =>
     `DeployMdlKrOwnership.s.sol/${chainId}/run-latest.json`,
   mdl_kr_age: (chainId) =>
@@ -267,6 +269,8 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // v2: the circuit signs an EIP-712 action when one is supplied, dropped
   // signal_hash from the nullifier, and grew from 128 to 192 public inputs.
   giwa_attestation: 2,
+  // v1: first release of the circuit (circuits 4bba5ed).
+  dojang_playground: 1,
   // Split into 3 independent circuits sharing the canonical ci identifier.
   // v4: nullifier formula changed to keccak(keccak(ci) || scope), matching
   // the OIDC-domain-attestation pattern. signal_hash, cx_integrity_root,
@@ -344,6 +348,8 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
     coinbase_country_attestation: coinbaseChain,
     oidc_domain_attestation: coinbaseChain,
     giwa_attestation: GIWA_SEPOLIA,
+    // The Playground faucet and the circuit's chain-id literal are GIWA Sepolia.
+    dojang_playground: GIWA_SEPOLIA,
     mdl_kr_ownership: OMNIONE_TESTNET,
     mdl_kr_age: OMNIONE_TESTNET,
     mdl_kr_region: OMNIONE_TESTNET,
@@ -371,6 +377,9 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // an app left on the old address would fail every new proof while looking
     // like a proof problem.
     giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
+    // Dojang Playground verifier on GIWA Sepolia, same address across env
+    // (testnet-only). circuits/deployments/91342/DojangPlayground.json.
+    dojang_playground: '0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724',
     // Korea mDL — three independent verifiers on Base Sepolia (v4 circuits).
     mdl_kr_ownership: '0x7602D09d24E6E16efF5AB981646872886376763E',
     mdl_kr_age:       '0xcFF90FF8cEADc98f625300dc976eD85A3AA943Ba',
@@ -381,6 +390,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
     oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
     giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
+    dojang_playground: '0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724',
     mdl_kr_ownership: '0x7602D09d24E6E16efF5AB981646872886376763E',
     mdl_kr_age:       '0xcFF90FF8cEADc98f625300dc976eD85A3AA943Ba',
     mdl_kr_region:    '0x435F0448F02F5Df9659D460181116BCaF37E518E',
@@ -390,6 +400,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
     giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
+    dojang_playground: '0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724',
     // Korea mDL not yet deployed to a mainnet. Pinning to the Base
     // Sepolia addresses (v4 circuits) until OmniOne Chain mainnet access
     // is granted.

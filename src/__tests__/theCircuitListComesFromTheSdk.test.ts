@@ -82,14 +82,14 @@ function codeOf(file: string): string {
 }
 
 describe('the identifiers come from the published SDK', () => {
-  it('CONTRACT: the SDK is the list — seven canonical ids, none of them hyphenated', () => {
+  it('CONTRACT: the SDK is the list — eight canonical ids, none of them hyphenated', () => {
     /*
      * Not an assertion about the SDK's content so much as a statement of what
      * every other case here is measured against. If this number changes, a
      * circuit was added or removed upstream and the cases below say which of
      * this app's tables have not caught up.
      */
-    expect(ALL_CIRCUIT_IDS.length).toBe(7);
+    expect(ALL_CIRCUIT_IDS.length).toBe(8);
     for (const id of ALL_CIRCUIT_IDS) {
       expect([id, /^[a-z][a-z0-9_]*$/.test(id)]).toEqual([id, true]);
     }
@@ -212,9 +212,9 @@ describe('every app table covers every published circuit', () => {
       const presentation = getProofRequestPresentation({
         circuit: id, inputs: {}, requestId: 'coverage', callbackUrl: 'https://requester.test', createdAt: 1,
       }, key => key);
-      expect(presentation.title).toMatch(/^host\.proofRequest\.presentation\.[a-z]+\.title$/);
-      expect(presentation.shared).toMatch(/^host\.proofRequest\.presentation\.[a-z]+\.shared$/);
-      expect(presentation.private).toMatch(/^host\.proofRequest\.presentation\.[a-z]+\.private$/);
+      expect(presentation.title).toMatch(/^host\.proofRequest\.presentation\.[a-z][A-Za-z]*\.title$/);
+      expect(presentation.shared).toMatch(/^host\.proofRequest\.presentation\.[a-z][A-Za-z]*\.shared$/);
+      expect(presentation.private).toMatch(/^host\.proofRequest\.presentation\.[a-z][A-Za-z]*\.private$/);
       expect(presentation.conditions.length).toBeGreaterThan(0);
     }
   });

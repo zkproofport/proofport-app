@@ -35,7 +35,7 @@ jest.mock('../../components/ui', () => ({Icon: 'Icon', Badge: 'Badge', Button: '
 jest.mock('../../context', () => ({useThemeColors: () => ({colors: jest.requireActual('../../theme').darkColors})}));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
-  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(),
+  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
   useLogs: () => ({logs: [], addLog: jest.fn()}),
 }));
 jest.mock('../../hooks/useMdlKr', () => ({useMdlKr: () => mockProofHook()}));

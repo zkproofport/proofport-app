@@ -387,7 +387,9 @@
         "confirmMessage": "영지식 증명을 생성할까요?",
         "confirmCancel": "취소",
         "confirmGenerate": "생성",
-        "stackTitle": "증명 생성"
+        "stackTitle": "증명 생성",
+        "dojangPlaygroundTitle": "Dojang Playground 증명 (Experimental)",
+        "dojangPlaygroundDescription": "GIWA Playground에서 이 지갑으로 직접 발급한 Dojang을 GIWA Sepolia 영지식 증명으로 생성해요. 발급에 사용한 지갑을 연결해 주세요."
       },
       "domain": {
         "heroLabel": "OIDC 도메인 인증",
@@ -544,7 +546,12 @@
           "provider": "한국 모바일 신분증"
         },
         "heroTitle": "테스트용 증명을 살펴보세요",
-        "poc": "PoC"
+        "poc": "PoC",
+        "dojangPlayground": {
+          "title": "Dojang Playground",
+          "description": "GIWA Playground에서 직접 발급한 Dojang을 증명해요",
+          "provider": "GIWA 테스트넷 · GIWA Playground"
+        }
       }
     },
     "proofRequest": {
@@ -670,6 +677,12 @@
           "title": "거주 지역 조건을 증명해주세요",
           "shared": "지역 조건 충족 여부 · 요청 지역의 해시값 · 참여용 식별값",
           "private": "상세 주소 · 개인 식별정보(CI)"
+        },
+        "dojangPlayground": {
+          "title": "Dojang Playground 발급을 증명해주세요",
+          "requirement": "이 지갑으로 발급한 GIWA Playground Dojang",
+          "shared": "Dojang Playground 조건 충족 여부 · 참여용 식별값 · 작업 요청 시 작업과 도메인의 해시값",
+          "private": "지갑 주소 · 지갑 서명 원문 · 발급 트랜잭션"
         }
       }
     },
@@ -722,6 +735,10 @@
       "E2006": {
         "title": "지원하지 않는 증명 종류입니다",
         "description": "이 요청이 가리키는 증명 종류를 앱이 지원하지 않습니다. 아무것도 생성되지 않았습니다."
+      },
+      "E2007": {
+        "title": "Dojang Playground 발급 내역이 없습니다",
+        "description": "이 지갑으로 GIWA Playground에서 발급한 Dojang이 없습니다. 먼저 이 지갑으로 GIWA Playground에서 발급한 뒤 다시 시도해 주세요."
       },
       "E3001": {
         "title": "네트워크 오류",
