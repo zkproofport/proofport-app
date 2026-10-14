@@ -273,6 +273,20 @@ describe('a request is reviewed before it is approved', () => {
     expect(text).not.toContain('19');
   });
 
+  it.each([
+    ['en', 'coinbase_attestation', 'kyc'], ['ko', 'coinbase_attestation', 'kyc'],
+    ['en', 'giwa_attestation', 'giwa'], ['ko', 'giwa_attestation', 'giwa'],
+    ['en', 'dojang_playground', 'dojangPlayground'], ['ko', 'dojang_playground', 'dojangPlayground'],
+    ['en', 'mdl_kr_ownership', 'ownership'], ['ko', 'mdl_kr_ownership', 'ownership'],
+  ] as const)('(%s) names the condition section once and shows the %s requirement under it', (language, circuit, section) => {
+    mockLanguage = language;
+    const bundle = jest.requireActual(`../../i18n/locales/${language}.json`).host.proofRequest;
+    render(request({circuit, inputs: {scope: 'app'}}));
+    const lines = renderedText(renderer).split('\n');
+    expect(lines.filter(line => line === bundle.review.proofCondition)).toHaveLength(1);
+    expect(lines).toContain(bundle.presentation[section].requirement);
+  });
+
   // `arc_eligibility` was removed from the app on 2026-10-13. A dapp or an old
   // QR code that still names it must be refused like any unknown circuit,
   // never routed to another circuit's flow.

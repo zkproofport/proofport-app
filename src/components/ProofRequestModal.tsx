@@ -132,7 +132,7 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
                   <View style={styles.conditionIcon}><ProofUiIcon name={presentation?.icon ?? 'info'} size={24} color={colors.secondary} /></View>
                   <View style={styles.conditionValues}>
                     {presentation ? presentation.conditions.map(({label, value}, index) => (
-                      <ReadonlyValue key={`${index}-${label}`} label={label || undefined} value={value}
+                      <ReadonlyValue key={`${index}-${label}`} label={label} value={value}
                         layout="stacked" />
                     )) : <ReadonlyValue value={request.circuit} />}
                   </View>

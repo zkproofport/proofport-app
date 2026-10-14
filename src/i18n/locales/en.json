@@ -609,7 +609,6 @@
         "fields": {
           "organization": "Organization requirement",
           "provider": "Sign-in provider",
-          "requirement": "Requested condition",
           "countries": "Requested countries (country codes)",
           "countryRule": "Country condition",
           "disclosures": "Attributes checked by hash commitment",

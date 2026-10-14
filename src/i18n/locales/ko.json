@@ -609,7 +609,6 @@
         "fields": {
           "organization": "조직 조건",
           "provider": "인증 제공자",
-          "requirement": "요청 조건",
           "countries": "대상 국가 (국가 코드)",
           "countryRule": "국가 조건",
           "disclosures": "해시로 일치 여부를 확인할 항목",

@@ -6,7 +6,8 @@ export type ProofRequestPresentationIcon =
 export interface ProofRequestPresentation {
   icon: ProofRequestPresentationIcon;
   title: string;
-  conditions: {label: string; value: unknown}[];
+  /** A row without a label is the circuit's own requirement: the section heading already names it. */
+  conditions: {label?: string; value: unknown}[];
   shared: string;
   private: string;
 }
@@ -88,7 +89,7 @@ export function getProofRequestPresentation(request: Pick<ProofRequest, 'circuit
     ? request.inputs as Record<string, unknown> : {};
   const conditions: ProofRequestPresentation['conditions'] = [];
   if (definition.requirement) {
-    conditions.push({label: t(PREFIX + 'fields.requirement'), value: t(PREFIX + definition.requirement)});
+    conditions.push({value: t(PREFIX + definition.requirement)});
   }
   for (const field of definition.fields) {
     conditions.push({label: t(PREFIX + 'fields.' + FIELD_LABELS[field]), value: conditionValue(field, inputs[field], t)});

@@ -29,6 +29,16 @@ describe('readable circuit-specific proof request conditions', () => {
     expect(present('mdl_kr_region').icon).toBe('region');
   });
 
+  it('gives a circuit\'s own requirement no label of its own, so it is not titled twice', () => {
+    for (const [circuit, section] of [['coinbase_attestation', 'kyc'], ['giwa_attestation', 'giwa'],
+      ['dojang_playground', 'dojangPlayground'], ['mdl_kr_ownership', 'ownership']] as const) {
+      expect(present(circuit).conditions[0]).toEqual({value: `${section}.requirement`});
+    }
+    for (const circuit of ALL_CIRCUIT_IDS) {
+      expect(present(circuit).conditions.some(row => row.label === 'fields.requirement')).toBe(false);
+    }
+  });
+
   it('describes the requested organization and explicit provider', () => {
     const result = present('oidc_domain_attestation', {domain: 'masselabs.com', provider: 'microsoft'});
     expect(result.conditions).toEqual([
@@ -110,7 +120,7 @@ describe('readable circuit-specific proof request conditions', () => {
     for (const [field, value] of Object.entries(inputs)) {
       expect(result.conditions).toContainEqual({label: `Additional condition: ${field}`, value});
     }
-    expect(result.conditions.find(row => row.label.endsWith('unknownObject'))?.value).toBe(nested);
+    expect(result.conditions.find(row => row.label?.endsWith('unknownObject'))?.value).toBe(nested);
   });
 
   it.each(['not-a-circuit', '__proto__', 'constructor'])('refuses unknown circuit %s', circuit => {
