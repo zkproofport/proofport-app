@@ -184,18 +184,37 @@ proofport://proof-request?circuit=<circuit>&signalHash=<hash>&requestId=<id>&cal
 
 ### Response Format
 
-Proof responses are POST-ed to the callback URL as JSON:
+Every request that came through a trusted relay gets exactly **one** terminal
+answer, POST-ed to the callback URL as JSON: `completed`, `error` or
+`cancelled`. App-internal proofs (Laboratory, no request) send nothing.
 
 ```json
 {
   "requestId": "...",
   "circuit": "coinbase_attestation",
-  "status": "success|cancelled|error",
+  "status": "completed|error|cancelled",
   "proof": "0x...",
   "publicInputs": ["0x...", "0x..."],
-  "error": "error message if status=error"
+  "verifierAddress": "0x...",
+  "chainId": 8453,
+  "nullifier": "0x...",
+  "error": "human-readable reason (error and cancelled)",
+  "errorCode": "E2005"
 }
 ```
+
+- `errorCode` (`^E\d{4}$`, `error` only) is the ErrorModal code the user was
+  shown for that failure — see `src/constants/errorCodes.ts`.
+- `cancelled` is sent when the user rejects the review card, dismisses the
+  sign-in sheet, rejects the signature in the wallet (EIP-1193 `4001` /
+  WalletConnect `5000`), or leaves the proof screen before it finished; also
+  when a newer request replaces one still waiting for review, or a review is
+  dropped after the app sat in the background too long.
+- A request the app was killed during is answered `cancelled` on the next
+  launch (or with the error that could not be delivered).
+- The relay answers `409` to a second answer or to one after it timed the
+  request out; the app reads that as "already answered" and, for a timeout,
+  shows E1003. All of this lives in `src/utils/relayAnswer.ts`.
 
 ## Circuit Files
 
@@ -309,6 +328,10 @@ npm run lint
 
 # Tests
 npm run test
+
+# Mutation check: break each "one answer per relay request" guard and
+# confirm a test goes red (restores every file byte-for-byte)
+python3 scripts/mutate-relay-answer-guards.py
 
 # iOS custom build workflow
 npm run ios:build       # Compile

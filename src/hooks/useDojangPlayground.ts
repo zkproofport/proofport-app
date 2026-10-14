@@ -10,6 +10,7 @@
  * last check before it.
  */
 import {useState, useCallback, useRef} from 'react';
+import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
   generateNoirProof,
@@ -193,6 +194,9 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
           const code = (signError as {code?: number})?.code;
           if (code === -32002 || msg.includes('already pending')) {
             throw new Error('Signing request already pending. Please try again.');
+          }
+          if (isWalletRejection(signError)) {
+            throw new Error(`${WALLET_REJECTED_PREFIX}: ${msg}`);
           }
           throw new Error(`Signature failed: ${msg}`);
         } finally {

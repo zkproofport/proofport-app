@@ -712,6 +712,10 @@
         "title": "Unregistered Request",
         "description": "This proof request is not registered with the relay server. Only requests from authorized applications are accepted."
       },
+      "E1007": {
+        "title": "Request Already Answered",
+        "description": "This proof request has already been answered. Start a new request from the app that asked for the proof."
+      },
       "E2001": {
         "title": "Proof Generation Failed",
         "description": "An error occurred while generating the proof."
@@ -739,6 +743,10 @@
       "E2007": {
         "title": "No Dojang Playground Issuance",
         "description": "This wallet has not issued itself a Dojang in the GIWA Playground. Issue one there with this wallet first, then try again."
+      },
+      "E2008": {
+        "title": "Sign-In Failed",
+        "description": "Signing in to your account did not complete, so no proof was generated."
       },
       "E3001": {
         "title": "Network Error",

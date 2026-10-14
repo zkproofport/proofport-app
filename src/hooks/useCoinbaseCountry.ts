@@ -1,4 +1,5 @@
 import {useState, useCallback, useRef} from 'react';
+import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
   generateNoirProof,
@@ -325,6 +326,9 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
 
           if (errorCode === -32002 || signErrorMsg.includes('already pending')) {
             throw new Error('Signing request already pending. Please try again.');
+          }
+          if (isWalletRejection(signError)) {
+            throw new Error(`${WALLET_REJECTED_PREFIX}: ${signErrorMsg}`);
           }
           throw new Error(`Signature failed: ${signErrorMsg}`);
         } finally {

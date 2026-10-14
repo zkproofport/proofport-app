@@ -41,8 +41,10 @@ import {getCircuitDisplayName} from '../../utils/circuit';
 import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
 import {ethers} from 'ethers';
 import {clearActiveProofRequest} from '../../stores/activeProofRequestStore';
-import {ErrorCodes} from '../../constants/errorCodes';
+import {ErrorCodes, type ErrorCode} from '../../constants/errorCodes';
 import {showGlobalError} from '../../utils/errorBridge';
+import {isRelayRequestAnswered} from '../../utils/relayAnswer';
+import {rejectedInWallet} from '../../utils/walletRejection';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -129,6 +131,65 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
     description: 'host.proof.generation.mdlKrRegionDescription',
   },
 };
+
+/**
+ * The ErrorModal code a failed hook step is reported under — to the person and,
+ * for a relay request, to the dApp (`errorCode`).
+ *
+ * Keyed by the step ids the proof hooks declare. A step id missing here is
+ * caught by `src/screens/__tests__/everyRelayRequestGetsOneAnswer.test.ts`,
+ * which reads every hook's step ids.
+ */
+type HookStepId =
+  | 'vk' | 'download' | 'validate' | 'jwks' | 'oacx' | 'signal' | 'sign' | 'pubkey'
+  | 'scope' | 'country' | 'inputs' | 'storage' | 'proof' | 'parse' | 'cleanup';
+
+export const STEP_ERROR_CODE: Record<HookStepId, ErrorCode> = {
+  // Loading the key downloads the circuit files when they are missing.
+  vk: 'E2002',
+  download: 'E2002',
+  // The attestation transaction did not check out for this wallet.
+  validate: 'E2005',
+  jwks: 'E3002',
+  oacx: 'E2001',
+  signal: 'E2001',
+  sign: 'E4002',
+  pubkey: 'E2001',
+  scope: 'E2001',
+  country: 'E2004',
+  inputs: 'E2001',
+  storage: 'E5001',
+  proof: 'E2001',
+  parse: 'E2001',
+  cleanup: 'E2001',
+};
+
+/** Where one flow's step means something else under the same id. */
+const FLOW_STEP_ERROR_CODE: Record<ProofFlow, Partial<Record<HookStepId, ErrorCode>>> = {
+  coinbase: {},
+  country: {},
+  // OIDC's `validate` checks the sign-in token, not an attestation.
+  oidc: {validate: 'E2008'},
+  giwa: {},
+  dojang: {},
+  mdl: {},
+};
+
+export function errorCodeForStep(flow: ProofFlow, stepId: string): ErrorCode {
+  const own = FLOW_STEP_ERROR_CODE[flow];
+  if (Object.prototype.hasOwnProperty.call(own, stepId)) {
+    return own[stepId as HookStepId] as ErrorCode;
+  }
+  if (Object.prototype.hasOwnProperty.call(STEP_ERROR_CODE, stepId)) {
+    return STEP_ERROR_CODE[stepId as HookStepId];
+  }
+  // The attempt has ALREADY failed; throwing here would leave the relay
+  // request unanswered, which is the defect this table exists to close. The
+  // generic proof code is sent and the unknown id is logged loudly. The test
+  // named above fails before a new step id can reach this line.
+  console.error(`[ProofGeneration] No error code for step '${stepId}' in flow '${flow}'. Known: ${Object.keys(STEP_ERROR_CODE).join(', ')}.`);
+  return 'E2001';
+}
 
 const ProgressButton: React.FC<{
   progress: number; // 0 to 1
@@ -284,6 +345,10 @@ export const ProofGenerationScreen: React.FC = () => {
   const proofStartedAt = useRef<number | null>(null);
   const historyIdRef = useRef<string | null>(null);
   const failedMarkedRef = useRef(false);
+  // One failure (or cancel) per attempt: the step watcher, the catch and an
+  // inline path can all see the same failure.
+  const attemptEndedRef = useRef(false);
+  const lastErrorStepsRef = useRef<unknown>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const [isSearching, setIsSearching] = useState(false);
@@ -378,7 +443,7 @@ export const ProofGenerationScreen: React.FC = () => {
   // Track the last `account` we observed; when the gate is in post-picker
   // mode and `account` flips to a new value, we re-fire handleGenerateProof.
   const previousAccountRef = useRef<string | null>(null);
-  const {sendProof, sendError} = useDeepLink();
+  const {sendProof, sendError, sendCancelled} = useDeepLink();
 
   // Per-circuit readiness keyed by wallet group: this circuit is "ready" only
   // when its GROUP's bound wallet is the one currently connected. Coinbase KYC
@@ -440,17 +505,73 @@ export const ProofGenerationScreen: React.FC = () => {
     }).catch(console.error);
   }, []);
 
+  /**
+   * End this attempt as FAILED: inline text, ErrorModal, History, and — for a
+   * relay request — one `error` answer carrying the same code. Every failure
+   * path below goes through here; a second call in the same attempt is a
+   * no-op, and the responder refuses a second answer for the request anyway.
+   */
+  const failAttempt = useCallback(
+    ({code, error, inline, details}: {code: ErrorCode; error: string; inline?: string; details?: string}) => {
+      if (attemptEndedRef.current) return;
+      attemptEndedRef.current = true;
+      setErrorMessage(inline ?? error);
+      showGlobalError(code, details ?? error);
+      markHistoryFailed();
+      if (proofRequest) {
+        sendError(proofRequest, code, error).catch(console.error);
+        clearActiveProofRequest(proofRequest);
+      }
+    },
+    [proofRequest, sendError, markHistoryFailed],
+  );
+
+  /** End this attempt because the person declined (sign-in sheet, wallet). */
+  const cancelAttempt = useCallback(
+    (reason: string) => {
+      if (attemptEndedRef.current) return;
+      attemptEndedRef.current = true;
+      setErrorMessage(reason);
+      markHistoryFailed();
+      if (proofRequest) {
+        sendCancelled(proofRequest, reason).catch(console.error);
+        clearActiveProofRequest(proofRequest);
+      }
+    },
+    [proofRequest, sendCancelled, markHistoryFailed],
+  );
+
   // CRITICAL: Watch hook's proofSteps for errors.
   // The hooks catch errors internally and don't re-throw,
   // so we detect failure by watching for 'error' step status.
   useEffect(() => {
     const errStep = hook.proofSteps.find(s => s.status === 'error');
-    if (errStep) {
-      const detail = (errStep as any).detail || 'Proof generation failed';
-      setErrorMessage(detail);
-      markHistoryFailed();
+    if (!errStep || !flow) return;
+    // The same step array is one failure, however often this effect re-runs.
+    if (lastErrorStepsRef.current === hook.proofSteps) return;
+    lastErrorStepsRef.current = hook.proofSteps;
+    const detail = (errStep as {detail?: string}).detail || 'Proof generation failed';
+    if (rejectedInWallet(detail)) {
+      cancelAttempt(detail);
+      return;
     }
-  }, [hook.proofSteps, markHistoryFailed]);
+    failAttempt({code: errorCodeForStep(flow, errStep.id), error: detail});
+  }, [hook.proofSteps, flow, failAttempt, cancelAttempt]);
+
+  // Leaving the screen before the request was answered — back button, a
+  // stack reset, the screen closing — is the person abandoning it. The dApp
+  // is told `cancelled` instead of waiting out the relay's timeout.
+  const proofRequestRef = useRef(proofRequest);
+  proofRequestRef.current = proofRequest;
+  const sendCancelledRef = useRef(sendCancelled);
+  sendCancelledRef.current = sendCancelled;
+  useEffect(() => () => {
+    const request = proofRequestRef.current;
+    if (!request || isRelayRequestAnswered(request.requestId)) return;
+    sendCancelledRef.current(request, 'The user left the proof screen before the proof was finished.')
+      .catch(console.error);
+    clearActiveProofRequest(request);
+  }, []);
 
   // Handle successful proof → update history + navigate
   // Only navigate to ProofComplete when the parsedProof was produced AFTER
@@ -544,11 +665,23 @@ export const ProofGenerationScreen: React.FC = () => {
     // that shape outright rather than trying to tell a harmless display
     // fallback from the one that used to substitute a whole circuit.
     const named = circuitId ? circuitId : 'none';
-    setErrorMessage(`[${ErrorCodes.E2006.code}] ${said} (${named})`);
     addLog(`[Circuit] refusing unknown circuit id ${JSON.stringify(circuitId)} — no proof generated`);
-  }, [flow, circuitId, addLog, t]);
+    failAttempt({
+      code: 'E2006',
+      error: `${ErrorCodes.E2006.description} (${named})`,
+      inline: `[${ErrorCodes.E2006.code}] ${said} (${named})`,
+    });
+  }, [flow, circuitId, addLog, t, failAttempt]);
 
   const handleGenerateProof = useCallback(async () => {
+    // A relay request has one answer. Once it is sent, another attempt could
+    // only produce a proof nobody receives — say so instead of starting one.
+    if (proofRequest && isRelayRequestAnswered(proofRequest.requestId)) {
+      const said = t('host.errors.E1007.description', {defaultValue: ErrorCodes.E1007.description});
+      setErrorMessage(`[${ErrorCodes.E1007.code}] ${said}`);
+      showGlobalError('E1007', `Request ${proofRequest.requestId}`);
+      return;
+    }
     // Refuse rather than fall through. Before this guard existed the id
     // defaulted to Coinbase KYC, so an unrecognised request produced a real
     // proof of the wrong thing. See the note on FLOW_OF_CANONICAL.
@@ -588,6 +721,7 @@ export const ProofGenerationScreen: React.FC = () => {
     setIsSearching(true);
     setErrorMessage(null);
     failedMarkedRef.current = false;
+    attemptEndedRef.current = false;
     proofStartedAt.current = Date.now();
 
     const displayName = getCircuitDisplayName(canonical);
@@ -604,8 +738,11 @@ export const ProofGenerationScreen: React.FC = () => {
       proofStartedAt.current = null;
       historyIdRef.current = null;
       setIsSearching(false);
-      setErrorMessage(`[E5002] ${t('host.errors.E5002.description')}`);
-      showGlobalError('E5002', details);
+      failAttempt({
+        code: 'E5002',
+        error: details,
+        inline: `[E5002] ${t('host.errors.E5002.description')}`,
+      });
       return;
     }
 
@@ -688,9 +825,8 @@ export const ProofGenerationScreen: React.FC = () => {
         } else if (mdlVariant === 'age') {
           const ageThreshold = deep?.ageThreshold ?? mInputs?.ageThreshold;
           if (ageThreshold === undefined) {
-            throw new Error(
-              'age_threshold is required — open the Korea mDL input screen first',
-            );
+            failAttempt({code: 'E2004', error: 'age_threshold is required — open the Korea mDL input screen first'});
+            return;
           }
           const currentYear =
             deep?.currentYear ?? mInputs?.currentYear ?? new Date().getFullYear();
@@ -707,9 +843,8 @@ export const ProofGenerationScreen: React.FC = () => {
         } else if (mdlVariant === 'region') {
           const targetRegion = deep?.targetRegion ?? mInputs?.targetRegion;
           if (!targetRegion) {
-            throw new Error(
-              'target_region is required — open the Korea mDL input screen first',
-            );
+            failAttempt({code: 'E2004', error: 'target_region is required — open the Korea mDL input screen first'});
+            return;
           }
           await generateMdlProof(
             {
@@ -744,8 +879,7 @@ export const ProofGenerationScreen: React.FC = () => {
         if (!authReady) {
           const msg = `${providerName} Sign-In is not ready. Please try again.`;
           addLog(`[Error] ${msg}`);
-          setErrorMessage(msg);
-          markHistoryFailed();
+          failAttempt({code: 'E2008', error: msg});
           return;
         }
 
@@ -759,12 +893,8 @@ export const ProofGenerationScreen: React.FC = () => {
             ? `${providerName} Sign-In was cancelled`
             : `${providerName} Sign-In failed: ${signIn.error}`;
           addLog(`[Error] ${msg}`);
-          setErrorMessage(msg);
-          markHistoryFailed();
-          if (proofRequest) {
-            sendError(proofRequest, msg).catch(console.error);
-            clearActiveProofRequest(proofRequest);
-          }
+          if (signIn.cancelled) cancelAttempt(msg);
+          else failAttempt({code: 'E2008', error: msg});
           return;
         }
         jwtToken = signIn.token;
@@ -794,18 +924,19 @@ export const ProofGenerationScreen: React.FC = () => {
           const noIssuance = e instanceof DojangIssuanceError && e.kind === 'none';
           const code = noIssuance ? 'E2007' : 'E3002';
           if (noIssuance) await recordLookupFailure(configName, walletAddress);
-          setErrorMessage(`[${code}] ${t(`host.errors.${code}.description`, {defaultValue: ErrorCodes[code].description})}`);
           addLog(details);
-          showGlobalError(code, details);
-          markHistoryFailed();
+          failAttempt({
+            code,
+            error: details,
+            inline: `[${code}] ${t(`host.errors.${code}.description`, {defaultValue: ErrorCodes[code].description})}`,
+          });
           return;
         }
 
         const provider = await getProvider();
         if (!provider) {
-          setErrorMessage('No wallet provider available');
           addLog('No wallet provider available');
-          markHistoryFailed();
+          failAttempt({code: 'E4001', error: 'No wallet provider available'});
           return;
         }
         const deep = proofRequest?.inputs as {scope?: string; action?: TypedAction} | undefined;
@@ -845,9 +976,8 @@ export const ProofGenerationScreen: React.FC = () => {
           : isCountry
           ? `No country attestation for ${walletAddress.slice(0, 10)}… — pick another wallet.`
           : `No attestation for ${walletAddress.slice(0, 10)}… — pick another wallet.`;
-        setErrorMessage(msg);
         addLog(msg);
-        markHistoryFailed();
+        failAttempt({code: 'E2005', error: msg});
         return;
       }
 
@@ -858,9 +988,8 @@ export const ProofGenerationScreen: React.FC = () => {
 
       const provider = await getProvider();
       if (!provider) {
-        setErrorMessage('No wallet provider available');
         addLog('No wallet provider available');
-        markHistoryFailed();
+        failAttempt({code: 'E4001', error: 'No wallet provider available'});
         return;
       }
 
@@ -879,12 +1008,7 @@ export const ProofGenerationScreen: React.FC = () => {
         if (!countryList || countryList.length === 0 || typeof isIncluded !== 'boolean') {
           const msg = 'Missing required inputs: countryList and isIncluded';
           addLog(`[Error] ${msg}`);
-          setErrorMessage(msg);
-          markHistoryFailed();
-          if (proofRequest) {
-            sendError(proofRequest, msg).catch(console.error);
-            clearActiveProofRequest(proofRequest);
-          }
+          failAttempt({code: 'E2004', error: msg});
           return;
         }
 
@@ -932,17 +1056,16 @@ export const ProofGenerationScreen: React.FC = () => {
       // Hook errors are caught internally — detected via useEffect on proofSteps
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      setErrorMessage(msg);
       addLog(`Error: ${msg}`);
-      markHistoryFailed();
+      failAttempt({code: 'E2001', error: msg});
     } finally {
       setIsSearching(false);
     }
   }, [runWalletGate, recordLookupFailure, addLog, clearLogs, getProvider,
     generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateDojangProof, generateMdlProof,
     googleReady, microsoftReady, promptGoogleSignIn, promptMicrosoftSignIn,
-    isCountry, isOidc, isGiwa, isDojang, isMdl, proofRequest, route.params, sendError,
-    circuitId, canonical, flow, mdlVariant, account, markHistoryFailed, t]);
+    isCountry, isOidc, isGiwa, isDojang, isMdl, proofRequest, route.params,
+    circuitId, canonical, flow, mdlVariant, account, failAttempt, cancelAttempt, t]);
 
   // After the wallet gate opens a picker / reconnect prompt, it sets its
   // internal post-picker flag. When `account` then flips to a new wallet,

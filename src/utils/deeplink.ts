@@ -151,6 +151,12 @@ export interface ProofResponse {
 
   // Error details
   error?: string;
+  /**
+   * The ErrorModal code (`^E\d{4}$`, src/constants/errorCodes.ts) the user was
+   * shown for this failure. Present on `status: 'error'` only, so the dApp and
+   * the relay can group failures by cause without parsing free text.
+   */
+  errorCode?: string;
 }
 
 const SCHEME = 'zkproofport';
@@ -396,34 +402,85 @@ export function buildCallbackUrl(
   return url.toString();
 }
 
+/**
+ * What one POST to a relay callback came back with. Nothing here retries or
+ * decides; `src/utils/relayAnswer.ts` reads this and decides what it means.
+ *
+ * - `delivered`   — 2xx.
+ * - `conflict`    — 409: the relay already holds a terminal answer for this
+ *                   request, or it timed the request out. `timedOut` says which.
+ * - `http-error`  — any other status. `status` and the raw `body` are kept.
+ * - `network-error` — fetch itself threw (offline, DNS, TLS, aborted).
+ */
+export type RelayCallbackResult =
+  | {kind: 'delivered'; status: number}
+  | {kind: 'conflict'; status: 409; timedOut: boolean; body: string}
+  | {kind: 'http-error'; status: number; body: string}
+  | {kind: 'network-error'; error: string};
+
+/**
+ * Does a 409 body say the relay timed the request out (as opposed to "already
+ * answered")? The relay's 409 is read leniently on purpose: a `reason`,
+ * `status` or `code` field equal to timeout/timed_out/expired, or an `error`
+ * sentence saying "timed out" or "expired", all count. Anything else — including
+ * a body that is not JSON — is read as "already answered", the harmless one.
+ */
+export function conflictSaysTimedOut(body: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return /timed?[\s_-]*out|expired/i.test(body);
+  }
+  if (!parsed || typeof parsed !== 'object') return false;
+  const fields = parsed as Record<string, unknown>;
+  for (const key of ['reason', 'status', 'code']) {
+    const value = fields[key];
+    if (typeof value === 'string' && /^(timeout|timed[_-]?out|expired)$/i.test(value)) return true;
+  }
+  return typeof fields.error === 'string' && /timed?[\s_-]*out|expired/i.test(fields.error);
+}
+
+export async function postRelayCallback(
+  response: ProofResponse,
+  callbackUrl: string,
+): Promise<RelayCallbackResult> {
+  try {
+    console.log('[DeepLink] Sending response to:', callbackUrl);
+    const fetchResponse = await fetch(callbackUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(response),
+    });
+    if (fetchResponse.ok) {
+      console.log('[DeepLink] Response sent successfully:', fetchResponse.status);
+      return {kind: 'delivered', status: fetchResponse.status};
+    }
+    let body = '';
+    try {
+      body = await fetchResponse.text();
+    } catch (readError) {
+      console.log('[DeepLink] Could not read callback error body:', readError);
+    }
+    if (fetchResponse.status === 409) {
+      return {kind: 'conflict', status: 409, timedOut: conflictSaysTimedOut(body), body};
+    }
+    console.error('[DeepLink] HTTP error:', fetchResponse.status, fetchResponse.statusText, body);
+    return {kind: 'http-error', status: fetchResponse.status, body};
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[DeepLink] Failed to send response to ${callbackUrl}:`, error);
+    return {kind: 'network-error', error: message};
+  }
+}
+
 export async function sendProofResponse(response: ProofResponse, callbackUrl: string): Promise<boolean> {
   if (!callbackUrl) {
     console.error('[DeepLink] callbackUrl is undefined, cannot send response');
     return false;
   }
-
-  try {
-    console.log('[DeepLink] Sending response to:', callbackUrl);
-
-    const fetchResponse = await fetch(callbackUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(response),
-    });
-
-    if (!fetchResponse.ok) {
-      console.error('[DeepLink] HTTP error:', fetchResponse.status, fetchResponse.statusText);
-      return false;
-    }
-
-    console.log('[DeepLink] Response sent successfully');
-    return true;
-  } catch (error) {
-    console.error(`[DeepLink] Failed to send response to ${callbackUrl}:`, error);
-    return false;
-  }
+  const result = await postRelayCallback(response, callbackUrl);
+  return result.kind === 'delivered';
 }
 
 /**
@@ -645,14 +702,23 @@ async function moveSelfToBack(): Promise<boolean> {
  * app — or backgrounding this one — suspends us, and an in-flight fetch can be
  * cut off.
  *
+ * @param deliver - how the answer reaches the relay. The app passes the
+ *   once-only responder (src/utils/relayAnswer.ts); it answers `'not-answer'`
+ *   when this request had already been answered, in which case this proof is
+ *   not the answer and nobody is handed back. Defaults to a plain POST.
  * @returns whether the callback POST succeeded. How the user was handed back is
  *   best effort and never changes this value.
  */
 export async function sendProofResponseAndReturn(
   response: ProofResponse,
   request: Pick<ProofRequest, 'callbackUrl' | 'returnScheme' | 'origin'>,
+  deliver: () => Promise<boolean | 'not-answer'> = () => sendProofResponse(response, request.callbackUrl),
 ): Promise<boolean> {
-  const delivered = await sendProofResponse(response, request.callbackUrl);
+  const delivered = await deliver();
+  if (delivered === 'not-answer') {
+    console.log('[DeepLink] Request was already answered — not handing the user back');
+    return false;
+  }
   if (requesterIsAnotherApp(request.origin)) {
     await returnToRequester(request.returnScheme);
   } else {
@@ -697,6 +763,57 @@ async function computeSha256(data: string): Promise<string> {
 }
 
 /**
+ * Is this callbackUrl a TRUSTED relay's callback endpoint?
+ *
+ * One answer for two callers: `validateRequestWithRelay` (before the review
+ * card is shown) and `relayAnswer.ts` (before any answer is POSTed). The second
+ * matters because a deep link that fails validation still carries a callbackUrl
+ * chosen by whoever wrote the link — answering it would make the app POST to an
+ * arbitrary host. Only requests sent THROUGH a relay are answered.
+ *
+ * Trust rules (from config/contracts.ts):
+ * - Development: private IPs (localhost, 10.x, 192.168.x, 172.16-31.x) + trustedHosts (stg-relay.zkproofport.app)
+ * - Production: trustedHosts only (relay.zkproofport.app)
+ */
+export function checkRelayCallbackUrl(
+  callbackUrl: string,
+): {trusted: true; relayBaseUrl: string} | {trusted: false; error: string} {
+  // callbackUrl format: {relayBase}/api/v1/proof/callback
+  const callbackPath = '/api/v1/proof/callback';
+  const callbackIndex = typeof callbackUrl === 'string' ? callbackUrl.indexOf(callbackPath) : -1;
+  if (callbackIndex === -1) {
+    console.log('[DeepLink] callbackUrl does not match relay format:', callbackUrl);
+    return {trusted: false, error: 'Invalid callback URL format — not a registered relay endpoint'};
+  }
+
+  const relayBaseUrl = callbackUrl.substring(0, callbackIndex);
+
+  const {getRelayConfig} = require('../config/environment');
+  const relayConfig = getRelayConfig();
+  let relayHostname: string;
+  try {
+    relayHostname = new URL(relayBaseUrl).hostname;
+  } catch {
+    console.log('[DeepLink] Failed to parse relay URL:', relayBaseUrl);
+    return {trusted: false, error: 'Invalid relay URL format'};
+  }
+
+  const isTrustedHost = relayConfig.trustedHosts.includes(relayHostname);
+  const isAllowedPrivateIp = relayConfig.allowPrivateIps && isPrivateHost(relayHostname);
+
+  if (!isTrustedHost && !isAllowedPrivateIp) {
+    console.log('[DeepLink] Untrusted relay host:', relayHostname, '| trustedHosts:', relayConfig.trustedHosts, '| allowPrivateIps:', relayConfig.allowPrivateIps);
+    return {
+      trusted: false,
+      error: `Untrusted relay server: ${relayHostname}. Only authorized relay servers are accepted.`,
+    };
+  }
+
+  console.log('[DeepLink] Trusted relay host:', relayHostname);
+  return {trusted: true, relayBaseUrl};
+}
+
+/**
  * Validates that a requestId exists in a TRUSTED relay server.
  *
  * Trust rules (from config/contracts.ts):
@@ -715,41 +832,11 @@ export async function validateRequestWithRelay(
   parsedInputs?: Record<string, unknown>,
 ): Promise<{valid: boolean; error?: string}> {
   try {
-    // Derive relay base URL from callbackUrl
-    // callbackUrl format: {relayBase}/api/v1/proof/callback
-    const callbackPath = '/api/v1/proof/callback';
-    const callbackIndex = callbackUrl.indexOf(callbackPath);
-    if (callbackIndex === -1) {
-      console.log('[DeepLink] callbackUrl does not match relay format:', callbackUrl);
-      return {valid: false, error: 'Invalid callback URL format — not a registered relay endpoint'};
+    const trust = checkRelayCallbackUrl(callbackUrl);
+    if (!trust.trusted) {
+      return {valid: false, error: trust.error};
     }
-
-    const relayBaseUrl = callbackUrl.substring(0, callbackIndex);
-
-    // Extract hostname from relay URL and check against trusted hosts
-    const {getRelayConfig} = require('../config/environment');
-    const relayConfig = getRelayConfig();
-    let relayHostname: string;
-    try {
-      const urlObj = new URL(relayBaseUrl);
-      relayHostname = urlObj.hostname;
-    } catch {
-      console.log('[DeepLink] Failed to parse relay URL:', relayBaseUrl);
-      return {valid: false, error: 'Invalid relay URL format'};
-    }
-
-    const isTrustedHost = relayConfig.trustedHosts.includes(relayHostname);
-    const isAllowedPrivateIp = relayConfig.allowPrivateIps && isPrivateHost(relayHostname);
-
-    if (!isTrustedHost && !isAllowedPrivateIp) {
-      console.log('[DeepLink] Untrusted relay host:', relayHostname, '| trustedHosts:', relayConfig.trustedHosts, '| allowPrivateIps:', relayConfig.allowPrivateIps);
-      return {
-        valid: false,
-        error: `Untrusted relay server: ${relayHostname}. Only authorized relay servers are accepted.`,
-      };
-    }
-
-    console.log('[DeepLink] Trusted relay host:', relayHostname);
+    const relayBaseUrl = trust.relayBaseUrl;
 
     // Validate requestId exists in relay
     const validateUrl = `${relayBaseUrl}/api/v1/proof/${requestId}`;

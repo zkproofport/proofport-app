@@ -32,7 +32,6 @@ import {
   parseProofRequestUrl,
   validateProofRequest,
   validateRequestWithRelay,
-  sendProofResponse,
   returnToRequester,
   requesterIsAnotherApp,
   isProofportDeepLink,
@@ -43,6 +42,12 @@ import {setActiveProofRequest, clearActiveProofRequest} from './src/stores/activ
 import {registerDeepLinkHandler} from './src/utils/deepLinkBridge';
 import {registerReturnNoticeHandler, type ReturnNoticeKind} from './src/utils/returnNoticeBridge';
 import {useAppStateReset} from './src/hooks';
+import {answerRelayRequest, answerRequestsLeftOpen, rememberOpenRelayRequest} from './src/utils/relayAnswer';
+
+/** The responder never rejects; this only makes an impossible failure loud. */
+function logAnswerFailure(error: unknown) {
+  console.error('[App] Answering a relay request failed:', error);
+}
 
 /** A proof may keep running while the user visits another tab or its ID WebView. */
 function hasGenerationScreen(state: NavigationState | undefined): boolean {
@@ -192,6 +197,16 @@ const App: React.FC = () => {
   const handleAppReset = useCallback(() => {
     console.log('[App] Resetting app state due to background timeout...');
 
+    // A request still waiting for review is dropped here, so it is answered
+    // here: the dApp hears `cancelled` instead of waiting out its timeout.
+    const abandoned = pendingRequestRef.current;
+    if (abandoned) {
+      answerRelayRequest(abandoned, {
+        status: 'cancelled',
+        reason: 'The request was left unanswered while the app was in the background.',
+      }).catch(logAnswerFailure);
+    }
+
     // Clear any pending proof request
     requestSequence.current += 1;
     relaySequence.current += 1;
@@ -243,16 +258,12 @@ const App: React.FC = () => {
 
     const validation = validateProofRequest(request);
     if (!validation.valid) {
-      showGlobalError('E1002', validation.error);
-      sendProofResponse(
-        {
-          requestId: request.requestId,
-          circuit: request.circuit,
-          status: 'error',
-          error: validation.error,
-        },
-        request.callbackUrl,
-      );
+      const error = validation.error ?? 'The proof request failed validation.';
+      showGlobalError('E1002', error);
+      // Answered only when the callbackUrl is a trusted relay's — see
+      // checkRelayCallbackUrl. A link that is merely malformed is not a relay
+      // request, and its callbackUrl was chosen by whoever wrote the link.
+      answerRelayRequest(request, {status: 'error', errorCode: 'E1002', error}).catch(logAnswerFailure);
       return;
     }
 
@@ -261,19 +272,33 @@ const App: React.FC = () => {
     requestSequence.current += 1;
     // Validate requestId with relay server — reject unregistered requests
     const relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl, request.inputs as Record<string, unknown>);
-    if (sequence !== relaySequence.current) return;
-    if (!relayValidation.valid) {
-      showGlobalError('E1006', relayValidation.error);
-      sendProofResponse(
-        {
-          requestId: request.requestId,
-          circuit: request.circuit,
-          status: 'error',
-          error: 'Unregistered proof request: ' + (relayValidation.error || 'requestId not found in relay'),
-        },
-        request.callbackUrl,
-      );
+    if (sequence !== relaySequence.current) {
+      // A newer request arrived while this one was being validated and took
+      // its place; this one will never be shown, so it is answered now.
+      if (relayValidation.valid) {
+        answerRelayRequest(request, {status: 'cancelled', reason: 'Replaced by a newer proof request.'}).catch(logAnswerFailure);
+      }
       return;
+    }
+    if (!relayValidation.valid) {
+      const reason = relayValidation.error ?? 'requestId not found in relay';
+      showGlobalError('E1006', reason);
+      answerRelayRequest(request, {
+        status: 'error',
+        errorCode: 'E1006',
+        error: 'Unregistered proof request: ' + reason,
+      }).catch(logAnswerFailure);
+      return;
+    }
+
+    // From here the dApp is owed an answer. Recorded so a request killed with
+    // the app is still answered on the next launch.
+    rememberOpenRelayRequest(request).catch(logAnswerFailure);
+
+    // A different request still waiting for review is replaced by this one.
+    const replaced = pendingRequestRef.current;
+    if (replaced && replaced.requestId !== request.requestId) {
+      answerRelayRequest(replaced, {status: 'cancelled', reason: 'Replaced by a newer proof request.'}).catch(logAnswerFailure);
     }
 
     // Mark this as the active request. Safe to claim here for the modal path:
@@ -288,6 +313,12 @@ const App: React.FC = () => {
     // newly reviewed request must never replace a running proof's callback.
     showPendingReview();
   }, [showPendingReview]);
+
+  // Requests an earlier run left without an answer (the app was killed during
+  // review or proving) are answered once, at launch.
+  useEffect(() => {
+    answerRequestsLeftOpen().catch(error => console.error('[App] Answering requests left open failed:', error));
+  }, []);
 
   // Listen for deep links
   useEffect(() => {
@@ -384,7 +415,10 @@ const App: React.FC = () => {
     const validation = validateProofRequest(reviewedRequest);
     const expired = reviewBlockReason(reviewedRequest) === 'expired';
     if (!validation.valid || expired) {
-      showGlobalError('E1002', validation.error ?? 'Request has expired');
+      const error = validation.error ?? 'Request has expired';
+      const code = expired ? 'E1003' : 'E1002';
+      showGlobalError(code, error);
+      answerRelayRequest(reviewedRequest, {status: 'error', errorCode: code, error}).catch(logAnswerFailure);
       return false;
     }
 
@@ -450,15 +484,7 @@ const App: React.FC = () => {
     activeRequestId.current = null;
     setPendingRequest(null);
 
-    await sendProofResponse(
-      {
-        requestId: pendingRequest.requestId,
-        circuit: pendingRequest.circuit,
-        status: 'cancelled',
-        error: 'User rejected the request',
-      },
-      pendingRequest.callbackUrl,
-    );
+    await answerRelayRequest(pendingRequest, {status: 'cancelled', reason: 'User rejected the request'});
 
     // The user has explicitly said "not now" and we show them nothing further,
     // so hand them straight back to where they came from. Best effort, and it

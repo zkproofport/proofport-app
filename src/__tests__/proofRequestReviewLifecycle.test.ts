@@ -78,17 +78,29 @@ jest.mock('../context', () => ({
 jest.mock('../utils/errorBridge', () => ({showGlobalError: (...args: unknown[]) => mockError(...args)}));
 jest.mock('../utils/deepLinkBridge', () => ({registerDeepLinkHandler: (handler: typeof mockHandler) => {mockHandler = handler;}}));
 jest.mock('../hooks', () => ({useAppStateReset: ({onReset}: {onReset: () => void}) => {mockReset = onReset;}}));
+// Fresh per test: requests left open by one test would otherwise be answered
+// at the next test's launch and consume its stubbed POSTs.
+const mockStorage = new Map<string, string>();
+jest.mock('@react-native-async-storage/async-storage', () => ({__esModule: true, default: {
+  getItem: async (key: string) => mockStorage.get(key) ?? null,
+  setItem: async (key: string, value: string) => {mockStorage.set(key, value);},
+  removeItem: async (key: string) => {mockStorage.delete(key);},
+}}));
 jest.mock('../utils/deeplink', () => ({
   parseProofRequestUrl: () => mockParsed,
   isProofportDeepLink: () => true,
   validateProofRequest: jest.requireActual('../utils/deeplink').validateProofRequest,
   validateRequestWithRelay: (...args: unknown[]) => mockValidateRelay(...args),
-  sendProofResponse: (...args: unknown[]) => mockSend(...args),
+  // The answer goes through the real once-only responder (src/utils/relayAnswer.ts);
+  // only the POST itself and the host check are stubbed.
+  postRelayCallback: (...args: unknown[]) => mockSend(...args),
+  checkRelayCallbackUrl: () => ({trusted: true, relayBaseUrl: 'https://relay.zkproofport.app'}),
   returnToRequester: (...args: unknown[]) => mockReturn(...args),
   requesterIsAnotherApp: (origin: string) => origin === 'link',
 }));
 
 import App from '../../App';
+import {resetRelayAnswersForTests} from '../utils/relayAnswer';
 import {clearActiveProofRequest, getActiveProofRequest} from '../stores/activeProofRequestStore';
 import {showReturnNotice, resetReturnNoticeHandler} from '../utils/returnNoticeBridge';
 
@@ -119,7 +131,9 @@ beforeEach(async () => {
   mockNavigationChanged = undefined;
   mockNavigationState = {index: 0, routes: [{name: 'ProofTab', state: {index: 0, routes: [{name: 'CircuitSelection'}]}}]};
   mockValidateRelay.mockResolvedValue({valid: true});
-  mockSend.mockResolvedValue(true);
+  mockStorage.clear();
+  resetRelayAnswersForTests();
+  mockSend.mockResolvedValue({kind: 'delivered', status: 200});
   mockReturn.mockResolvedValue(undefined);
   consoleError = jest.spyOn(console, 'error').mockImplementation((message, ...args) => {
     if (typeof message === 'string' && message.includes('react-test-renderer is deprecated')) return;
@@ -281,7 +295,11 @@ it('refuses a request that expires during review', async () => {
   await act(async () => {mockModal.onAccept(incoming);});
   now.mockRestore();
   expect(mockDispatch).not.toHaveBeenCalled();
-  expect(mockError).toHaveBeenCalledWith('E1002', 'Request has expired');
+  // The modal and the relay answer carry the same code.
+  expect(mockError).toHaveBeenCalledWith('E1003', 'Request has expired');
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(mockSend).toHaveBeenCalledWith(
+    expect.objectContaining({requestId: incoming.requestId, status: 'error', errorCode: 'E1003'}), incoming.callbackUrl);
 });
 
 it('refuses acceptance exactly at expiry and leaves cancellation available', async () => {
@@ -296,8 +314,13 @@ it('refuses acceptance exactly at expiry and leaves cancellation available', asy
   expect(mockDispatch).not.toHaveBeenCalled();
   expect(getActiveProofRequest()).toBeNull();
   expect(mockModal.visible).toBe(true);
+  // The refused acceptance already answered the dApp (expired). Rejecting the
+  // card still closes it, but the request has had its one answer.
   await act(async () => {await mockModal.onReject();});
-  expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({status: 'cancelled'}), incoming.callbackUrl);
+  expect(mockModal.visible).toBe(false);
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(mockSend).toHaveBeenCalledWith(
+    expect.objectContaining({status: 'error', errorCode: 'E1003'}), incoming.callbackUrl);
 });
 
 it('accepts a reviewed request only once even before React rerenders', async () => {
@@ -394,7 +417,7 @@ it('does not return to a rejected requester when another request arrives during 
   const first = {...request('giwa_attestation', 'first'), origin: 'link', returnScheme: 'first://'} as ProofRequest;
   await receive(first);
   let finishCancellation!: () => void;
-  mockSend.mockImplementationOnce(() => new Promise(resolve => {finishCancellation = () => resolve(true);}));
+  mockSend.mockImplementationOnce(() => new Promise(resolve => {finishCancellation = () => resolve({kind: 'delivered', status: 200});}));
   let rejecting!: Promise<void>;
   await act(async () => {rejecting = mockModal.onReject();});
   const next = request('giwa_attestation', 'next');
@@ -509,4 +532,80 @@ it('a delayed completion clears only the request that owned the callback', async
   expect(getActiveProofRequest()).toBe(second);
   clearActiveProofRequest(second);
   expect(getActiveProofRequest()).toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// Every relay request gets one answer, including the ones this screen drops
+// before they are approved (zkproofport/proofport-app#2). The responder itself
+// is covered in src/utils/__tests__/relayAnswer.test.ts.
+// ---------------------------------------------------------------------------
+describe('requests dropped before approval are answered', () => {
+  function sent() {
+    return mockSend.mock.calls.map(call => call[0] as Record<string, unknown>);
+  }
+
+  it('a newer request replacing a waiting review answers the older one cancelled, once', async () => {
+    await ready();
+    const first = request('giwa_attestation', 'first');
+    await receive(first);
+    await receive(request('giwa_attestation', 'second'));
+    await receive(request('giwa_attestation', 'third'));
+    expect(sent().filter(body => body.requestId === 'first')).toEqual([
+      expect.objectContaining({status: 'cancelled', error: 'Replaced by a newer proof request.'}),
+    ]);
+    expect(sent().filter(body => body.requestId === 'second')).toHaveLength(1);
+    expect(sent().filter(body => body.requestId === 'third')).toHaveLength(0);
+  });
+
+  it('a request superseded while its relay check was running is answered cancelled', async () => {
+    await ready();
+    const finishFirst = await receiveAwaitingRelay(request('giwa_attestation', 'slow'));
+    await receive(request('giwa_attestation', 'fast'));
+    await finishFirst();
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'slow', status: 'cancelled'})]);
+  });
+
+  it('an app reset answers the waiting review cancelled', async () => {
+    await ready();
+    await receive(request('giwa_attestation', 'waiting'));
+    await act(async () => mockReset());
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'waiting', status: 'cancelled'})]);
+  });
+
+  it('a link that fails validation shows E1002 and answers E1002', async () => {
+    await ready();
+    await receive({...request('giwa_attestation', 'stale'), expiresAt: Date.now() - 1});
+    expect(mockError).toHaveBeenCalledWith('E1002', 'Request has expired');
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'stale', status: 'error', errorCode: 'E1002'})]);
+  });
+
+  it('an unregistered request shows E1006 and answers E1006', async () => {
+    await ready();
+    mockValidateRelay.mockResolvedValueOnce({valid: false, error: 'requestId not found'});
+    await receive(request('giwa_attestation', 'unregistered'));
+    expect(mockError).toHaveBeenCalledWith('E1006', 'requestId not found');
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'unregistered', status: 'error', errorCode: 'E1006'})]);
+  });
+
+  it('a request that passed the relay check is remembered until answered', async () => {
+    await ready();
+    await receive(request('giwa_attestation', 'open'));
+    await act(async () => {await new Promise(resolve => setImmediate(resolve));});
+    expect(JSON.parse(mockStorage.get('@zkproofport:relay:openRequests') ?? '[]'))
+      .toEqual([expect.objectContaining({requestId: 'open'})]);
+    await act(async () => {await mockModal.onReject();});
+    await act(async () => {await new Promise(resolve => setImmediate(resolve));});
+    expect(JSON.parse(mockStorage.get('@zkproofport:relay:openRequests') ?? '[]')).toEqual([]);
+  });
+
+  it('a request left open by a killed run is answered cancelled at the next launch', async () => {
+    await act(async () => tree.unmount());
+    mockStorage.set('@zkproofport:relay:openRequests', JSON.stringify([{
+      requestId: 'killed', circuit: 'giwa_attestation',
+      callbackUrl: 'https://relay.zkproofport.app/api/v1/proof/callback', openedAt: 1, attempts: 0,
+    }]));
+    await act(async () => {tree = create(React.createElement(App));});
+    await act(async () => {await new Promise(resolve => setImmediate(resolve));});
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'killed', status: 'cancelled'})]);
+  });
 });

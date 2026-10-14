@@ -56,7 +56,12 @@ jest.mock('../../utils/errorBridge', () => ({showGlobalError: (...args: unknown[
 jest.mock('../../utils/deeplink', () => ({
   sendProofResponseAndReturn: (...args: unknown[]) => mockDeliver(...args),
   sendProofResponse: jest.fn().mockResolvedValue(true),
+  postRelayCallback: jest.fn().mockResolvedValue({kind: 'delivered', status: 200}),
+  checkRelayCallbackUrl: () => ({trusted: true, relayBaseUrl: 'https://relay.example'}),
 }));
+jest.mock('@react-native-async-storage/async-storage', () => ({__esModule: true, default: {
+  getItem: async () => null, setItem: async () => undefined, removeItem: async () => undefined,
+}}));
 jest.mock('../../stores', () => ({
   settingsStore: {get: () => mockSettingsGet()},
   proofHistoryStore: {
@@ -74,6 +79,7 @@ jest.mock('../../utils/circuit', () => ({getCircuitDisplayName: () => 'OIDC Doma
 
 import {ProofGenerationScreen} from '../proof/ProofGenerationScreen';
 import {clearActiveProofRequest, getActiveProofRequest, setActiveProofRequest} from '../../stores/activeProofRequestStore';
+import {resetRelayAnswersForTests} from '../../utils/relayAnswer';
 
 let tree: ReactTestRenderer;
 let errors: jest.SpyInstance;
@@ -82,6 +88,9 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   clearActiveProofRequest();
+  // Each test reuses requestId 'approved'; one test's answer must not make the
+  // next test's request look already answered.
+  resetRelayAnswersForTests();
   mockAutoSave = false;
   mockParsedProof = null;
   mockRoute.params = {circuitId: 'oidc_domain_attestation', proofRequest: mockRequest};
@@ -155,7 +164,7 @@ it('uses its approved route request when another request is already in the activ
   await mountAndWait();
   expect(mockGenerate).toHaveBeenCalledWith({jwtToken: 'approved-token', scopeString: 'scope', domain: '', provider: 'google'}, mockNoop);
   await publishProof();
-  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: 'approved', proof: '0x1234'}), mockRequest);
+  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: 'approved', proof: '0x1234'}), mockRequest, expect.any(Function));
   expect(getActiveProofRequest()).toBe(next);
 });
 
@@ -176,7 +185,7 @@ it.each(['delivered', 'failed', 'rejected'] as const)('retains a newer request w
     else finish(outcome === 'delivered');
   });
   expect(mockDeliver).toHaveBeenCalledTimes(1);
-  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: 'approved'}), mockRequest);
+  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: 'approved'}), mockRequest, expect.any(Function));
   expect(getActiveProofRequest()).toBe(next);
   expect(mockNavigate.navigate).toHaveBeenCalledTimes(1);
   expect(mockHistoryAdd).not.toHaveBeenCalled();

@@ -37,6 +37,15 @@ export const ErrorCodes = {
     title: 'Unregistered Request',
     description: 'This proof request is not registered with the relay server. Only requests from authorized applications are accepted.',
   },
+  // The request already has its one answer — this app sent it, or the relay
+  // holds one. A relay request is answered exactly once (src/utils/relayAnswer.ts),
+  // so a retry here could only produce a proof nobody receives.
+  E1007: {
+    code: 'E1007',
+    title: 'Request Already Answered',
+    description:
+      'This proof request has already been answered. Start a new request from the app that asked for the proof.',
+  },
 
   // Proof generation errors
   E2001: {
@@ -77,6 +86,15 @@ export const ErrorCodes = {
     title: 'No Dojang Playground Issuance',
     description:
       'This wallet has not issued itself a Dojang in the GIWA Playground. Issue one there with this wallet first, then try again.',
+  },
+
+  // OIDC (Google / Microsoft) sign-in did not produce a usable token. A sign-in
+  // the person dismissed is a cancel, not this.
+  E2008: {
+    code: 'E2008',
+    title: 'Sign-In Failed',
+    description:
+      'Signing in to your account did not complete, so no proof was generated.',
   },
 
   // Network errors
