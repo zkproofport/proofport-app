@@ -62,6 +62,21 @@ target 'ProofportApp' do
 
     end
 
+    # Xcode 27 refuses a target whose deployment target is below 15.0, where
+    # Xcode 26 only warned. Several pods (GoogleSignIn, GTMSessionFetcher,
+    # PromisesObjC, RNSVG, RNCAsyncStorage, ...) still declare 9.0-13.4 on
+    # their resource-bundle targets, so the archive failed before compiling
+    # anything. None of them can run below the app's own minimum anyway, so
+    # raise each one that is lower to it.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if current && Gem::Version.new(current) < Gem::Version.new(min_ios_version_supported)
+          config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios_version_supported
+        end
+      end
+    end
+
     # Workaround for fmt 11.0.2 + clang 21 (Xcode 26.x) consteval mismatch in
     # format-inl.h. fmt's base.h sets FMT_USE_CONSTEVAL via an unconditional
     # `#define` chain (no `#ifndef` guard), so a `-DFMT_USE_CONSTEVAL=0`
