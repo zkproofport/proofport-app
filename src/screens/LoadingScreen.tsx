@@ -11,6 +11,7 @@ import {
 import {getEnvironment, initDeployments} from '../config';
 import {MAIN_BRANCH_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
 import {useThemeColors} from '../context';
+import {BRAND_SYMBOL, WORDMARK_ASPECT, wordmarkFor} from '../constants/brand';
 
 /*
  * What the app warms up at launch: every circuit, for everyone, kept in the two
@@ -142,11 +143,19 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
           transform: [{scale: pulseAnim}],
         }]}>
           <Image
-            source={require('../../assets/logo.png')}
+            source={BRAND_SYMBOL}
             style={styles.splashLogo}
             resizeMode="contain"
           />
         </Animated.View>
+        <Image
+          testID="splash-wordmark"
+          source={wordmarkFor(mode)}
+          style={styles.splashWordmark}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel="ZKProofport"
+        />
       </View>
     );
   }
@@ -158,13 +167,20 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
         transform: [{scale: pulseAnim}],
       }]}>
         <Image
-          source={require('../../assets/logo.png')}
+          source={BRAND_SYMBOL}
           style={styles.logo}
           resizeMode="contain"
         />
       </Animated.View>
 
-      <Text style={[styles.appName, {color: themeColors.text.primary}]}>ZKProofport</Text>
+      <Image
+        testID="loading-wordmark"
+        source={wordmarkFor(mode)}
+        style={styles.wordmark}
+        resizeMode="contain"
+        accessibilityRole="image"
+        accessibilityLabel="ZKProofport"
+      />
       <Text style={[styles.tagline, {color: themeColors.text.secondary}]}>{t('host.loading.tagline')}</Text>
 
       {loading && (
@@ -194,6 +210,17 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
   },
+  // The brand kit's minimum for the wordmark alone is 160 wide.
+  splashWordmark: {
+    width: 200,
+    height: 200 / WORDMARK_ASPECT,
+    marginTop: 28,
+  },
+  wordmark: {
+    width: 220,
+    height: 220 / WORDMARK_ASPECT,
+    marginBottom: 8,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -217,11 +244,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 20,
-  },
-  appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
   },
   tagline: {
     fontSize: 14,

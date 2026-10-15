@@ -6,6 +6,8 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTranslation} from 'react-i18next';
 import {useError} from '../../context';
 import {useProofUiColors} from '../../theme/proofUi';
+import {useThemeColors} from '../../context';
+import {BRAND_SYMBOL, WORDMARK_ASPECT, WORDMARK_MIN_WIDTH, wordmarkFor} from '../../constants/brand';
 import type {MoreTabScreenProps, MoreStackParamList} from '../../navigation/types';
 import {getVersionDisplay} from '../../utils/version';
 import {useSettings} from '../../hooks/useSettings';
@@ -17,6 +19,7 @@ type MoreNavigation = NativeStackNavigationProp<MoreStackParamList>;
 const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
   const {t} = useTranslation();
   const colors = useProofUiColors();
+  const {mode} = useThemeColors();
   const {showError} = useError();
   const {settings, updateSettings} = useSettings();
   const navigation = useNavigation<MoreNavigation>();
@@ -47,9 +50,10 @@ const AboutScreen: React.FC<MoreTabScreenProps<'About'>> = () => {
   return <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.screen, {backgroundColor: colors.background}]}>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={[styles.brandCard, {backgroundColor: colors.card, borderColor: colors.border}]}>
-        <Image source={require('../../../assets/logo.png')} style={styles.appIcon} resizeMode="contain" accessible={false} />
+        <Image source={BRAND_SYMBOL} style={styles.appIcon} resizeMode="contain" accessible={false} />
         <View style={styles.brandBody}>
-          <Text style={[styles.appName, {color: colors.text}]}>ZKProofport</Text>
+          <Image testID="about-wordmark" source={wordmarkFor(mode)} style={styles.wordmark} resizeMode="contain"
+            accessibilityRole="image" accessibilityLabel="ZKProofport" />
           <Pressable testID="about-version" accessibilityRole="button" accessibilityLabel={t('host.about.version', {version: getVersionDisplay()})}
             onPress={handleVersionTap} style={styles.versionButton}>
             <Text style={[styles.version, {color: colors.secondary}]}>{getVersionDisplay()}</Text>
@@ -79,7 +83,7 @@ const styles = StyleSheet.create({
   screen: {flex: 1}, content: {paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32, gap: 24},
   brandCard: {flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', borderRadius: 14, borderWidth: 1, padding: 18, columnGap: 15, rowGap: 8},
   appIcon: {width: 52, height: 52, borderRadius: 12}, brandBody: {flex: 1, minWidth: 160},
-  appName: {fontSize: 21, lineHeight: 27, fontWeight: '700'}, versionButton: {minHeight: 44, justifyContent: 'center'},
+  wordmark: {width: WORDMARK_MIN_WIDTH, height: WORDMARK_MIN_WIDTH / WORDMARK_ASPECT}, versionButton: {minHeight: 44, justifyContent: 'center'},
   version: {fontSize: 13, lineHeight: 19}, tagline: {width: '100%', fontSize: 13, lineHeight: 20}, notice: {fontSize: 13, lineHeight: 20},
 });
 export default AboutScreen;

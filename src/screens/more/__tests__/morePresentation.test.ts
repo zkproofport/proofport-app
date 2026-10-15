@@ -49,7 +49,9 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 jest.mock('../../../components/ProofUiIcon', () => ({ProofUiIcon: 'ProofUiIcon'}));
 jest.mock('../../../components/ui/atoms/Icon', () => ({Icon: 'Icon'}));
 jest.mock('../../../utils/version', () => ({getVersionDisplay: () => '1.3.1'}));
-jest.mock('../../../../assets/logo.png', () => 1);
+jest.mock('../../../../assets/brand/zkproofport-symbol.png', () => 1);
+jest.mock('../../../../assets/brand/zkproofport-wordmark-dark.png', () => 2);
+jest.mock('../../../../assets/brand/zkproofport-wordmark-light.png', () => 3);
 jest.mock('../../../context', () => ({
   useThemeColors: () => ({mode: mockMode, setThemeMode: mockSetTheme, colors: jest.requireActual('../../../theme').darkColors}),
   useError: () => ({showError: mockShowError}),
@@ -254,6 +256,12 @@ describe('language and About navigation', () => {
     expect(JSON.parse(mockDisk.get(SETTINGS_KEY)!).developerMode).toBe(false);
     expect(mockShowError).toHaveBeenCalledWith('E5001', expect.any(String));
     expect(textOf()).not.toContain(mockTranslate('host.about.devModeEnabled'));
+  });
+  it.each([['dark', 2], ['light', 3]])('shows the brand wordmark drawn for a %s background', async (mode, source) => {
+    mockMode = mode;
+    await render(React.createElement(AboutScreen, {} as never));
+    expect(node('about-wordmark').props.source).toBe(source);
+    expect(node('about-wordmark').props.accessibilityLabel).toBe('ZKProofport');
   });
   it('opens the privacy policy and OpenStoa website in the internal browser', async () => {
     await render(React.createElement(AboutScreen, {} as never));
