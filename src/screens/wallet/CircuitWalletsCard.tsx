@@ -24,14 +24,13 @@
  * binding happens at connect time, NOT at proof-success time.
  */
 import {useTranslation} from 'react-i18next';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {ProofUiIcon} from '../../components/ProofUiIcon';
 import {useProofUiColors} from '../../theme/proofUi';
 import type {TFunction} from 'i18next';
 import {useError} from '../../context';
 import {useWallet} from '../../hooks/useWallet';
-import {useSettings} from '../../hooks/useSettings';
 import {getCircuitDisplayName} from '../../utils/circuit';
 import {
   CIRCUIT_WALLET_TTL_MS,
@@ -44,7 +43,7 @@ import {
   WALLET_BINDING_ROWS,
   circuitsInWalletGroup,
 } from '../../stores/circuitWalletStore';
-import {DEV_ONLY_CIRCUIT_IDS, type CircuitName} from '../../config';
+import type {CircuitName} from '../../config';
 
 // Group representatives — one row per wallet-binding group. OIDC and Korea
 /**
@@ -109,18 +108,9 @@ export const CircuitWalletsCard: React.FC = () => {
   const {t} = useTranslation();
   const {account, connect, disconnect} = useWallet();
   const {showError} = useError();
-  const {settings} = useSettings();
-  const developerMode = settings?.developerMode ?? false;
-  // GIWA is a dev-only / experimental network. Its wallet-binding row is
-  // hidden unless Developer Mode is on, matching how the GIWA network is
-  // gated everywhere else (circuit picker, LoadingScreen download list).
-  const visibleCircuits = useMemo(
-    () =>
-      developerMode
-        ? WALLET_BINDING_ROWS
-        : WALLET_BINDING_ROWS.filter((c) => !DEV_ONLY_CIRCUIT_IDS.includes(c)),
-    [developerMode],
-  );
+  // Every circuit that binds a wallet gets its row: the Laboratory offers its
+  // proofs to everyone, so their wallets are managed here for everyone too.
+  const visibleCircuits = WALLET_BINDING_ROWS;
   const [entries, setEntries] = useState<Record<string, Entry | null>>({});
   // Seed from the module-level latch so a remounted instance after
   // disconnect/picker→reconnect can still commit the pending binding.

@@ -326,7 +326,10 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
     // Experimental AND planned: an experimental circuit is neither supported
     // nor planned, and for one commit one was in neither list, so its files
     // were never prefetched.
-    expect(loading).toMatch(/DEV_ONLY_CIRCUITS[^=]*=\s*DEV_ONLY_CIRCUIT_IDS/);
+    expect(loading).toMatch(/MAIN_BRANCH_CIRCUITS[^=]*=\s*MAIN_BRANCH_CIRCUIT_IDS/);
+    // Both lists, for everyone: Developer Mode used to drop the second one.
+    expect(loading).toMatch(/circuits\s*=\s*\[\.\.\.BASE_CIRCUITS,\s*\.\.\.MAIN_BRANCH_CIRCUITS\]/);
+    expect(loading).not.toContain('developerMode');
     expect(loading).not.toMatch(/'(coinbase|giwa|oidc|mdl)_/);
     expect(
       [...SUPPORTED_CIRCUIT_IDS, ...EXPERIMENTAL_CIRCUIT_IDS, ...PLANNED_CIRCUIT_IDS].sort(),
@@ -337,7 +340,7 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
     // Was a four-way `||` chain of literal names, which is the shape that
     // forgets the fifth circuit.
     const download = codeOf(path.join(SRC, 'utils', 'circuitDownload.ts'));
-    expect(download).toContain('DEV_ONLY_CIRCUIT_IDS.includes');
+    expect(download).toContain('MAIN_BRANCH_CIRCUIT_IDS.includes');
     expect(download).not.toMatch(/circuitName === '(giwa|mdl)_/);
   });
 

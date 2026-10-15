@@ -130,12 +130,12 @@ describe('wallet presentation preserves the binding and live-session distinction
     expect(textOf(screen!.root)).not.toMatch(/OIDC Domain|Korea Mobile ID/);
   });
 
-  it('preserves the existing GIWA developer-mode visibility gate', async () => {
-    mockDeveloperMode = false;
+  it.each([false, true])('shows the GIWA and Dojang wallets whatever Developer Mode says (%s)', async developerMode => {
+    mockDeveloperMode = developerMode;
     await render();
     expect(hasNode('wallet-binding-coinbase')).toBe(true);
-    expect(hasNode('wallet-binding-giwa')).toBe(false);
-    expect(hasNode('wallet-binding-dojang')).toBe(false);
+    expect(hasNode('wallet-binding-giwa')).toBe(true);
+    expect(hasNode('wallet-binding-dojang')).toBe(true);
   });
 
   it.each([null, OTHER_ADDRESS])('shows a stored wallet as inactive when the live account is %s', async account => {

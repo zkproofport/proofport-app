@@ -157,20 +157,21 @@ export type {CircuitActionBinding} from '@zkproofport-app/sdk/circuits';
 export type {TypedAction} from '@zkproofport-app/sdk/typedAction';
 
 /**
- * Circuits that only exist behind Developer Mode, and only on `main`.
+ * Circuits whose files live only on `main`, not in a release tag.
  *
  * Two questions the app asks separately — which circuits to prefetch at
  * startup, and which to fetch from `main` rather than a release tag — have the
  * same answer, so the answer lives here once.
  *
  * The SDK's `supported` / `experimental` / `planned` split is what decides it:
- * a supported circuit ships in the release tag and is prefetched for everyone;
- * the other two do not exist in a release tag and would 404. `experimental`
+ * a supported circuit ships in the release tag; the other two do not exist in a
+ * release tag and would 404 there. Every circuit is prefetched for everyone —
+ * Developer Mode gates no circuit. `experimental`
  * arrived as a third status and its first circuit briefly fell into NEITHER of
  * the two lists this replaced, which meant its files were never prefetched and
  * were looked for in a release that does not contain them.
  */
-export const DEV_ONLY_CIRCUIT_IDS: readonly CircuitName[] = [
+export const MAIN_BRANCH_CIRCUIT_IDS: readonly CircuitName[] = [
   ...EXPERIMENTAL_CIRCUIT_IDS,
   ...PLANNED_CIRCUIT_IDS,
 ];

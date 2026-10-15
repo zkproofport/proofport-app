@@ -4,7 +4,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import {Select} from '../../components/ui/molecules/Select';
 import {ProofUiIcon} from '../../components/ProofUiIcon';
-import {visibleNetworkCategories, OPENSTOA_ENABLED, type NetworkCategoryId} from '../../config';
+import {NETWORK_CATEGORIES, OPENSTOA_ENABLED, type NetworkCategoryId} from '../../config';
 import {useSettings} from '../../hooks/useSettings';
 import {useProofHistory} from '../../hooks/useProofHistory';
 import {useError, useThemeColors} from '../../context';
@@ -115,7 +115,7 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({navigation}) 
         <View style={[styles.divider, {borderColor: colors.border}]}>
           <Select<NetworkCategoryId> testID="more-network" icon="country" label={t('host.more.defaultNetwork')}
             value={settings.defaultNetwork as NetworkCategoryId}
-            options={visibleNetworkCategories(settings.developerMode, settings.defaultNetwork).map(network => ({value: network.id, label: t(network.labelKey)}))}
+            options={NETWORK_CATEGORIES.map(network => ({value: network.id, label: t(network.labelKey)}))}
             onChange={next => saveSetting({defaultNetwork: next})} pickerTitle={t('host.more.defaultNetwork')} />
         </View>
         {/* OpenStoa owns the fourth tab when enabled; only then keep History here. */}

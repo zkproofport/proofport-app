@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
-import {DEV_ONLY_CIRCUIT_IDS} from '../config/circuitIds';
+import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
@@ -181,7 +181,7 @@ export async function circuitBaseUrl(
   circuitName: string,
   env: Environment,
 ): Promise<string> {
-  if (DEV_ONLY_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
+  if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
     return GITHUB_RAW('main');
   }
   return resolveCircuitBaseUrl(env);

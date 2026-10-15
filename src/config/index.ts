@@ -22,8 +22,6 @@ export {
   NETWORK_INDEPENDENT_CIRCUITS,
   NETWORK_CATEGORIES,
   OTHER_NETWORK,
-  isNetworkVisible,
-  visibleNetworkCategories,
   circuitsForCategory,
 } from './networks';
 export type {NetworkId, NetworkDescriptor, NetworkCategoryId, NetworkCategoryDescriptor} from './networks';
@@ -43,7 +41,7 @@ export type {TypedAction} from './circuitIds';
 export {validateTypedAction, parseTypedAction} from './circuitIds';
 export {
   CIRCUIT_NEEDS_WALLET_SIGNATURE,
-  DEV_ONLY_CIRCUIT_IDS,
+  MAIN_BRANCH_CIRCUIT_IDS,
   CIRCUIT_ACTION_BINDING,
   circuitActionBinding,
 } from './circuitIds';

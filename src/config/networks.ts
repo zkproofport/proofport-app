@@ -20,10 +20,6 @@ export interface NetworkDescriptor {
   labelKey: string;
   /** Circuits that live on this network — drives the Verify tab filter. */
   circuits: CircuitName[];
-  /** When true, hidden from pickers unless Developer Mode is on. PoC /
-   *  testnet networks live here so demo users only see what's
-   *  production-ready by default. */
-  developerOnly?: boolean;
 }
 
 export const USER_FACING_NETWORKS: ReadonlyArray<NetworkDescriptor> = [
@@ -36,31 +32,13 @@ export const USER_FACING_NETWORKS: ReadonlyArray<NetworkDescriptor> = [
     id: 'giwa',
     labelKey: 'host.more.networkGiwa',
     circuits: ['giwa_attestation', 'dojang_playground'],
-    developerOnly: true,
   },
   {
     id: 'omnione',
     labelKey: 'host.more.networkOmniOne',
     circuits: ['mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'],
-    developerOnly: true,
   },
 ];
-
-/**
- * Whether a network should be hidden from default UI surfaces when
- * Developer Mode is off. The currently-selected value is always kept
- * visible by callers so a previously-set developer-only network can be
- * swapped back to a normal one without flipping the dev flag.
- */
-export function isNetworkVisible(
-  net: {id: string; developerOnly?: boolean},
-  developerMode: boolean,
-  currentValue?: string,
-): boolean {
-  if (!net.developerOnly) return true;
-  if (developerMode) return true;
-  return currentValue === net.id;
-}
 
 /**
  * Circuits that have no on-chain attestation lookup and therefore are
@@ -86,13 +64,13 @@ export interface NetworkCategoryDescriptor {
   id: NetworkCategoryId;
   labelKey: string;
   circuits: ReadonlyArray<CircuitName>;
-  developerOnly?: boolean;
 }
 
 /**
  * Chains, then the bucket for circuits bound to no chain (currently the OIDC
  * domain proof). "Other" is a real, selectable and persistable value — the
- * Verify tab writes it into the default-network setting.
+ * Verify tab writes it into the default-network setting. Every row is offered
+ * to everyone: Developer Mode gates no network and no circuit.
  */
 export const NETWORK_CATEGORIES: ReadonlyArray<NetworkCategoryDescriptor> = [
   ...USER_FACING_NETWORKS,
@@ -102,14 +80,6 @@ export const NETWORK_CATEGORIES: ReadonlyArray<NetworkCategoryDescriptor> = [
     circuits: NETWORK_INDEPENDENT_CIRCUITS,
   },
 ];
-
-/** What a picker should show, given Developer Mode and the current value. */
-export function visibleNetworkCategories(
-  developerMode: boolean,
-  currentValue?: string,
-): ReadonlyArray<NetworkCategoryDescriptor> {
-  return NETWORK_CATEGORIES.filter((n) => isNetworkVisible(n, developerMode, currentValue));
-}
 
 /**
  * The circuits in a category. An unknown id is a caller asking for something
