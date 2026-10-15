@@ -86,6 +86,10 @@ const App: React.FC = () => {
   const navigationRef = useRef<NavigationContainerRef<TabParamList>>(null);
   // Track currently active request to prevent processing while modal is open
   const activeRequestId = useRef<string | null>(null);
+  // Requests whose relay check is still running. `activeRequestId` is only set
+  // after that check, so without this the same link arriving twice meanwhile
+  // looked like a newer request and cancelled itself (E1007 on approval).
+  const requestsBeingChecked = useRef(new Set<string>());
 
   // A deep link can arrive before there is anywhere to navigate to — see
   // src/utils/navigationQueue.ts for the cold-start window and how it was
@@ -255,6 +259,10 @@ const App: React.FC = () => {
       console.log('[App] Same request is currently being processed, skipping');
       return;
     }
+    if (requestsBeingChecked.current.has(request.requestId)) {
+      console.log('[App] Same request is already being checked with the relay, skipping');
+      return;
+    }
 
     const validation = validateProofRequest(request);
     if (!validation.valid) {
@@ -271,7 +279,15 @@ const App: React.FC = () => {
     const sequence = ++relaySequence.current;
     requestSequence.current += 1;
     // Validate requestId with relay server — reject unregistered requests
-    const relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl, request.inputs as Record<string, unknown>);
+    // Claimed before the await and released after it with no await between the
+    // release and `activeRequestId` below, so a duplicate never slips through.
+    requestsBeingChecked.current.add(request.requestId);
+    let relayValidation: Awaited<ReturnType<typeof validateRequestWithRelay>>;
+    try {
+      relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl, request.inputs as Record<string, unknown>);
+    } finally {
+      requestsBeingChecked.current.delete(request.requestId);
+    }
     if (sequence !== relaySequence.current) {
       // A newer request arrived while this one was being validated and took
       // its place; this one will never be shown, so it is answered now.

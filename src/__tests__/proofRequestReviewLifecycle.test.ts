@@ -557,6 +557,33 @@ describe('requests dropped before approval are answered', () => {
     expect(sent().filter(body => body.requestId === 'third')).toHaveLength(0);
   });
 
+  // One QR scan reached the relay five times within 8 ms on 2026-10-15; the
+  // duplicates read as newer requests and cancelled the real one (E1007).
+  it.each([2, 5])('the same request arriving %i times during its relay check is checked once and not cancelled', async times => {
+    await ready();
+    const same = request('giwa_attestation', 'same');
+    const finish = await receiveAwaitingRelay(same);
+    for (let i = 1; i < times; i++) await receive({...same});
+    await finish();
+    expect(mockValidateRelay).toHaveBeenCalledTimes(1);
+    expect(sent()).toEqual([]);
+    expect(mockModal.visible).toBe(true);
+    expect(mockModal.request).toBe(same);
+    await receive({...same});
+    expect(mockValidateRelay).toHaveBeenCalledTimes(1);
+    expect(sent()).toEqual([]);
+  });
+
+  it('a different request during the relay check still replaces it', async () => {
+    await ready();
+    const finish = await receiveAwaitingRelay(request('giwa_attestation', 'slow'));
+    await receive(request('giwa_attestation', 'slow'));
+    await receive(request('giwa_attestation', 'other'));
+    await finish();
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'slow', status: 'cancelled'})]);
+    expect(mockModal.request?.requestId).toBe('other');
+  });
+
   it('a request superseded while its relay check was running is answered cancelled', async () => {
     await ready();
     const finishFirst = await receiveAwaitingRelay(request('giwa_attestation', 'slow'));

@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -31,12 +31,17 @@ const QRScanScreen: React.FC = () => {
   const device = useCameraDevice('back');
   const [isActive, setIsActive] = useState(true);
   const [scannedData, setScannedData] = useState<string | null>(null);
+  // The camera reports the same code on every frame, and several frames can
+  // arrive before `scannedData` re-renders into the callback. A ref locks on
+  // the first one; state alone let one QR become several requests.
+  const handled = useRef(false);
   const navigation = useNavigation<ScanNavigation>();
 
   useFocusEffect(
     useCallback(() => {
       setIsActive(true);
       setScannedData(null);
+      handled.current = false;
       return () => {
         setIsActive(false);
       };
@@ -46,7 +51,8 @@ const QRScanScreen: React.FC = () => {
   const codeScanner = useCodeScanner({
     codeTypes: ['qr'],
     onCodeScanned: (codes) => {
-      if (codes.length > 0 && codes[0].value && !scannedData) {
+      if (codes.length > 0 && codes[0].value && !handled.current) {
+        handled.current = true;
         const value = codes[0].value;
         setScannedData(value);
         setIsActive(false);
@@ -100,6 +106,7 @@ const QRScanScreen: React.FC = () => {
   });
 
   const resetScanner = () => {
+    handled.current = false;
     setScannedData(null);
     setIsActive(true);
   };
