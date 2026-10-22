@@ -18,14 +18,13 @@
  * from OmniOne address" footgun where every region passed verification.
  */
 import {useCallback, useRef, useState} from 'react';
-import {ethers} from 'ethers';
 import {
   generateNoirProof,
-  verifyNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
   arrayBufferToHex,
@@ -73,9 +72,6 @@ import {settingsStore} from '../stores/settingsStore';
 import * as oacxResultBus from '../utils/oacxResultBus';
 import type {ProofStackParamList} from '../navigation/types';
 import {
-  getVerifierAddress,
-  getVerifierAbi,
-  getNetworkConfigForCircuit,
   getEnvironment,
 } from '../config';
 import type {CircuitName} from '../config/contracts';
@@ -511,34 +507,14 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
   );
 
   const verifyProofOffChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
-      const useVk = vk || moduleCaches[variant].vk;
-      const useFullProof = fullProof || moduleCaches[variant].fullProof;
-      if (!useVk || !useFullProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-      setIsLoading(true);
-      setStatus('Verifying proof...');
-      try {
-        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
-        const start = Date.now();
-        const isValid = verifyNoirProof(circuitPath, useFullProof, true, useVk, true);
-        const elapsed = Date.now() - start;
-        addLog(`Off-chain verification completed in ${elapsed}ms`);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-        setStatus(isValid ? 'Proof verified!' : 'Proof invalid');
-        return isValid;
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        addLog(`Error: ${msg}`);
-        setStatus('Error verifying proof');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [CIRCUIT_NAME, vk, fullProof],
+    (addLog: (msg: string) => void): Promise<boolean> =>
+      verifyProofOffChainWithMopro(
+        CIRCUIT_NAME,
+        vk || moduleCaches[variant].vk,
+        fullProof || moduleCaches[variant].fullProof,
+        {addLog, setStatus, setIsLoading},
+      ),
+    [CIRCUIT_NAME, variant, vk, fullProof],
   );
 
   const verifyProofOnChain = useCallback(
@@ -548,51 +524,9 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
           `This hook proves ${CIRCUIT_NAME}; it was asked to verify '${circuit}'.`,
         );
       }
-      const useParsed = parsedProof || moduleCaches[variant].parsedProof;
-      if (!useParsed) {
-        addLog('Please generate proof first');
-        return false;
-      }
-      setIsLoading(true);
-      setStatus('Verifying proof on-chain...');
-      try {
-        const verifierAddress = await getVerifierAddress(circuit);
-        if (!verifierAddress) {
-          addLog(`[OnChain] Verifier address empty — check FALLBACK_VERIFIERS.${CIRCUIT_NAME}`);
-          setStatus('Verification unavailable');
-          return false;
-        }
-        const network = getNetworkConfigForCircuit(circuit);
-        addLog(`[OnChain] Verifier: ${verifierAddress}`);
-        addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);
-
-        const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
-        const contract = new ethers.Contract(
-          verifierAddress,
-          getVerifierAbi(),
-          provider,
-        );
-
-        const start = Date.now();
-        const isValid = await contract.verify(
-          useParsed.proofHex,
-          useParsed.publicInputsHex,
-        );
-        const elapsed = Date.now() - start;
-        addLog(`On-chain verification completed in ${elapsed}ms`);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-        setStatus(isValid ? 'Proof verified on-chain!' : 'Proof invalid (on-chain)');
-        return isValid;
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        addLog(`On-chain verification error: ${msg}`);
-        setStatus('Error: on-chain verification failed');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
+      return verifyProofOnChainWithCore(circuit, parsedProof || moduleCaches[variant].parsedProof, {addLog, setStatus, setIsLoading});
     },
-    [CIRCUIT_NAME, parsedProof],
+    [CIRCUIT_NAME, variant, parsedProof],
   );
 
   const resetProofCache = useCallback(() => {
@@ -604,7 +538,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
     setCxData(null);
     setCircuitInputs(null);
     resetSteps();
-  }, [resetSteps]);
+  }, [resetSteps, variant]);
 
   return {
     status,

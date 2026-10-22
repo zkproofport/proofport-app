@@ -4,7 +4,7 @@
  *
  * ## Where the identifiers come from
  *
- * They are NOT declared here. `@zkproofport-app/sdk/circuits` is the published
+ * They are NOT declared here. `@zkproofport-app/core/circuits` is the published
  * source of truth for the canonical `Nargo.toml` names, and this app reads its
  * list from there. Before that package existed there were twenty-four separate
  * spellings of the same seven strings scattered across this repository, and
@@ -12,10 +12,13 @@
  * and rendered the OWNERSHIP title, because one of those lists had only ever
  * learned the hyphenated spelling.
  *
- * The dependency-free `/circuits` subpath is imported rather than the package
- * root on purpose. The root pulls in `socket.io-client` and `qrcode` — a relay
- * client this app does not use, because the app IS the prover. The subpath has
- * no imports at all, so taking the id list costs the bundle nothing.
+ * The package is `@zkproofport-app/core`, not the customer SDK
+ * (`@zkproofport-app/sdk`), which re-exports the same list but adds a relay
+ * client, QR codes and the bb.js off-chain verifier (about 153 MB unpacked) —
+ * none of which a phone that IS the prover uses. The dependency-free
+ * `/circuits` subpath is imported rather than core's root, which carries
+ * on-chain verification and needs ethers; `src/utils/proofVerification.ts` is
+ * the one module that takes that root.
  *
  * ## Identifiers vs. this app's data
  *
@@ -50,7 +53,7 @@ import {
   isSupportedCircuitId,
   type CircuitId,
   type CircuitSupportStatus,
-} from '@zkproofport-app/sdk/circuits';
+} from '@zkproofport-app/core/circuits';
 
 export {
   ALL_CIRCUIT_IDS,
@@ -129,17 +132,16 @@ export function canonicalCircuitId(
  * Checking the EIP-712 action a proof binds to (`giwa_attestation`, when the
  * request carries one).
  *
- * Re-exported from here because this file is the app's ONE door to the SDK —
- * a contract held by `theCircuitListComesFromTheSdk.test.ts`, and the reason
- * twenty-four copies of the circuit list became one. `./typedAction` is a
- * dependency-free subpath like `./circuits`: importing the package ROOT
- * instead drags qrcode, ethers and @babel/runtime into the React Native bundle
- * and breaks every jest suite that touches the deep link.
+ * Re-exported from here because this file is the app's ONE door to the
+ * circuit rules in `@zkproofport-app/core` — a contract held by
+ * `theCircuitListComesFromTheSdk.test.ts`, and the reason twenty-four copies of
+ * the circuit list became one. `./typedAction` is a dependency-free subpath
+ * like `./circuits`, so the deep-link validator does not load ethers.
  */
 export {
   validateTypedAction,
   parseTypedAction,
-} from '@zkproofport-app/sdk/typedAction';
+} from '@zkproofport-app/core/typedAction';
 
 /**
  * Whether a circuit binds an EIP-712 action, and whether it must.
@@ -152,9 +154,9 @@ export {
 export {
   CIRCUIT_ACTION_BINDING,
   circuitActionBinding,
-} from '@zkproofport-app/sdk/circuits';
-export type {CircuitActionBinding} from '@zkproofport-app/sdk/circuits';
-export type {TypedAction} from '@zkproofport-app/sdk/typedAction';
+} from '@zkproofport-app/core/circuits';
+export type {CircuitActionBinding} from '@zkproofport-app/core/circuits';
+export type {TypedAction} from '@zkproofport-app/core/typedAction';
 
 /**
  * Circuits whose files live only on `main`, not in a release tag.

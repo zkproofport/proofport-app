@@ -385,7 +385,7 @@ export type MdlKrVariant = 'ownership' | 'age' | 'region';
 /**
  * Which circuit proves which predicate. The values are the SDK's published
  * constants rather than string literals, so a rename in
- * `@zkproofport-app/sdk/circuits` is a compile error here instead of a runtime
+ * `@zkproofport-app/core/circuits` is a compile error here instead of a runtime
  * download of a circuit file that does not exist.
  */
 export const MDL_KR_CIRCUIT_NAMES: Readonly<Record<MdlKrVariant, CircuitName>> = {

@@ -20,7 +20,7 @@ export type Environment = 'development' | 'staging' | 'production';
  * to be re-declared here as a literal union, which is what let this file's
  * tables and the rest of the app disagree about which circuits exist. Every
  * `Record<CircuitName, …>` below is now exhaustive over the PUBLISHED list, so
- * a circuit added to `@zkproofport-app/sdk` fails `tsc` here until this file
+ * a circuit added to `@zkproofport-app/core` fails `tsc` here until this file
  * says what its path, address, version and network are.
  */
 export type {CircuitName};
@@ -61,10 +61,6 @@ export interface StaticConfig {
     | {type: 'branch'; baseUrl: string}
     | {type: 'release'; repo: string};
 }
-
-export const VERIFIER_ABI = [
-  'function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool)',
-];
 
 export const AUTHORIZED_SIGNERS = [
   '0x952f32128AF084422539C4Ff96df5C525322E564',

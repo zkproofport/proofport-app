@@ -3,11 +3,11 @@ import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejectio
 import {ethers} from 'ethers';
 import {
   generateNoirProof,
-  verifyNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
   arrayBufferToHex,
@@ -23,7 +23,7 @@ import {
   downloadCircuitFiles,
   allCircuitFilesExist,
 } from '../utils';
-import {getVerifierAddress, getVerifierAbi, getNetworkConfigForCircuit, getEnvironment, type CircuitName} from '../config';
+import {getEnvironment, type CircuitName} from '../config';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -541,52 +541,8 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    * Verify proof off-chain using mopro
    */
   const verifyProofOffChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
-      const useVk = vk || _cachedVk;
-      const useFullProof = fullProof || _cachedFullProof;
-
-      if (!useVk || !useFullProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-
-      setIsLoading(true);
-      setStatus('Verifying proof...');
-      addLog('=== Starting Off-Chain Verification ===');
-      addLog('[OffChain] Starting local verification...');
-      addLog(`[OffChain] Using cached VK: ${useVk ? useVk.byteLength + ' bytes' : 'null'}`);
-      addLog(`[OffChain] Using cached proof: ${useFullProof ? useFullProof.byteLength + ' bytes' : 'null'}`);
-
-      try {
-        addLog(`[OffChain] Loading circuit: ${_cachedCircuitName}.json`);
-        const circuitPath = await getAssetPath(`${_cachedCircuitName}.json`);
-
-        addLog('[OffChain] Calling mopro verifyNoirProof...');
-        const startTime = Date.now();
-        const isValid = verifyNoirProof(
-          circuitPath,
-          useFullProof,
-          true, // onChain format (Keccak hash)
-          useVk,
-          true, // lowMemoryMode
-        );
-        const elapsed = Date.now() - startTime;
-
-        addLog(`[OffChain] Verification time: ${elapsed}ms`);
-        addLog(`[OffChain] Result: ${isValid ? 'VALID ✓' : 'INVALID ✗'}`);
-        addLog(`Verification completed in ${elapsed}ms`);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-        setStatus(isValid ? 'Proof verified!' : 'Proof invalid');
-        return isValid;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        addLog(`Error: ${errorMessage}`);
-        setStatus('Error verifying proof');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
-    },
+    (addLog: (msg: string) => void): Promise<boolean> =>
+      verifyProofOffChainWithMopro(_cachedCircuitName, vk || _cachedVk, fullProof || _cachedFullProof, {addLog, setStatus, setIsLoading}),
     [vk, fullProof],
   );
 
@@ -594,108 +550,8 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    * Verify proof on-chain using the deployed Verifier contract
    */
   const verifyProofOnChain = useCallback(
-    async (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> => {
-      const useParsedProof = parsedProof || _cachedParsedProof;
-
-      if (!useParsedProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-
-      setIsLoading(true);
-      setStatus('Verifying proof on-chain...');
-      addLog('=== Starting On-Chain Verification ===');
-
-      try {
-        addLog('[OnChain] Loading network configuration...');
-        const verifierAddress = await getVerifierAddress(circuit);
-
-        if (!verifierAddress) {
-          addLog('[OnChain] ERROR: Verifier address is empty - check environment config');
-          addLog('[OnChain] Environment: ' + getEnvironment());
-          setStatus('Verification unavailable');
-          return false;
-        }
-
-        // The circuit's OWN chain, not the build's. Asking for the build
-        // default once sent a proof from a circuit pinned to another chain to
-        // Base Sepolia, where its verifier address held a different contract.
-        const network = getNetworkConfigForCircuit(circuit);
-
-        addLog(`[OnChain] Circuit: ${circuit}`);
-        addLog('[OnChain] Starting on-chain verification...');
-        addLog(`[OnChain] Contract: ${verifierAddress}`);
-        addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);
-        addLog(`Verifier contract: ${verifierAddress}`);
-        addLog(`Chain: ${network.name} (${network.chainId})`);
-
-        addLog(`[OnChain] Connecting to ${network.name} RPC...`);
-        const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
-        addLog(`Connected to ${network.name} RPC`);
-
-        addLog('[OnChain] Creating contract instance...');
-        const verifierContract = new ethers.Contract(
-          verifierAddress,
-          getVerifierAbi(),
-          provider,
-        );
-
-        addLog(`[OnChain] Proof size: ${useParsedProof.proofHex.length} chars`);
-        addLog(`[OnChain] Public inputs: ${useParsedProof.numPublicInputs}`);
-        addLog(`Proof hex (first 40 chars): ${useParsedProof.proofHex.substring(0, 42)}...`);
-        addLog(`Public inputs count: ${useParsedProof.numPublicInputs}`);
-
-        addLog('[OnChain] Calling verify(bytes, bytes32[])...');
-        addLog('Calling verifier contract...');
-        const startTime = Date.now();
-
-        const isValid = await verifierContract.verify(
-          useParsedProof.proofHex,
-          useParsedProof.publicInputsHex,
-        );
-
-        const elapsed = Date.now() - startTime;
-        addLog(`[OnChain] Verification time: ${elapsed}ms`);
-        addLog(`[OnChain] Result: ${isValid ? 'VALID ✓' : 'INVALID ✗'}`);
-        addLog('[OnChain] Note: view function call (no gas spent)');
-        addLog(`On-chain verification completed in ${elapsed}ms`);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-
-        // Log transaction info
-        addLog('--- Transaction Info ---');
-        addLog(`Contract: ${verifierAddress}`);
-        addLog(`Method: verify(bytes, bytes32[])`);
-        addLog(`Note: This is a view function call (no gas spent)`);
-
-        if (isValid) {
-          addLog(`Proof verified on ${network.name} blockchain!`);
-          setStatus('Proof verified on-chain!');
-        } else {
-          addLog('Proof rejected by on-chain verifier');
-          setStatus('Proof invalid (on-chain)');
-        }
-
-        return isValid;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        addLog(`On-chain verification error: ${errorMessage}`);
-
-        if (errorMessage.includes('call revert')) {
-          addLog('[OnChain] Contract call reverted');
-          addLog('[OnChain] This may indicate a circuit/verifier mismatch');
-          addLog('[OnChain] Try clearing app cache and restarting');
-        } else if (errorMessage.includes('network')) {
-          addLog('[OnChain] Network error - check internet connection');
-        } else if (errorMessage.includes('could not detect network')) {
-          addLog('[OnChain] RPC endpoint unreachable');
-        }
-
-        setStatus('Error: on-chain verification failed');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
-    },
+    (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> =>
+      verifyProofOnChainWithCore(circuit, parsedProof || _cachedParsedProof, {addLog, setStatus, setIsLoading}),
     [parsedProof],
   );
 

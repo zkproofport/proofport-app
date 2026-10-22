@@ -17,16 +17,18 @@
  *     Korea mDL verifier addresses never refreshed;
  *   - `'oidc-domain'` was set as a route id that no table anywhere understood.
  *
- * `@zkproofport-app/sdk/circuits` is now the source of the IDENTIFIERS. The
+ * `@zkproofport-app/core/circuits` is now the source of the IDENTIFIERS. The
  * app keeps everything else — paths, addresses, versions, icons, labels,
  * networks, wallet groups — but every one of those tables is keyed by the
  * published id, and this file fails when one of them stops covering the list.
  *
- * The subpath is imported, not the package root: `/circuits` has no imports of
- * its own, while the root drags in `socket.io-client` and `qrcode` for a relay
- * client an app that proves on-device does not use.
+ * The package is `@zkproofport-app/core`, not the customer SDK: the SDK
+ * re-exports the same list but brings a relay client, QR codes and bb.js
+ * (about 153 MB unpacked) that an app proving on-device does not use. The
+ * `/circuits` subpath is imported, not core's root: the subpath has no imports
+ * of its own, the root carries on-chain verification and needs ethers.
  *
- * Measured against `@zkproofport-app/sdk@0.2.12` installed from the registry.
+ * Measured against `@zkproofport-app/core@0.1.1` installed from the registry.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -36,7 +38,7 @@ import {
   PLANNED_CIRCUIT_IDS,
   SUPPORTED_CIRCUIT_IDS,
   isCircuitId,
-} from '@zkproofport-app/sdk/circuits';
+} from '@zkproofport-app/core/circuits';
 import {
   ROUTE_CIRCUIT_IDS,
   canonicalCircuitId,
@@ -106,8 +108,8 @@ describe('the identifiers come from the published SDK', () => {
      * it is pinned rather than trusted.
      */
     const module = read('config', 'circuitIds.ts');
-    expect(module).toContain("from '@zkproofport-app/sdk/circuits'");
-    expect(module).not.toMatch(/from '@zkproofport-app\/sdk'/);
+    expect(module).toContain("from '@zkproofport-app/core/circuits'");
+    expect(module).not.toMatch(/from '@zkproofport-app\/core'/);
 
     const pkg = JSON.parse(
       fs.readFileSync(path.join(SRC, '..', 'package.json'), 'utf8'),
@@ -115,17 +117,31 @@ describe('the identifiers come from the published SDK', () => {
     // Pinned exactly. The id list decides which proof a deep link produces, so
     // it moves when somebody bumps it and reads this file, not when a caret
     // resolves a new minor overnight.
-    expect(pkg.dependencies['@zkproofport-app/sdk']).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(pkg.dependencies['@zkproofport-app/core']).toMatch(/^\d+\.\d+\.\d+$/);
+    // The customer SDK is not a dependency: everything the app takes from it
+    // is in core, and the SDK would bring bb.js along.
+    expect(pkg.dependencies['@zkproofport-app/sdk']).toBeUndefined();
   });
 
   it('CONTRACT: exactly one module imports the SDK', () => {
     // Twenty-four lists became one because there is one door. A second import
     // is a second door, and the drift starts again behind it. Comments naming
     // the package do not count — several explain where the ids come from.
-    const importers = sourceFiles()
-      .filter(f => codeOf(f).includes('@zkproofport-app/sdk'))
-      .map(f => path.relative(SRC, f));
-    expect(importers).toEqual([path.join('config', 'circuitIds.ts')]);
+    const importersOf = (pattern: RegExp) =>
+      sourceFiles()
+        .filter(f => pattern.test(codeOf(f)))
+        .map(f => path.relative(SRC, f));
+    // The circuit rules: one door.
+    expect(importersOf(/'@zkproofport-app\/core\//)).toEqual([
+      path.join('config', 'circuitIds.ts'),
+    ]);
+    // Core's root (on-chain verification): one module, the shared verifier
+    // every proof hook calls.
+    expect(importersOf(/'@zkproofport-app\/core'/)).toEqual([
+      path.join('utils', 'proofVerification.ts'),
+    ]);
+    // The customer SDK: none.
+    expect(importersOf(/@zkproofport-app\/sdk/)).toEqual([]);
   });
 });
 

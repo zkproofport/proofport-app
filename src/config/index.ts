@@ -1,7 +1,7 @@
 export {OPENSTOA_ENABLED} from './features';
 export {appKit, projectId, metadata, networks} from './AppKitConfig';
 export {WALLETCONNECT_PROJECT_ID, appMetadata} from './WalletConnectConfig';
-export {VERIFIER_ABI, AUTHORIZED_SIGNERS} from './contracts';
+export {AUTHORIZED_SIGNERS} from './contracts';
 export {GOOGLE_WEB_CLIENT_ID} from './GoogleAuthConfig';
 export type {Environment} from './contracts';
 export {CIRCUITS_WITH_BROADCAST} from './contracts';
@@ -31,7 +31,6 @@ export {
     getNetworkConfigForCircuit,
   getAttestationConfig,
   getRelayConfig,
-  getVerifierAbi,
   getBaseRpcUrls,
   getVerifierAddress,
   getVerifierAddressSync,

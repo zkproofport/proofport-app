@@ -1,11 +1,11 @@
 import {useState, useCallback} from 'react';
 import {
   generateNoirProof,
-  verifyNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
   arrayBufferToHex,
@@ -15,8 +15,7 @@ import {
   downloadCircuitFiles,
   allCircuitFilesExist,
 } from '../utils';
-import {getEnvironment, getVerifierAddress, getVerifierAbi, getNetworkConfigForCircuit, type CircuitName} from '../config';
-import {ethers} from 'ethers';
+import {getEnvironment, type CircuitName} from '../config';
 import {prepareOidcInputs, flattenOidcInputs} from '../utils/oidcDomain';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
@@ -436,45 +435,8 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
    * Verify proof off-chain using mopro
    */
   const verifyProofOffChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
-      const useVk = vk || _cachedVk;
-      const useFullProof = fullProof || _cachedFullProof;
-
-      if (!useVk || !useFullProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-
-      setIsLoading(true);
-      setStatus('Verifying proof...');
-      addLog('=== Starting Off-Chain Verification ===');
-
-      try {
-        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
-
-        addLog('[OffChain] Calling mopro verifyNoirProof...');
-        const startTime = Date.now();
-        const isValid = verifyNoirProof(
-          circuitPath,
-          useFullProof,
-          true, // onChain format (Keccak hash)
-          useVk,
-          true, // lowMemoryMode
-        );
-        const elapsed = Date.now() - startTime;
-
-        addLog(`[OffChain] Result: ${isValid ? 'VALID' : 'INVALID'} (${elapsed}ms)`);
-        setStatus(isValid ? 'Proof verified!' : 'Proof invalid');
-        return isValid;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        addLog(`Error: ${errorMessage}`);
-        setStatus('Error verifying proof');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
-    },
+    (addLog: (msg: string) => void): Promise<boolean> =>
+      verifyProofOffChainWithMopro(CIRCUIT_NAME, vk || _cachedVk, fullProof || _cachedFullProof, {addLog, setStatus, setIsLoading}),
     [vk, fullProof],
   );
 
@@ -488,58 +450,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           `This hook proves oidc_domain_attestation; it was asked to verify '${circuit}'.`,
         );
       }
-      const useParsedProof = parsedProof || _cachedParsedProof;
-
-      if (!useParsedProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-
-      setIsLoading(true);
-      setStatus('Verifying proof on-chain...');
-      addLog('=== Starting On-Chain Verification ===');
-
-      try {
-        const verifierAddress = await getVerifierAddress(circuit);
-
-        if (!verifierAddress) {
-          addLog('[OnChain] ERROR: Verifier address is empty');
-          setStatus('Verification unavailable');
-          return false;
-        }
-
-        // The circuit's own chain, not the build's.
-        const network = getNetworkConfigForCircuit(circuit);
-        addLog(`[OnChain] Contract: ${verifierAddress}`);
-        addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);
-
-        const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
-        const verifierContract = new ethers.Contract(
-          verifierAddress,
-          getVerifierAbi(),
-          provider,
-        );
-
-        addLog('[OnChain] Calling verify(bytes, bytes32[])...');
-        const startTime = Date.now();
-
-        const isValid = await verifierContract.verify(
-          useParsedProof.proofHex,
-          useParsedProof.publicInputsHex,
-        );
-
-        const elapsed = Date.now() - startTime;
-        addLog(`[OnChain] Result: ${isValid ? 'VALID' : 'INVALID'} (${elapsed}ms)`);
-        setStatus(isValid ? 'Proof verified on-chain!' : 'Proof invalid (on-chain)');
-        return isValid;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        addLog(`Error: ${errorMessage}`);
-        setStatus('Error: on-chain verification failed');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
+      return verifyProofOnChainWithCore(circuit, parsedProof || _cachedParsedProof, {addLog, setStatus, setIsLoading});
     },
     [parsedProof],
   );

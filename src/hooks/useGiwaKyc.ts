@@ -15,11 +15,11 @@ import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejectio
 import {ethers} from 'ethers';
 import {
   generateNoirProof,
-  verifyNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
   arrayBufferToHex,
@@ -40,9 +40,6 @@ import {
 import {flattenCircuitInputs} from '../utils/circuitHelpers';
 import type {TypedAction} from '../config/circuitIds';
 import {
-  getVerifierAddress,
-  getVerifierAbi,
-  getNetworkConfigForCircuit,
   getEnvironment,
   type CircuitName,
 } from '../config';
@@ -430,33 +427,8 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
   );
 
   const verifyProofOffChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
-      const useVk = vk || _cachedVk;
-      const useFullProof = fullProof || _cachedFullProof;
-      if (!useVk || !useFullProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-      setIsLoading(true);
-      setStatus('Verifying proof...');
-      try {
-        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
-        const startTime = Date.now();
-        const isValid = verifyNoirProof(circuitPath, useFullProof, true, useVk, true);
-        const elapsed = Date.now() - startTime;
-        addLog(`Off-chain verification completed in ${elapsed}ms`);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-        setStatus(isValid ? 'Proof verified!' : 'Proof invalid');
-        return isValid;
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        addLog(`Error: ${msg}`);
-        setStatus('Error verifying proof');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
-    },
+    (addLog: (msg: string) => void): Promise<boolean> =>
+      verifyProofOffChainWithMopro(CIRCUIT_NAME, vk || _cachedVk, fullProof || _cachedFullProof, {addLog, setStatus, setIsLoading}),
     [vk, fullProof],
   );
 
@@ -467,49 +439,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           `This hook proves giwa_attestation; it was asked to verify '${circuit}'.`,
         );
       }
-      const useParsedProof = parsedProof || _cachedParsedProof;
-      if (!useParsedProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-      setIsLoading(true);
-      setStatus('Verifying proof on-chain...');
-      try {
-        const verifierAddress = await getVerifierAddress(circuit);
-        if (!verifierAddress) {
-          addLog('[OnChain] Verifier address empty — check FALLBACK_VERIFIERS for giwa_attestation');
-          setStatus('Verification unavailable');
-          return false;
-        }
-        const network = getNetworkConfigForCircuit(circuit);
-        addLog(`[OnChain] Verifier: ${verifierAddress}`);
-        addLog(`[OnChain] Chain: ${network.name} (${network.chainId})`);
-
-        const provider = new ethers.providers.JsonRpcProvider(network.rpcUrl);
-        const verifierContract = new ethers.Contract(
-          verifierAddress,
-          getVerifierAbi(),
-          provider,
-        );
-
-        const startTime = Date.now();
-        const isValid = await verifierContract.verify(
-          useParsedProof.proofHex,
-          useParsedProof.publicInputsHex,
-        );
-        const elapsed = Date.now() - startTime;
-        addLog(`On-chain verification completed in ${elapsed}ms`);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-        setStatus(isValid ? 'Proof verified on-chain!' : 'Proof invalid (on-chain)');
-        return isValid;
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        addLog(`On-chain verification error: ${msg}`);
-        setStatus('Error: on-chain verification failed');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
+      return verifyProofOnChainWithCore(circuit, parsedProof || _cachedParsedProof, {addLog, setStatus, setIsLoading});
     },
     [parsedProof],
   );

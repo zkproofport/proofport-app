@@ -5,7 +5,7 @@
  * Runtime: setEnvironmentOverride() allows switching in dev builds.
  */
 
-import {STATIC_CONFIGS, VERIFIER_ABI, FALLBACK_VERIFIERS, CIRCUIT_NETWORKS} from './contracts';
+import {STATIC_CONFIGS, FALLBACK_VERIFIERS, CIRCUIT_NETWORKS} from './contracts';
 import {getVerifierAddress as getVerifierAddressAsync, syncDeployments} from './deployments';
 import type {
   Environment,
@@ -79,10 +79,6 @@ export function getAttestationConfig(): AttestationConfig {
 
 export function getRelayConfig(): RelayConfig {
   return STATIC_CONFIGS[getEnvironment()].relay;
-}
-
-export function getVerifierAbi(): string[] {
-  return VERIFIER_ABI;
 }
 
 export function getBaseRpcUrls(): string[] {

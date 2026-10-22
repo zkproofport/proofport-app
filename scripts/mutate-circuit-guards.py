@@ -42,7 +42,7 @@ from pathlib import Path
 APP = Path(__file__).resolve().parent.parent
 
 SDK_GUARD = "src/__tests__/theCircuitListComesFromTheSdk.test.ts"
-SDK_PIN = json.loads((APP / "package.json").read_text())["dependencies"]["@zkproofport-app/sdk"]
+SDK_PIN = json.loads((APP / "package.json").read_text())["dependencies"]["@zkproofport-app/core"]
 SCREEN_GUARD = "src/__tests__/aProofRequestNamesItsCircuitOrIsRefused.test.ts"
 
 
@@ -156,12 +156,12 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         name="sdk-root-import",
-        defect="importing the package root drags socket.io-client and qrcode "
-        "into a phone bundle for a relay client this app does not use",
+        defect="importing core's root instead of the dependency-free subpath "
+        "pulls on-chain verification and ethers into the circuit-id door",
         path="src/config/circuitIds.ts",
         # The first of the file's three subpath imports, the id list itself.
-        old="  type CircuitSupportStatus,\n} from '@zkproofport-app/sdk/circuits';",
-        new="  type CircuitSupportStatus,\n} from '@zkproofport-app/sdk';",
+        old="  type CircuitSupportStatus,\n} from '@zkproofport-app/core/circuits';",
+        new="  type CircuitSupportStatus,\n} from '@zkproofport-app/core';",
         guard=SDK_GUARD,
         expect_case="dependency-free subpath that is imported",
     ),
@@ -171,7 +171,7 @@ MUTATIONS: list[Mutation] = [
         path="src/utils/circuit.ts",
         old="import {canonicalCircuitId, type CircuitName} from '../config/circuitIds';",
         new="import {canonicalCircuitId, type CircuitName} from '../config/circuitIds';\n"
-        "import {ALL_CIRCUIT_IDS as _unused} from '@zkproofport-app/sdk/circuits';",
+        "import {ALL_CIRCUIT_IDS as _unused} from '@zkproofport-app/core/circuits';",
         guard=SDK_GUARD,
         expect_case="exactly one module imports the SDK",
     ),
@@ -233,8 +233,8 @@ MUTATIONS: list[Mutation] = [
         path="package.json",
         # Read from package.json, so a version bump does not silently retire
         # this mutation the way the literal 0.2.12 anchor did.
-        old=f'"@zkproofport-app/sdk": "{SDK_PIN}"',
-        new=f'"@zkproofport-app/sdk": "^{SDK_PIN}"',
+        old=f'"@zkproofport-app/core": "{SDK_PIN}"',
+        new=f'"@zkproofport-app/core": "^{SDK_PIN}"',
         guard=SDK_GUARD,
         expect_case="dependency-free subpath that is imported",
     ),

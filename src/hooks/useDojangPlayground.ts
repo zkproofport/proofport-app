@@ -14,11 +14,11 @@ import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejectio
 import {ethers} from 'ethers';
 import {
   generateNoirProof,
-  verifyNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
   arrayBufferToHex,
@@ -38,9 +38,6 @@ import {
 } from '../utils/dojangPlayground';
 import type {TypedAction} from '../config/circuitIds';
 import {
-  getVerifierAddress,
-  getVerifierAbi,
-  getNetworkConfigForCircuit,
   getEnvironment,
   type CircuitName,
 } from '../config';
@@ -279,29 +276,8 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
   );
 
   const verifyProofOffChain = useCallback(
-    async (addLog: (msg: string) => void): Promise<boolean> => {
-      const useVk = vk || _cachedVk;
-      const useFullProof = fullProof || _cachedFullProof;
-      if (!useVk || !useFullProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-      setIsLoading(true);
-      setStatus('Verifying proof...');
-      try {
-        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
-        const isValid = verifyNoirProof(circuitPath, useFullProof, true, useVk, true);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-        setStatus(isValid ? 'Proof verified!' : 'Proof invalid');
-        return isValid;
-      } catch (error) {
-        addLog(`Error: ${error instanceof Error ? error.message : String(error)}`);
-        setStatus('Error verifying proof');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
-    },
+    (addLog: (msg: string) => void): Promise<boolean> =>
+      verifyProofOffChainWithMopro(CIRCUIT_NAME, vk || _cachedVk, fullProof || _cachedFullProof, {addLog, setStatus, setIsLoading}),
     [vk, fullProof],
   );
 
@@ -310,38 +286,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
       if (circuit !== CIRCUIT_NAME) {
         throw new Error(`This hook proves ${CIRCUIT_NAME}; it was asked to verify '${circuit}'.`);
       }
-      const useParsedProof = parsedProof || _cachedParsedProof;
-      if (!useParsedProof) {
-        addLog('Please generate proof first');
-        return false;
-      }
-      setIsLoading(true);
-      setStatus('Verifying proof on-chain...');
-      try {
-        const verifierAddress = await getVerifierAddress(circuit);
-        if (!verifierAddress) {
-          addLog(`[OnChain] No verifier address for ${circuit}`);
-          setStatus('Verification unavailable');
-          return false;
-        }
-        const net = getNetworkConfigForCircuit(circuit);
-        addLog(`[OnChain] Verifier: ${verifierAddress} on ${net.name} (${net.chainId})`);
-        const contract = new ethers.Contract(
-          verifierAddress,
-          getVerifierAbi(),
-          new ethers.providers.JsonRpcProvider(net.rpcUrl),
-        );
-        const isValid = await contract.verify(useParsedProof.proofHex, useParsedProof.publicInputsHex);
-        addLog(`Result: ${isValid ? 'VALID' : 'INVALID'}`);
-        setStatus(isValid ? 'Proof verified on-chain!' : 'Proof invalid (on-chain)');
-        return isValid;
-      } catch (error) {
-        addLog(`On-chain verification error: ${error instanceof Error ? error.message : String(error)}`);
-        setStatus('Error: on-chain verification failed');
-        return false;
-      } finally {
-        setIsLoading(false);
-      }
+      return verifyProofOnChainWithCore(circuit, parsedProof || _cachedParsedProof, {addLog, setStatus, setIsLoading});
     },
     [parsedProof],
   );

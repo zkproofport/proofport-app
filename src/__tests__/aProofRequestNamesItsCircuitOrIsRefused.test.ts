@@ -19,11 +19,11 @@
  * remaining canonical tables cover the PUBLISHED circuit list and that the
  * refusal has no way back to a default.
  *
- * Measured against `@zkproofport-app/sdk@0.2.12` from the registry.
+ * Measured against `@zkproofport-app/core@0.1.1` from the registry.
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import {ALL_CIRCUIT_IDS} from '@zkproofport-app/sdk/circuits';
+import {ALL_CIRCUIT_IDS} from '@zkproofport-app/core/circuits';
 
 const SCREEN = path.join(
   __dirname, '..', 'screens', 'proof', 'ProofGenerationScreen.tsx',

@@ -2,7 +2,7 @@
  * The words and the icon shown for a circuit, in one place.
  *
  * Both tables are `Record<CircuitName, …>`, so they are exhaustive over the
- * published circuit list: a circuit added to `@zkproofport-app/sdk` does not
+ * published circuit list: a circuit added to `@zkproofport-app/core` does not
  * compile until it has a name and an icon here. Before that, three of the
  * seven circuits were simply absent — `getCircuitDisplayName('mdl_kr_age')`
  * fell through to returning its argument, and the history screens showed

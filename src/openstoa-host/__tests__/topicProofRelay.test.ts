@@ -5,7 +5,7 @@ import {
   COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT,
   COINBASE_COUNTRY_PUBLIC_INPUT_LAYOUT,
   OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT,
-} from '@zkproofport-app/sdk';
+} from '@zkproofport-app/core';
 import type {ProofInputs} from '@openstoa/miniapp-bridge';
 import {requestTopicProof, TOPIC_PROOF_TIMEOUT_MS, TOPIC_PROOF_POLL_MS} from '../topicProofRelay';
 
