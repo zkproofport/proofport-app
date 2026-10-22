@@ -74,6 +74,12 @@ export const AUTHORIZED_SIGNERS = [
 ];
 
 const GITHUB_REPO = 'zkproofport/circuits';
+/**
+ * The circuits branch that development and staging builds, and the main-only
+ * circuits in every build, read from. Named once so a build can be pointed at
+ * another branch -- a toolchain change, say -- by changing one line.
+ */
+export const CIRCUITS_BRANCH = 'main';
 const GITHUB_RAW = (ref: string) =>
   `https://raw.githubusercontent.com/${GITHUB_REPO}/${ref}`;
 
@@ -103,7 +109,7 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
     },
     broadcastSource: {
       type: 'branch',
-      baseUrl: `${GITHUB_RAW('main')}/broadcast`,
+      baseUrl: `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast`,
     },
   },
   staging: {
@@ -131,7 +137,7 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
     },
     broadcastSource: {
       type: 'branch',
-      baseUrl: `${GITHUB_RAW('main')}/broadcast`,
+      baseUrl: `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast`,
     },
   },
   production: {
@@ -263,14 +269,17 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> =
  * Only bump the circuit that actually changed.
  */
 export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
-  coinbase_attestation: 1,
-  coinbase_country_attestation: 1,
-  oidc_domain_attestation: 3, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
+  // Every circuit bumped together for the nargo 1.0.0-beta.19 / bb 4.2.0
+  // toolchain: the bytecode, keys and reference strings all changed, and a
+  // device holding the old files would hand beta.8 bytecode to the new prover.
+  coinbase_attestation: 2,
+  coinbase_country_attestation: 2,
+  oidc_domain_attestation: 4, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
   // v2: the circuit signs an EIP-712 action when one is supplied, dropped
   // signal_hash from the nullifier, and grew from 128 to 192 public inputs.
-  giwa_attestation: 2,
+  giwa_attestation: 3,
   // v1: first release of the circuit (circuits 4bba5ed).
-  dojang_playground: 1,
+  dojang_playground: 2,
   // Split into 3 independent circuits sharing the canonical ci identifier.
   // v4: nullifier formula changed to keccak(keccak(ci) || scope), matching
   // the OIDC-domain-attestation pattern. signal_hash, cx_integrity_root,
@@ -283,9 +292,9 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // a device holding the v5 cache must now auto delete + re-download on the
   // next proof run (downloadCircuitFiles is always invoked; shouldInvalidateCache
   // sees stored.dataVersion 5 != 6). Circuit bytes unchanged vs v5.
-  mdl_kr_ownership: 6,
-  mdl_kr_age: 6,
-  mdl_kr_region: 6,
+  mdl_kr_ownership: 7,
+  mdl_kr_age: 7,
+  mdl_kr_region: 7,
 };
 
 /**
@@ -368,44 +377,47 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
  */
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
-    coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
-    coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
-    oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
+    coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
+    coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
+    oidc_domain_attestation: '0x5D9ECe4F0276D12693F79659760a68011EFeF485',
     // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
-    // Redeployed 2026-09-22 for the circuit that signs an EIP-712 action; the
-    // previous contract is still live and still verifies the OLD circuit, so
-    // an app left on the old address would fail every new proof while looking
-    // like a proof problem.
-    giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
+    // Every testnet verifier was redeployed 2026-10-22 for the nargo
+    // 1.0.0-beta.19 / bb 4.2.0 toolchain (circuits/deployments/). The previous
+    // contracts are still live and still verify the OLD proofs, so an app left
+    // on an old address fails every new proof while looking like a proof
+    // problem.
+    giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     // Dojang Playground verifier on GIWA Sepolia, same address across env
     // (testnet-only). circuits/deployments/91342/DojangPlayground.json.
-    dojang_playground: '0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724',
-    // Korea mDL — three independent verifiers on Base Sepolia (v4 circuits).
-    mdl_kr_ownership: '0x7602D09d24E6E16efF5AB981646872886376763E',
-    mdl_kr_age:       '0xcFF90FF8cEADc98f625300dc976eD85A3AA943Ba',
-    mdl_kr_region:    '0x435F0448F02F5Df9659D460181116BCaF37E518E',
+    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
+    // Korea mDL — three independent verifiers on Base Sepolia.
+    mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
+    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',
+    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   staging: {
-    coinbase_attestation: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
-    coinbase_country_attestation: '0xdEe363585926c3c28327Efd1eDd01cf4559738cf',
-    oidc_domain_attestation: '0x27afdea349f247cf698f97fdfab59e1bf8bd0550',
-    giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
-    dojang_playground: '0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724',
-    mdl_kr_ownership: '0x7602D09d24E6E16efF5AB981646872886376763E',
-    mdl_kr_age:       '0xcFF90FF8cEADc98f625300dc976eD85A3AA943Ba',
-    mdl_kr_region:    '0x435F0448F02F5Df9659D460181116BCaF37E518E',
+    coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
+    coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
+    oidc_domain_attestation: '0x5D9ECe4F0276D12693F79659760a68011EFeF485',
+    giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
+    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
+    mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
+    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',
+    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   production: {
     coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
-    giwa_attestation: '0x5Da234546874304F8c51BBEed00fC632938211c1',
-    dojang_playground: '0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724',
+    giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
+    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
     // Korea mDL not yet deployed to a mainnet. Pinning to the Base
-    // Sepolia addresses (v4 circuits) until OmniOne Chain mainnet access
-    // is granted.
-    mdl_kr_ownership: '0x7602D09d24E6E16efF5AB981646872886376763E',
-    mdl_kr_age:       '0xcFF90FF8cEADc98f625300dc976eD85A3AA943Ba',
-    mdl_kr_region:    '0x435F0448F02F5Df9659D460181116BCaF37E518E',
+    // Sepolia addresses until OmniOne Chain mainnet access is granted.
+    // The three Coinbase-family mainnet verifiers above are still the
+    // beta.8 contracts: they need a mainnet redeploy before this toolchain
+    // ships to production.
+    mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
+    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',
+    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
 };

@@ -20,122 +20,129 @@ extern "C" {
     int8_t poll_result
     );
     typedef void
-    (*UniffiForeignFutureFree)(
+    (*UniffiForeignFutureDroppedCallback)(
     uint64_t handle
     );
     typedef void
     (*UniffiCallbackInterfaceFree)(
     uint64_t handle
-    );typedef struct UniffiForeignFuture {
+    );
+    typedef uint64_t
+    (*UniffiCallbackInterfaceClone)(
+    uint64_t handle
+    );typedef struct UniffiForeignFutureDroppedCallbackStruct {
         uint64_t handle;
-        UniffiForeignFutureFree free;
-    } UniffiForeignFuture;typedef struct UniffiForeignFutureStructU8 {
+        UniffiForeignFutureDroppedCallback free;
+    } UniffiForeignFutureDroppedCallbackStruct;typedef struct UniffiForeignFutureResultU8 {
         uint8_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructU8;
+    } UniffiForeignFutureResultU8;
     typedef void
     (*UniffiForeignFutureCompleteU8)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructU8 result
-    );typedef struct UniffiForeignFutureStructI8 {
+    UniffiForeignFutureResultU8 result
+    );typedef struct UniffiForeignFutureResultI8 {
         int8_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructI8;
+    } UniffiForeignFutureResultI8;
     typedef void
     (*UniffiForeignFutureCompleteI8)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructI8 result
-    );typedef struct UniffiForeignFutureStructU16 {
+    UniffiForeignFutureResultI8 result
+    );typedef struct UniffiForeignFutureResultU16 {
         uint16_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructU16;
+    } UniffiForeignFutureResultU16;
     typedef void
     (*UniffiForeignFutureCompleteU16)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructU16 result
-    );typedef struct UniffiForeignFutureStructI16 {
+    UniffiForeignFutureResultU16 result
+    );typedef struct UniffiForeignFutureResultI16 {
         int16_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructI16;
+    } UniffiForeignFutureResultI16;
     typedef void
     (*UniffiForeignFutureCompleteI16)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructI16 result
-    );typedef struct UniffiForeignFutureStructU32 {
+    UniffiForeignFutureResultI16 result
+    );typedef struct UniffiForeignFutureResultU32 {
         uint32_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructU32;
+    } UniffiForeignFutureResultU32;
     typedef void
     (*UniffiForeignFutureCompleteU32)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructU32 result
-    );typedef struct UniffiForeignFutureStructI32 {
+    UniffiForeignFutureResultU32 result
+    );typedef struct UniffiForeignFutureResultI32 {
         int32_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructI32;
+    } UniffiForeignFutureResultI32;
     typedef void
     (*UniffiForeignFutureCompleteI32)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructI32 result
-    );typedef struct UniffiForeignFutureStructU64 {
+    UniffiForeignFutureResultI32 result
+    );typedef struct UniffiForeignFutureResultU64 {
         uint64_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructU64;
+    } UniffiForeignFutureResultU64;
     typedef void
     (*UniffiForeignFutureCompleteU64)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructU64 result
-    );typedef struct UniffiForeignFutureStructI64 {
+    UniffiForeignFutureResultU64 result
+    );typedef struct UniffiForeignFutureResultI64 {
         int64_t return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructI64;
+    } UniffiForeignFutureResultI64;
     typedef void
     (*UniffiForeignFutureCompleteI64)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructI64 result
-    );typedef struct UniffiForeignFutureStructF32 {
+    UniffiForeignFutureResultI64 result
+    );typedef struct UniffiForeignFutureResultF32 {
         float return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructF32;
+    } UniffiForeignFutureResultF32;
     typedef void
     (*UniffiForeignFutureCompleteF32)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructF32 result
-    );typedef struct UniffiForeignFutureStructF64 {
+    UniffiForeignFutureResultF32 result
+    );typedef struct UniffiForeignFutureResultF64 {
         double return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructF64;
+    } UniffiForeignFutureResultF64;
     typedef void
     (*UniffiForeignFutureCompleteF64)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructF64 result
-    );typedef struct UniffiForeignFutureStructPointer {
-        void * return_value;
-        RustCallStatus call_status;
-    } UniffiForeignFutureStructPointer;
-    typedef void
-    (*UniffiForeignFutureCompletePointer)(
-    uint64_t callback_data, 
-    UniffiForeignFutureStructPointer result
-    );typedef struct UniffiForeignFutureStructRustBuffer {
+    UniffiForeignFutureResultF64 result
+    );typedef struct UniffiForeignFutureResultRustBuffer {
         RustBuffer return_value;
         RustCallStatus call_status;
-    } UniffiForeignFutureStructRustBuffer;
+    } UniffiForeignFutureResultRustBuffer;
     typedef void
     (*UniffiForeignFutureCompleteRustBuffer)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructRustBuffer result
-    );typedef struct UniffiForeignFutureStructVoid {
+    UniffiForeignFutureResultRustBuffer result
+    );typedef struct UniffiForeignFutureResultVoid {
         RustCallStatus call_status;
-    } UniffiForeignFutureStructVoid;
+    } UniffiForeignFutureResultVoid;
     typedef void
     (*UniffiForeignFutureCompleteVoid)(
     uint64_t callback_data, 
-    UniffiForeignFutureStructVoid result
+    UniffiForeignFutureResultVoid result
     );
     RustBuffer uniffi_proofport_fn_func_combine_proof_and_public_inputs(
         RustBuffer proof, 
         RustBuffer public_inputs, 
+        RustCallStatus *uniffi_out_err
+    );
+    uint32_t uniffi_proofport_fn_func_get_num_public_inputs_from_circuit(
+        RustBuffer circuit_path, 
+        RustCallStatus *uniffi_out_err
+    );
+    RustBuffer uniffi_proofport_fn_func_mopro_hello_world(RustCallStatus *uniffi_out_err
+    );
+    RustBuffer uniffi_proofport_fn_func_parse_proof_with_public_inputs(
+        RustBuffer proof, 
+        uint32_t num_public_inputs, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_proofport_fn_func_generate_circom_proof(
@@ -144,10 +151,23 @@ extern "C" {
         RustBuffer _proof_lib, 
         RustCallStatus *uniffi_out_err
     );
+    int8_t uniffi_proofport_fn_func_verify_circom_proof(
+        RustBuffer _zkey_path, 
+        RustBuffer _proof_result, 
+        RustBuffer _proof_lib, 
+        RustCallStatus *uniffi_out_err
+    );
     RustBuffer uniffi_proofport_fn_func_generate_halo2_proof(
         RustBuffer _srs_path, 
         RustBuffer _pk_path, 
         RustBuffer _circuit_inputs, 
+        RustCallStatus *uniffi_out_err
+    );
+    int8_t uniffi_proofport_fn_func_verify_halo2_proof(
+        RustBuffer _srs_path, 
+        RustBuffer _vk_path, 
+        RustBuffer _proof, 
+        RustBuffer _public_input, 
         RustCallStatus *uniffi_out_err
     );
     RustBuffer uniffi_proofport_fn_func_generate_noir_proof(
@@ -164,30 +184,6 @@ extern "C" {
         RustBuffer srs_path, 
         int8_t on_chain, 
         int8_t low_memory_mode, 
-        RustCallStatus *uniffi_out_err
-    );
-    uint32_t uniffi_proofport_fn_func_get_num_public_inputs_from_circuit(
-        RustBuffer circuit_path, 
-        RustCallStatus *uniffi_out_err
-    );
-    RustBuffer uniffi_proofport_fn_func_mopro_hello_world(RustCallStatus *uniffi_out_err
-    );
-    RustBuffer uniffi_proofport_fn_func_parse_proof_with_public_inputs(
-        RustBuffer proof, 
-        uint32_t num_public_inputs, 
-        RustCallStatus *uniffi_out_err
-    );
-    int8_t uniffi_proofport_fn_func_verify_circom_proof(
-        RustBuffer _zkey_path, 
-        RustBuffer _proof_result, 
-        RustBuffer _proof_lib, 
-        RustCallStatus *uniffi_out_err
-    );
-    int8_t uniffi_proofport_fn_func_verify_halo2_proof(
-        RustBuffer _srs_path, 
-        RustBuffer _vk_path, 
-        RustBuffer _proof, 
-        RustBuffer _public_input, 
         RustCallStatus *uniffi_out_err
     );
     int8_t uniffi_proofport_fn_func_verify_noir_proof(
@@ -365,21 +361,6 @@ extern "C" {
         /*handle*/ uint64_t handle, 
         RustCallStatus *uniffi_out_err
     );
-    void ffi_proofport_rust_future_poll_pointer(
-        /*handle*/ uint64_t handle, 
-        UniffiRustFutureContinuationCallback callback, 
-        /*handle*/ uint64_t callback_data
-    );
-    void ffi_proofport_rust_future_cancel_pointer(
-        /*handle*/ uint64_t handle
-    );
-    void ffi_proofport_rust_future_free_pointer(
-        /*handle*/ uint64_t handle
-    );
-    void * ffi_proofport_rust_future_complete_pointer(
-        /*handle*/ uint64_t handle, 
-        RustCallStatus *uniffi_out_err
-    );
     void ffi_proofport_rust_future_poll_rust_buffer(
         /*handle*/ uint64_t handle, 
         UniffiRustFutureContinuationCallback callback, 
@@ -412,23 +393,23 @@ extern "C" {
     );
     uint16_t uniffi_proofport_checksum_func_combine_proof_and_public_inputs(
     );
-    uint16_t uniffi_proofport_checksum_func_generate_circom_proof(
-    );
-    uint16_t uniffi_proofport_checksum_func_generate_halo2_proof(
-    );
-    uint16_t uniffi_proofport_checksum_func_generate_noir_proof(
-    );
-    uint16_t uniffi_proofport_checksum_func_get_noir_verification_key(
-    );
     uint16_t uniffi_proofport_checksum_func_get_num_public_inputs_from_circuit(
     );
     uint16_t uniffi_proofport_checksum_func_mopro_hello_world(
     );
     uint16_t uniffi_proofport_checksum_func_parse_proof_with_public_inputs(
     );
+    uint16_t uniffi_proofport_checksum_func_generate_circom_proof(
+    );
     uint16_t uniffi_proofport_checksum_func_verify_circom_proof(
     );
+    uint16_t uniffi_proofport_checksum_func_generate_halo2_proof(
+    );
     uint16_t uniffi_proofport_checksum_func_verify_halo2_proof(
+    );
+    uint16_t uniffi_proofport_checksum_func_generate_noir_proof(
+    );
+    uint16_t uniffi_proofport_checksum_func_get_noir_verification_key(
     );
     uint16_t uniffi_proofport_checksum_func_verify_noir_proof(
     );
@@ -514,24 +495,31 @@ template <> struct Bridging<RustBuffer> {
 
   static jsi::Value toJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker>,
                          RustBuffer buf) {
-    // We need to make a copy of the bytes from Rust's memory space into
-    // Javascripts memory space. We need to do this because the two languages
-    // manages memory very differently: a garbage collector needs to track all
-    // the memory at runtime, Rust is doing it all closer to compile time.
-    uint8_t *bytes = new uint8_t[buf.len];
-    std::memcpy(bytes, buf.data, buf.len);
-
-    // Construct an ArrayBuffer with copy of the bytes from the RustBuffer.
+    // View-handoff: hand JS a `Uint8Array` view aliasing the Rust-owned bytes
+    // (no boundary copy). The single mandatory copy now happens inside
+    // `converter.lift(view)` (string decode, byte-array `set`, field-by-field
+    // record reads). The codegen-emitted try/finally calls `rustbuffer_free`
+    // on the view after `lift` returns, releasing the Rust allocation.
+    //
+    // Capacity hint: Rust may return a buffer where `capacity > len`. The
+    // view's `byteLength` is `len` (so converters that decode the whole view
+    // see only the message bytes), but `rustbuffer_free` needs `capacity` to
+    // free correctly. We stash `capacity` on the view via a string-keyed
+    // property when it differs from `len`; the JSI `rustbufferFree` host
+    // function reads it back and falls back to `byteLength` for views from
+    // `rustbufferAlloc(n)` where `byteLength == capacity` already.
+    //
+    // CMutableBuffer is non-owning here: its destructor leaves `buf.data`
+    // alone. Only the codegen-emitted `rustbuffer_free` path frees it.
     auto payload = std::make_shared<uniffi_jsi::CMutableBuffer>(
-        uniffi_jsi::CMutableBuffer((uint8_t *)bytes, buf.len));
-    auto arrayBuffer = jsi::ArrayBuffer(rt, payload);
-
-    // Once we have a Javascript version, we no longer need the Rust version, so
-    // we can call into Rust to tell it it's okay to free that memory.
-    rustbuffer_free(buf);
-
-    // Finally, return the ArrayBuffer.
-    return uniffi_jsi::Bridging<jsi::ArrayBuffer>::arraybuffer_to_value(rt, arrayBuffer);;
+        buf.data, static_cast<size_t>(buf.len));
+    auto view = uniffi_jsi::arraybufferToUint8Array(
+        rt, jsi::ArrayBuffer(rt, payload));
+    if (buf.capacity != static_cast<uint64_t>(buf.len)) {
+      view.setProperty(rt, uniffi_jsi::kUbrnRustCapacity,
+                       jsi::Value(static_cast<double>(buf.capacity)));
+    }
+    return jsi::Value(rt, view);
   }
 };
 
@@ -556,9 +544,22 @@ template <> struct Bridging<RustCallStatus> {
                          const jsi::Value &jsStatus) {
     auto statusObject = jsStatus.asObject(rt);
     if (status.error_buf.data != nullptr) {
-      auto rbuf = Bridging<RustBuffer>::toJs(rt, callInvoker,
-                                                         status.error_buf);
-      statusObject.setProperty(rt, "errorBuf", rbuf);
+      // The error path is NOT wrapped in the codegen-emitted try/finally that
+      // covers normal returns: `errorBuf` is read by the runtime's call-status
+      // dispatcher (rust-call.ts) which throws straight to the user without
+      // ever calling `rustbuffer_free`. Switching this site to view-handoff
+      // would leak the Rust allocation, so we keep the copy semantics here:
+      // copy the bytes into a JS-owned ArrayBuffer and free the Rust buffer
+      // immediately. The errorBuf is small (a serialized error variant) and
+      // only allocated on the cold error path, so the boundary copy is cheap.
+      auto len = static_cast<size_t>(status.error_buf.len);
+      uint8_t *bytes = new uint8_t[len];
+      std::memcpy(bytes, status.error_buf.data, len);
+      auto payload = std::make_shared<uniffi_jsi::CMutableBuffer>(bytes, len);
+      auto view = uniffi_jsi::arraybufferToUint8Array(
+          rt, jsi::ArrayBuffer(rt, payload));
+      statusObject.setProperty(rt, "errorBuf", view);
+      Bridging<RustBuffer>::rustbuffer_free(status.error_buf);
     }
     if (status.code != UNIFFI_CALL_STATUS_OK) {
       auto code =
@@ -726,7 +727,7 @@ namespace uniffi::proofport::cb::rustfuturecontinuationcallback {
             rs_pollResult);
     }
 
-    static UniffiRustFutureContinuationCallback
+    [[maybe_unused]] static UniffiRustFutureContinuationCallback
     makeCallbackFunction( // uniffi::proofport::cb::rustfuturecontinuationcallback
                     jsi::Runtime &rt,
                      std::shared_ptr<uniffi_runtime::UniffiCallInvoker> callInvoker,
@@ -773,49 +774,9 @@ namespace uniffi::proofport::cb::rustfuturecontinuationcallback {
         rsLambda = nullptr;
     }
 } // namespace uniffi::proofport::cb::rustfuturecontinuationcallback
-    // Implementation of callback function calling from JS to Rust ForeignFutureFree,
-    // passed from Rust to JS as part of async callbacks.
-namespace uniffi::proofport {
-using CallInvoker = uniffi_runtime::UniffiCallInvoker;
+    // Implementation of callback function calling from Rust to JS ForeignFutureDroppedCallback
 
-template <> struct Bridging<UniffiForeignFutureFree> {
-  static jsi::Value toJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker, UniffiForeignFutureFree rsCallback) {
-    return jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "--ForeignFutureFree"),
-        1,
-        [rsCallback, callInvoker](
-            jsi::Runtime &rt,
-            const jsi::Value &thisValue,
-            const jsi::Value *arguments,
-            size_t count) -> jsi::Value
-        {
-            return intoRust(rt, callInvoker, thisValue, arguments, count, rsCallback);
-        }
-    );
-  }
-
-  static jsi::Value intoRust(
-      jsi::Runtime &rt,
-      std::shared_ptr<CallInvoker> callInvoker,
-      const jsi::Value &thisValue,
-      const jsi::Value *args,
-      size_t count,
-      UniffiForeignFutureFree func) {
-    // Convert the arguments into the Rust, with Bridging<T>::fromJs,
-    // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0])
-        );
-
-        
-        return jsi::Value::undefined();
-  }
-};
-} // namespace uniffi::proofport
-    // Implementation of free callback function CallbackInterfaceFree
-
-
-// Callback function: uniffi::proofport::st::foreignfuture::foreignfuture::free::UniffiCallbackInterfaceFree
+// Callback function: uniffi::proofport::cb::foreignfuturedroppedcallback::UniffiForeignFutureDroppedCallback
 //
 // We have the following constraints:
 // - we need to pass a function pointer to Rust.
@@ -827,7 +788,7 @@ template <> struct Bridging<UniffiForeignFutureFree> {
 //
 // We then give the `callback` function pointer to Rust which will call the lambda sometime in the
 // future.
-namespace uniffi::proofport::st::foreignfuture::foreignfuture::free {
+namespace uniffi::proofport::cb::foreignfuturedroppedcallback {
     using namespace facebook;
 
     // We need to store a lambda in a global so we can call it from
@@ -858,7 +819,7 @@ namespace uniffi::proofport::st::foreignfuture::foreignfuture::free {
 
             
         } catch (const jsi::JSError &error) {
-            std::cout << "Error in callback UniffiCallbackInterfaceFree: "
+            std::cout << "Error in callback UniffiForeignFutureDroppedCallback: "
                     << error.what() << std::endl;
             throw error;
         }
@@ -884,8 +845,8 @@ namespace uniffi::proofport::st::foreignfuture::foreignfuture::free {
             rs_handle);
     }
 
-    static UniffiCallbackInterfaceFree
-    makeCallbackFunction( // uniffi::proofport::st::foreignfuture::foreignfuture::free
+    [[maybe_unused]] static UniffiForeignFutureDroppedCallback
+    makeCallbackFunction( // uniffi::proofport::cb::foreignfuturedroppedcallback
                     jsi::Runtime &rt,
                      std::shared_ptr<uniffi_runtime::UniffiCallInvoker> callInvoker,
                      const jsi::Value &value) {
@@ -928,33 +889,35 @@ namespace uniffi::proofport::st::foreignfuture::foreignfuture::free {
         // then the pointer will no longer be left dangling.
         rsLambda = nullptr;
     }
-} // namespace uniffi::proofport::st::foreignfuture::foreignfuture::free
+} // namespace uniffi::proofport::cb::foreignfuturedroppedcallback
+    // Implementation of free callback function CallbackInterfaceFree
+
 namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFuture> {
-  static UniffiForeignFuture fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureDroppedCallbackStruct> {
+  static UniffiForeignFutureDroppedCallbackStruct fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFuture");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureDroppedCallbackStruct");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFuture rsObject;
+    UniffiForeignFutureDroppedCallbackStruct rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.handle = uniffi_jsi::Bridging<uint64_t>::fromJs(
         rt, callInvoker,
         jsObject.getProperty(rt, "handle")
       );
-    rsObject.free = uniffi::proofport::st::foreignfuture::foreignfuture::free::makeCallbackFunction(
+    rsObject.free = uniffi::proofport::cb::foreignfuturedroppedcallback::makeCallbackFunction(
           rt, callInvoker, jsObject.getProperty(rt, "free")
         );
 
@@ -967,30 +930,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU8> {
-  static UniffiForeignFutureStructU8 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultU8> {
+  static UniffiForeignFutureResultU8 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructU8");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultU8");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU8 rsObject;
+    UniffiForeignFutureResultU8 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint8_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1029,7 +992,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU8> {
       UniffiForeignFutureCompleteU8 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructU8>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultU8>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1041,30 +1004,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI8> {
-  static UniffiForeignFutureStructI8 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultI8> {
+  static UniffiForeignFutureResultI8 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructI8");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultI8");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI8 rsObject;
+    UniffiForeignFutureResultI8 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int8_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1103,7 +1066,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI8> {
       UniffiForeignFutureCompleteI8 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructI8>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultI8>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1115,30 +1078,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU16> {
-  static UniffiForeignFutureStructU16 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultU16> {
+  static UniffiForeignFutureResultU16 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructU16");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultU16");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU16 rsObject;
+    UniffiForeignFutureResultU16 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint16_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1177,7 +1140,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU16> {
       UniffiForeignFutureCompleteU16 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructU16>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultU16>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1189,30 +1152,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI16> {
-  static UniffiForeignFutureStructI16 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultI16> {
+  static UniffiForeignFutureResultI16 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructI16");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultI16");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI16 rsObject;
+    UniffiForeignFutureResultI16 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int16_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1251,7 +1214,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI16> {
       UniffiForeignFutureCompleteI16 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructI16>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultI16>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1263,30 +1226,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU32> {
-  static UniffiForeignFutureStructU32 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultU32> {
+  static UniffiForeignFutureResultU32 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructU32");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultU32");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU32 rsObject;
+    UniffiForeignFutureResultU32 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint32_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1325,7 +1288,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU32> {
       UniffiForeignFutureCompleteU32 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructU32>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultU32>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1337,30 +1300,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI32> {
-  static UniffiForeignFutureStructI32 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultI32> {
+  static UniffiForeignFutureResultI32 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructI32");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultI32");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI32 rsObject;
+    UniffiForeignFutureResultI32 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int32_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1399,7 +1362,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI32> {
       UniffiForeignFutureCompleteI32 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructI32>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultI32>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1411,30 +1374,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU64> {
-  static UniffiForeignFutureStructU64 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultU64> {
+  static UniffiForeignFutureResultU64 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructU64");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultU64");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU64 rsObject;
+    UniffiForeignFutureResultU64 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint64_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1473,7 +1436,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU64> {
       UniffiForeignFutureCompleteU64 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructU64>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultU64>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1485,30 +1448,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI64> {
-  static UniffiForeignFutureStructI64 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultI64> {
+  static UniffiForeignFutureResultI64 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructI64");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultI64");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI64 rsObject;
+    UniffiForeignFutureResultI64 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int64_t>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1547,7 +1510,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI64> {
       UniffiForeignFutureCompleteI64 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructI64>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultI64>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1559,30 +1522,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructF32> {
-  static UniffiForeignFutureStructF32 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultF32> {
+  static UniffiForeignFutureResultF32 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructF32");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultF32");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructF32 rsObject;
+    UniffiForeignFutureResultF32 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<float>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1621,7 +1584,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteF32> {
       UniffiForeignFutureCompleteF32 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructF32>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultF32>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1633,30 +1596,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructF64> {
-  static UniffiForeignFutureStructF64 fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultF64> {
+  static UniffiForeignFutureResultF64 fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructF64");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultF64");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructF64 rsObject;
+    UniffiForeignFutureResultF64 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<double>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1695,7 +1658,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteF64> {
       UniffiForeignFutureCompleteF64 func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructF64>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultF64>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1707,104 +1670,30 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructPointer> {
-  static UniffiForeignFutureStructPointer fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultRustBuffer> {
+  static UniffiForeignFutureResultRustBuffer fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructPointer");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultRustBuffer");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructPointer rsObject;
-
-    // Create the vtable from the js callbacks.
-    rsObject.return_value = uniffi_jsi::Bridging<void *>::fromJs(
-        rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
-      );
-    rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
-        rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
-      );
-
-    return rsObject;
-  }
-};
-
-} // namespace uniffi::proofport
-    // Implementation of callback function calling from JS to Rust ForeignFutureCompletePointer,
-    // passed from Rust to JS as part of async callbacks.
-namespace uniffi::proofport {
-using CallInvoker = uniffi_runtime::UniffiCallInvoker;
-
-template <> struct Bridging<UniffiForeignFutureCompletePointer> {
-  static jsi::Value toJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker, UniffiForeignFutureCompletePointer rsCallback) {
-    return jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "--ForeignFutureCompletePointer"),
-        2,
-        [rsCallback, callInvoker](
-            jsi::Runtime &rt,
-            const jsi::Value &thisValue,
-            const jsi::Value *arguments,
-            size_t count) -> jsi::Value
-        {
-            return intoRust(rt, callInvoker, thisValue, arguments, count, rsCallback);
-        }
-    );
-  }
-
-  static jsi::Value intoRust(
-      jsi::Runtime &rt,
-      std::shared_ptr<CallInvoker> callInvoker,
-      const jsi::Value &thisValue,
-      const jsi::Value *args,
-      size_t count,
-      UniffiForeignFutureCompletePointer func) {
-    // Convert the arguments into the Rust, with Bridging<T>::fromJs,
-    // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructPointer>::fromJs(rt, callInvoker, args[1])
-        );
-
-        
-        return jsi::Value::undefined();
-  }
-};
-} // namespace uniffi::proofport
-namespace uniffi::proofport {
-using namespace facebook;
-using CallInvoker = uniffi_runtime::UniffiCallInvoker;
-
-template <> struct Bridging<UniffiForeignFutureStructRustBuffer> {
-  static UniffiForeignFutureStructRustBuffer fromJs(jsi::Runtime &rt,
-    std::shared_ptr<CallInvoker> callInvoker,
-    const jsi::Value &jsValue
-  ) {
-    // Check if the input is an object
-    if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructRustBuffer");
-    }
-
-    // Get the object from the jsi::Value
-    auto jsObject = jsValue.getObject(rt);
-
-    // Create the vtable struct
-    UniffiForeignFutureStructRustBuffer rsObject;
+    UniffiForeignFutureResultRustBuffer rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi::proofport::Bridging<RustBuffer>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "returnValue")
+        jsObject.getProperty(rt, "return_value")
       );
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1843,7 +1732,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteRustBuffer> {
       UniffiForeignFutureCompleteRustBuffer func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructRustBuffer>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultRustBuffer>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1855,26 +1744,26 @@ namespace uniffi::proofport {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructVoid> {
-  static UniffiForeignFutureStructVoid fromJs(jsi::Runtime &rt,
+template <> struct Bridging<UniffiForeignFutureResultVoid> {
+  static UniffiForeignFutureResultVoid fromJs(jsi::Runtime &rt,
     std::shared_ptr<CallInvoker> callInvoker,
     const jsi::Value &jsValue
   ) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureStructVoid");
+      throw jsi::JSError(rt, "Expected an object for UniffiForeignFutureResultVoid");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructVoid rsObject;
+    UniffiForeignFutureResultVoid rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.call_status = uniffi::proofport::Bridging<RustCallStatus>::fromJs(
         rt, callInvoker,
-        jsObject.getProperty(rt, "callStatus")
+        jsObject.getProperty(rt, "call_status")
       );
 
     return rsObject;
@@ -1913,7 +1802,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteVoid> {
       UniffiForeignFutureCompleteVoid func) {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
-        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureStructVoid>::fromJs(rt, callInvoker, args[1])
+        func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<UniffiForeignFutureResultVoid>::fromJs(rt, callInvoker, args[1])
         );
 
         
@@ -1960,20 +1849,28 @@ NativeProofport::NativeProofport(
             return this->cpp_uniffi_internal_fn_func_ffi__string_to_byte_length(rt, thisVal, args, count);
         }
     );
-    props["ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer"] = jsi::Function::createFromHostFunction(
+    props["ubrn_uniffi_internal_fn_func_ffi__string_to_buffer"] = jsi::Function::createFromHostFunction(
         rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer"),
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_func_ffi__string_to_buffer"),
         1,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_internal_fn_func_ffi__string_to_arraybuffer(rt, thisVal, args, count);
+            return this->cpp_uniffi_internal_fn_func_ffi__string_to_buffer(rt, thisVal, args, count);
         }
     );
-    props["ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string"] = jsi::Function::createFromHostFunction(
+    props["ubrn_uniffi_internal_fn_func_ffi__string_from_buffer"] = jsi::Function::createFromHostFunction(
         rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string"),
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_func_ffi__string_from_buffer"),
         1,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_internal_fn_func_ffi__arraybuffer_to_string(rt, thisVal, args, count);
+            return this->cpp_uniffi_internal_fn_func_ffi__string_from_buffer(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_internal_fn_func_ffi__read_string_from_buffer"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_func_ffi__read_string_from_buffer"),
+        3,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_internal_fn_func_ffi__read_string_from_buffer(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_proofport_fn_func_combine_proof_and_public_inputs"] = jsi::Function::createFromHostFunction(
@@ -1982,38 +1879,6 @@ NativeProofport::NativeProofport(
         2,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_proofport_fn_func_combine_proof_and_public_inputs(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_fn_func_generate_circom_proof"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_generate_circom_proof"),
-        3,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_fn_func_generate_circom_proof(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_fn_func_generate_halo2_proof"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_generate_halo2_proof"),
-        3,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_fn_func_generate_halo2_proof(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_fn_func_generate_noir_proof"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_generate_noir_proof"),
-        6,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_fn_func_generate_noir_proof(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_fn_func_get_noir_verification_key"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_get_noir_verification_key"),
-        4,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_fn_func_get_noir_verification_key(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_proofport_fn_func_get_num_public_inputs_from_circuit"] = jsi::Function::createFromHostFunction(
@@ -2040,6 +1905,14 @@ NativeProofport::NativeProofport(
             return this->cpp_uniffi_proofport_fn_func_parse_proof_with_public_inputs(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_proofport_fn_func_generate_circom_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_generate_circom_proof"),
+        3,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_fn_func_generate_circom_proof(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_proofport_fn_func_verify_circom_proof"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_verify_circom_proof"),
@@ -2048,12 +1921,36 @@ NativeProofport::NativeProofport(
             return this->cpp_uniffi_proofport_fn_func_verify_circom_proof(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_proofport_fn_func_generate_halo2_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_generate_halo2_proof"),
+        3,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_fn_func_generate_halo2_proof(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_proofport_fn_func_verify_halo2_proof"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_verify_halo2_proof"),
         4,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_proofport_fn_func_verify_halo2_proof(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_fn_func_generate_noir_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_generate_noir_proof"),
+        6,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_fn_func_generate_noir_proof(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_fn_func_get_noir_verification_key"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_get_noir_verification_key"),
+        4,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_fn_func_get_noir_verification_key(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_proofport_fn_func_verify_noir_proof"] = jsi::Function::createFromHostFunction(
@@ -2070,38 +1967,6 @@ NativeProofport::NativeProofport(
         0,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_proofport_checksum_func_combine_proof_and_public_inputs(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_checksum_func_generate_circom_proof"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_generate_circom_proof"),
-        0,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_checksum_func_generate_circom_proof(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_checksum_func_generate_halo2_proof"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_generate_halo2_proof"),
-        0,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_checksum_func_generate_halo2_proof(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_checksum_func_generate_noir_proof"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_generate_noir_proof"),
-        0,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_checksum_func_generate_noir_proof(rt, thisVal, args, count);
-        }
-    );
-    props["ubrn_uniffi_proofport_checksum_func_get_noir_verification_key"] = jsi::Function::createFromHostFunction(
-        rt,
-        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_get_noir_verification_key"),
-        0,
-        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_proofport_checksum_func_get_noir_verification_key(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_proofport_checksum_func_get_num_public_inputs_from_circuit"] = jsi::Function::createFromHostFunction(
@@ -2128,6 +1993,14 @@ NativeProofport::NativeProofport(
             return this->cpp_uniffi_proofport_checksum_func_parse_proof_with_public_inputs(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_proofport_checksum_func_generate_circom_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_generate_circom_proof"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_checksum_func_generate_circom_proof(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_proofport_checksum_func_verify_circom_proof"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_verify_circom_proof"),
@@ -2136,12 +2009,36 @@ NativeProofport::NativeProofport(
             return this->cpp_uniffi_proofport_checksum_func_verify_circom_proof(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_proofport_checksum_func_generate_halo2_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_generate_halo2_proof"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_checksum_func_generate_halo2_proof(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_proofport_checksum_func_verify_halo2_proof"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_verify_halo2_proof"),
         0,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_proofport_checksum_func_verify_halo2_proof(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_checksum_func_generate_noir_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_generate_noir_proof"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_checksum_func_generate_noir_proof(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_checksum_func_get_noir_verification_key"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_get_noir_verification_key"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_checksum_func_get_noir_verification_key(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_proofport_checksum_func_verify_noir_proof"] = jsi::Function::createFromHostFunction(
@@ -2158,6 +2055,85 @@ NativeProofport::NativeProofport(
         0,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_ffi_proofport_uniffi_contract_version(rt, thisVal, args, count);
+        }
+    );
+
+    // `rustbuffer_alloc(n)` -> Uint8Array view over Rust-owned memory of capacity `n`.
+    // `rustbuffer_free(view)` -> hands the underlying (ptr, capacity) back to the
+    // crate's `rustbuffer_free`. Together they let JS allocate buffers that the
+    // codegen-emitted lowering path can fill in place and ship to Rust without copying.
+    props["rustbuffer_alloc"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "rustbuffer_alloc"),
+        1,
+        [](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            if (count < 1 || !args[0].isNumber()) {
+                throw jsi::JSError(rt, "rustbuffer_alloc expected a number argument");
+            }
+            double size = args[0].asNumber();
+            if (size < 0) {
+                throw jsi::JSError(rt, "rustbuffer_alloc: size must be non-negative");
+            }
+            if (size > INT32_MAX) {
+                throw jsi::JSError(rt, "rustbuffer_alloc: size exceeds INT32_MAX");
+            }
+            auto rb = uniffi::proofport::Bridging<RustBuffer>::rustbuffer_alloc(static_cast<int32_t>(size));
+            if (rb.data == nullptr) {
+                throw jsi::JSError(rt, "rustbuffer_alloc failed: alloc returned null");
+            }
+            // Non-owning view over Rust-allocated memory; CMutableBuffer's destructor
+            // is the default and does not free `rb.data`. JS must call rustbuffer_free
+            // explicitly before dropping the reference.
+            auto payload = std::make_shared<uniffi_jsi::CMutableBuffer>(
+                rb.data, static_cast<size_t>(rb.capacity));
+            // Wrap as Uint8Array so JS can index/assign bytes directly.
+            return jsi::Value(
+                rt, uniffi_jsi::arraybufferToUint8Array(
+                        rt, jsi::ArrayBuffer(rt, payload)));
+        }
+    );
+
+    props["rustbuffer_free"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "rustbuffer_free"),
+        1,
+        [](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            if (count < 1 || !args[0].isObject()) {
+                throw jsi::JSError(rt, "rustbuffer_free expected a Uint8Array argument");
+            }
+            auto view = args[0].asObject(rt);
+            auto byteLength =
+                static_cast<size_t>(view.getProperty(rt, "byteLength").asNumber());
+            // Empty views were never allocated by `rustbuffer_alloc`; nothing
+            // to free. Bail out before reading buffer/byteOffset/capacity to
+            // skip three JSI property traversals on the empty path.
+            if (byteLength == 0) {
+                return jsi::Value::undefined();
+            }
+            // Capacity resolution:
+            //   * For a view from `rustbuffer_alloc(n)`, `byteLength == n == capacity`,
+            //     and no `__ubrnRustCapacity` hint was set.
+            //   * For a view from a lift-handoff, the codegen-emitted
+            //     `Bridging<RustBuffer>::toJs` set `byteLength = len` and stashed
+            //     the original `capacity` on `__ubrnRustCapacity` whenever
+            //     `capacity != len`.
+            // So: prefer the hint, fall back to byteLength.
+            size_t capacity = byteLength;
+            if (view.hasProperty(rt, uniffi_jsi::kUbrnRustCapacity)) {
+                capacity = static_cast<size_t>(
+                    view.getProperty(rt, uniffi_jsi::kUbrnRustCapacity).asNumber());
+            }
+            auto buffer = view.getPropertyAsObject(rt, "buffer").getArrayBuffer(rt);
+            auto byteOffset =
+                static_cast<size_t>(view.getProperty(rt, "byteOffset").asNumber());
+            // Honour byteOffset for safety (defensive; currently always 0).
+            RustBuffer rb {
+                .capacity = static_cast<uint64_t>(capacity),
+                .len = 0,
+                .data = buffer.data(rt) + byteOffset,
+            };
+            uniffi::proofport::Bridging<RustBuffer>::rustbuffer_free(rb);
+            return jsi::Value::undefined();
         }
     );
 }
@@ -2177,7 +2153,7 @@ jsi::Value NativeProofport::get(jsi::Runtime& rt, const jsi::PropNameID& name) {
     try {
         return jsi::Value(rt, props.at(name.utf8(rt)));
     }
-    catch (std::out_of_range &e) {
+    catch (std::out_of_range &) {
         return jsi::Value::undefined();
     }
 }
@@ -2197,8 +2173,10 @@ void NativeProofport::set(jsi::Runtime& rt, const jsi::PropNameID& name, const j
 NativeProofport::~NativeProofport() {
     // Cleanup for callback function RustFutureContinuationCallback
 uniffi::proofport::cb::rustfuturecontinuationcallback::cleanup();
+    // Cleanup for callback function ForeignFutureDroppedCallback
+uniffi::proofport::cb::foreignfuturedroppedcallback::cleanup();
     // Cleanup for "free" callback function CallbackInterfaceFree
-uniffi::proofport::st::foreignfuture::foreignfuture::free::cleanup();
+
 }
 
 // Utility functions for serialization/deserialization of strings.
@@ -2206,58 +2184,22 @@ jsi::Value NativeProofport::cpp_uniffi_internal_fn_func_ffi__string_to_byte_leng
     return uniffi_jsi::Bridging<std::string>::string_to_bytelength(rt, args[0]);
 }
 
-jsi::Value NativeProofport::cpp_uniffi_internal_fn_func_ffi__string_to_arraybuffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-    return uniffi_jsi::Bridging<std::string>::string_to_arraybuffer(rt, args[0]);
+jsi::Value NativeProofport::cpp_uniffi_internal_fn_func_ffi__string_to_buffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+    return uniffi_jsi::Bridging<std::string>::string_to_buffer(rt, args[0]);
 }
 
-jsi::Value NativeProofport::cpp_uniffi_internal_fn_func_ffi__arraybuffer_to_string(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-    return uniffi_jsi::Bridging<std::string>::arraybuffer_to_string(rt, args[0]);
+jsi::Value NativeProofport::cpp_uniffi_internal_fn_func_ffi__string_from_buffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+    return uniffi_jsi::Bridging<std::string>::string_from_buffer(rt, args[0]);
+}
+
+jsi::Value NativeProofport::cpp_uniffi_internal_fn_func_ffi__read_string_from_buffer(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+    return uniffi_jsi::Bridging<std::string>::read_string_from_buffer(rt, args[0], args[1], args[2]);
 }
 
 // Methods calling directly into the uniffi generated C API of the Rust crate.
 jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_combine_proof_and_public_inputs(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
         auto value = uniffi_proofport_fn_func_combine_proof_and_public_inputs(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), 
-            &status
-        );
-        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
-
-        
-        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_generate_circom_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_proofport_fn_func_generate_circom_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
-            &status
-        );
-        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
-
-        
-        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_generate_halo2_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_proofport_fn_func_generate_halo2_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
-            &status
-        );
-        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
-
-        
-        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_generate_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_proofport_fn_func_generate_noir_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[3]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[5]), 
-            &status
-        );
-        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
-
-        
-        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_get_noir_verification_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
-        auto value = uniffi_proofport_fn_func_get_noir_verification_key(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[2]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[3]), 
             &status
         );
         uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
@@ -2294,6 +2236,16 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_parse_proof_with_public
         
         return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_generate_circom_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_proofport_fn_func_generate_circom_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
+            &status
+        );
+        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_verify_circom_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
         auto value = uniffi_proofport_fn_func_verify_circom_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
@@ -2304,6 +2256,16 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_verify_circom_proof(jsi
         
         return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_generate_halo2_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_proofport_fn_func_generate_halo2_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), 
+            &status
+        );
+        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_verify_halo2_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
         auto value = uniffi_proofport_fn_func_verify_halo2_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), 
@@ -2313,6 +2275,26 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_verify_halo2_proof(jsi:
 
         
         return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_generate_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_proofport_fn_func_generate_noir_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[3]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[5]), 
+            &status
+        );
+        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_get_noir_verification_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_proofport_fn_func_get_noir_verification_key(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[2]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[3]), 
+            &status
+        );
+        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_verify_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
@@ -2326,34 +2308,6 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_verify_noir_proof(jsi::
 }
 jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_combine_proof_and_public_inputs(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_proofport_checksum_func_combine_proof_and_public_inputs(
-        );
-
-        
-        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_generate_circom_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        auto value = uniffi_proofport_checksum_func_generate_circom_proof(
-        );
-
-        
-        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_generate_halo2_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        auto value = uniffi_proofport_checksum_func_generate_halo2_proof(
-        );
-
-        
-        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_generate_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        auto value = uniffi_proofport_checksum_func_generate_noir_proof(
-        );
-
-        
-        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_get_noir_verification_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
-        auto value = uniffi_proofport_checksum_func_get_noir_verification_key(
         );
 
         
@@ -2380,6 +2334,13 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_parse_proof_with_
         
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_generate_circom_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_proofport_checksum_func_generate_circom_proof(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_verify_circom_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_proofport_checksum_func_verify_circom_proof(
         );
@@ -2387,8 +2348,29 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_verify_circom_pro
         
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_generate_halo2_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_proofport_checksum_func_generate_halo2_proof(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_verify_halo2_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_proofport_checksum_func_verify_halo2_proof(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_generate_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_proofport_checksum_func_generate_noir_proof(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_get_noir_verification_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_proofport_checksum_func_get_noir_verification_key(
         );
 
         

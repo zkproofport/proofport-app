@@ -162,7 +162,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - SocketRocket
-    - uniffi-bindgen-react-native (= 0.29.3-1)
+    - uniffi-bindgen-react-native (= 0.31.0-3)
     - Yoga
   - NitroModules (0.35.9):
     - boost
@@ -3143,7 +3143,7 @@ PODS:
     - SocketRocket
     - Yoga
   - SocketRocket (0.7.1)
-  - uniffi-bindgen-react-native (0.29.3-1):
+  - uniffi-bindgen-react-native (0.31.0-3):
     - React-Core
   - VisionCamera (4.7.3):
     - VisionCamera/Core (= 4.7.3)
@@ -3268,7 +3268,7 @@ DEPENDENCIES:
   - RNSVG (from `../node_modules/react-native-svg`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
   - SocketRocket (~> 0.7.1)
-  - uniffi-bindgen-react-native (from `../node_modules/uniffi-bindgen-react-native`)
+  - uniffi-bindgen-react-native (from `../mopro_bindings/node_modules/uniffi-bindgen-react-native`)
   - VisionCamera (from `../node_modules/react-native-vision-camera`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -3510,7 +3510,7 @@ EXTERNAL SOURCES:
   RNVectorIcons:
     :path: "../node_modules/react-native-vector-icons"
   uniffi-bindgen-react-native:
-    :path: "../node_modules/uniffi-bindgen-react-native"
+    :path: "../mopro_bindings/node_modules/uniffi-bindgen-react-native"
   VisionCamera:
     :path: "../node_modules/react-native-vision-camera"
   Yoga:
@@ -3550,7 +3550,7 @@ SPEC CHECKSUMS:
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   hermes-engine: 35c763d57c9832d0eef764316ca1c4d043581394
-  MoproFfi: 62968be757109eb7ddb94be1fe66b46e2797eda6
+  MoproFfi: 3d29f71a060d8fb9d38861c99a99e5568a5c25c7
   NitroModules: 8ab2b6936d6d3b6283d22b3e1394ab141c6cb8c2
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
@@ -3637,7 +3637,7 @@ SPEC CHECKSUMS:
   RNSVG: d260beec1775108e1bd065a0ed666ff2c5565158
   RNVectorIcons: 791f13226ec4a3fd13062eda9e892159f0981fae
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
-  uniffi-bindgen-react-native: 076bf125ee96728ccca853fadd7f93bb31b7cf26
+  uniffi-bindgen-react-native: 5a59022841548d4c890e8f259016bdb8a797208a
   VisionCamera: 7187b3dac1ff3071234ead959ce311875748e14f
   Yoga: a3ed390a19db0459bd6839823a6ac6d9c6db198d
   YttriumWrapper: d7f63336830536f1da41b745ed8bacedb04228c4

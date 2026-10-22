@@ -6,7 +6,7 @@ import {
 } from './circuitIntegrity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {resolveCircuitBaseUrl} from '../config/deployments';
-import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW} from '../config/contracts';
+import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, CIRCUITS_BRANCH} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
@@ -182,7 +182,7 @@ export async function circuitBaseUrl(
   env: Environment,
 ): Promise<string> {
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
-    return GITHUB_RAW('main');
+    return GITHUB_RAW(CIRCUITS_BRANCH);
   }
   return resolveCircuitBaseUrl(env);
 }

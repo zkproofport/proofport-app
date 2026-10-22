@@ -7,13 +7,10 @@ set (CMAKE_CXX_STANDARD 17)
 
 # Resolve the path to the uniffi-bindgen-react-native package
 execute_process(
-    COMMAND node -p "require.resolve('uniffi-bindgen-react-native/package.json')"
+    COMMAND node -p "require('path').dirname(require('path').dirname(require('path').dirname(require('path').dirname(require.resolve('uniffi-bindgen-react-native')))))"
     OUTPUT_VARIABLE UNIFFI_BINDGEN_PATH
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-# Get the directory; get_filename_component and cmake_path will normalize
-# paths with Windows path separators.
-get_filename_component(UNIFFI_BINDGEN_PATH "${UNIFFI_BINDGEN_PATH}" DIRECTORY)
 
 # Specifies a path to native header files.
 include_directories(
@@ -46,14 +43,7 @@ cmake_path(
   NORMALIZE
 )
 add_library(my_rust_lib SHARED IMPORTED)
-# Cargo's cdylib output has no DT_SONAME entry. Without IMPORTED_NO_SONAME,
-# CMake propagates the absolute IMPORTED_LOCATION path into libmopro-ffi.so's
-# DT_NEEDED, and at runtime Android's dynamic linker (which looks up by file
-# name in /lib/<abi>/) fails dlopen. IMPORTED_NO_SONAME makes CMake emit a
-# bare "libproofport.so" in DT_NEEDED — the standard NDK pattern.
-set_target_properties(my_rust_lib PROPERTIES
-  IMPORTED_LOCATION ${MY_RUST_LIB}
-  IMPORTED_NO_SONAME TRUE)
+set_target_properties(my_rust_lib PROPERTIES IMPORTED_LOCATION ${MY_RUST_LIB} IMPORTED_NO_SONAME ON)
 
 # Add ReactAndroid libraries, being careful to account for different versions.
 find_package(ReactAndroid REQUIRED CONFIG)

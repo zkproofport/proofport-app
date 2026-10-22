@@ -195,7 +195,7 @@ describe('the circuits that live only on main', () => {
 });
 
 describe('a verifier follows the circuit bytes', () => {
-  const giwa = '0x5da234546874304f8c51bbeed00fc632938211c1';
+  const giwa = '0xf6edb9d6114b2546b6e559997fdde08caeea83b3';
   const oldGiwa = '0xeb9eb5452790cfe549ff83ceb3dbe1c432231492';
 
   function broadcasts(currentGiwa = giwa) {

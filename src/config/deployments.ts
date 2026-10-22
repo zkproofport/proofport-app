@@ -20,6 +20,7 @@ import {
   FALLBACK_VERIFIERS,
   STATIC_CONFIGS,
   GITHUB_RAW,
+  CIRCUITS_BRANCH,
 } from './contracts';
 import {MAIN_BRANCH_CIRCUIT_IDS} from './circuitIds';
 import type {CircuitName, Environment} from './contracts';
@@ -164,7 +165,7 @@ async function resolveBroadcastUrl(
   // These circuits download their bytes from main in every build environment.
   // Their verifier must come from the same source, never an older release.
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) {
-    return `${GITHUB_RAW('main')}/broadcast/${pathFn(chainId)}`;
+    return `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast/${pathFn(chainId)}`;
   }
 
   const source = config.broadcastSource;
