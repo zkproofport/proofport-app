@@ -190,7 +190,7 @@ MUTATIONS: list[Mutation] = [
         defect="a four-way || chain of literal names decided which circuits are "
         "read from circuits@main",
         path="src/utils/circuitDownload.ts",
-        old="  if (DEV_ONLY_CIRCUIT_IDS.includes(circuitName as CircuitName)) {",
+        old="  if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {",
         new="  if (circuitName === 'giwa_attestation') {",
         guard=SDK_GUARD,
         expect_case="circuits read from main are the planned ones",
@@ -200,7 +200,7 @@ MUTATIONS: list[Mutation] = [
         defect="a circuit with no verifier address ships and fails on-chain "
         "verification with an empty address",
         path="src/config/contracts.ts",
-        old="    mdl_kr_region:    '0x435F0448F02F5Df9659D460181116BCaF37E518E',\n  },\n"
+        old="    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',\n  },\n"
         "  production: {",
         new="  },\n  production: {",
         guard=SDK_GUARD,
