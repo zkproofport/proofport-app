@@ -267,3 +267,20 @@ describe('a verifier follows the circuit bytes', () => {
     expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe(cached);
   });
 });
+
+describe('a circuit cache version is never guessed', () => {
+  const {circuitDataVersion} = require('../../utils/circuitDownload');
+  const {CIRCUIT_DATA_VERSIONS} = require('../contracts');
+
+  it('returns the configured version for every known circuit', () => {
+    for (const [id, version] of Object.entries(CIRCUIT_DATA_VERSIONS)) {
+      expect(circuitDataVersion(id)).toBe(version);
+    }
+  });
+
+  it('throws on an unknown circuit instead of answering 0', () => {
+    // 0 would match an old cache written with the same fallback, and the
+    // stale files would never be refreshed.
+    expect(() => circuitDataVersion('not_a_circuit')).toThrow(/No CIRCUIT_DATA_VERSIONS entry for circuit 'not_a_circuit'/);
+  });
+});

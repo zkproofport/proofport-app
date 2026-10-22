@@ -187,6 +187,21 @@ export async function circuitBaseUrl(
   return resolveCircuitBaseUrl(env);
 }
 
+/**
+ * The cache version a circuit's downloaded files must carry. An id with no
+ * entry is an error, never version 0: a 0 would match an old cache that was
+ * also written with the fallback, so the files would never be refreshed.
+ */
+export function circuitDataVersion(circuitName: string): number {
+  const version = CIRCUIT_DATA_VERSIONS[circuitName as CircuitName];
+  if (version === undefined) {
+    throw new Error(
+      `No CIRCUIT_DATA_VERSIONS entry for circuit '${circuitName}'. Known: ${Object.keys(CIRCUIT_DATA_VERSIONS).join(', ')}.`,
+    );
+  }
+  return version;
+}
+
 async function getCircuitFileUrl(
   circuitName: string,
   extension: string,
@@ -410,7 +425,7 @@ async function storeCircuitVersion(circuitName: string, baseUrl: string): Promis
     const metadata: CircuitVersionMetadata = {
       baseUrl,
       downloadedAt: Date.now(),
-      dataVersion: CIRCUIT_DATA_VERSIONS[circuitName as CircuitName] ?? 0,
+      dataVersion: circuitDataVersion(circuitName),
     };
     await AsyncStorage.setItem(key, JSON.stringify(metadata));
   } catch {}
@@ -424,7 +439,7 @@ async function shouldInvalidateCache(
   if (!configPath) return false;
 
   const stored = await getStoredCircuitVersion(circuitName);
-  const expectedVersion = CIRCUIT_DATA_VERSIONS[circuitName as CircuitName] ?? 0;
+  const expectedVersion = circuitDataVersion(circuitName);
   const currentBaseUrl = await circuitBaseUrl(circuitName, env);
   // hasCachedFiles only matters when there is no stored metadata, so skip the
   // extra disk hit otherwise.
