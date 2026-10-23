@@ -48,7 +48,7 @@ describe('the EAS search leaves revoked attestations out', () => {
   it('asks the indexer for unrevoked attestations only, and for the revoked flag', async () => {
     const fetchMock = easAnswers([]);
     await searchAttestations(WALLET, quiet);
-    const {query} = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const {query} = JSON.parse(fetchMock.mock.calls[0][1]?.body ?? '{}');
     expect(query).toMatch(/revoked:\s*\{\s*equals:\s*false\s*\}/);
     expect(query).toMatch(/\n\s*revoked\n/);
   });
@@ -83,7 +83,7 @@ describe('the EAS search leaves revoked attestations out', () => {
     ]);
     await findAttestationTransaction(`${WALLET}-mixed`, quiet, SELECTOR_ATTEST_ACCOUNT);
     const txLookups = fetchMock.mock.calls
-      .map(([, init]) => JSON.parse(init.body))
+      .map(([, init]) => JSON.parse(init?.body ?? '{}'))
       .filter(b => b.method === 'eth_getTransactionByHash')
       .map(b => b.params[0]);
     expect(txLookups.length).toBeGreaterThan(0);
