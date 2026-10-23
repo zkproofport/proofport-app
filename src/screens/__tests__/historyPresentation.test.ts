@@ -98,6 +98,10 @@ it('leaves loading for a missing or deleted record and offers a return to histor
   expect(mockGoBack).toHaveBeenCalledTimes(1);
 });
 
+function translate(key: string, options: Record<string, unknown> = {}): string {
+  const value = words(key) as unknown;
+  return typeof value === 'string' ? value.replace(/{{(\w+)}}/g, (_, name) => String(options[name] ?? '')) : key;
+}
 function words(key: string): string {
   const dictionary = mockLanguage === 'ko' ? require('../../i18n/locales/ko.json') : require('../../i18n/locales/en.json');
   return key.split('.').reduce((value, part) => value?.[part], dictionary);
@@ -172,11 +176,12 @@ it.each([
   {overallStatus: 'unknown'},
   {offChainStatus: 'unknown'},
   {onChainStatus: 'unknown'},
-])('reports an unsupported saved identifier instead of inventing a result (%p)', async patch => {
+])('shows an unsupported saved value as raw text instead of failing (%p)', async patch => {
   mockGetAll.mockResolvedValue([record(patch as Partial<ProofHistoryItem>)]);
   await render();
-  expect(has('history-load-error')).toBe(true);
-  expect(mockShowError).toHaveBeenCalledWith('E5002', expect.stringMatching(/Unknown .*(__proto__|unknown)/));
+  expect(has('history-load-error')).toBe(false);
+  expect(mockShowError).not.toHaveBeenCalled();
+  expect(textOf(screen!.root)).toContain(Object.values(patch)[0] as string);
 });
 
 it.each(['en', 'ko'])('preserves distinct verification outcomes and full copyable technical values in %s', async language => {
@@ -215,7 +220,10 @@ it.each([undefined, null, {version: 2, inputs: {}}, {version: 1, inputs: []}, {v
 );
 
 it('shows saved country conditions including false and keeps raw technical inputs out of review', async () => {
-  mockGetAll.mockResolvedValue([record({circuitId: 'coinbase_country_attestation', review: {version: 1, inputs: {countryList: ['KR', 'JP'], isIncluded: false}}})]);
+  // As saved today: the display text is computed at save time and stored.
+  const inputs = {countryList: ['KR', 'JP'], isIncluded: false};
+  const display = require('../../utils/historyDisplay').historyDisplay('coinbase_country_attestation', inputs, translate);
+  mockGetAll.mockResolvedValue([record({circuitId: 'coinbase_country_attestation', review: {version: 1, inputs}, display})]);
   await render();
   const text = textOf(node('history-conditions'));
   expect(text).toContain('KR · JP');
@@ -338,4 +346,63 @@ it('does not infer a scope when the record did not save one', async () => {
   await render(); await press('history-technical-toggle');
   expect(has('history-copy-scope')).toBe(false);
   expect(has('history-copy-scope-string')).toBe(false);
+});
+
+/*
+ * History is plain text. On 2026-10-23 a phone holding an `arc_eligibility`
+ * proof (Arc was removed from every repository on 2026-10-13) showed E5002
+ * "Unknown history circuit" instead of its whole History list.
+ */
+describe('records read as stored text, with no circuit lookup', () => {
+  const arc = (): ProofHistoryItem => record({id: 'proof-arc', circuitId: 'arc_eligibility', circuitName: 'Arc eligibility', dappName: 'Arc demo', timestamp: '2026-10-01T00:00:00Z'});
+  const stored = (): ProofHistoryItem => record({
+    id: 'proof-stored', circuitId: 'coinbase_attestation', dappName: 'Stored dapp', timestamp: '2026-10-20T00:00:00Z',
+    display: {title: 'Stored KYC title', icon: 'identity', conditions: [{label: 'Stored condition', value: 'kept'}]},
+  });
+  const corrupt = [
+    {id: 'proof-bad', circuitId: 42, overallStatus: {}, timestamp: 7, dappName: ['x'], display: {title: 3, icon: 'nonsense'}},
+    null,
+    'just a string',
+  ] as unknown as ProofHistoryItem[];
+  const cards = () => screen!.root.findAll(n => n.props.circuitName !== undefined && typeof n.props.onPress === 'function' && typeof n.type !== 'string');
+
+  it('renders an arc_eligibility record, a record with stored text, and corrupt records together', async () => {
+    mockGetAll.mockResolvedValue([arc(), stored(), ...corrupt]);
+    await render(React.createElement(ProofHistoryScreen));
+    expect(mockShowError).not.toHaveBeenCalled();
+    expect(has('history-load-error')).toBe(false);
+    const byName = Object.fromEntries(cards().map(c => [c.props.circuitName, c.props.circuitIcon]));
+    expect(byName['arc_eligibility']).toBe('document'); // raw id as title, plain icon
+    expect(byName['Stored KYC title']).toBe('identity'); // stored text wins
+    expect(byName['42']).toBe('document');               // wrong types shown raw
+    expect(byName['just a string']).toBe('document');
+    expect(cards()).toHaveLength(5);
+  });
+
+  it('opens the arc_eligibility record\'s detail from stored values', async () => {
+    mockGetAll.mockResolvedValue([record({id: 'proof-1', circuitId: 'arc_eligibility', review: {version: 1, inputs: {network: 'arc-demo'}}} as Partial<ProofHistoryItem>), stored()]);
+    await render();
+    expect(mockShowError).not.toHaveBeenCalled();
+    const all = textOf(screen!.root);
+    expect(all).toContain('arc_eligibility');
+    expect(all).toContain('arc-demo'); // review inputs shown raw
+  });
+
+  it('opens a record with stored text and shows its stored conditions', async () => {
+    mockGetAll.mockResolvedValue([{...stored(), id: 'proof-1'}]);
+    await render();
+    const all = textOf(screen!.root);
+    expect(all).toContain('Stored KYC title');
+    expect(all).toContain('Stored condition');
+  });
+
+  it('has no circuit lookup anywhere in the History screens', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const dir = path.join(__dirname, '../history');
+    for (const f of fs.readdirSync(dir)) {
+      const src = fs.readFileSync(path.join(dir, f), 'utf8');
+      expect([f, /canonicalCircuitId|getProofRequestPresentation|circuitIds/.test(src)]).toEqual([f, false]);
+    }
+  });
 });

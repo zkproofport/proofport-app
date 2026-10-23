@@ -206,6 +206,8 @@ it('saves reviewed conditions and action without authentication material when au
     review: {version: 1, inputs: {scope: 'scope', provider: 'google'}, action},
   }));
   expect(JSON.stringify(mockHistoryAdd.mock.calls[0][0])).not.toMatch(/private-jwt|private-transaction|jwtToken|rawTransaction/);
+  // History's stored display text is saved with the record, from the sanitised inputs.
+  expect(mockHistoryAdd.mock.calls[0][0].display).toEqual(expect.objectContaining({icon: 'organization'}));
   await publishProof();
   expect(mockHistoryUpdate).toHaveBeenCalledWith('history-1', expect.objectContaining({proofHash: '0x1234'}));
 });

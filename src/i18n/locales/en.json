@@ -207,6 +207,7 @@
       "networkLabel": "Network",
       "proofHashLabel": "Proof Hash",
       "dateUnavailable": "Date unavailable",
+      "untitledRecord": "Untitled record",
       "states": {
         "started": "Started",
         "generating": "Generating",

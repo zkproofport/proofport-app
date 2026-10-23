@@ -207,6 +207,7 @@
       "networkLabel": "네트워크",
       "proofHashLabel": "증명 해시",
       "dateUnavailable": "날짜 정보 없음",
+      "untitledRecord": "제목 없는 기록",
       "states": {
         "started": "시작됨",
         "generating": "생성 중",

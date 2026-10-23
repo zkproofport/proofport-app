@@ -19,6 +19,12 @@ export interface ProofHistoryItem {
   dappName?: string;
   requestId?: string;
   review?: HistoryReviewSnapshot;
+  /**
+   * The text History shows, written when the record is saved, so the list
+   * never has to look a circuit up (src/screens/history/historyRecordText.ts).
+   * Absent on records saved before 2026-10-23; those show their raw values.
+   */
+  display?: {title: string; icon: string; conditions: {label?: string; value: unknown}[]};
 }
 
 export const proofHistoryStore = {
@@ -31,6 +37,9 @@ export const proofHistoryStore = {
       const items = JSON.parse(json);
       if (!Array.isArray(items)) throw new Error('Invalid proof history storage.');
       return items.map((item: any) => {
+        // A damaged entry is passed through untouched: History shows it as
+        // raw text rather than failing the whole list on it.
+        if (typeof item !== 'object' || item === null || Array.isArray(item)) return item;
         if (!item.offChainStatus && !item.onChainStatus) {
           const oldStatus = item.status || 'pending';
           const legacy = {

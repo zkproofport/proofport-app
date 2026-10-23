@@ -9,12 +9,11 @@ import type {HistoryStackParamList} from '../../navigation/types';
 import {useError} from '../../context';
 import {ProofUiIcon} from '../../components/ProofUiIcon';
 import {ActionReviewCard, ActionReviewDetails} from '../../components/ActionReviewCard';
-import {formatReviewScalar, ReadonlyValue} from '../../components/ReadonlyValue';
-import {canonicalCircuitId} from '../../config/circuitIds';
+import {ReadonlyValue} from '../../components/ReadonlyValue';
 import {proofHistoryStore, type ProofHistoryItem} from '../../stores';
 import {useProofUiColors} from '../../theme/proofUi';
 import {formatHistoryDate} from '../../utils/historyPresentation';
-import {getProofRequestPresentation} from '../../utils/proofRequestPresentation';
+import {historyRecordText} from './historyRecordText';
 import {HistoryStatusBadge} from './HistoryStatusBadge';
 import {useHistoryRecords} from './useHistoryRecords';
 
@@ -55,7 +54,8 @@ const HistoryDetailScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<HistoryStackParamList>>();
   const {proofId} = route.params;
   const {items, loading, failed, refresh} = useHistoryRecords();
-  const proof = items.find(item => item.id === proofId);
+  // `items` may hold damaged records; only a stored string id can match.
+  const proof = items.find(item => typeof item === 'object' && item !== null && item.id === proofId);
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -113,12 +113,10 @@ const HistoryDetailScreen: React.FC = () => {
       </TouchableOpacity>
     </View>;
   } else {
-    const circuit = canonicalCircuitId(proof.circuitId);
-    if (!circuit) throw new Error(`Unknown history circuit '${proof.circuitId}'.`);
     const review = savedReview(proof.review);
-    const presentation = getProofRequestPresentation({circuit, inputs: review?.inputs ?? {}}, t);
-    const requester = proof.dappName ? formatReviewScalar(proof.dappName, t)
-      : t(proof.source === 'deeplink' ? 'host.history.home.unknownRequester' : 'host.history.home.manual');
+    // Stored text only (historyRecordText.ts): no circuit lookup can fail here.
+    const presentation = historyRecordText(proof, t);
+    const requester = presentation.requester;
     const hasAction = review !== undefined && Object.prototype.hasOwnProperty.call(review, 'action');
     // The generation failure writer marks both channels failed before a proof exists.
     const verificationNotCompleted = proof.overallStatus === 'failed' && !proof.proofHash;
@@ -133,7 +131,7 @@ const HistoryDetailScreen: React.FC = () => {
             <Text style={[styles.date, {color: colors.secondary}]}>{formatHistoryDate(proof.timestamp, i18n.language)}</Text>
           </View>
         </View>
-        <HistoryStatusBadge status={proof.overallStatus} />
+        <HistoryStatusBadge status={presentation.overallStatus} />
 
         <View testID="history-requester" style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
           <Text style={[styles.sectionLabel, {color: colors.secondary}]}>{t('host.history.detail.requester')}</Text>
@@ -142,7 +140,7 @@ const HistoryDetailScreen: React.FC = () => {
 
         <View testID="history-conditions" style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
           <Text style={[styles.sectionTitle, {color: colors.text}]}>{t('host.history.detail.conditions')}</Text>
-          {review ? <>
+          {presentation.conditions ? <>
             {presentation.conditions.map((condition, index) => <ReadonlyValue key={`${condition.label}-${index}`}
               label={condition.label} value={condition.value} showScalarType={false} />)}
             {hasAction ? <ActionReviewCard action={review.action} onOpen={() => setActionOpen(true)} />
@@ -155,11 +153,11 @@ const HistoryDetailScreen: React.FC = () => {
           <Text style={[styles.note, {color: colors.secondary}]}>{t('host.history.detail.verificationNote')}</Text>
           <View testID="history-offchain" style={[styles.statusRow, {borderColor: colors.border}]}>
             <Text style={[styles.statusLabel, {color: colors.secondary}]}>{t('host.history.detail.offChain')}</Text>
-            <HistoryStatusBadge status={verificationNotCompleted ? 'pending' : proof.offChainStatus} verification />
+            <HistoryStatusBadge status={verificationNotCompleted ? 'pending' : presentation.offChainStatus} verification />
           </View>
           <View testID="history-onchain" style={[styles.statusRow, {borderColor: colors.border}]}>
             <Text style={[styles.statusLabel, {color: colors.secondary}]}>{t('host.history.detail.onChain')}</Text>
-            <HistoryStatusBadge status={verificationNotCompleted ? 'pending' : proof.onChainStatus} verification />
+            <HistoryStatusBadge status={verificationNotCompleted ? 'pending' : presentation.onChainStatus} verification />
           </View>
         </View>
 

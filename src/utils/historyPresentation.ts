@@ -6,6 +6,10 @@ const STATUS_TONES: Readonly<Record<string, StatusTone>> = Object.freeze({
   started: 'gold', generating: 'blue', pending: 'gold', generated: 'blue',
   verified: 'green', failed: 'red', verified_failed: 'red',
 });
+/** Whether a stored status is one this build names; a damaged record's is shown raw. */
+export function isHistoryStatus(status: unknown): status is string {
+  return typeof status === 'string' && Object.prototype.hasOwnProperty.call(STATUS_TONES, status);
+}
 export function historyStatus(status: string): {labelKey: string; tone: StatusTone} {
   if (!Object.prototype.hasOwnProperty.call(STATUS_TONES, status)) throw new Error(`Unknown proof history status '${status}'.`);
   return {labelKey: `host.history.states.${status}`, tone: STATUS_TONES[status]};

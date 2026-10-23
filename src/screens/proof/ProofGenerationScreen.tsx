@@ -1,4 +1,5 @@
 import {captureHistoryReview} from '../../utils/historyReview';
+import {historyDisplay} from '../../utils/historyDisplay';
 import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {MobileIdTypeSheet, type MdlProvider} from '../../components/MobileIdTypeSheet';
 import {
@@ -755,6 +756,15 @@ export const ProofGenerationScreen: React.FC = () => {
 
     if (currentSettings.autoSaveProofs) {
       try {
+        const reviewInputs: Record<string, unknown> = {
+          ...route.params?.domainInput,
+          ...route.params?.mdlKrInputs,
+          ...proofRequest?.inputs,
+          ...route.params?.countryInputs,
+          ...(route.params?.scope !== undefined ? {scope: route.params.scope} : {}),
+          ...(route.params?.action !== undefined ? {action: route.params.action} : {}),
+        };
+        const savedReview = captureHistoryReview(reviewInputs);
         const item = await proofHistoryStore.add({
           circuitId,
           circuitName: displayName,
@@ -776,14 +786,11 @@ export const ProofGenerationScreen: React.FC = () => {
           source: proofRequest ? 'deeplink' : 'manual',
           dappName: proofRequest?.dappName,
           requestId: proofRequest?.requestId,
-          review: captureHistoryReview({
-            ...route.params?.domainInput,
-            ...route.params?.mdlKrInputs,
-            ...proofRequest?.inputs,
-            ...route.params?.countryInputs,
-            ...(route.params?.scope !== undefined ? {scope: route.params.scope} : {}),
-            ...(route.params?.action !== undefined ? {action: route.params.action} : {}),
-          }),
+          review: savedReview,
+          // The text History shows, stored so History never looks it up.
+          // Built from the SANITISED snapshot, never the raw inputs: those
+          // carry the sign-in token and the raw transaction.
+          display: historyDisplay(canonical, savedReview?.inputs ?? {}, t),
         });
         historyIdRef.current = item.id;
         addLog(`[History] Record created: ${item.id}`);
