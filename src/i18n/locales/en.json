@@ -45,8 +45,6 @@
       "laboratoryEnabledHint": "Shows GIWA, Dojang and Korea Mobile ID proofs on the Proof tab.",
       "showLiveLogs": "Show live logs",
       "useOmniOneCxUi": "Use OmniOne CX UI",
-      "coinbaseAppAttestPrototype": "Coinbase KYC: App Attest prototype",
-      "coinbaseAppAttestPrototypeHint": "Proves the prototype circuit that binds revocation with Apple App Attest (iOS, in-app proofs only; off-chain verification only).",
       "exportProofHistory": "Export Proof History",
       "clearLocalData": "Delete proof history",
       "exportTitle": "Export Proof History",

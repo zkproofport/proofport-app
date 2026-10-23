@@ -251,18 +251,21 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
      `src/utils/__tests__/fixtures/dojangPlayground.json` from the circuits repo's
      Prover.toml files and the GIWA RPC.
 
-### App Attest prototype (developer switch, iOS only)
+### Coinbase KYC v2: App Attest revocation binding (iOS)
 
-More > Developer > "Coinbase KYC: App Attest prototype" makes an in-app
-Coinbase KYC proof with `coinbase_app_attest_poc` (circuits branch
-`coinbase-app-attest-poc`, files read from the commit pinned in
-`src/config/prototypeCircuits.ts`) instead of the shipped circuit. Right before
-proving, the app looks the EAS attestation up again by uid, refuses a revoked
-one (E2011), builds the circuit's 225-byte clientData and signs it with an
-Apple App Attest assertion (`src/appAttest/`, native module
-`ios/ProofportApp/AppAttestModule.m`). dApp requests always use the shipped
-circuit; the prototype has no verifier contract and is verified off-chain only.
-Android refuses with E2010; a simulator or an unsupported device with E2009.
+`coinbase_attestation` in this build is v2 (circuits branch
+`coinbase-app-attest-poc`; files read from the commit pinned in
+`src/config/circuitArtifacts.ts`, stored under `coinbase_attestation`). For
+every Coinbase KYC proof, in-app or from a dApp, right before proving the app
+looks the EAS attestation up again by uid, refuses a revoked one (E2011),
+builds the circuit's 225-byte clientData and signs it with an Apple App Attest
+assertion (`src/appAttest/`, native module `ios/ProofportApp/AppAttestModule.m`).
+The proof binds an optional EIP-712 action (the Coinbase KYC card opens the
+action screen; "Prove identity only" skips it) and uses the wallet +
+circuit-tag nullifier. Verifier: Base Sepolia
+`0xf898db959351e305c88acc4e7bda4ea74731bb12` for development and staging;
+none on Base mainnet yet. Android refuses with E2010; a simulator or an
+unsupported device with E2009.
 
 ### Standalone action testing
 

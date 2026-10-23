@@ -1,6 +1,7 @@
 /**
- * The input vector for `coinbase_app_attest_poc` (circuits branch
- * `coinbase-app-attest-poc`, `src/main.nr`), in its `fn main` order.
+ * The input vector for Coinbase KYC v2 (`coinbase_attestation`; circuits branch
+ * `coinbase-app-attest-poc`, `coinbase-app-attest-poc/src/main.nr`), in its
+ * `fn main` order.
  *
  * bb reads the vector positionally, so the order below IS the contract:
  *
@@ -30,7 +31,6 @@ import {
 } from '../appAttest/constants';
 import {CLIENT_DATA_LEN} from '../appAttest/clientData';
 import {bytesToNoirInput, nullifierForCircuit, padArray, type AttesterCircuitInputs} from './circuitHelpers';
-import {COINBASE_APP_ATTEST_POC} from '../config/prototypeCircuits';
 
 const ZERO32 = new Array(32).fill(0);
 
@@ -81,14 +81,14 @@ function padded(bytes: Uint8Array, max: number, what: string): string[] {
 }
 
 /**
- * Build the prototype's vector from the Coinbase half (as `prepareCircuitInputs`
+ * Build the v2 vector from the Coinbase half (as `prepareCircuitInputs`
  * builds it for the shipped circuit) and the App Attest witness.
  *
  * Takes over three things from the Coinbase half rather than trusting them:
  *   - the request pair: personal_sign mode sends `signal_hash` and two zero
  *     hashes; EIP-712 mode sends a zero `signal_hash` and the two hashes. The
  *     circuit refuses a request with both or neither.
- *   - the nullifier, recomputed by the prototype's own rule (wallet +
+ *   - the nullifier, recomputed by v2's own rule (wallet +
  *     keccak256("coinbase_attestation") + scope), never signal_hash's.
  *   - the clientData's wallet, digest and scope, compared with what is being
  *     proved, so a mismatch is reported here and not by the prover.
@@ -130,7 +130,7 @@ export function prepareCoinbaseAppAttestInputs(
     ? fixed(ethers.utils.arrayify(request.publicHashes.actionHash), 32, 'action_hash')
     : bytesToNoirInput(ZERO32);
 
-  const nullifier = nullifierForCircuit(COINBASE_APP_ATTEST_POC.id, request.userAddress, new Uint8Array(32), request.scope);
+  const nullifier = nullifierForCircuit('coinbase_attestation', request.userAddress, new Uint8Array(32), request.scope);
   const {credential, assertion} = witness;
 
   return {

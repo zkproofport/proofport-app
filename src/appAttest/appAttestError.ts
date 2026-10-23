@@ -21,7 +21,7 @@ export class AppAttestError extends Error {
 export const APP_ATTEST_ERROR_CODE = Object.freeze({
   /** The device (or the simulator) has no App Attest. */
   unsupported: 'E2009',
-  /** The prototype is iOS-only; Android key attestation is a later step. */
+  /** App Attest is iOS-only; Android key attestation is a later step. */
   platform: 'E2010',
   /** The Coinbase attestation is revoked: no assertion is made. */
   revoked: 'E2011',

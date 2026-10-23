@@ -1,5 +1,5 @@
 /**
- * The proof screen's one call for the App Attest prototype: given the wallet,
+ * The proof screen's one call for Coinbase KYC v2's App Attest statement: given the wallet,
  * the attestation it found and the request, return the statement the circuit
  * needs -- or throw an AppAttestError whose code is the ErrorModal to show.
  *
@@ -18,7 +18,7 @@ import {getAppAttestNative, type AppAttestNative} from './nativeAppAttest';
 import type {AppAttestDeps} from './appAttestKey';
 import {makeRevocationStatement, type AppAttestWitness, type RevocationDeps} from './revocationStatement';
 
-export interface CoinbasePrototypeRequest {
+export interface CoinbaseKycStatementRequest {
   walletAddress: string;
   attestationUid: string;
   scopeString: string;
@@ -32,8 +32,8 @@ export function coinbaseRequestDigest(walletAddress: string, scopeString: string
   return signedDigestOf(whatTheWalletSigns(ethers.utils.hexlify(signal), action));
 }
 
-export async function prepareCoinbasePrototypeStatement(
-  req: CoinbasePrototypeRequest,
+export async function prepareCoinbaseKycStatement(
+  req: CoinbaseKycStatementRequest,
   overrides: {
     native?: AppAttestNative;
     /** Tests only: a synthetic CA pin and an in-memory key store. */

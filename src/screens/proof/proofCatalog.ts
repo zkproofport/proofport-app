@@ -35,7 +35,9 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     titleKey: 'host.proof.home.identity.title',
     descriptionKey: 'host.proof.home.identity.description',
     providerKey: 'host.proof.home.identity.provider',
-    open: navigation => navigation.navigate('ProofGeneration', {circuitId: 'coinbase_attestation'}),
+    // Coinbase KYC v2 binds an optional EIP-712 action, as GIWA does, so it
+    // opens on the action screen ("Prove identity only" skips the action).
+    open: navigation => navigation.navigate('ActionInput', {circuit: 'coinbase_attestation'}),
   },
   coinbase_country_attestation: {
     surface: 'home', purpose: 'country', icon: 'country',

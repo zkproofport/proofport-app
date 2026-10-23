@@ -12,7 +12,7 @@ import {__resetAppAttestKeyForTests, type KeyStorage} from '../appAttestKey';
 import {AppAttestError} from '../appAttestError';
 import {COINBASE_ATTESTER, COINBASE_KYC_SCHEMA_UID} from '../clientData';
 import {APP_ATTEST_APP_ID} from '../constants';
-import {coinbaseRequestDigest, prepareCoinbasePrototypeStatement} from '../coinbasePrototypeStatement';
+import {coinbaseRequestDigest, prepareCoinbaseKycStatement} from '../coinbaseKycStatement';
 import {
   checkStatementAge,
   fetchAttestationStatus,
@@ -57,7 +57,7 @@ function harness(opts: {supported?: boolean} = {}) {
     return {uid: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET.toLowerCase(), revoked: false, ...s};
   };
   const run = (s: Partial<AttestationStatus> | Error, scopeString = 'proofport') =>
-    prepareCoinbasePrototypeStatement(
+    prepareCoinbaseKycStatement(
       {walletAddress: WALLET, attestationUid: UID, scopeString, log: () => {}},
       {
         native,

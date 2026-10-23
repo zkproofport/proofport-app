@@ -16,13 +16,13 @@ jest.mock('@react-native-async-storage/async-storage', () => ({__esModule: true,
 import {ethers} from 'ethers';
 import {buildClientData, COINBASE_ATTESTER, COINBASE_KYC_SCHEMA_UID, CLIENT_DATA_LEN} from '../clientData';
 import {AppAttestError} from '../appAttestError';
-import {coinbaseRequestDigest} from '../coinbasePrototypeStatement';
+import {coinbaseRequestDigest} from '../coinbaseKycStatement';
 import {
   flattenCoinbaseAppAttestInputs,
   prepareCoinbaseAppAttestInputs,
 } from '../../utils/coinbaseAppAttestInputs';
 import {bytesToNoirInput, computeScope, type AttesterCircuitInputs} from '../../utils/circuitHelpers';
-import {COINBASE_APP_ATTEST_POC} from '../../config/prototypeCircuits';
+import {coinbaseKycArtifact} from '../../config/circuitArtifacts';
 import type {TypedAction} from '../../config/circuitIds';
 import vector from './fixtures/generateProverTomlVector.json';
 
@@ -138,7 +138,7 @@ describe('what the circuit makes public', () => {
       'signal_hash', 'domain_separator', 'action_hash', 'signer_list_merkle_root', 'scope', 'nullifier',
       'app_attest_ca_key_hash', 'attested_at', 'app_attest_production',
     ]);
-    expect(pub.reduce((n, p) => n + p.fields, 0)).toBe(COINBASE_APP_ATTEST_POC.publicInputCount);
+    expect(pub.reduce((n, p) => n + p.fields, 0)).toBe(coinbaseKycArtifact().publicInputCount);
   });
 });
 

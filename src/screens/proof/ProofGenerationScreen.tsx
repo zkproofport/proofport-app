@@ -47,7 +47,7 @@ import {showGlobalError} from '../../utils/errorBridge';
 import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
-import {prepareCoinbasePrototypeStatement} from '../../appAttest/coinbasePrototypeStatement';
+import {prepareCoinbaseKycStatement} from '../../appAttest/coinbaseKycStatement';
 import type {AppAttestWitness} from '../../appAttest/revocationStatement';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
@@ -346,8 +346,6 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const hasAutoStarted = useRef(false);
   const didResetOnMountRef = useRef(false);
-  /** Whether this attempt proved with the App Attest prototype (no verifier contract). */
-  const usedPrototypeRef = useRef(false);
   const proofStartedAt = useRef<number | null>(null);
   const historyIdRef = useRef<string | null>(null);
   const failedMarkedRef = useRef(false);
@@ -646,9 +644,7 @@ export const ProofGenerationScreen: React.FC = () => {
       verification: {
         offChain: null,
         onChain: null,
-        // The App Attest prototype has no verifier contract; naming the
-        // shipped circuit's would claim a check that cannot happen.
-        verifierContract: usedPrototypeRef.current ? '' : getVerifierAddressSync(resolved),
+        verifierContract: getVerifierAddressSync(resolved),
         chainName: circuitNet.name,
         explorerUrl: circuitNet.explorerUrl,
       },
@@ -1053,30 +1049,26 @@ export const ProofGenerationScreen: React.FC = () => {
         const deep = proofRequest?.inputs as CoinbaseKycInputs | undefined;
         const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
 
-        // The App Attest prototype (More > Developer). In-app proofs only: a
-        // dApp's request is always answered by the shipped circuit, which is
-        // the one its verifier knows -- the prototype has no verifier.
-        let appAttestWitness: AppAttestWitness | undefined;
-        usedPrototypeRef.current = false;
-        if (!proofRequest) {
-          let prototypeOn: boolean;
-          try {
-            prototypeOn = (await settingsStore.get()).coinbaseAppAttestPrototype;
-          } catch (e) {
-            failAttempt({code: 'E5002', error: `Could not read the App Attest prototype setting: ${e instanceof Error ? e.message : String(e)}`});
-            return;
-          }
-          if (prototypeOn) {
-            addLog('=== App Attest: checking revocation and signing the statement ===');
-            appAttestWitness = await prepareCoinbasePrototypeStatement({
-              walletAddress,
-              attestationUid: txResult.attestation.id,
-              scopeString: scopeStr,
-              log: addLog,
-            });
-            usedPrototypeRef.current = true;
-          }
-        }
+        // Optional EIP-712 action: from the Coinbase action screen, or from
+        // the dApp's request. Coinbase KYC v2 signs it instead of the signal
+        // hash when present.
+        const action =
+          route.params?.action ??
+          (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action;
+
+        // Coinbase KYC v2, for every request (in-app and dApp): right before
+        // proving, look the attestation up again and have App Attest sign
+        // that it is unrevoked. Refused here, with its own code, on Android
+        // (E2010), on a phone or simulator without App Attest (E2009), and
+        // for a revoked verification (E2011) -- before the wallet is asked.
+        addLog('=== App Attest: checking revocation and signing the statement ===');
+        const appAttestWitness: AppAttestWitness = await prepareCoinbaseKycStatement({
+          walletAddress,
+          attestationUid: txResult.attestation.id,
+          scopeString: scopeStr,
+          action,
+          log: addLog,
+        });
 
         // The circuit is named, not inferred. `canonical` is the id the user
         // picked or the deep link asked for; the hook refuses any id it does
@@ -1088,7 +1080,7 @@ export const ProofGenerationScreen: React.FC = () => {
             rawTransaction: txResult.rawTransaction,
             signerIndex: 0,
             scopeString: scopeStr,
-            appAttest: appAttestWitness ? {witness: appAttestWitness} : undefined,
+            appAttest: {witness: appAttestWitness, action},
           },
           ethereum, addLog,
         );

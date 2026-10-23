@@ -50,6 +50,7 @@ const mockRunGate = jest.fn();
 const mockGetProvider = jest.fn();
 const mockFindAttestation = jest.fn();
 const mockFindDojang = jest.fn();
+const mockStatement = jest.fn();
 const mockNavigate = {navigate: jest.fn()};
 const mockT = (key: string, opts?: {defaultValue?: string}) => opts?.defaultValue ?? key;
 const ACCOUNT = '0x1111111111111111111111111111111111111111';
@@ -125,6 +126,10 @@ jest.mock('../../config', () => ({
   getVerifierAddressSync: () => '0x2222222222222222222222222222222222222222',
 }));
 jest.mock('../../utils/circuit', () => ({getCircuitDisplayName: () => 'Circuit'}));
+// Coinbase KYC v2's App Attest statement (the native module is not here).
+jest.mock('../../appAttest/coinbaseKycStatement', () => ({
+  prepareCoinbaseKycStatement: (...args: unknown[]) => mockStatement(...args),
+}));
 
 import {ProofGenerationScreen, STEP_ERROR_CODE} from '../proof/ProofGenerationScreen';
 import {WALLET_REJECTED_PREFIX} from '../../utils/walletRejection';
@@ -153,8 +158,9 @@ beforeEach(() => {
   mockSettingsGet.mockResolvedValue({autoSaveProofs: false});
   mockRunGate.mockResolvedValue({address: ACCOUNT});
   mockGetProvider.mockResolvedValue({send: jest.fn()});
-  mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw'});
+  mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
   mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
+  mockStatement.mockResolvedValue({clientData: new Uint8Array(225), attestedAt: 1});
   mockGenerate.mockResolvedValue(undefined);
   mockSignIn.mockResolvedValue({token: 'jwt'});
   errors = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -366,7 +372,7 @@ describe('success, leaving, retrying', () => {
     mockFindAttestation.mockResolvedValue(null);
     await mount('coinbase_attestation', request('coinbase_attestation'));
     expect(mockFindAttestation).toHaveBeenCalledTimes(1);
-    mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw'});
+    mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
     await act(async () => {await retryButton().props.onPress();});
     expect(mockFindAttestation).toHaveBeenCalledTimes(1);
     expect(mockGenerate).not.toHaveBeenCalled();
@@ -443,5 +449,42 @@ describe('a wallet rejection is recognised by its code', () => {
       expect([name, /if \(isWalletRejection\(signError\)\) \{\s*throw new Error\(`\$\{WALLET_REJECTED_PREFIX\}/.test(src)])
         .toEqual([name, true]);
     }
+  });
+});
+
+/*
+ * Coinbase KYC v2: every Coinbase KYC request -- a dApp's included -- needs
+ * the App Attest statement, made before the wallet is asked. Each way it can
+ * fail answers the dApp ONCE with the code the person saw, and nothing is
+ * proved.
+ */
+describe('Coinbase KYC v2 App Attest statement on a relay request', () => {
+  const {AppAttestError} = jest.requireActual('../../appAttest/appAttestError');
+
+  it.each([
+    ['E2010', 'Android'],
+    ['E2009', 'no App Attest on this device'],
+    ['E2011', 'revoked'],
+    ['E3006', 'Apple unreachable'],
+    ['E3002', 'EAS lookup failed'],
+  ])('%s (%s) answers one error with that code and proves nothing', async (code, why) => {
+    mockStatement.mockRejectedValue(new AppAttestError(code, why));
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    expectOneError(code);
+    expect(mockShowError).toHaveBeenCalledWith(code, why);
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it('is made for the dApp request, with the action it carried, and handed to the hook', async () => {
+    const action = {domain: {name: 'Forum', version: '1', chainId: 84532, verifyingContract: ACCOUNT},
+      types: {Join: [{name: 'topicId', type: 'string'}]}, primaryType: 'Join', message: {topicId: 't'}};
+    await mount('coinbase_attestation', request('coinbase_attestation', {scope: 'scope', action}));
+    expect(mockStatement).toHaveBeenCalledWith(expect.objectContaining({
+      walletAddress: ACCOUNT, attestationUid: `0x${'ab'.repeat(32)}`, scopeString: 'scope', action,
+    }));
+    expect(mockGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({circuit: 'coinbase_attestation', appAttest: expect.objectContaining({action})}),
+      expect.anything(), expect.anything(),
+    );
   });
 });

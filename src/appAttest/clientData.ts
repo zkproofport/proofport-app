@@ -23,7 +23,7 @@ import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
 
 export const CLIENT_DATA_LEN = 225;
 export const CLIENT_DATA_MAGIC = 'ZKProofport/AA/1';
-/** The tag is the canonical id of the circuit this prototype becomes. */
+/** The tag is the canonical id of the circuit: v2 keeps coinbase_attestation. */
 export const CLIENT_DATA_CIRCUIT_ID = 'coinbase_attestation';
 export const COINBASE_KYC_SCHEMA_UID =
   '0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9';

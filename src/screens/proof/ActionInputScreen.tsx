@@ -36,6 +36,7 @@ import type {ProofStackParamList} from '../../navigation/types';
 import type {TypedAction} from '../../utils/typedAction';
 import {ALL_CIRCUIT_IDS, CIRCUIT_ACTION_BINDING, getNetworkConfigForCircuit} from '../../config';
 import type {CircuitName} from '../../config';
+import {isLaboratoryCircuit} from './proofCatalog';
 
 type Navigation = NativeStackNavigationProp<ProofStackParamList, 'ActionInput'>;
 type Route = RouteProp<ProofStackParamList, 'ActionInput'>;
@@ -166,11 +167,16 @@ export const ActionInputScreen: React.FC = () => {
   }, []);
 
   const circuitOptions: SelectOption<CircuitName>[] = useMemo(
-    () => ACTION_CIRCUITS.map(id => ({
-      value: id,
-      label: `${id}  ·  ${getNetworkConfigForCircuit(id).name}`,
-    })),
-    [],
+    // Only circuits on the same surface as the one this screen was opened
+    // for: Coinbase KYC (Proof tab) must not offer the Laboratory's circuits,
+    // which the Laboratory switch may be hiding.
+    () => ACTION_CIRCUITS
+      .filter(id => isLaboratoryCircuit(id) === isLaboratoryCircuit(route.params.circuit))
+      .map(id => ({
+        value: id,
+        label: `${id}  ·  ${getNetworkConfigForCircuit(id).name}`,
+      })),
+    [route.params.circuit],
   );
 
   const actionOptions: SelectOption<Choice>[] = useMemo(

@@ -99,7 +99,8 @@ describe('the proof home', () => {
 
   it.each([
     ['oidc_domain_attestation', ['DomainInput']],
-    ['coinbase_attestation', ['ProofGeneration', {circuitId: 'coinbase_attestation'}]],
+    // Coinbase KYC v2 binds an optional action, so it opens the action screen.
+    ['coinbase_attestation', ['ActionInput', {circuit: 'coinbase_attestation'}]],
     ['coinbase_country_attestation', ['CountryInput']],
   ])('opens the existing input route for %s', (id, destination) => {
     renderHome();

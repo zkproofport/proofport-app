@@ -247,6 +247,10 @@ export async function getVerifierAddress(
   circuit: CircuitName,
   env: Environment,
 ): Promise<string> {
+  // A circuit with no broadcast has nothing to refresh from, so a cached
+  // address can only be left over from a build that read one -- for
+  // coinbase_attestation, the v1 verifier. The fallback is the answer.
+  if (BROADCAST_PATHS[circuit] === null) return FALLBACK_VERIFIERS[env][circuit];
   const cached = await getCachedAddress(circuit, env);
   if (cached) return cached;
   return FALLBACK_VERIFIERS[env][circuit];

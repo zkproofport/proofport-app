@@ -136,8 +136,9 @@ describe.each(['done', 'another'] as const)('%s completion exit', exit => {
     expect(result.snapshots[0].routes.map((route: any) => route.name)).toEqual(['CircuitSelection']);
     expect(result.snapshots[1].routes.map((route: any) => route.name)).toEqual(['CircuitSelection']);
     const next = result.snapshots[2];
-    expect(next.routes.map((route: any) => route.name)).toEqual(['CircuitSelection', 'ProofGeneration']);
-    expect(next.routes[next.index].params.circuitId).toBe('coinbase_attestation');
+    // Coinbase KYC v2 opens on its optional-action screen first.
+    expect(next.routes.map((route: any) => route.name)).toEqual(['CircuitSelection', 'ActionInput']);
+    expect(next.routes[next.index].params.circuit).toBe('coinbase_attestation');
     expect(next.routes[next.index].key).not.toBe(result.originalGenerationKey);
     if (exit === 'another') expect(mockResetCache).toHaveBeenCalledTimes(2);
   });

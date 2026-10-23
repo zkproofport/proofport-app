@@ -12,7 +12,6 @@ import {
   getAssetPath,
   arrayBufferToHex,
   prepareCircuitInputs,
-  flattenCircuitInputs,
   verifyAttestationTx,
   whatTheWalletSigns,
   recoverSignerPubkey,
@@ -21,10 +20,10 @@ import {
   ensureStorageAvailable,
   loadVkFromAssets,
   downloadCircuitFiles,
-  allCircuitFilesExist,
+  ensureWalletOnChain,
 } from '../utils';
 import {getEnvironment, type CircuitName} from '../config';
-import {COINBASE_APP_ATTEST_POC} from '../config/prototypeCircuits';
+import {coinbaseKycArtifact} from '../config/circuitArtifacts';
 import type {TypedAction} from '../config/circuitIds';
 import {signedDigestOf} from '../utils/signedAction';
 import {computeScope} from '../utils/circuitHelpers';
@@ -66,12 +65,6 @@ function circuitFor(requested: string): string {
  * the proof rather than the mismatch.
  */
 let _cachedCircuitName: string = 'coinbase_attestation';
-/**
- * True when the cached proof is the App Attest prototype's, which has no
- * verifier contract: on-chain verification is refused for it by name rather
- * than sent to coinbase_attestation's contract, where it would read "invalid".
- */
-let _cachedIsPrototype = false;
 
 let _cachedVk: ArrayBuffer | null = null;
 let _cachedFullProof: ArrayBuffer | null = null;
@@ -89,12 +82,11 @@ export interface CoinbaseKycProofInputs {
   signerIndex: number;
   scopeString: string;  // dApp scope identifier (REQUIRED)
   /**
-   * Present only when the App Attest prototype switch is on (More >
-   * Developer): prove `coinbase_app_attest_poc` with this statement instead
-   * of the shipped circuit. The screen makes the statement before the wallet
-   * is asked to sign (src/appAttest/revocationStatement.ts).
+   * Required: Coinbase KYC v2 proves that this app, attested by Apple, saw
+   * the Coinbase verification unrevoked. The screen makes the statement before
+   * the wallet is asked to sign (src/appAttest/revocationStatement.ts).
    */
-  appAttest?: {
+  appAttest: {
     witness: AppAttestWitness;
     /** The EIP-712 action, when one is bound (signal_hash then goes out as zeros). */
     action?: TypedAction;
@@ -253,28 +245,17 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // request separately at each call site is how one of them ends up on
         // the other circuit's files and the proof fails with nothing naming
         // the cause.
-        // The request names coinbase_attestation either way; the prototype
-        // switch decides which FILES prove it. Bound once, here.
-        circuitFor(inputs.circuit);
-        const prototype = inputs.appAttest;
-        const circuitName = prototype ? COINBASE_APP_ATTEST_POC.id : CIRCUIT_NAME;
+        const circuitName = circuitFor(inputs.circuit);
         _cachedCircuitName = circuitName;
-        _cachedIsPrototype = Boolean(prototype);
-        if (prototype) {
-          addLog(`[AppAttest] Proving the prototype ${circuitName} (circuits ${COINBASE_APP_ATTEST_POC.ref})`);
-          checkStatementAge(prototype.witness.attestedAt, Math.floor(Date.now() / 1000));
-          // Always: downloadCircuitFiles owns the version check (the pinned
-          // commit is part of the cache key) and fetches only what is stale.
-          await downloadCircuitFiles(circuitName, getEnvironment(), undefined, addLog);
-        } else {
-          const filesExist = await allCircuitFilesExist(circuitName);
-          if (!filesExist) {
-            addLog('Circuit files not found, downloading...');
-            const env = getEnvironment();
-            await downloadCircuitFiles(circuitName, env, undefined, addLog);
-            addLog('Circuit files downloaded');
-          }
+        const statement = inputs.appAttest;
+        if (!statement?.witness) {
+          throw new Error('Coinbase KYC v2 needs an App Attest statement; none was made for this request.');
         }
+        addLog(`[AppAttest] Coinbase KYC v2 (circuits ${coinbaseKycArtifact().ref})`);
+        checkStatementAge(statement.witness.attestedAt, Math.floor(Date.now() / 1000));
+        // Always: downloadCircuitFiles owns the version check (the pinned
+        // commit is part of the cache key) and fetches only what is stale.
+        await downloadCircuitFiles(circuitName, getEnvironment(), undefined, addLog);
 
         // Step 1: Load VK
         updateStep('vk', {status: 'in_progress'});
@@ -329,9 +310,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Deterministic signal_hash = keccak256(userAddress + scopeString + circuitName)
         // This ensures the same wallet + scope + circuit always produces the same nullifier,
         // enabling on-chain duplicate detection in ZKProofportNullifierRegistry.
-        // With an action (prototype only) there is no signal hash: the
+        // With an action there is no signal hash: the
         // circuit refuses a request that carries both.
-        const action = prototype?.action;
+        const action = statement.action;
         if (action) {
           currentSignalHash = new Uint8Array(32);
         } else {
@@ -360,11 +341,11 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // One description of what is signed, shared by the signing request and
         // the key recovery below.
         const signed = whatTheWalletSigns(messageHex, action);
-        if (prototype) {
+        {
           // The statement App Attest signed names the digest this request
           // makes the wallet sign. Checked before the wallet is asked, so a
           // mismatch never costs the person a signature.
-          const bound = ethers.utils.hexlify(prototype.witness.clientData.slice(161, 193));
+          const bound = ethers.utils.hexlify(statement.witness.clientData.slice(161, 193));
           if (bound.toLowerCase() !== signedDigestOf(signed).toLowerCase()) {
             throw new Error(`The App Attest statement binds request ${bound}, this request signs ${signedDigestOf(signed)}`);
           }
@@ -372,6 +353,12 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
         addLog(`[Sign] Signer address: ${from}`);
+        if (action) {
+          // Typed data is refused by a wallet on another chain than the
+          // domain's; the domain follows this circuit's network.
+          addLog(`[Sign] Typed action: ${action.primaryType}`);
+          await ensureWalletOnChain(ethereum, CIRCUIT_NAME, addLog);
+        }
 
         addLog(`[Sign] Message: ${messageHex.slice(0, 20)}...`);
 
@@ -463,8 +450,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           // named rather than assumed.
           circuitName,
         );
-        const flatInputs = prototype
-          ? flattenCoinbaseAppAttestInputs(
+        const flatInputs = flattenCoinbaseAppAttestInputs(
               prepareCoinbaseAppAttestInputs(
                 circuitInputs,
                 {
@@ -473,10 +459,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
                   signedDigest: signedDigestOf(signed),
                   publicHashes: signed.publicHashes,
                 },
-                prototype.witness,
+                statement.witness,
               ),
-            )
-          : flattenCircuitInputs(circuitInputs);
+            );
 
         addLog('[Inputs] Signal hash: ✓');
         addLog('[Inputs] User address: ✓');
@@ -544,9 +529,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
         const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
         addLog(`[Parse] Number of public inputs: ${numPublicInputs}`);
-        if (prototype && numPublicInputs !== COINBASE_APP_ATTEST_POC.publicInputCount) {
+        if (numPublicInputs !== coinbaseKycArtifact().publicInputCount) {
           throw new Error(
-            `${circuitName} has ${numPublicInputs} public inputs; this app reads ${COINBASE_APP_ATTEST_POC.publicInputCount}. The downloaded circuit is not the one the app was built for.`,
+            `${circuitName} has ${numPublicInputs} public inputs; this app reads ${coinbaseKycArtifact().publicInputCount}. The downloaded circuit is not the one the app was built for.`,
           );
         }
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(
@@ -625,11 +610,6 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    */
   const verifyProofOnChain = useCallback(
     async (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> => {
-      if (_cachedIsPrototype) {
-        addLog(`[OnChain] ${COINBASE_APP_ATTEST_POC.id} is a prototype with no verifier contract; on-chain verification is not available for it`);
-        setStatus('Verification unavailable');
-        return false;
-      }
       return verifyProofOnChainWithCore(circuit, parsedProof || _cachedParsedProof, {addLog, setStatus, setIsLoading});
     },
     [parsedProof],
@@ -639,7 +619,6 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
     _cachedVk = null;
     _cachedFullProof = null;
     _cachedParsedProof = null;
-    _cachedIsPrototype = false;
     setVk(null);
     setFullProof(null);
     setParsedProof(null);

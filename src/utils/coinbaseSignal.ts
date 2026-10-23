@@ -10,8 +10,8 @@ import {ethers} from 'ethers';
  * keccak256(abi.encodePacked(address, scope, "coinbase_attestation")).
  *
  * The id inside is the canonical circuit id whichever files prove it -- the
- * shipped circuit and the App Attest prototype sign the same request, so the
- * prototype's statement can be made before the wallet is asked.
+ * App Attest statement and the wallet sign the same request, so the statement
+ * can be made before the wallet is asked.
  */
 export function coinbaseSignalHash(userAddress: string, scopeString: string): Uint8Array {
   const preimage = ethers.utils.solidityPack(

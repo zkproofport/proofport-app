@@ -230,16 +230,14 @@ export function computeNullifier(
  * coinbase-libs/src/nullifier.nr, which is the only one that decides.
  */
 const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, false | {tag: string}>> = Object.freeze({
-  coinbase_attestation: false,
+  // v2 (App Attest, optional action): the wallet + keccak256("coinbase_attestation")
+  // rule, as the circuit computes it (coinbase-app-attest-poc/src/main.nr,
+  // CIRCUIT_TAG). Nullifiers of the v1 circuit (signal_hash rule) do not
+  // carry over; decided 2026-10-23 (circuits-dev.md, "Decisions").
+  coinbase_attestation: {tag: 'coinbase_attestation'},
   coinbase_country_attestation: false,
   giwa_attestation: {tag: 'giwa_attestation'},
   dojang_playground: {tag: 'dojang_playground'},
-  // The App Attest prototype (circuits branch coinbase-app-attest-poc) is the
-  // next coinbase_attestation, and its CIRCUIT_TAG is keccak256 of THAT id,
-  // not of the prototype's package name: its nullifiers must be the ones the
-  // shipped circuit will produce. So the tag is written out per row rather
-  // than derived from the key.
-  coinbase_app_attest_poc: {tag: 'coinbase_attestation'},
 });
 
 /** The nullifier this circuit expects, by its own rule. No default. */

@@ -45,8 +45,6 @@
       "laboratoryEnabledHint": "증명 탭에 GIWA, Dojang, 한국 모바일 신분증 증명을 보여 줍니다.",
       "showLiveLogs": "라이브 로그 표시",
       "useOmniOneCxUi": "OmniOne CX UI 사용",
-      "coinbaseAppAttestPrototype": "Coinbase KYC: App Attest 프로토타입",
-      "coinbaseAppAttestPrototypeHint": "Apple App Attest로 인증 취소 여부를 묶는 프로토타입 회로로 증명합니다 (iOS, 앱 안 증명만, 오프체인 검증만).",
       "exportProofHistory": "증명 기록 내보내기",
       "clearLocalData": "증명 기록 삭제",
       "exportTitle": "증명 기록 내보내기",

@@ -177,8 +177,11 @@ export {GITHUB_RAW};
  * Pattern: <DeployScript>.s.sol/<chainId>/run-latest.json
  */
 export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) | null> = {
-  coinbase_attestation: (chainId) =>
-    `DeployCoinbaseAttestation.s.sol/${chainId}/run-latest.json`,
+  // Coinbase KYC v2 is not on circuits main or in a release yet, so no
+  // broadcast there names its verifier; the address is the per-environment
+  // fallback below. A broadcast read from main would hand back the v1
+  // verifier, which rejects every v2 proof.
+  coinbase_attestation: null,
   coinbase_country_attestation: (chainId) =>
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
   oidc_domain_attestation: (chainId) =>
@@ -373,7 +376,11 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
  */
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
-    coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
+    // Coinbase KYC v2 (App Attest), Base Sepolia, deployed 2026-10-23 by
+    // circuits scripts/deploy_verifier.sh coinbase-app-attest-poc base-sepolia
+    // (circuits deployments/84532/CoinbaseAppAttestPoc.json, branch
+    // coinbase-app-attest-poc).
+    coinbase_attestation: '0xf898db959351e305c88acc4e7bda4ea74731bb12',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
     oidc_domain_attestation: '0x5D9ECe4F0276D12693F79659760a68011EFeF485',
     // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
@@ -392,7 +399,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   staging: {
-    coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
+    coinbase_attestation: '0xf898db959351e305c88acc4e7bda4ea74731bb12',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
     oidc_domain_attestation: '0x5D9ECe4F0276D12693F79659760a68011EFeF485',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
@@ -402,7 +409,10 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   production: {
-    coinbase_attestation: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
+    // Empty: Coinbase KYC v2 has no Base mainnet verifier yet, and the v1
+    // contract (0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382) rejects every v2
+    // proof. Empty reads as "verification unavailable", not as a check.
+    coinbase_attestation: '',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
     oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',

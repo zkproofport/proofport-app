@@ -184,7 +184,9 @@ describe('the circuits that live only on main', () => {
     },
   );
 
-  it.each(['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'])(
+  // coinbase_attestation (v2) reads its pinned commit instead:
+  // utils/__tests__/coinbaseKycIsReadFromItsPinnedCommit.test.ts.
+  it.each(['coinbase_country_attestation', 'oidc_domain_attestation'])(
     '%s reads the release tag on a production build',
     async circuit => {
       githubAnswers('v1.3.0');
@@ -206,8 +208,8 @@ describe('a verifier follows the circuit bytes', () => {
       const records: Record<string, {chain: number; address: string}> = {
         '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: currentGiwa},
         '/v1.3.0/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: oldGiwa},
-        '/v1.3.0/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json': {chain: 8453, address: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382'},
-        '/main/broadcast/DeployCoinbaseAttestation.s.sol/84532/run-latest.json': {chain: 84532, address: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c'},
+        '/v1.3.0/broadcast/DeployCoinbaseCountryAttestation.s.sol/8453/run-latest.json': {chain: 8453, address: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C'},
+        '/main/broadcast/DeployCoinbaseCountryAttestation.s.sol/84532/run-latest.json': {chain: 84532, address: '0xdee363585926c3c28327efd1edd01cf4559738cf'},
       };
       const path = url.replace('https://raw.githubusercontent.com/zkproofport/circuits', '');
       const record = records[path];
@@ -231,8 +233,17 @@ describe('a verifier follows the circuit bytes', () => {
 
   it('keeps supported production verifiers on the release and staging on main', async () => {
     broadcasts();
-    expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBe('0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382');
-    expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBe('0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c');
+    expect(await fetchDeploymentAddress('coinbase_country_attestation', 'production')).toBe('0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C');
+    expect(await fetchDeploymentAddress('coinbase_country_attestation', 'staging')).toBe('0xdee363585926c3c28327efd1edd01cf4559738cf');
+  });
+
+  it('reads Coinbase KYC v2 from its configured address, never a broadcast or an old cache', async () => {
+    const fetchMock = broadcasts();
+    mockDisk.set('@proofport/deployment/staging/coinbase_attestation', JSON.stringify({address: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c'}));
+    expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBeNull();
+    expect(await getVerifierAddress('coinbase_attestation', 'staging')).toBe('0xf898db959351e305c88acc4e7bda4ea74731bb12');
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployCoinbaseAttestation'))).toBe(false);
   });
 
   it.each(['giwa_attestation'])(
@@ -261,10 +272,10 @@ describe('a verifier follows the circuit bytes', () => {
 
   it('retains the supported-circuit cache when GitHub is unavailable', async () => {
     const cached = '0x1111111111111111111111111111111111111111';
-    mockDisk.set('@proofport/deployment/production/coinbase_attestation', JSON.stringify({address: cached}));
+    mockDisk.set('@proofport/deployment/production/coinbase_country_attestation', JSON.stringify({address: cached}));
     githubFails('offline');
-    expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBeNull();
-    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe(cached);
+    expect(await fetchDeploymentAddress('coinbase_country_attestation', 'production')).toBeNull();
+    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe(cached);
   });
 });
 
@@ -273,8 +284,10 @@ describe('a circuit cache version is never guessed', () => {
   const {CIRCUIT_DATA_VERSIONS} = require('../contracts');
 
   it('returns the configured version for every known circuit', () => {
+    const {circuitArtifactSource} = require('../circuitArtifacts');
     for (const [id, version] of Object.entries(CIRCUIT_DATA_VERSIONS)) {
-      expect(circuitDataVersion(id)).toBe(version);
+      // A circuit read from a pinned commit carries that source's version.
+      expect(circuitDataVersion(id)).toBe(circuitArtifactSource(id)?.dataVersion ?? version);
     }
   });
 

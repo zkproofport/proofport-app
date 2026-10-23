@@ -151,11 +151,39 @@ export {
  * hold a second copy of it -- the copy would be what a dapp is told by the
  * SDK before the link is built, disagreeing with what the app decides after.
  */
-export {
-  CIRCUIT_ACTION_BINDING,
-  circuitActionBinding,
+import {
+  CIRCUIT_ACTION_BINDING as CORE_CIRCUIT_ACTION_BINDING,
 } from '@zkproofport-app/core/circuits';
-export type {CircuitActionBinding} from '@zkproofport-app/core/circuits';
+import type {CircuitActionBinding} from '@zkproofport-app/core/circuits';
+export type {CircuitActionBinding};
+
+/**
+ * TEMPORARY, until the core release that ships Coinbase KYC v2.
+ *
+ * `coinbase_attestation` v2 (circuits branch `coinbase-app-attest-poc`) binds
+ * an optional EIP-712 action exactly as `giwa_attestation` does, while the
+ * published core still says 'none' for it. This app proves v2, so its own
+ * validation must accept what v2 accepts. One table, read through
+ * `circuitActionBinding` below; remove the row (and this table) once
+ * `@zkproofport-app/core` says 'optional' itself.
+ */
+const APP_ACTION_BINDING_OVERRIDES: Readonly<Partial<Record<CircuitName, CircuitActionBinding>>> = Object.freeze({
+  coinbase_attestation: 'optional',
+});
+
+/** Core's action table with this app's overrides applied. Same keys as core's. */
+export const CIRCUIT_ACTION_BINDING: Readonly<Record<CircuitName, CircuitActionBinding>> = Object.freeze({
+  ...CORE_CIRCUIT_ACTION_BINDING,
+  ...APP_ACTION_BINDING_OVERRIDES,
+} as Record<CircuitName, CircuitActionBinding>);
+
+/** Whether `circuit` binds an action. An id outside the list is an error. */
+export function circuitActionBinding(circuit: string): CircuitActionBinding {
+  if (!Object.prototype.hasOwnProperty.call(CIRCUIT_ACTION_BINDING, circuit)) {
+    throw new Error(`Unknown circuit '${circuit}'. Expected: ${ALL_CIRCUIT_IDS.join(', ')}`);
+  }
+  return CIRCUIT_ACTION_BINDING[circuit as CircuitName];
+}
 export type {TypedAction} from '@zkproofport-app/core/typedAction';
 
 /**

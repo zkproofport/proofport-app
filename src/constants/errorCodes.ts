@@ -106,7 +106,7 @@ export const ErrorCodes = {
       'Signing in to your account did not complete, so no proof was generated.',
   },
 
-  // Apple App Attest (the Coinbase KYC prototype behind More > Developer).
+  // Apple App Attest (Coinbase KYC v2, iOS).
   // Each cause asks the person for something different, so each has a code:
   // src/appAttest/appAttestError.ts maps causes to these.
   E2009: {

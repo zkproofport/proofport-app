@@ -9,7 +9,7 @@ import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, CIRCUITS_BRANCH} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
-import {prototypeCircuit} from '../config/prototypeCircuits';
+import {circuitArtifactSource} from '../config/circuitArtifacts';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
@@ -27,25 +27,30 @@ interface CircuitVersionMetadata {
   dataVersion?: number;
 }
 
-function getCircuitFilePaths(circuitName: string): CircuitFilePaths | null {
-  if (Object.prototype.hasOwnProperty.call(CIRCUIT_FILE_PATHS, circuitName)) {
-    return CIRCUIT_FILE_PATHS[circuitName as CircuitName];
+/** Where a circuit's files sit in the circuits repo, and their name there. */
+type RemoteFilePaths = CircuitFilePaths & {remoteFileName: string};
+
+function getCircuitFilePaths(circuitName: string): RemoteFilePaths | null {
+  // A circuit read from a pinned commit (src/config/circuitArtifacts.ts) is
+  // stored on the phone under its own id, but its files carry the name they
+  // have on the circuits branch -- see also circuitBaseUrl.
+  const pinned = circuitArtifactSource(circuitName);
+  if (pinned) {
+    return {basePath: pinned.basePath, vkPath: pinned.vkPath, vkFileName: pinned.vkFileName, remoteFileName: pinned.remoteFileName};
   }
-  // A development prototype (src/config/prototypeCircuits.ts) has paths of
-  // its own and is read from its pinned commit -- see circuitBaseUrl.
-  const proto = prototypeCircuit(circuitName);
-  if (proto) {
-    return {basePath: proto.basePath, vkPath: proto.vkPath, vkFileName: proto.vkFileName};
+  if (Object.prototype.hasOwnProperty.call(CIRCUIT_FILE_PATHS, circuitName)) {
+    const paths = CIRCUIT_FILE_PATHS[circuitName as CircuitName];
+    return paths ? {...paths, remoteFileName: circuitName} : null;
   }
   return null;
 }
 
 function buildFilePath(
   baseUrl: string,
-  circuitName: string,
   extension: string,
-  config: CircuitFilePaths,
+  config: RemoteFilePaths,
 ): string {
+  const circuitName = config.remoteFileName;
   if (extension === 'vk') {
     const path = config.vkPath ? `${config.vkPath}/${config.vkFileName}` : config.vkFileName;
     return `${baseUrl}/${path}`;
@@ -188,9 +193,9 @@ export async function circuitBaseUrl(
   circuitName: string,
   env: Environment,
 ): Promise<string> {
-  const proto = prototypeCircuit(circuitName);
-  if (proto) {
-    return GITHUB_RAW(proto.ref);
+  const pinned = circuitArtifactSource(circuitName);
+  if (pinned) {
+    return GITHUB_RAW(pinned.ref);
   }
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
     return GITHUB_RAW(CIRCUITS_BRANCH);
@@ -204,8 +209,8 @@ export async function circuitBaseUrl(
  * also written with the fallback, so the files would never be refreshed.
  */
 export function circuitDataVersion(circuitName: string): number {
-  const proto = prototypeCircuit(circuitName);
-  if (proto) return proto.dataVersion;
+  const pinned = circuitArtifactSource(circuitName);
+  if (pinned) return pinned.dataVersion;
   const version = CIRCUIT_DATA_VERSIONS[circuitName as CircuitName];
   if (version === undefined) {
     throw new Error(
@@ -223,20 +228,20 @@ async function getCircuitFileUrl(
   const configPath = getCircuitFilePaths(circuitName);
   if (configPath) {
     const baseUrl = await circuitBaseUrl(circuitName, env);
-    return buildFilePath(baseUrl, circuitName, extension, configPath);
+    return buildFilePath(baseUrl, extension, configPath);
   }
 
   const legacyConfig = Object.prototype.hasOwnProperty.call(LEGACY_CONFIGS, circuitName)
     ? LEGACY_CONFIGS[circuitName]
     : undefined;
   if (legacyConfig) {
-    return buildFilePath(legacyConfig.repoBase, circuitName, extension, legacyConfig);
+    return buildFilePath(legacyConfig.repoBase, extension, {...legacyConfig, remoteFileName: circuitName});
   }
 
   // No row anywhere: an error, not a guessed `<id>/target/<id>.<ext>` path,
   // which would download whatever happens to sit there under another name.
   throw new Error(
-    `No file paths for circuit '${circuitName}'. Known: ${Object.keys(CIRCUIT_FILE_PATHS).join(', ')} and the prototypes in src/config/prototypeCircuits.ts.`,
+    `No file paths for circuit '${circuitName}'. Known: ${Object.keys(CIRCUIT_FILE_PATHS).join(', ')} and the pinned sources in src/config/circuitArtifacts.ts.`,
   );
 }
 

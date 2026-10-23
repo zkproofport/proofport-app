@@ -1,5 +1,5 @@
 /**
- * Constants the App Attest prototype shares with its circuit.
+ * Constants Coinbase KYC v2's App Attest path shares with its circuit.
  *
  * Every value here is also a constant (or a bound) in
  * `circuits/coinbase-app-attest-poc` / `circuits/app-attest-libs` on the
