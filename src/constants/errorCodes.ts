@@ -106,6 +106,16 @@ export const ErrorCodes = {
       'Signing in to your account did not complete, so no proof was generated.',
   },
 
+  // The provider returned an ID token without the nonce this request asked
+  // for (src/oidc/oidcNonce.ts). Such a token is not tied to this request, so
+  // it is never proved. E2009-E2011 are taken on the app-attest branch.
+  E2012: {
+    code: 'E2012',
+    title: 'Sign-In Not Tied to This Request',
+    description:
+      'The sign-in answer was not issued for this request, so no proof was generated. Try signing in again.',
+  },
+
   // Network errors
   E3001: {
     code: 'E3001',

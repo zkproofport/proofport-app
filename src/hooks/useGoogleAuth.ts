@@ -1,34 +1,18 @@
 import {useState, useCallback} from 'react';
 import {signedIn, signInFailed, type SignInResult} from './signInResult';
-import {Platform} from 'react-native';
-import {
-  GoogleSignin,
-  isSuccessResponse,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
-import {GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID} from '../config/GoogleAuthConfig';
+import {signInWithGoogleNonce} from '../oidc/googleIdToken';
 
 /**
- * Google Sign-In via @react-native-google-signin/google-signin.
- *
- * Uses native platform sign-in (Credential Manager on Android, Google Sign-In SDK on iOS).
- * No client_secret, no redirect URI needed — only webClientId for id_token.
- *
- * Returns id_token (JWT with email, email_verified, sub) directly.
+ * Google sign-in for an OIDC proof, through the app's own native module
+ * (`src/oidc/googleIdToken.ts`), so the ID token carries the nonce the caller
+ * derived for this request. The caller checks the returned token's nonce.
  */
-
-// Configure at module level — runs once when the module is imported.
-// This ensures isReady is always true by the time any hook consumer renders.
-GoogleSignin.configure({
-  webClientId: GOOGLE_WEB_CLIENT_ID,
-  iosClientId: GOOGLE_IOS_CLIENT_ID,
-});
 
 export interface UseGoogleAuthReturn {
   idToken: string | null;
   isReady: boolean;
   error: string | null;
-  promptSignIn: () => Promise<SignInResult>;
+  promptSignIn: (nonce: string) => Promise<SignInResult>;
   reset: () => void;
 }
 
@@ -36,85 +20,39 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
   const [idToken, setIdToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const promptSignIn = useCallback(async (): Promise<SignInResult> => {
+  const promptSignIn = useCallback(async (nonce: string): Promise<SignInResult> => {
     setError(null);
     setIdToken(null);
-
-    const attempt = async (): Promise<string | null> => {
-      // hasPlayServices is Android-only — skip on iOS
-      if (Platform.OS === 'android') {
-        await GoogleSignin.hasPlayServices();
-      }
-      const response = await GoogleSignin.signIn();
-      if (isSuccessResponse(response)) {
-        const token = response.data.idToken;
-        if (token) return token;
-        throw new Error('Google Sign-In succeeded but no id_token returned. Ensure webClientId is configured.');
-      }
-      throw new Error('Google Sign-In failed: unexpected response');
-    };
-
+    let result: Awaited<ReturnType<typeof signInWithGoogleNonce>>;
     try {
-      const token = await attempt();
-      if (token) {
-        setIdToken(token);
-        return signedIn(token);
-      }
-      return signInFailed('Google Sign-In returned no token and no error.');
-    } catch (e: unknown) {
-      const err = e as {code?: string; message?: string};
-      console.log('[GoogleAuth] signIn error (attempt 1)', {code: err.code, message: err.message});
-
-      // GIDSignInErrorCode.keychain (-2): the SDK could not read/write its
-      // keychain entry. This is a known iOS-simulator issue when the bundle's
-      // keychain-access-groups entitlement can't be resolved without a
-      // provisioning profile. Recover by signing out (which clears any
-      // stale partial keychain record the SDK left behind) and retrying once.
-      if (err.code === '-2' || err.message?.toLowerCase().includes('keychain')) {
-        try {
-          await GoogleSignin.signOut();
-        } catch (_signOutErr) {
-          // best-effort — even if signOut fails, the retry can still succeed
-        }
-        try {
-          const token = await attempt();
-          if (token) {
-            setIdToken(token);
-            return signedIn(token);
-          }
-        } catch (e2: unknown) {
-          const err2 = e2 as {code?: string; message?: string};
-          console.log('[GoogleAuth] signIn error (attempt 2)', {code: err2.code, message: err2.message});
-          const message =
-            `Google Sign-In keychain error persisted after retry (code=${err2.code ?? 'unknown'}, msg=${err2.message ?? 'none'}). ` +
-            'This typically requires rebuilding the app with a valid keychain-access-groups entitlement.';
-          setError(message);
-          return signInFailed(message, err2.code === statusCodes.SIGN_IN_CANCELLED);
-        }
-      }
-
-      const cancelled = err.code === statusCodes.SIGN_IN_CANCELLED;
-      const message = cancelled
-        ? `Google sign-in was cancelled (code=${err.code}, msg=${err.message ?? 'none'})`
-        : err.code === statusCodes.IN_PROGRESS
-          ? 'Google sign-in already in progress'
-          : err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE
-            ? 'Google Play Services not available'
-            : `${err.message || String(e)} (code=${err.code ?? 'unknown'})`;
+      result = await signInWithGoogleNonce(nonce);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
       setError(message);
-      return signInFailed(message, cancelled);
+      return signInFailed(message);
     }
+    if ('idToken' in result) {
+      setIdToken(result.idToken);
+      return signedIn(result.idToken);
+    }
+    console.log('[GoogleAuth] signIn failed', {code: result.code, message: result.error});
+    const message = result.cancelled
+      ? `Google sign-in was cancelled (${result.error})`
+      : result.code === 'KEYCHAIN'
+        ? `${result.error}. On a simulator this is the missing keychain-access-groups entitlement; use a device.`
+        : result.error;
+    setError(message);
+    return signInFailed(message, result.cancelled);
   }, []);
 
   const reset = useCallback(() => {
     setIdToken(null);
     setError(null);
-    GoogleSignin.signOut().catch(() => {});
   }, []);
 
   return {
     idToken,
-    isReady: true, // Always ready — configured at module level
+    isReady: true,
     error,
     promptSignIn,
     reset,

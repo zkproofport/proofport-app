@@ -749,6 +749,10 @@
         "title": "Sign-In Failed",
         "description": "Signing in to your account did not complete, so no proof was generated."
       },
+      "E2012": {
+        "title": "Sign-In Not Tied to This Request",
+        "description": "The sign-in answer was not issued for this request, so no proof was generated. Try signing in again."
+      },
       "E3001": {
         "title": "Network Error",
         "description": "Unable to connect to the server. Please check your internet connection."

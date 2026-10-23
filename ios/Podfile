@@ -37,6 +37,21 @@ target 'ProofportApp' do
 
   config = use_native_modules!(config_command)
 
+  # The app's own Google sign-in (ProofportApp/GoogleIdTokenModule.m) needs
+  # GoogleSignIn's nonce-taking sign-in. It came in through
+  # react-native-google-signin before; that library's free API could not pass
+  # a nonce and is gone. 9.1.0 is the version that was already locked.
+  pod 'GoogleSignIn', '9.1.0'
+  # Its dependencies, held at the versions that were locked through the old
+  # library. Adding GoogleSignIn as a direct pod unlocks them, and the newest
+  # AppCheckCore (11.3) is a Swift pod that needs modular headers from
+  # GoogleUtilities and RecaptchaInterop, which `pod install` refuses.
+  pod 'AppCheckCore', '11.2.0'
+  pod 'AppAuth', '2.0.0'
+  pod 'GoogleUtilities/Environment', '8.1.0'
+  pod 'GoogleUtilities/UserDefaults', '8.1.0'
+  pod 'PromisesObjC', '2.4.0'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.

@@ -46,6 +46,8 @@ import {ErrorCodes, type ErrorCode} from '../../constants/errorCodes';
 import {showGlobalError} from '../../utils/errorBridge';
 import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
+import {newStandaloneRequestId} from '../../oidc/oidcNonce';
+import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -725,6 +727,30 @@ export const ProofGenerationScreen: React.FC = () => {
     attemptEndedRef.current = false;
     proofStartedAt.current = Date.now();
 
+    // OIDC: which request this proof answers, fixed before History records
+    // it. A route carries a dApp request or an in-app DomainInput, never both.
+    const oidcInputs = (proofRequest ? proofRequest.inputs : route.params?.domainInput) as
+      | {scope?: unknown; domain?: unknown; provider?: unknown}
+      | undefined;
+    let oidcBinding: OidcBinding | null = null;
+    let oidcSignInWith: OidcSignInProvider | null = null;
+    if (isOidc) {
+      try {
+        oidcSignInWith = signInProviderFor(oidcInputs?.provider);
+        oidcBinding = oidcBindingFor(oidcInputs?.scope, proofRequest?.requestId, newStandaloneRequestId);
+      } catch (e) {
+        const details = e instanceof Error ? e.message : String(e);
+        proofStartedAt.current = null;
+        setIsSearching(false);
+        addLog(`[OIDC] ${details}`);
+        failAttempt({code: 'E2004', error: details});
+        return;
+      }
+      addLog(
+        `[OIDC] Request ${oidcBinding.requestId} (${proofRequest ? 'relay' : 'in-app'}), nonce ${oidcBinding.nonce}`,
+      );
+    }
+
     const displayName = getCircuitDisplayName(canonical);
     const configName: CircuitName = canonical;
 
@@ -778,7 +804,9 @@ export const ProofGenerationScreen: React.FC = () => {
           verifierAddress: getVerifierAddressSync(configName),
           source: proofRequest ? 'deeplink' : 'manual',
           dappName: proofRequest?.dappName,
-          requestId: proofRequest?.requestId,
+          // An in-app OIDC proof has no relay id; the one minted for its nonce
+          // is kept so the proof can be checked against it later.
+          requestId: proofRequest ? proofRequest.requestId : oidcBinding?.requestId,
           review: savedReview,
           // The text History shows, stored so History never looks it up.
           // Built from the SANITISED snapshot, never the raw inputs: those
@@ -866,21 +894,23 @@ export const ProofGenerationScreen: React.FC = () => {
         return;
       }
       if (isOidc) {
-        // OIDC: on-device proof generation — no attestation lookup needed
-        const deep = proofRequest?.inputs as {scope?: string; domain?: string; provider?: string} | undefined;
-        const scopeStr = deep?.scope || route.params?.domainInput?.scope || 'proofport:default';
-        const domainStr = deep?.domain || route.params?.domainInput?.domain || '';
-        const providerStr = deep?.provider || route.params?.domainInput?.provider;
+        // OIDC: on-device proof generation — no attestation lookup needed.
+        // Both are set above whenever isOidc; the attempt ended otherwise.
+        const binding = oidcBinding as OidcBinding;
+        const signInWith = oidcSignInWith as OidcSignInProvider;
+        const domainStr = typeof oidcInputs?.domain === 'string' ? oidcInputs.domain : '';
+        const providerStr = oidcInputs?.provider as string | undefined;
 
         // Domain is optional — auto-extracted from JWT email if not provided
         if (!domainStr) {
           addLog('[OIDC] No domain provided — will auto-extract from JWT email');
         }
 
-        // Trigger OIDC Sign-In based on provider
-        const providerName = providerStr === 'microsoft' ? 'Microsoft' : 'Google';
-        const authReady = providerStr === 'microsoft' ? microsoftReady : googleReady;
-        const promptSignIn = providerStr === 'microsoft' ? promptMicrosoftSignIn : promptGoogleSignIn;
+        const SIGN_IN = {
+          google: {providerName: 'Google', authReady: googleReady, promptSignIn: promptGoogleSignIn},
+          microsoft: {providerName: 'Microsoft', authReady: microsoftReady, promptSignIn: promptMicrosoftSignIn},
+        } satisfies Record<OidcSignInProvider, unknown>;
+        const {providerName, authReady, promptSignIn} = SIGN_IN[signInWith];
         addLog(`[OIDC] Starting ${providerName} Sign-In...`);
 
         if (!authReady) {
@@ -890,26 +920,26 @@ export const ProofGenerationScreen: React.FC = () => {
           return;
         }
 
-        let jwtToken: string | null = null;
         // One shape for every outcome. The reason arrives WITH the result,
         // so nothing here reads a state value that has not landed yet — which
-        // is why every failure used to read "cancelled".
-        const signIn = await promptSignIn();
+        // is why every failure used to read "cancelled". A token without this
+        // request's nonce comes back as a failure (E2012) and is never proved.
+        const signIn = await signInBound(promptSignIn, binding.nonce);
         if (!('token' in signIn)) {
           const msg = signIn.cancelled
             ? `${providerName} Sign-In was cancelled`
             : `${providerName} Sign-In failed: ${signIn.error}`;
           addLog(`[Error] ${msg}`);
           if (signIn.cancelled) cancelAttempt(msg);
-          else failAttempt({code: 'E2008', error: msg});
+          else failAttempt({code: signIn.code, error: msg});
           return;
         }
-        jwtToken = signIn.token;
+        const jwtToken = signIn.token;
 
-        addLog(`[OIDC] ${providerName} Sign-In successful — JWT obtained`);
+        addLog(`[OIDC] ${providerName} Sign-In successful — JWT carries this request's nonce`);
 
         await generateOidcProof(
-          {jwtToken, scopeString: scopeStr, domain: domainStr, provider: providerStr},
+          {jwtToken, scopeString: binding.scope, domain: domainStr, provider: providerStr},
           addLog,
         );
         // Hook errors are caught internally — detected via useEffect on proofSteps

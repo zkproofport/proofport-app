@@ -356,10 +356,12 @@ export function validateProofRequest(
     }
   }
 
-  // OIDC domain attestation: scope is required
+  // OIDC domain attestation: scope is required. It is a public input and half
+  // of the ID token's nonce (src/oidc/oidcNonce.ts); like the SDK, a scope of
+  // only whitespace, or one that is not text, is no scope.
   if (request.circuit === 'oidc_domain_attestation') {
     const inputs = request.inputs as OidcDomainInputs;
-    if (!inputs.scope) {
+    if (typeof inputs.scope !== 'string' || inputs.scope.trim() === '') {
       return {valid: false, error: 'Missing required scope parameter for oidc_domain_attestation'};
     }
   }

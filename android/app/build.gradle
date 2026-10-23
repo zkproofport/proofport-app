@@ -232,6 +232,15 @@ dependencies {
     // regenerable cache (a lost key only costs the preview, never a message), so the
     // library being unmaintained is a maintenance concern, not a correctness one.
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    // Google sign-in with a caller-chosen nonce (GoogleIdTokenModule.kt). The
+    // free react-native-google-signin API could not set one. credentials 1.6.0
+    // needs compileSdk 35+ and AGP 8.6+ (aar metadata); this app has 36 / 8.11.
+    // It also lifts react-native-passkeys' 1.3.0-alpha01 to 1.6.0.
+    // googleid stays at 1.2.0: 1.2.1 is built with Kotlin 2.4 metadata, which
+    // this app's Kotlin 2.1 compiler cannot read (it reads up to 2.2).
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
 
     // JVM unit tests for the OpenStoa push crypto/payload logic (:app:test*UnitTest).
     testImplementation("junit:junit:4.13.2")
