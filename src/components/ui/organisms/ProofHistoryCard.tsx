@@ -9,7 +9,7 @@ interface ProofHistoryCardProps {
   circuitIcon: ProofUiIconName;
   circuitName: string;
   requester: string;
-  status: string;
+  status: unknown;
   date: string;
   onPress: () => void;
 }

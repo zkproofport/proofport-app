@@ -7,10 +7,8 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {HistoryStackParamList} from '../../navigation/types';
 import {ProofHistoryCard} from '../../components/ui/organisms/ProofHistoryCard';
 import {ProofUiIcon} from '../../components/ProofUiIcon';
-import {formatReviewScalar} from '../../components/ReadonlyValue';
-import {canonicalCircuitId} from '../../config/circuitIds';
 import {useProofUiColors} from '../../theme/proofUi';
-import {getProofRequestPresentation} from '../../utils/proofRequestPresentation';
+import {historyRecordText} from './historyRecordText';
 import {formatHistoryDate, historyMonth} from '../../utils/historyPresentation';
 import type {ProofHistoryItem} from '../../stores';
 import {useHistoryRecords} from './useHistoryRecords';
@@ -23,15 +21,19 @@ const ProofHistoryScreen: React.FC = () => {
   const {items, loading, failed, refresh} = useHistoryRecords();
   const grouped = new Map<string, ProofHistoryItem[]>();
   // Newest first, with undated legacy records after dated records.
+  const stamp = (item: unknown) => {
+    const v = typeof item === 'object' && item !== null ? (item as {timestamp?: unknown}).timestamp : undefined;
+    return typeof v === 'string' ? Date.parse(v) : NaN;
+  };
   const ordered = [...items].sort((a, b) => {
-    const aTime = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : NaN;
-    const bTime = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : NaN;
+    const aTime = stamp(a);
+    const bTime = stamp(b);
     if (Number.isNaN(aTime)) return Number.isNaN(bTime) ? 0 : 1;
     if (Number.isNaN(bTime)) return -1;
     return bTime - aTime;
   });
   for (const item of ordered) {
-    const month = historyMonth(item.timestamp, i18n.language);
+    const month = historyMonth(historyRecordText(item, t).timestamp, i18n.language);
     const group = grouped.get(month);
     if (group) group.push(item);
     else grouped.set(month, [item]);
@@ -67,16 +69,13 @@ const ProofHistoryScreen: React.FC = () => {
         <Text style={[styles.count, {color: colors.muted}]}>{t('host.history.home.count', {count: items.length})}</Text>
         {[...grouped].map(([month, records]) => <View key={month} style={styles.group}>
           <Text style={[styles.month, {color: colors.secondary}]}>{month}</Text>
-          {records.map(item => {
-            const circuit = canonicalCircuitId(item.circuitId);
-            if (!circuit) throw new Error(`Unknown history circuit '${item.circuitId}'.`);
-            const presentation = getProofRequestPresentation({circuit, inputs: {}}, t);
-            const requester = item.dappName ? formatReviewScalar(item.dappName, t)
-              : t(item.source === 'deeplink' ? 'host.history.home.unknownRequester' : 'host.history.home.manual');
-            return <ProofHistoryCard key={item.id} id={item.id} circuitIcon={presentation.icon}
-              circuitName={presentation.title} requester={requester} status={item.overallStatus}
-              date={formatHistoryDate(item.timestamp, i18n.language)}
-              onPress={() => navigation.navigate('HistoryDetail', {proofId: item.id})} />;
+          {records.map((item, index) => {
+            // Stored text only (historyRecordText.ts) -- no circuit lookup.
+            const r = historyRecordText(item, t);
+            return <ProofHistoryCard key={r.id || `record-${month}-${index}`} id={r.id} circuitIcon={r.icon}
+              circuitName={r.title} requester={r.requester} status={r.overallStatus}
+              date={formatHistoryDate(r.timestamp, i18n.language)}
+              onPress={() => navigation.navigate('HistoryDetail', {proofId: r.id})} />;
           })}
         </View>)}
       </>}
