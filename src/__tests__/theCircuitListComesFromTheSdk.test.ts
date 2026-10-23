@@ -329,7 +329,7 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
     expect(deployments).not.toMatch(/'coinbase_attestation'/);
   });
 
-  it('THE REGRESSION: startup prefetches every circuit, in the right tier', () => {
+  it('THE REGRESSION: startup prefetches every circuit, in the right tier, minus a Laboratory turned off', () => {
     /*
      * The startup lists named three circuits plus GIWA and omitted the three
      * Korea mDL ones, so a first mDL proof paid for a cold download. Derived
@@ -343,8 +343,10 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
     // nor planned, and for one commit one was in neither list, so its files
     // were never prefetched.
     expect(loading).toMatch(/MAIN_BRANCH_CIRCUITS[^=]*=\s*MAIN_BRANCH_CIRCUIT_IDS/);
-    // Both lists, for everyone: Developer Mode used to drop the second one.
-    expect(loading).toMatch(/circuits\s*=\s*\[\.\.\.BASE_CIRCUITS,\s*\.\.\.MAIN_BRANCH_CIRCUITS\]/);
+    // Both lists: Developer Mode used to drop the second one. Only the
+    // Laboratory switch narrows them now, through the catalog's own table
+    // (src/__tests__/theLaboratorySwitch.test.ts).
+    expect(loading).toMatch(/circuits\s*=\s*circuitsToPrefetch\(\[\.\.\.BASE_CIRCUITS,\s*\.\.\.MAIN_BRANCH_CIRCUITS\]/);
     expect(loading).not.toContain('developerMode');
     expect(loading).not.toMatch(/'(coinbase|giwa|oidc|mdl)_/);
     expect(

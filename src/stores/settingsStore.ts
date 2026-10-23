@@ -24,6 +24,16 @@ export interface AppSettings {
    * (oacxClient.ts::runAppAuthFlow). Only surfaced in Developer Mode.
    */
   useOmniOneCxUi: boolean;
+  /**
+   * The Laboratory: GIWA, the Dojang Playground and the Korea Mobile ID
+   * proofs (`surface: 'laboratory'` in src/screens/proof/proofCatalog.ts).
+   * Off until the person turns it on in More. Off hides the Proof-tab entry
+   * and the lab-only wallet rows, skips their startup download, and refuses a
+   * dApp request for one of them with E1008. It is an ordinary setting, not a
+   * Developer Mode tool -- Developer Mode gates no circuit
+   * (src/__tests__/developerModeGatesNoCircuit.test.ts).
+   */
+  laboratoryEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -34,6 +44,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   defaultNetwork: 'base',
   useOmniOneCxUi: true,
+  laboratoryEnabled: false,
 };
 
 // Every partial update reads after the preceding write settles. More, theme,
@@ -66,6 +77,16 @@ export const settingsStore = {
           `(${NETWORK_CATEGORIES.map(n => n.id).join(', ')}); showing '${DEFAULT_SETTINGS.defaultNetwork}'`,
       );
       merged.defaultNetwork = DEFAULT_SETTINGS.defaultNetwork;
+    }
+    // Only a real `true` turns the Laboratory on. A hand-edited or migrated
+    // value such as the string "false" is truthy and would open it; throwing
+    // instead would leave the setting unreadable AND unrepairable, because
+    // every update reads first. So it reads as off, which the switch shows.
+    if (typeof merged.laboratoryEnabled !== 'boolean') {
+      console.log(
+        `[settings] saved laboratoryEnabled ${JSON.stringify(merged.laboratoryEnabled)} is not a boolean; reading it as off`,
+      );
+      merged.laboratoryEnabled = false;
     }
     return merged;
   },

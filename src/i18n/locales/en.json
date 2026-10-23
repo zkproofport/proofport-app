@@ -41,6 +41,8 @@
       "networkOmniOne": "OmniOne Chain Testnet",
       "autoSaveProofs": "Keep a history of proofs",
       "confirmBeforeGenerate": "Confirm before generate",
+      "laboratoryEnabled": "Laboratory",
+      "laboratoryEnabledHint": "Shows GIWA, Dojang and Korea Mobile ID proofs on the Proof tab.",
       "showLiveLogs": "Show live logs",
       "useOmniOneCxUi": "Use OmniOne CX UI",
       "exportProofHistory": "Export Proof History",
@@ -242,7 +244,6 @@
       "circuitSelection": {
         "title": "Proofs",
         "sectionLabel": "Select Proof Type",
-        "experimentalBadge": "Experimental",
         "network": {
           "label": "Network",
           "base": "Base",
@@ -259,10 +260,6 @@
         "oidcDomain": {
           "title": "OIDC Domain",
           "description": "Prove your email domain affiliation"
-        },
-        "giwaKyc": {
-          "title": "GIWA KYC",
-          "description": "PoC — prove a KYC attestation issued on GIWA Sepolia"
         },
         "mdlKr": {
           "title": "Korea Mobile ID",
@@ -366,13 +363,13 @@
         "oidcTitle": "OIDC Domain Verification",
         "coinbaseCountryTitle": "Coinbase Country Verification",
         "coinbaseKycTitle": "Coinbase KYC Verification",
-        "giwaKycTitle": "GIWA KYC Verification (Experimental)",
-        "giwaKycDescription": "PoC — generate a zero-knowledge proof of a KYC attestation issued on GIWA Sepolia. Bring your own GIWA testnet wallet via the Wallet tab.",
-        "mdlKrOwnershipTitle": "Korea Mobile ID — Ownership (Experimental)",
+        "giwaKycTitle": "GIWA KYC Verification",
+        "giwaKycDescription": "Generate a zero-knowledge proof of a KYC attestation issued on GIWA Sepolia. Bring your own GIWA testnet wallet via the Wallet tab.",
+        "mdlKrOwnershipTitle": "Korea Mobile ID — Ownership",
         "mdlKrOwnershipDescription": "Prove ownership of your Korea mobile driver's license via OmniOne CX. The proof binds your name, birthdate, sex, and phone as a single commitment — no individual field is exposed on-chain.",
-        "mdlKrAgeTitle": "Korea Mobile ID — Age (Experimental)",
+        "mdlKrAgeTitle": "Korea Mobile ID — Age",
         "mdlKrAgeDescription": "Prove that you are an adult (age 19+) via your Korea mobile ID. Fully anonymous — no personal attributes are committed.",
-        "mdlKrRegionTitle": "Korea Mobile ID — Region (Experimental)",
+        "mdlKrRegionTitle": "Korea Mobile ID — Region",
         "mdlKrRegionDescription": "Prove your residence region (e.g. 경기도) via your Korea mobile ID. Fully anonymous — no personal attributes are committed.",
         "oidcDescription": "Generate a zero-knowledge proof of your email domain using an OIDC identity token. Proof is generated locally on your device.",
         "coinbaseCountryDescription": "Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.",
@@ -388,7 +385,7 @@
         "confirmCancel": "Cancel",
         "confirmGenerate": "Generate",
         "stackTitle": "Generate Proof",
-        "dojangPlaygroundTitle": "Dojang Playground (Experimental)",
+        "dojangPlaygroundTitle": "Dojang Playground",
         "dojangPlaygroundDescription": "Generate a zero-knowledge proof that your wallet issued itself a Dojang in the GIWA Playground on GIWA Sepolia. Connect the wallet you issued it with."
       },
       "domain": {
@@ -515,13 +512,13 @@
           "provider": "Coinbase"
         },
         "laboratoryTitle": "Laboratory",
-        "laboratoryDescription": "Explore test proofs",
-        "laboratoryBadge": "Test"
+        "laboratoryDescription": "Explore beta proofs",
+        "laboratoryBadge": "Beta"
       },
       "laboratory": {
         "title": "Laboratory",
         "description": "These test features are separate from actual eligibility verification.",
-        "experimental": "Experimental",
+        "turnedOff": "Laboratory is turned off. Turn it on in More to use these proofs.",
         "networks": "Network proofs",
         "mobileId": "Korea Mobile ID",
         "giwa": {
@@ -546,7 +543,7 @@
           "provider": "Korea Mobile ID"
         },
         "heroTitle": "Explore proofs for testing",
-        "poc": "PoC",
+        "beta": "Beta",
         "dojangPlayground": {
           "title": "Dojang Playground",
           "description": "Prove the Dojang you issued yourself in the GIWA Playground",
@@ -714,6 +711,10 @@
       "E1007": {
         "title": "Request Already Answered",
         "description": "This proof request has already been answered. Start a new request from the app that asked for the proof."
+      },
+      "E1008": {
+        "title": "Laboratory Is Off",
+        "description": "This request asks for a Laboratory proof. Turn on Laboratory in More, then start the request again from the app that asked for it."
       },
       "E2001": {
         "title": "Proof Generation Failed",

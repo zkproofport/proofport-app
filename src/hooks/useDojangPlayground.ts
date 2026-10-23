@@ -29,7 +29,6 @@ import {
   ensureWalletOnChain,
   loadVkFromAssets,
   downloadCircuitFiles,
-  allCircuitFilesExist,
 } from '../utils';
 import {
   checkDojangIssuanceTx,
@@ -130,11 +129,8 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
       addLog('=== Starting Dojang Playground Proof Generation ===');
 
       try {
-        if (!(await allCircuitFilesExist(CIRCUIT_NAME))) {
-          addLog(`Circuit files for ${CIRCUIT_NAME} not found, downloading...`);
-          await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
-          addLog('Circuit files downloaded');
-        }
+        // Always, as useMdlKr does -- see the same line in useGiwaKyc.
+        await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
 
         updateStep('vk', {status: 'in_progress'});
         const vkStart = Date.now();

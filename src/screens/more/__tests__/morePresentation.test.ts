@@ -49,6 +49,8 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 jest.mock('../../../components/ProofUiIcon', () => ({ProofUiIcon: 'ProofUiIcon'}));
 jest.mock('../../../components/ui/atoms/Icon', () => ({Icon: 'Icon'}));
 jest.mock('../../../utils/version', () => ({getVersionDisplay: () => '1.3.1'}));
+const mockPrefetchLaboratory = jest.fn();
+jest.mock('../../../utils/laboratoryPrefetch', () => ({prefetchLaboratoryCircuits: (...args: unknown[]) => mockPrefetchLaboratory(...args)}));
 jest.mock('../../../../assets/brand/zkproofport-symbol.png', () => 1);
 jest.mock('../../../../assets/brand/zkproofport-wordmark-dark.png', () => 2);
 jest.mock('../../../../assets/brand/zkproofport-wordmark-light.png', () => 3);
@@ -204,6 +206,87 @@ describe('More settings and local data actions', () => {
     expect(mockNativeOverride).toHaveBeenCalledWith(true);
     expect(textOf()).toContain(mockTranslate('host.more.openStoaRestartRequired'));
     expect(has('more-live-logs')).toBe(true);
+  });
+});
+
+describe('the Laboratory switch', () => {
+  function stored() {return JSON.parse(mockDisk.get(SETTINGS_KEY)!);}
+  async function flip(value: boolean) {await act(async () => {await node('more-laboratory').props.onValueChange(value);});}
+
+  it.each(['en', 'ko'])('is an ordinary setting, off by default, with its description in %s', async locale => {
+    await i18n.changeLanguage(locale);
+    await render();
+    const toggle = node('more-laboratory');
+    expect(toggle.props.value).toBe(false);
+    expect(toggle.props.accessibilityLabel).toBe(mockTranslate('host.more.laboratoryEnabled'));
+    expect(toggle.props.accessibilityHint).toBe(mockTranslate('host.more.laboratoryEnabledHint'));
+    expect(textOf()).toContain(mockTranslate('host.more.laboratoryEnabledHint'));
+    expect(textOf()).not.toContain('host.');
+    // Developer Mode is off here and its section is hidden; the switch is not in it.
+    expect(has('more-live-logs')).toBe(false);
+  });
+
+  it('has real words in both languages', () => {
+    const en = require('../../../i18n/locales/en.json').host;
+    const ko = require('../../../i18n/locales/ko.json').host;
+    for (const host of [en, ko]) {
+      for (const text of [host.more.laboratoryEnabled, host.more.laboratoryEnabledHint, host.proof.laboratory.turnedOff, host.errors.E1008.title, host.errors.E1008.description]) {
+        expect(typeof text).toBe('string');
+        expect(text.trim().length).toBeGreaterThan(0);
+      }
+    }
+    expect(ko.more.laboratoryEnabled).toBe(ko.proof.laboratory.title);
+    expect(en.more.laboratoryEnabled).toBe(en.proof.laboratory.title);
+    expect(ko.errors.E1008.description).toContain(ko.more.title);
+    expect(en.errors.E1008.description).toContain(en.more.title);
+  });
+
+  it('turns on, off and on again, persisting each and warming lab circuits only when turned on', async () => {
+    await render();
+    await flip(true);
+    expect(stored().laboratoryEnabled).toBe(true);
+    expect(node('more-laboratory').props.value).toBe(true);
+    expect(mockPrefetchLaboratory).toHaveBeenCalledTimes(1);
+    await flip(false);
+    expect(stored().laboratoryEnabled).toBe(false);
+    expect(node('more-laboratory').props.value).toBe(false);
+    expect(mockPrefetchLaboratory).toHaveBeenCalledTimes(1);
+    await flip(true);
+    expect(stored()).toMatchObject({laboratoryEnabled: true, theme: 'light', developerMode: false, defaultNetwork: 'base'});
+    expect(mockPrefetchLaboratory).toHaveBeenCalledTimes(2);
+    expect(mockShowError).not.toHaveBeenCalled();
+  });
+
+  it('shows a saved on as on', async () => {
+    settings({laboratoryEnabled: true});
+    await render();
+    expect(node('more-laboratory').props.value).toBe(true);
+  });
+
+  it.each(['true', 'false', 1, null, {}])('shows a corrupt saved value %j as off', async value => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    settings({laboratoryEnabled: value});
+    await render();
+    expect(node('more-laboratory').props.value).toBe(false);
+  });
+
+  it('reports a failed save through ErrorModal, keeps it off and downloads nothing', async () => {
+    await render(); mockWriteFailure = true;
+    await flip(true);
+    expect(mockShowError).toHaveBeenCalledWith('E5001', mockTranslate('host.more.saveError'));
+    expect(stored().laboratoryEnabled).toBeUndefined();
+    expect(mockPrefetchLaboratory).not.toHaveBeenCalled();
+  });
+
+  it('keeps both choices when the switch and another setting are changed together', async () => {
+    await render();
+    await act(async () => {
+      await Promise.all([
+        node('more-laboratory').props.onValueChange(true),
+        node('more-confirm').props.onValueChange(false),
+      ]);
+    });
+    expect(stored()).toMatchObject({laboratoryEnabled: true, confirmBeforeGenerate: false});
   });
 });
 

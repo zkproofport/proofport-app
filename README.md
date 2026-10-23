@@ -137,7 +137,7 @@ The app uses a bottom tab navigation with 5 main sections:
 
 1. **Proof** (ProofStackNavigator)
    - Proof Home: Search and filter organization account, Coinbase KYC, and country proofs; open the QR scanner
-   - Laboratory: GIWA and Korean mobile ID proofs remain available without a developer-mode requirement
+   - Laboratory: GIWA, Dojang Playground and Korean mobile ID proofs, shown when Laboratory is turned on in More
    - Input Screens: Standalone proof parameters; manual action entry is limited to standalone testing
    - Proof Generation: Generate ZK proof
    - Proof Complete: Show success and proof data
@@ -232,13 +232,13 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
    - Input: OIDC JWT from Google or Microsoft
    - Output: Proof of email domain affiliation without revealing email
 
-4. **giwa_attestation** (experimental, Developer Mode only): GIWA account attestation
+4. **giwa_attestation** (Laboratory): GIWA account attestation
    - Input: a GIWA-attested wallet, optionally binding one EIP-712 action the wallet signs.
    - Output: with an action, a proof carrying the action's domain separator and struct
      hash, so a verifier checks WHICH action was authorised.
    - Verification network: GIWA Sepolia (chain 91342).
 
-5. **dojang_playground** (experimental, Developer Mode only): Dojang Playground
+5. **dojang_playground** (Laboratory): Dojang Playground
    - Input: the connected wallet's own `payAndIssueEAS()` call to the GIWA Playground
      faucet `0x63CCe2b569A7bC35895ee24306c1512fefc06121` (legacy or EIP-1559), found
      through the GIWA explorer, re-read over RPC and hashed back before use, plus the
@@ -253,8 +253,8 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
 
 ### Standalone action testing
 
-With Developer Mode enabled, choose GIWA in the Verify tab and open its circuit
-card. It opens the action input screen without a relay request. Select
+With Laboratory turned on in More, open Laboratory in the Verify tab and choose
+GIWA. It opens the action input screen without a relay request. Select
 Deposit, Withdraw, Transfer, or a custom action, then enter the app name, contract,
 and field values. The signed domain follows the selected circuit's network.
 

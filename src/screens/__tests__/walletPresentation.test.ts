@@ -3,6 +3,7 @@ import {act, create, type ReactTestInstance, type ReactTestRenderer} from 'react
 
 let mockLocale: 'en' | 'ko' = 'en';
 let mockDeveloperMode = true;
+let mockLaboratory: unknown = true;
 let mockAccount: string | null = null;
 let mockConnected = false;
 const mockStorage = new Map<string, string>();
@@ -38,7 +39,7 @@ jest.mock('../../hooks/useWallet', () => ({useWallet: () => ({
   account: mockAccount, isWalletConnected: mockConnected, chainId: 8453,
   connect: mockConnect, disconnect: mockDisconnect,
 })}));
-jest.mock('../../hooks/useSettings', () => ({useSettings: () => ({settings: {developerMode: mockDeveloperMode}})}));
+jest.mock('../../hooks/useSettings', () => ({useSettings: () => ({settings: {developerMode: mockDeveloperMode, laboratoryEnabled: mockLaboratory}})}));
 jest.mock('../../config', () => jest.requireActual('../../config/circuitIds'));
 jest.mock('../../stores', () => {
   const real = jest.requireActual('../../stores/circuitWalletStore');
@@ -100,6 +101,7 @@ beforeEach(() => {
   mockStorage.clear();
   mockLocale = 'en';
   mockDeveloperMode = true;
+  mockLaboratory = true;
   mockAccount = null;
   mockConnected = false;
   mockDisconnect.mockImplementation(async () => {mockAccount = null; mockConnected = false;});
@@ -128,6 +130,26 @@ describe('wallet presentation preserves the binding and live-session distinction
     const coinbase = textOf(findNode('wallet-binding-coinbase'));
     for (const name of ['Coinbase KYC', 'Coinbase Country']) expect(coinbase).toContain(name);
     expect(textOf(screen!.root)).not.toMatch(/OIDC Domain|Korea Mobile ID/);
+  });
+
+  it.each([false, 'true', undefined])('hides the Laboratory-only GIWA and Dojang wallets while the Laboratory is %j, keeping Coinbase', async laboratory => {
+    mockLaboratory = laboratory;
+    await render();
+    expect(hasNode('wallet-binding-coinbase')).toBe(true);
+    expect(hasNode('wallet-binding-giwa')).toBe(false);
+    expect(hasNode('wallet-binding-dojang')).toBe(false);
+  });
+
+  it('keeps a hidden GIWA binding and shows it again when the Laboratory is turned back on', async () => {
+    await bind('giwa_attestation');
+    mockLaboratory = false;
+    await render();
+    expect(hasNode('wallet-binding-giwa')).toBe(false);
+    expect(await getCircuitWalletEntry(walletGroupKey('giwa_attestation'))).toMatchObject({address: ADDRESS});
+    mockLaboratory = true;
+    await act(async () => {screen!.update(React.createElement(CircuitWalletsCard));});
+    expect(textOf(findNode('wallet-binding-giwa'))).toContain(ADDRESS);
+    expect(clearCircuitWallet).not.toHaveBeenCalled();
   });
 
   it.each([false, true])('shows the GIWA and Dojang wallets whatever Developer Mode says (%s)', async developerMode => {

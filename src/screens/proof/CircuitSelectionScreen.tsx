@@ -6,6 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {ProofUiIcon} from '../../components/ProofUiIcon';
 import {useProofUiColors} from '../../theme/proofUi';
 import type {ProofTabScreenProps} from '../../navigation/types';
+import {useSettings} from '../../hooks';
 import {filterProofCatalog, PROOF_PURPOSES, type ProofPurpose} from './proofCatalog';
 import {ProofCatalogCard} from './ProofCatalogCard';
 
@@ -18,6 +19,11 @@ export const CircuitSelectionScreen: React.FC = () => {
   const [query, setQuery] = useState('');
   const [purpose, setPurpose] = useState<ProofPurpose>('all');
   const entries = filterProofCatalog('home', purpose, query, t);
+  // Re-read on every focus (useSettings), so turning the Laboratory on in More
+  // shows the entry the moment this tab is opened again. Hidden until the
+  // settings have loaded, and hidden when they cannot be read.
+  const {settings} = useSettings();
+  const laboratoryEnabled = settings?.laboratoryEnabled === true;
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={[styles.screen, {backgroundColor: colors.background}]}>
@@ -110,7 +116,7 @@ export const CircuitSelectionScreen: React.FC = () => {
           </View>
         )}
 
-        <TouchableOpacity
+        {laboratoryEnabled && <TouchableOpacity
           testID="proof-laboratory"
           accessibilityRole="button"
           onPress={() => navigation.navigate('Laboratory')}
@@ -125,7 +131,7 @@ export const CircuitSelectionScreen: React.FC = () => {
             <Text style={[styles.badgeText, {color: colors.gold}]}>{t('host.proof.home.laboratoryBadge')}</Text>
           </View>
           <ProofUiIcon name="chevron-right" size={18} color={colors.muted} />
-        </TouchableOpacity>
+        </TouchableOpacity>}
       </ScrollView>
     </SafeAreaView>
   );

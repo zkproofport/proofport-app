@@ -43,6 +43,7 @@ import {registerDeepLinkHandler} from './src/utils/deepLinkBridge';
 import {registerReturnNoticeHandler, type ReturnNoticeKind} from './src/utils/returnNoticeBridge';
 import {useAppStateReset} from './src/hooks';
 import {answerRelayRequest, answerRequestsLeftOpen, rememberOpenRelayRequest} from './src/utils/relayAnswer';
+import {laboratoryRequestGate, type LaboratoryGate} from './src/utils/laboratory';
 
 /** The responder never rejects; this only makes an impossible failure loud. */
 function logAnswerFailure(error: unknown) {
@@ -283,8 +284,16 @@ const App: React.FC = () => {
     // release and `activeRequestId` below, so a duplicate never slips through.
     requestsBeingChecked.current.add(request.requestId);
     let relayValidation: Awaited<ReturnType<typeof validateRequestWithRelay>>;
+    let laboratory: LaboratoryGate;
     try {
-      relayValidation = await validateRequestWithRelay(request.requestId, request.callbackUrl, request.inputs as Record<string, unknown>);
+      // The Laboratory switch is read beside the relay check, inside the same
+      // claim, so a duplicate arriving meanwhile is still skipped. The gate
+      // rejects only for an id that is not a circuit, which
+      // `validateProofRequest` has already refused above.
+      [relayValidation, laboratory] = await Promise.all([
+        validateRequestWithRelay(request.requestId, request.callbackUrl, request.inputs as Record<string, unknown>),
+        laboratoryRequestGate(request.circuit),
+      ]);
     } finally {
       requestsBeingChecked.current.delete(request.requestId);
     }
@@ -303,6 +312,19 @@ const App: React.FC = () => {
         status: 'error',
         errorCode: 'E1006',
         error: 'Unregistered proof request: ' + reason,
+      }).catch(logAnswerFailure);
+      return;
+    }
+
+    // A registered request for a Laboratory proof while More > Laboratory is
+    // off: neither opened nor dropped. The person is told where the switch is
+    // and the dApp hears the same code. A waiting review is left alone.
+    if (!laboratory.allowed) {
+      showGlobalError(laboratory.code, laboratory.reason);
+      answerRelayRequest(request, {
+        status: 'error',
+        errorCode: laboratory.code,
+        error: laboratory.reason,
       }).catch(logAnswerFailure);
       return;
     }

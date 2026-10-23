@@ -46,6 +46,15 @@ export const ErrorCodes = {
     description:
       'This proof request has already been answered. Start a new request from the app that asked for the proof.',
   },
+  // A dApp asked for a Laboratory proof (GIWA, Dojang Playground, Korea Mobile
+  // ID) while More > Laboratory is off. The request is answered with this code
+  // rather than opened or dropped -- see src/utils/laboratory.ts.
+  E1008: {
+    code: 'E1008',
+    title: 'Laboratory Is Off',
+    description:
+      'This request asks for a Laboratory proof. Turn on Laboratory in More, then start the request again from the app that asked for it.',
+  },
 
   // Proof generation errors
   E2001: {

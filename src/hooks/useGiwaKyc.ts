@@ -30,7 +30,6 @@ import {
   ensureWalletOnChain,
   loadVkFromAssets,
   downloadCircuitFiles,
-  allCircuitFilesExist,
 } from '../utils';
 import {
   verifyGiwaAttestationTx,
@@ -196,13 +195,12 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
       let signerIndex = 0;
 
       try {
-        const filesExist = await allCircuitFilesExist(CIRCUIT_NAME);
-        if (!filesExist) {
-          addLog(`Circuit files for ${CIRCUIT_NAME} not found, downloading...`);
-          const env = getEnvironment();
-          await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
-          addLog('Circuit files downloaded');
-        }
+        // Always, as useMdlKr does: downloadCircuitFiles owns the version
+        // check and only fetches what is missing or stale. Gating it on the
+        // files existing let a stale copy prove -- and since the startup
+        // prefetch skips Laboratory circuits while the switch is off, this is
+        // the one place a lab circuit's cache is brought up to date.
+        await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
 
         // Step 1: VK
         updateStep('vk', {status: 'in_progress'});

@@ -7,6 +7,7 @@ import {useTranslation} from 'react-i18next';
 import {ProofUiIcon} from '../../components/ProofUiIcon';
 import {useProofUiColors} from '../../theme/proofUi';
 import type {ProofStackParamList} from '../../navigation/types';
+import {useSettings} from '../../hooks';
 import {filterProofCatalog, type ProofCatalogEntry} from './proofCatalog';
 import {ProofCatalogCard} from './ProofCatalogCard';
 
@@ -14,7 +15,13 @@ export const LaboratoryScreen: React.FC = () => {
   const colors = useProofUiColors();
   const {t} = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<ProofStackParamList>>();
-  const entries = filterProofCatalog('laboratory', 'all', '', t);
+  // The Proof tab hides its entry while the switch is off; this covers a
+  // Laboratory screen already open when it was turned off in More. Nothing is
+  // listed until the settings say on.
+  const {settings} = useSettings();
+  const enabled = settings?.laboratoryEnabled === true;
+  const turnedOff = settings !== null && !enabled;
+  const entries = enabled ? filterProofCatalog('laboratory', 'all', '', t) : [];
   const sections: {titleKey: string; entries: ProofCatalogEntry[]}[] = [];
   for (const entry of entries) {
     if (!entry.groupKey) throw new Error(`Laboratory group missing for '${entry.id}'.`);
@@ -44,7 +51,9 @@ export const LaboratoryScreen: React.FC = () => {
         </View>
         <View style={[styles.notice, {backgroundColor: colors.inset, borderColor: colors.border}]}>
           <ProofUiIcon name="info" size={19} color={colors.secondary} />
-          <Text style={[styles.description, {color: colors.secondary}]}>{t('host.proof.laboratory.description')}</Text>
+          <Text testID={turnedOff ? 'laboratory-turned-off' : undefined} style={[styles.description, {color: colors.secondary}]}>
+            {t(turnedOff ? 'host.proof.laboratory.turnedOff' : 'host.proof.laboratory.description')}
+          </Text>
         </View>
         {sections.map(section => (
           <View key={section.titleKey} style={styles.section}>

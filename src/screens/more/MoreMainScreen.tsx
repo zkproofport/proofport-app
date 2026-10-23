@@ -12,6 +12,7 @@ import {useProofUiColors} from '../../theme/proofUi';
 import type {MoreTabScreenProps} from '../../navigation/types';
 import type {AppSettings} from '../../stores/settingsStore';
 import {getVersionDisplay} from '../../utils/version';
+import {prefetchLaboratoryCircuits} from '../../utils/laboratoryPrefetch';
 import {SettingsGroup, SettingsRow, SettingsToggle} from './SettingsParts';
 import {languageOption} from './languages';
 
@@ -32,9 +33,15 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({navigation}) 
     if (error && !settings) showError('E5002', t('host.more.loadError'));
   }, [error, settings, showError, t]);
 
-  const saveSetting = async (partial: Partial<AppSettings>) => {
-    try {await updateSettings(partial);}
-    catch {showError('E5001', t('host.more.saveError'));}
+  const saveSetting = async (partial: Partial<AppSettings>): Promise<boolean> => {
+    try {await updateSettings(partial); return true;}
+    catch {showError('E5001', t('host.more.saveError')); return false;}
+  };
+
+  // Turning the Laboratory on warms its circuits in the background; each lab
+  // proof still downloads what it needs itself, so this is never awaited.
+  const handleLaboratory = async (next: boolean) => {
+    if (await saveSetting({laboratoryEnabled: next}) && next) void prefetchLaboratoryCircuits();
   };
 
   const handleOpenStoaOverride = async (next: boolean) => {
@@ -125,6 +132,8 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({navigation}) 
       <SettingsGroup title={t('host.more.sectionProofSettings')}>
         <SettingsToggle testID="more-auto-save" label={t('host.more.autoSaveProofs')} value={settings.autoSaveProofs} onValueChange={value => saveSetting({autoSaveProofs: value})} />
         <SettingsToggle testID="more-confirm" label={t('host.more.confirmBeforeGenerate')} value={settings.confirmBeforeGenerate} onValueChange={value => saveSetting({confirmBeforeGenerate: value})} separated />
+        <SettingsToggle testID="more-laboratory" label={t('host.more.laboratoryEnabled')} value={settings.laboratoryEnabled} onValueChange={handleLaboratory}
+          description={t('host.more.laboratoryEnabledHint')} separated />
       </SettingsGroup>
 
       {settings.developerMode && <SettingsGroup title={t('host.more.sectionDeveloper')}>

@@ -49,8 +49,8 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     titleKey: 'host.proof.laboratory.giwa.title',
     descriptionKey: 'host.proof.laboratory.giwa.description',
     providerKey: 'host.proof.laboratory.giwa.provider',
+    badgeKey: 'host.proof.laboratory.beta',
     groupKey: 'host.proof.laboratory.giwa.sectionTitle',
-    badgeKey: 'host.proof.laboratory.poc',
     open: navigation => navigation.navigate('ActionInput', {circuit: 'giwa_attestation'}),
   },
   dojang_playground: {
@@ -58,6 +58,7 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     titleKey: 'host.proof.laboratory.dojangPlayground.title',
     descriptionKey: 'host.proof.laboratory.dojangPlayground.description',
     providerKey: 'host.proof.laboratory.dojangPlayground.provider',
+    badgeKey: 'host.proof.laboratory.beta',
     groupKey: 'host.proof.laboratory.giwa.sectionTitle',
     open: navigation => navigation.navigate('ActionInput', {circuit: 'dojang_playground'}),
   },
@@ -66,6 +67,7 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     titleKey: 'host.proof.laboratory.ownership.title',
     descriptionKey: 'host.proof.laboratory.ownership.description',
     providerKey: 'host.proof.laboratory.ownership.provider',
+    badgeKey: 'host.proof.laboratory.beta',
     groupKey: 'host.proof.laboratory.mobileId',
     open: navigation => navigation.navigate('MdlKrInput', {variant: 'ownership'}),
   },
@@ -74,6 +76,7 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     titleKey: 'host.proof.laboratory.age.title',
     descriptionKey: 'host.proof.laboratory.age.description',
     providerKey: 'host.proof.laboratory.age.provider',
+    badgeKey: 'host.proof.laboratory.beta',
     groupKey: 'host.proof.laboratory.mobileId',
     open: navigation => navigation.navigate('MdlKrInput', {variant: 'age'}),
   },
@@ -82,6 +85,7 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     titleKey: 'host.proof.laboratory.region.title',
     descriptionKey: 'host.proof.laboratory.region.description',
     providerKey: 'host.proof.laboratory.region.provider',
+    badgeKey: 'host.proof.laboratory.beta',
     groupKey: 'host.proof.laboratory.mobileId',
     open: navigation => navigation.navigate('MdlKrInput', {variant: 'region'}),
   },
@@ -115,4 +119,18 @@ export function filterProofCatalog(
       return terms.every(term => words.includes(term));
     })
     .map(([id, entry]) => ({id, ...entry}));
+}
+
+/**
+ * Whether a circuit lives in the Laboratory, answered by this catalog and
+ * nowhere else -- the Proof tab, the startup download, the wallet rows and the
+ * deep-link gate all ask here, so they cannot disagree about which proofs the
+ * Laboratory switch covers. An id the catalog does not hold is an error, never
+ * "not a lab proof": `hasOwnProperty`, so `__proto__` is not a circuit either.
+ */
+export function isLaboratoryCircuit(id: string): boolean {
+  if (!Object.prototype.hasOwnProperty.call(CATALOG, id)) {
+    throw new Error(`Unknown circuit '${id}' in the proof catalog. Known: ${Object.keys(CATALOG).join(', ')}.`);
+  }
+  return CATALOG[id as CircuitName].surface === 'laboratory';
 }

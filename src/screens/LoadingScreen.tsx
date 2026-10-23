@@ -12,11 +12,17 @@ import {getEnvironment, initDeployments} from '../config';
 import {MAIN_BRANCH_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
 import {useThemeColors} from '../context';
 import {BRAND_SYMBOL, WORDMARK_ASPECT, wordmarkFor} from '../constants/brand';
+import {settingsStore} from '../stores/settingsStore';
+import {circuitsToPrefetch} from '../utils/laboratory';
 
 /*
- * What the app warms up at launch: every circuit, for everyone, kept in the two
- * lists the SDK's split gives — `supported` circuits, which ship in the release
- * tag, and the experimental and planned ones, which live only on `main`.
+ * What the app warms up at launch: every circuit, kept in the two lists the
+ * SDK's split gives — `supported` circuits, which ship in the release tag, and
+ * the experimental and planned ones, which live only on `main` — minus the
+ * Laboratory's while More > Laboratory is off (`circuitsToPrefetch`). Those
+ * are skipped because nothing depends on the prefetch: every lab proof hook
+ * runs `downloadCircuitFiles` itself before proving, which also replaces a
+ * stale cached copy, and turning the switch on starts a background download.
  *
  * The second list used to be fetched only under Developer Mode, because a
  * circuit absent from the production release tag 404s when prefetched and
@@ -88,10 +94,18 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       console.warn('Deployment sync failed, using fallback addresses:', deployError);
     }
 
-    // Every circuit, for everyone: the Laboratory is open without Developer
-    // Mode, and main-branch circuits are fetched from `main`, never a release
-    // tag, so none of them can 404 here.
-    const circuits = [...BASE_CIRCUITS, ...MAIN_BRANCH_CIRCUITS];
+    // Main-branch circuits are fetched from `main`, never a release tag, so
+    // none of them can 404 here. When the settings cannot be read the person's
+    // choice is unknown, and only bandwidth rides on it, so everything is
+    // fetched as before the switch existed.
+    let laboratoryEnabled: boolean;
+    try {
+      laboratoryEnabled = (await settingsStore.get()).laboratoryEnabled;
+    } catch (settingsError) {
+      console.warn('Settings unreadable at launch; prefetching the Laboratory circuits too:', settingsError);
+      laboratoryEnabled = true;
+    }
+    const circuits = circuitsToPrefetch([...BASE_CIRCUITS, ...MAIN_BRANCH_CIRCUITS], laboratoryEnabled);
 
     // Start all circuit downloads in parallel
     const downloadPromise = Promise.allSettled(

@@ -104,6 +104,8 @@ import {resetRelayAnswersForTests} from '../utils/relayAnswer';
 import {clearActiveProofRequest, getActiveProofRequest} from '../stores/activeProofRequestStore';
 import {showReturnNotice, resetReturnNoticeHandler} from '../utils/returnNoticeBridge';
 
+const SETTINGS_KEY = '@zkproofport:settings:app';
+
 function request(circuit = 'giwa_attestation', requestId = 'request-1'): ProofRequest {
   const value = {
     requestId, circuit, origin: 'scan', createdAt: Date.now(),
@@ -132,6 +134,9 @@ beforeEach(async () => {
   mockNavigationState = {index: 0, routes: [{name: 'ProofTab', state: {index: 0, routes: [{name: 'CircuitSelection'}]}}]};
   mockValidateRelay.mockResolvedValue({valid: true});
   mockStorage.clear();
+  // Most cases here use Laboratory circuits (GIWA, Korea Mobile ID), which a
+  // fresh install refuses; the switch itself is covered at the end of the file.
+  mockStorage.set(SETTINGS_KEY, JSON.stringify({laboratoryEnabled: true}));
   resetRelayAnswersForTests();
   mockSend.mockResolvedValue({kind: 'delivered', status: 200});
   mockReturn.mockResolvedValue(undefined);
@@ -634,5 +639,130 @@ describe('requests dropped before approval are answered', () => {
     await act(async () => {tree = create(React.createElement(App));});
     await act(async () => {await new Promise(resolve => setImmediate(resolve));});
     expect(sent()).toEqual([expect.objectContaining({requestId: 'killed', status: 'cancelled'})]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// More > Laboratory. A dApp request for a Laboratory proof while the switch is
+// off is neither opened nor dropped: the person gets E1008 and the dApp hears
+// E1008. Removing the gate from App.tsx turns the first cases red.
+// ---------------------------------------------------------------------------
+describe('a Laboratory request while the switch is off', () => {
+  const LAB = ['giwa_attestation', 'dojang_playground', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'];
+  function sent() {
+    return mockSend.mock.calls.map(call => call[0] as Record<string, unknown>);
+  }
+  function labOff(value: unknown = false) {
+    mockStorage.set(SETTINGS_KEY, JSON.stringify({laboratoryEnabled: value}));
+  }
+
+  it.each(LAB)('%s shows E1008, answers E1008 once, and opens no review', async circuit => {
+    labOff();
+    await ready();
+    await receive(request(circuit, `off-${circuit}`));
+    expect(mockError).toHaveBeenCalledWith('E1008', expect.stringContaining(`'${circuit}' is a Laboratory proof`));
+    expect(mockModal.visible).toBe(false);
+    expect(mockModal.request).toBeNull();
+    await act(async () => {await new Promise(resolve => setImmediate(resolve));});
+    expect(sent()).toEqual([expect.objectContaining({requestId: `off-${circuit}`, status: 'error', errorCode: 'E1008'})]);
+    // Answered, so nothing is left for the next launch to answer again.
+    expect(JSON.parse(mockStorage.get('@zkproofport:relay:openRequests') ?? '[]')).toEqual([]);
+  });
+
+  it.each(LAB)('%s opens for review as before when the switch is on', async circuit => {
+    await ready();
+    const value = request(circuit, `on-${circuit}`);
+    await receive(value);
+    expect(mockError).not.toHaveBeenCalled();
+    expect(mockModal.visible).toBe(true);
+    expect(mockModal.request).toBe(value);
+  });
+
+  it('refuses a fresh install, where the switch was never saved', async () => {
+    mockStorage.delete(SETTINGS_KEY);
+    await ready();
+    await receive(request('mdl_kr_age', 'fresh'));
+    expect(mockError).toHaveBeenCalledWith('E1008', expect.any(String));
+    expect(mockModal.visible).toBe(false);
+  });
+
+  it.each(['true', 1, null])('refuses when the stored switch is the corrupt value %j', async value => {
+    labOff(value);
+    await ready();
+    await receive(request('giwa_attestation', 'corrupt'));
+    expect(mockError).toHaveBeenCalledWith('E1008', expect.any(String));
+    expect(mockModal.visible).toBe(false);
+  });
+
+  it.each(['oidc_domain_attestation', 'coinbase_attestation'])('%s is unaffected by the switch being off', async circuit => {
+    labOff();
+    await ready();
+    const value = request(circuit, `home-${circuit}`);
+    await receive(value);
+    expect(mockError).not.toHaveBeenCalled();
+    expect(mockModal.visible).toBe(true);
+    expect(mockModal.request).toBe(value);
+  });
+
+  it('an unknown circuit is still refused as invalid (E1002), before the switch is asked', async () => {
+    labOff();
+    await ready();
+    await receive(request('not_a_circuit', 'unknown'));
+    expect(mockError).toHaveBeenCalledWith('E1002', expect.stringContaining('Invalid circuit type: not_a_circuit'));
+    expect(mockError).not.toHaveBeenCalledWith('E1008', expect.anything());
+    expect(mockValidateRelay).not.toHaveBeenCalled();
+  });
+
+  it('an unregistered lab request is reported as unregistered (E1006), not as the switch', async () => {
+    labOff();
+    await ready();
+    mockValidateRelay.mockResolvedValueOnce({valid: false, error: 'requestId not found'});
+    await receive(request('giwa_attestation', 'forged'));
+    expect(mockError).toHaveBeenCalledWith('E1006', 'requestId not found');
+    expect(mockError).not.toHaveBeenCalledWith('E1008', expect.anything());
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'forged', errorCode: 'E1006'})]);
+  });
+
+  it('keeps a waiting review when a refused lab request arrives after it', async () => {
+    labOff();
+    await ready();
+    const waiting = request('coinbase_attestation', 'waiting');
+    await receive(waiting);
+    await receive(request('mdl_kr_region', 'refused'));
+    expect(mockModal.visible).toBe(true);
+    expect(mockModal.request).toBe(waiting);
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'refused', errorCode: 'E1008'})]);
+  });
+
+  it('a refused lab request arriving twice during its check is checked and answered once', async () => {
+    labOff();
+    await ready();
+    const same = request('giwa_attestation', 'twice');
+    const finish = await receiveAwaitingRelay(same);
+    await receive({...same});
+    await finish();
+    expect(mockValidateRelay).toHaveBeenCalledTimes(1);
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'twice', errorCode: 'E1008'})]);
+  });
+
+  it('turning the switch on lets the next request through without a restart', async () => {
+    labOff();
+    await ready();
+    await receive(request('mdl_kr_age', 'before'));
+    expect(mockModal.visible).toBe(false);
+    mockStorage.set(SETTINGS_KEY, JSON.stringify({laboratoryEnabled: true}));
+    const after = request('mdl_kr_age', 'after');
+    await receive(after);
+    expect(mockModal.visible).toBe(true);
+    expect(mockModal.request).toBe(after);
+  });
+
+  it('refuses a lab request with E5002 when the settings cannot be read', async () => {
+    mockStorage.set(SETTINGS_KEY, '{broken');
+    await ready();
+    await receive(request('dojang_playground', 'unreadable'));
+    expect(mockError).toHaveBeenCalledWith('E5002', expect.stringContaining('Could not read the Laboratory setting'));
+    expect(mockModal.visible).toBe(false);
+    expect(sent()).toEqual([expect.objectContaining({requestId: 'unreadable', errorCode: 'E5002'})]);
   });
 });

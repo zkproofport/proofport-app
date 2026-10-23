@@ -98,3 +98,67 @@ describe('a saved default network the app no longer has', () => {
     expect(JSON.parse(mockDisk.get(KEY)!)).toMatchObject({defaultNetwork: 'base', theme: 'light'});
   });
 });
+
+describe('the Laboratory switch', () => {
+  beforeEach(() => jest.spyOn(console, 'log').mockImplementation(() => {}));
+  afterEach(() => (console.log as jest.Mock).mockRestore());
+
+  it('is off on a fresh install', async () => {
+    expect((await settingsStore.get()).laboratoryEnabled).toBe(false);
+  });
+
+  it('is off for settings saved before the key existed, keeping everything else', async () => {
+    mockDisk.set(KEY, JSON.stringify({theme: 'light', developerMode: true, autoSaveProofs: false}));
+    expect(await settingsStore.get()).toMatchObject({laboratoryEnabled: false, theme: 'light', developerMode: true, autoSaveProofs: false});
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('keeps a saved true', async () => {
+    mockDisk.set(KEY, JSON.stringify({laboratoryEnabled: true}));
+    expect((await settingsStore.get()).laboratoryEnabled).toBe(true);
+  });
+
+  it.each(['true', 'false', 1, 0, null, {}, [], ''])('reads the corrupt value %p as off, without writing', async value => {
+    mockDisk.set(KEY, JSON.stringify({laboratoryEnabled: value, theme: 'light'}));
+    const settings = await settingsStore.get();
+    expect(settings.laboratoryEnabled).toBe(false);
+    expect(settings.theme).toBe('light');
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('repairs a corrupt value on the next real update', async () => {
+    mockDisk.set(KEY, JSON.stringify({laboratoryEnabled: 'true'}));
+    await settingsStore.update({theme: 'light'});
+    expect(JSON.parse(mockDisk.get(KEY)!)).toMatchObject({laboratoryEnabled: false, theme: 'light'});
+  });
+
+  it('turns on, off and on again', async () => {
+    for (const value of [true, false, true]) {
+      await settingsStore.update({laboratoryEnabled: value});
+      expect((await settingsStore.get()).laboratoryEnabled).toBe(value);
+    }
+  });
+
+  it('keeps the switch and another choice made while the first read is slow', async () => {
+    const read = deferred<string | null>();
+    jest.mocked(AsyncStorage.getItem).mockImplementationOnce(() => read.promise);
+    const first = settingsStore.update({laboratoryEnabled: true});
+    const second = settingsStore.update({autoSaveProofs: false});
+    const third = settingsStore.update({theme: 'light'});
+    await Promise.resolve();
+    read.resolve(JSON.stringify({developerMode: true}));
+    await Promise.all([first, second, third]);
+    expect(await settingsStore.get()).toMatchObject({laboratoryEnabled: true, autoSaveProofs: false, theme: 'light', developerMode: true});
+  });
+
+  it('the last of rapid on/off flips wins, in the order they were made', async () => {
+    await Promise.all([true, false, true, false].map(value => settingsStore.update({laboratoryEnabled: value})));
+    expect((await settingsStore.get()).laboratoryEnabled).toBe(false);
+  });
+
+  it('reset turns it off', async () => {
+    await settingsStore.update({laboratoryEnabled: true});
+    expect((await settingsStore.reset()).laboratoryEnabled).toBe(false);
+    expect((await settingsStore.get()).laboratoryEnabled).toBe(false);
+  });
+});

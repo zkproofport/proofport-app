@@ -8,6 +8,8 @@ let mockColors = darkColors;
 let mockMode = 'dark';
 const mockNavigate = jest.fn();
 const mockUpdateSettings = jest.fn();
+// What useSettings hands the screen; null is "not loaded yet / unreadable".
+let mockSettings: Record<string, unknown> | null = null;
 
 jest.mock('react-native', () => ({
   SafeAreaView: 'SafeAreaView', ScrollView: 'ScrollView', Text: 'Text',
@@ -32,7 +34,7 @@ jest.mock('react-i18next', () => ({
 }));
 // Make an accidental network-preference write observable during interaction.
 jest.mock('../../hooks', () => ({
-  useSettings: () => ({settings: {developerMode: false, defaultNetwork: 'giwa'}, loading: false, updateSettings: mockUpdateSettings}),
+  useSettings: () => ({settings: mockSettings, loading: false, updateSettings: mockUpdateSettings}),
 }));
 
 import {CircuitSelectionScreen} from '../proof/CircuitSelectionScreen';
@@ -55,6 +57,7 @@ beforeEach(() => {
   mockMode = 'dark';
   mockNavigate.mockClear();
   mockUpdateSettings.mockClear();
+  mockSettings = {developerMode: false, defaultNetwork: 'giwa', laboratoryEnabled: true};
 });
 afterEach(() => {
   if (screen) act(() => screen.unmount());
@@ -203,6 +206,68 @@ describe('the active laboratory', () => {
     ]);
     expect(mockUpdateSettings).not.toHaveBeenCalled();
     expect(JSON.stringify(screen.toJSON())).not.toContain('host.proof.');
+  });
+});
+
+describe('the Laboratory switch on the Proof tab', () => {
+  function hasLaboratoryEntry() {
+    return screen.root.findAll(n => typeof n.type === 'string' && n.props.testID === 'proof-laboratory').length > 0;
+  }
+
+  it.each([
+    ['off', {developerMode: false, laboratoryEnabled: false}],
+    ['missing from old settings', {developerMode: false}],
+    ['not loaded yet or unreadable', null],
+    ['the string "true"', {laboratoryEnabled: 'true'}],
+    ['on only under Developer Mode', {developerMode: true, laboratoryEnabled: false}],
+  ])('hides the Laboratory entry when the switch is %s', (_label, settings) => {
+    mockSettings = settings as Record<string, unknown> | null;
+    renderHome();
+    expect(hasLaboratoryEntry()).toBe(false);
+    expect(visibleProofs()).toEqual(['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation']);
+  });
+
+  it('shows the entry as soon as the settings say on, with no restart', () => {
+    mockSettings = {laboratoryEnabled: false};
+    renderHome();
+    expect(hasLaboratoryEntry()).toBe(false);
+    // useSettings re-reads on focus; a fresh value re-renders the same screen.
+    mockSettings = {laboratoryEnabled: true};
+    act(() => screen.update(React.createElement(CircuitSelectionScreen)));
+    expect(hasLaboratoryEntry()).toBe(true);
+    press('proof-laboratory');
+    expect(mockNavigate).toHaveBeenCalledWith('Laboratory');
+    mockSettings = {laboratoryEnabled: false};
+    act(() => screen.update(React.createElement(CircuitSelectionScreen)));
+    expect(hasLaboratoryEntry()).toBe(false);
+  });
+
+  it('no search can surface a lab proof on the home list while off', () => {
+    mockSettings = {laboratoryEnabled: false};
+    renderHome();
+    for (const query of ['GIWA', '기와', 'Dojang', 'mobile', '신분증', 'age']) {
+      search(query);
+      expect(visibleProofs().filter(id => /giwa|dojang|mdl/.test(id))).toEqual([]);
+    }
+  });
+
+  it.each(['en', 'ko'] as const)('lists nothing in an open Laboratory once it is turned off, and says where the switch is (%s)', locale => {
+    mockLocale = locale;
+    mockSettings = {laboratoryEnabled: false};
+    const {LaboratoryScreen} = require('../proof/LaboratoryScreen');
+    act(() => {screen = create(React.createElement(LaboratoryScreen));});
+    expect(visibleProofs()).toEqual([]);
+    const dictionary = require(`../../i18n/locales/${locale}.json`);
+    const notice = node('laboratory-turned-off');
+    expect(notice.children.join('')).toBe(dictionary.host.proof.laboratory.turnedOff);
+  });
+
+  it('lists nothing and claims nothing while the settings have not loaded', () => {
+    mockSettings = null;
+    const {LaboratoryScreen} = require('../proof/LaboratoryScreen');
+    act(() => {screen = create(React.createElement(LaboratoryScreen));});
+    expect(visibleProofs()).toEqual([]);
+    expect(screen.root.findAll(n => n.props.testID === 'laboratory-turned-off')).toHaveLength(0);
   });
 });
 

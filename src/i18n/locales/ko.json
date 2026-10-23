@@ -41,6 +41,8 @@
       "networkOmniOne": "OmniOne 체인 테스트넷",
       "autoSaveProofs": "증명 이력 남기기",
       "confirmBeforeGenerate": "생성 전 확인",
+      "laboratoryEnabled": "실험실",
+      "laboratoryEnabledHint": "증명 탭에 GIWA, Dojang, 한국 모바일 신분증 증명을 보여 줍니다.",
       "showLiveLogs": "라이브 로그 표시",
       "useOmniOneCxUi": "OmniOne CX UI 사용",
       "exportProofHistory": "증명 기록 내보내기",
@@ -242,7 +244,6 @@
       "circuitSelection": {
         "title": "증명",
         "sectionLabel": "증명 유형 선택",
-        "experimentalBadge": "Experimental",
         "network": {
           "label": "네트워크",
           "base": "Base",
@@ -259,10 +260,6 @@
         "oidcDomain": {
           "title": "OIDC 도메인",
           "description": "이메일 도메인 소속을 증명해요"
-        },
-        "giwaKyc": {
-          "title": "기와 KYC",
-          "description": "PoC — 기와 Sepolia에 발급된 KYC attestation을 증명해요"
         },
         "mdlKr": {
           "title": "한국 모바일 신분증",
@@ -366,13 +363,13 @@
         "oidcTitle": "OIDC 도메인 인증",
         "coinbaseCountryTitle": "Coinbase 국가 인증",
         "coinbaseKycTitle": "Coinbase KYC 인증",
-        "giwaKycTitle": "기와 KYC 인증 (Experimental)",
-        "giwaKycDescription": "PoC — 기와 Sepolia에 발급된 KYC attestation을 영지식 증명으로 생성합니다. 지갑 탭에서 기와 테스트넷 지갑 주소를 핀해 두세요.",
-        "mdlKrOwnershipTitle": "한국 모바일 신분증 — 소유권 (Experimental)",
+        "giwaKycTitle": "기와 KYC 인증",
+        "giwaKycDescription": "기와 Sepolia에 발급된 KYC attestation을 영지식 증명으로 생성합니다. 지갑 탭에서 기와 테스트넷 지갑 주소를 핀해 두세요.",
+        "mdlKrOwnershipTitle": "한국 모바일 신분증 — 소유권",
         "mdlKrOwnershipDescription": "OmniOne CX로 한국 모바일 운전면허증의 본인 소유권을 증명해요. 이름·생년월일·성별·전화번호를 묶음 commitment 하나로 만들어, 개별 항목은 on-chain에 노출되지 않습니다.",
-        "mdlKrAgeTitle": "한국 모바일 신분증 — 나이 (Experimental)",
+        "mdlKrAgeTitle": "한국 모바일 신분증 — 나이",
         "mdlKrAgeDescription": "한국 모바일 신분증으로 만 19세 이상임을 증명해요. 완전 익명 — 어떤 개인 정보도 commitment에 포함되지 않습니다.",
-        "mdlKrRegionTitle": "한국 모바일 신분증 — 지역 (Experimental)",
+        "mdlKrRegionTitle": "한국 모바일 신분증 — 지역",
         "mdlKrRegionDescription": "한국 모바일 신분증으로 거주 지역(예: 경기도)을 증명해요. 완전 익명 — 어떤 개인 정보도 commitment에 포함되지 않습니다.",
         "oidcDescription": "OIDC 신원 토큰을 사용해 이메일 도메인의 영지식 증명을 생성해요. 증명은 기기에서 로컬로 생성됩니다.",
         "coinbaseCountryDescription": "개인 정보를 공개하지 않고 Coinbase를 통해 국가 인증의 영지식 증명을 생성해요.",
@@ -388,7 +385,7 @@
         "confirmCancel": "취소",
         "confirmGenerate": "생성",
         "stackTitle": "증명 생성",
-        "dojangPlaygroundTitle": "Dojang Playground 증명 (Experimental)",
+        "dojangPlaygroundTitle": "Dojang Playground 증명",
         "dojangPlaygroundDescription": "GIWA Playground에서 이 지갑으로 직접 발급한 Dojang을 GIWA Sepolia 영지식 증명으로 생성해요. 발급에 사용한 지갑을 연결해 주세요."
       },
       "domain": {
@@ -515,13 +512,13 @@
           "provider": "Coinbase"
         },
         "laboratoryTitle": "실험실",
-        "laboratoryDescription": "테스트 증명 둘러보기",
-        "laboratoryBadge": "테스트"
+        "laboratoryDescription": "베타 증명 둘러보기",
+        "laboratoryBadge": "베타"
       },
       "laboratory": {
         "title": "실험실",
         "description": "실제 자격 인증과 구분되는 테스트 기능입니다.",
-        "experimental": "실험적 기능",
+        "turnedOff": "실험실이 꺼져 있습니다. 더보기에서 켜면 이 증명들을 쓸 수 있습니다.",
         "networks": "네트워크 증명",
         "mobileId": "한국 모바일 신분증",
         "giwa": {
@@ -546,7 +543,7 @@
           "provider": "한국 모바일 신분증"
         },
         "heroTitle": "테스트용 증명을 살펴보세요",
-        "poc": "PoC",
+        "beta": "베타",
         "dojangPlayground": {
           "title": "Dojang Playground",
           "description": "GIWA Playground에서 직접 발급한 Dojang을 증명해요",
@@ -714,6 +711,10 @@
       "E1007": {
         "title": "이미 응답한 요청입니다",
         "description": "이 증명 요청에는 이미 응답했습니다. 증명을 요청한 앱에서 새로 요청해 주세요."
+      },
+      "E1008": {
+        "title": "실험실이 꺼져 있습니다",
+        "description": "이 요청은 실험실 증명을 요청합니다. 더보기에서 실험실을 켠 뒤, 증명을 요청한 앱에서 다시 요청해 주세요."
       },
       "E2001": {
         "title": "증명을 만들지 못했습니다",

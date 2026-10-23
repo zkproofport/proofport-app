@@ -32,7 +32,7 @@ jest.mock('../../context', () => ({
 }));
 jest.mock('../../hooks', () => ({
   useSettings: () => ({
-    settings: {developerMode: true, defaultNetwork: 'giwa'}, loading: false,
+    settings: {developerMode: true, defaultNetwork: 'giwa', laboratoryEnabled: true}, loading: false,
     updateSettings: jest.fn().mockResolvedValue(undefined),
   }),
 }));
@@ -45,7 +45,8 @@ jest.mock('../../utils', () => ({
   ...jest.requireActual('../../utils/signedAction'),
   ...jest.requireActual('../../utils/walletChain'),
   getCircuitIcon: () => 'shield',
-  allCircuitFilesExist: async () => true,
+  // The hook runs it before every proof; nothing to fetch in this test.
+  downloadCircuitFiles: async () => ({circuitPath: '', srsPath: '', vkPath: ''}),
   loadVkFromAssets: async () => new ArrayBuffer(0),
 }));
 // Native proving and chain lookup are outside this UI/signing boundary test.

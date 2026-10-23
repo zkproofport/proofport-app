@@ -24,13 +24,15 @@
  * binding happens at connect time, NOT at proof-success time.
  */
 import {useTranslation} from 'react-i18next';
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {ProofUiIcon} from '../../components/ProofUiIcon';
 import {useProofUiColors} from '../../theme/proofUi';
 import type {TFunction} from 'i18next';
 import {useError} from '../../context';
 import {useWallet} from '../../hooks/useWallet';
+import {useSettings} from '../../hooks/useSettings';
+import {isLaboratoryCircuit} from '../proof/proofCatalog';
 import {getCircuitDisplayName} from '../../utils/circuit';
 import {
   CIRCUIT_WALLET_TTL_MS,
@@ -108,9 +110,19 @@ export const CircuitWalletsCard: React.FC = () => {
   const {t} = useTranslation();
   const {account, connect, disconnect} = useWallet();
   const {showError} = useError();
-  // Every circuit that binds a wallet gets its row: the Laboratory offers its
-  // proofs to everyone, so their wallets are managed here for everyone too.
-  const visibleCircuits = WALLET_BINDING_ROWS;
+  // Every circuit that binds a wallet gets its row, except a row whose every
+  // circuit is a Laboratory proof while the Laboratory is off (GIWA, Dojang
+  // Playground): those proofs cannot be started, so the row would manage a
+  // wallet nothing can use. Hiding a row leaves its binding stored; it comes
+  // back as it was when the switch is turned on again.
+  const {settings} = useSettings();
+  const laboratoryEnabled = settings?.laboratoryEnabled === true;
+  const visibleCircuits = useMemo(
+    () => WALLET_BINDING_ROWS.filter(
+      row => laboratoryEnabled || !circuitsInWalletGroup(row).every(isLaboratoryCircuit),
+    ),
+    [laboratoryEnabled],
+  );
   const [entries, setEntries] = useState<Record<string, Entry | null>>({});
   // Seed from the module-level latch so a remounted instance after
   // disconnect/picker→reconnect can still commit the pending binding.
