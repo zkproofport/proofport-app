@@ -16,6 +16,7 @@
 		8A3574CEE39A144ED88230D5 /* TakKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321594E24A6233143B679924 /* TakKeychain.swift */; };
 		912FFC340E526142BE59CC2C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A8D8B6D6FBD4B09F360BE42B /* Foundation.framework */; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* AppEnvModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* AppEnvModule.m */; };
+		C2D3E4F5A6B7C8D9E0F1A2B4 /* AppAttestModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C2D3E4F5A6B7C8D9E0F1A2B3 /* AppAttestModule.m */; };
 		B4520EFD8F92C2025F44D46B /* ChatMediaEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A529CE78FD5DADCE5E8738 /* ChatMediaEnvelope.swift */; };
 		B558A5FCED2BE62F00587196 /* OpenStoaNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1698125A04E207FDDE5F36F4 /* OpenStoaNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BAA2811CD5B08E4604D083CE /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E3BEDCD2ECEFC3271EB1A4 /* NotificationService.swift */; };
@@ -63,6 +64,7 @@
 		850BEB51C962E81FA155989A /* PushPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushPayload.swift; sourceTree = "<group>"; };
 		9773765DAB1913961F2176D3 /* ArchiveDecryptor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchiveDecryptor.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* AppEnvModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppEnvModule.m; path = ProofportApp/AppEnvModule.m; sourceTree = "<group>"; };
+		C2D3E4F5A6B7C8D9E0F1A2B3 /* AppAttestModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppAttestModule.m; path = ProofportApp/AppAttestModule.m; sourceTree = "<group>"; };
 		A78377E712470CA3BBF55EA4 /* OpenStoaNSE.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = OpenStoaNSE.entitlements; sourceTree = "<group>"; };
 		A8D8B6D6FBD4B09F360BE42B /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -97,6 +99,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AppEnvModule.m */,
+				C2D3E4F5A6B7C8D9E0F1A2B3 /* AppAttestModule.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -403,6 +406,7 @@
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AppEnvModule.m in Sources */,
+				C2D3E4F5A6B7C8D9E0F1A2B4 /* AppAttestModule.m in Sources */,
 				6319A64F98E2F6BD86C5F3E8 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

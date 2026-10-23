@@ -45,6 +45,8 @@
       "laboratoryEnabledHint": "증명 탭에 GIWA, Dojang, 한국 모바일 신분증 증명을 보여 줍니다.",
       "showLiveLogs": "라이브 로그 표시",
       "useOmniOneCxUi": "OmniOne CX UI 사용",
+      "coinbaseAppAttestPrototype": "Coinbase KYC: App Attest 프로토타입",
+      "coinbaseAppAttestPrototypeHint": "Apple App Attest로 인증 취소 여부를 묶는 프로토타입 회로로 증명합니다 (iOS, 앱 안 증명만, 오프체인 검증만).",
       "exportProofHistory": "증명 기록 내보내기",
       "clearLocalData": "증명 기록 삭제",
       "exportTitle": "증명 기록 내보내기",
@@ -748,6 +750,22 @@
         "title": "로그인하지 못했습니다",
         "description": "계정 로그인이 완료되지 않아 증명을 생성하지 않았습니다."
       },
+      "E2009": {
+        "title": "App Attest를 사용할 수 없습니다",
+        "description": "이 증명에 필요한 Apple App Attest를 이 기기에서 사용할 수 없습니다. 시뮬레이터에서는 항상 사용할 수 없습니다. 최신 iPhone에서 시도해 주세요."
+      },
+      "E2010": {
+        "title": "Android에서는 아직 지원하지 않습니다",
+        "description": "이 증명은 Apple App Attest로 확인하므로 아직 Android에서는 만들 수 없습니다. 증명을 생성하지 않았습니다."
+      },
+      "E2011": {
+        "title": "Coinbase 인증이 취소되었습니다",
+        "description": "Coinbase가 이 지갑의 인증을 취소해 증명을 생성하지 않았습니다. Coinbase에서 다시 인증한 뒤 시도해 주세요."
+      },
+      "E2012": {
+        "title": "App Attest 확인에 실패했습니다",
+        "description": "이 기기의 App Attest 데이터를 증명에 사용할 수 없었습니다. 증명을 생성하지 않았습니다."
+      },
       "E3001": {
         "title": "네트워크 오류",
         "description": "서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요."
@@ -827,6 +845,10 @@
       "E3005": {
         "title": "증명 파일을 받지 못했습니다",
         "description": "증명에 필요한 파일을 내려받지 못했습니다. 네트워크가 돌아오면 앱을 다시 열어 주세요."
+      },
+      "E3006": {
+        "title": "Apple 서비스에 연결하지 못했습니다",
+        "description": "이 기기를 확인하기 위한 Apple App Attest 서비스에 연결하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요."
       },
       "E4004": {
         "title": "연결 해제에 실패했습니다",

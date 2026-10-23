@@ -24,14 +24,23 @@ import {
   allCircuitFilesExist,
 } from '../utils';
 import {getEnvironment, type CircuitName} from '../config';
+import {COINBASE_APP_ATTEST_POC} from '../config/prototypeCircuits';
+import type {TypedAction} from '../config/circuitIds';
+import {signedDigestOf} from '../utils/signedAction';
+import {computeScope} from '../utils/circuitHelpers';
+import {coinbaseSignalHash} from '../utils/coinbaseSignal';
+import {
+  flattenCoinbaseAppAttestInputs,
+  prepareCoinbaseAppAttestInputs,
+} from '../utils/coinbaseAppAttestInputs';
+import {checkStatementAge, type AppAttestWitness} from '../appAttest/revocationStatement';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
-// Circuit file names
-// CRITICAL: CIRCUIT_NAME is used in deterministic signal_hash generation for nullifier computation.
-// Changing this value will produce different nullifiers for the same wallet+scope,
-// breaking on-chain duplicate detection in ZKProofportNullifierRegistry.
-// DO NOT modify this value without coordinating with the contract and relay teams.
+// The circuit this hook proves. The same id is hashed into the deterministic
+// signal_hash (`coinbaseSignalHash` in utils/coinbaseKyc.ts), which the shipped
+// circuit's nullifier is derived from: changing it changes every nullifier and
+// breaks duplicate detection in ZKProofportNullifierRegistry.
 const CIRCUIT_NAME = 'coinbase_attestation';
 
 /**
@@ -57,6 +66,13 @@ function circuitFor(requested: string): string {
  * the proof rather than the mismatch.
  */
 let _cachedCircuitName: string = 'coinbase_attestation';
+/**
+ * True when the cached proof is the App Attest prototype's, which has no
+ * verifier contract: on-chain verification is refused for it by name rather
+ * than sent to coinbase_attestation's contract, where it would read "invalid".
+ */
+let _cachedIsPrototype = false;
+
 let _cachedVk: ArrayBuffer | null = null;
 let _cachedFullProof: ArrayBuffer | null = null;
 let _cachedParsedProof: ParsedProofData | null = null;
@@ -72,6 +88,17 @@ export interface CoinbaseKycProofInputs {
   rawTransaction: string;
   signerIndex: number;
   scopeString: string;  // dApp scope identifier (REQUIRED)
+  /**
+   * Present only when the App Attest prototype switch is on (More >
+   * Developer): prove `coinbase_app_attest_poc` with this statement instead
+   * of the shipped circuit. The screen makes the statement before the wallet
+   * is asked to sign (src/appAttest/revocationStatement.ts).
+   */
+  appAttest?: {
+    witness: AppAttestWitness;
+    /** The EIP-712 action, when one is bound (signal_hash then goes out as zeros). */
+    action?: TypedAction;
+  };
 }
 
 export interface EthereumProvider {
@@ -226,14 +253,27 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // request separately at each call site is how one of them ends up on
         // the other circuit's files and the proof fails with nothing naming
         // the cause.
-        const circuitName = circuitFor(inputs.circuit);
+        // The request names coinbase_attestation either way; the prototype
+        // switch decides which FILES prove it. Bound once, here.
+        circuitFor(inputs.circuit);
+        const prototype = inputs.appAttest;
+        const circuitName = prototype ? COINBASE_APP_ATTEST_POC.id : CIRCUIT_NAME;
         _cachedCircuitName = circuitName;
-        const filesExist = await allCircuitFilesExist(circuitName);
-        if (!filesExist) {
-          addLog('Circuit files not found, downloading...');
-          const env = getEnvironment();
-          await downloadCircuitFiles(circuitName, env, undefined, addLog);
-          addLog('Circuit files downloaded');
+        _cachedIsPrototype = Boolean(prototype);
+        if (prototype) {
+          addLog(`[AppAttest] Proving the prototype ${circuitName} (circuits ${COINBASE_APP_ATTEST_POC.ref})`);
+          checkStatementAge(prototype.witness.attestedAt, Math.floor(Date.now() / 1000));
+          // Always: downloadCircuitFiles owns the version check (the pinned
+          // commit is part of the cache key) and fetches only what is stale.
+          await downloadCircuitFiles(circuitName, getEnvironment(), undefined, addLog);
+        } else {
+          const filesExist = await allCircuitFilesExist(circuitName);
+          if (!filesExist) {
+            addLog('Circuit files not found, downloading...');
+            const env = getEnvironment();
+            await downloadCircuitFiles(circuitName, env, undefined, addLog);
+            addLog('Circuit files downloaded');
+          }
         }
 
         // Step 1: Load VK
@@ -289,11 +329,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Deterministic signal_hash = keccak256(userAddress + scopeString + circuitName)
         // This ensures the same wallet + scope + circuit always produces the same nullifier,
         // enabling on-chain duplicate detection in ZKProofportNullifierRegistry.
-        const signalPreimage = ethers.utils.solidityPack(
-          ['address', 'string', 'string'],
-          [inputs.userAddress, inputs.scopeString, CIRCUIT_NAME]
-        );
-        currentSignalHash = ethers.utils.arrayify(ethers.utils.keccak256(signalPreimage));
+        // With an action (prototype only) there is no signal hash: the
+        // circuit refuses a request that carries both.
+        const action = prototype?.action;
+        if (action) {
+          currentSignalHash = new Uint8Array(32);
+        } else {
+          currentSignalHash = coinbaseSignalHash(inputs.userAddress, inputs.scopeString);
+        }
         setSignalHash(currentSignalHash);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
 
@@ -316,7 +359,16 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         const messageHex = ethers.utils.hexlify(currentSignalHash);
         // One description of what is signed, shared by the signing request and
         // the key recovery below.
-        const signed = whatTheWalletSigns(messageHex);
+        const signed = whatTheWalletSigns(messageHex, action);
+        if (prototype) {
+          // The statement App Attest signed names the digest this request
+          // makes the wallet sign. Checked before the wallet is asked, so a
+          // mismatch never costs the person a signature.
+          const bound = ethers.utils.hexlify(prototype.witness.clientData.slice(161, 193));
+          if (bound.toLowerCase() !== signedDigestOf(signed).toLowerCase()) {
+            throw new Error(`The App Attest statement binds request ${bound}, this request signs ${signedDigestOf(signed)}`);
+          }
+        }
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
         addLog(`[Sign] Signer address: ${from}`);
@@ -329,10 +381,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
         try {
           isSigningRef.current = true;
-          // `personal_sign` takes [message, from].
+          // `personal_sign` takes [message, from]; `eth_signTypedData_v4`
+          // takes [from, payload].
           const result = await ethereum.request({
             method: signed.method,
-            params: [...signed.params, from],
+            params:
+              signed.method === 'personal_sign'
+                ? [...signed.params, from]
+                : [from, ...signed.params],
           });
 
           userSignature = result as string;
@@ -407,7 +463,20 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           // named rather than assumed.
           circuitName,
         );
-        const flatInputs = flattenCircuitInputs(circuitInputs);
+        const flatInputs = prototype
+          ? flattenCoinbaseAppAttestInputs(
+              prepareCoinbaseAppAttestInputs(
+                circuitInputs,
+                {
+                  userAddress: inputs.userAddress,
+                  scope: computeScope(inputs.scopeString),
+                  signedDigest: signedDigestOf(signed),
+                  publicHashes: signed.publicHashes,
+                },
+                prototype.witness,
+              ),
+            )
+          : flattenCircuitInputs(circuitInputs);
 
         addLog('[Inputs] Signal hash: ✓');
         addLog('[Inputs] User address: ✓');
@@ -475,6 +544,11 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
         const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
         addLog(`[Parse] Number of public inputs: ${numPublicInputs}`);
+        if (prototype && numPublicInputs !== COINBASE_APP_ATTEST_POC.publicInputCount) {
+          throw new Error(
+            `${circuitName} has ${numPublicInputs} public inputs; this app reads ${COINBASE_APP_ATTEST_POC.publicInputCount}. The downloaded circuit is not the one the app was built for.`,
+          );
+        }
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(
           currentProof!,
           numPublicInputs,
@@ -550,8 +624,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
    * Verify proof on-chain using the deployed Verifier contract
    */
   const verifyProofOnChain = useCallback(
-    (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> =>
-      verifyProofOnChainWithCore(circuit, parsedProof || _cachedParsedProof, {addLog, setStatus, setIsLoading}),
+    async (circuit: CircuitName, addLog: (msg: string) => void): Promise<boolean> => {
+      if (_cachedIsPrototype) {
+        addLog(`[OnChain] ${COINBASE_APP_ATTEST_POC.id} is a prototype with no verifier contract; on-chain verification is not available for it`);
+        setStatus('Verification unavailable');
+        return false;
+      }
+      return verifyProofOnChainWithCore(circuit, parsedProof || _cachedParsedProof, {addLog, setStatus, setIsLoading});
+    },
     [parsedProof],
   );
 
@@ -559,6 +639,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
     _cachedVk = null;
     _cachedFullProof = null;
     _cachedParsedProof = null;
+    _cachedIsPrototype = false;
     setVk(null);
     setFullProof(null);
     setParsedProof(null);

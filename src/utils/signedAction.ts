@@ -106,3 +106,15 @@ export function recoverSignerPubkey(signed: SignedThing, signature: string): str
     : ethers.utils.arrayify(signed.digest);
   return ethers.utils.recoverPublicKey(hash, signature);
 }
+
+/**
+ * The exact 32 bytes the wallet's signature is over: the EIP-191 hash of the
+ * signal for personal_sign, the EIP-712 digest for typed data. It is what the
+ * circuits' `signed_digest` rebuilds, and what the App Attest clientData
+ * carries as its request digest (offset 161).
+ */
+export function signedDigestOf(signed: SignedThing): string {
+  return signed.prefixed
+    ? ethers.utils.hashMessage(ethers.utils.arrayify(signed.digest))
+    : ethers.utils.hexlify(ethers.utils.arrayify(signed.digest));
+}

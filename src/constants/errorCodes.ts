@@ -106,6 +106,34 @@ export const ErrorCodes = {
       'Signing in to your account did not complete, so no proof was generated.',
   },
 
+  // Apple App Attest (the Coinbase KYC prototype behind More > Developer).
+  // Each cause asks the person for something different, so each has a code:
+  // src/appAttest/appAttestError.ts maps causes to these.
+  E2009: {
+    code: 'E2009',
+    title: 'App Attest Not Available',
+    description:
+      'This device cannot use Apple App Attest, which this proof requires. The simulator never can. Use a recent iPhone.',
+  },
+  E2010: {
+    code: 'E2010',
+    title: 'Not Available on Android',
+    description:
+      'This proof is checked with Apple App Attest and is not available on Android yet. Nothing was generated.',
+  },
+  E2011: {
+    code: 'E2011',
+    title: 'Coinbase Verification Revoked',
+    description:
+      'Coinbase has revoked the verification for this wallet, so no proof was generated. Verify again with Coinbase, then try again.',
+  },
+  E2012: {
+    code: 'E2012',
+    title: 'App Attest Check Failed',
+    description:
+      'The App Attest data from this device could not be used for the proof. Nothing was generated.',
+  },
+
   // Network errors
   E3001: {
     code: 'E3001',
@@ -134,6 +162,13 @@ export const ErrorCodes = {
     title: 'Circuit Files Missing',
     description:
       'The proof files could not be downloaded. Reopen the app once you are back online.',
+  },
+
+  E3006: {
+    code: 'E3006',
+    title: 'Apple Service Unreachable',
+    description:
+      "Apple's App Attest service could not be reached to certify this device. Check your connection and try again.",
   },
 
   // Wallet errors

@@ -229,11 +229,17 @@ export function computeNullifier(
  * Mirrors NULLIFIER_FROM_WALLET_AND_TAG in proofport-ai; both must match
  * coinbase-libs/src/nullifier.nr, which is the only one that decides.
  */
-const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, boolean>> = Object.freeze({
+const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, false | {tag: string}>> = Object.freeze({
   coinbase_attestation: false,
   coinbase_country_attestation: false,
-  giwa_attestation: true,
-  dojang_playground: true,
+  giwa_attestation: {tag: 'giwa_attestation'},
+  dojang_playground: {tag: 'dojang_playground'},
+  // The App Attest prototype (circuits branch coinbase-app-attest-poc) is the
+  // next coinbase_attestation, and its CIRCUIT_TAG is keccak256 of THAT id,
+  // not of the prototype's package name: its nullifiers must be the ones the
+  // shipped circuit will produce. So the tag is written out per row rather
+  // than derived from the key.
+  coinbase_app_attest_poc: {tag: 'coinbase_attestation'},
 });
 
 /** The nullifier this circuit expects, by its own rule. No default. */
@@ -243,14 +249,14 @@ export function nullifierForCircuit(
   signalHash: Uint8Array,
   scopeBytes: Uint8Array,
 ): Uint8Array {
-  const fromWallet = NULLIFIER_FROM_WALLET_AND_TAG[circuitId];
-  if (fromWallet === undefined) {
+  if (!Object.prototype.hasOwnProperty.call(NULLIFIER_FROM_WALLET_AND_TAG, circuitId)) {
     throw new Error(
       `No nullifier rule for circuit '${circuitId}'. Add it to NULLIFIER_FROM_WALLET_AND_TAG in circuitHelpers.ts.`,
     );
   }
-  return fromWallet
-    ? computeWalletNullifier(userAddress, circuitId, scopeBytes)
+  const rule = NULLIFIER_FROM_WALLET_AND_TAG[circuitId];
+  return rule
+    ? computeWalletNullifier(userAddress, rule.tag, scopeBytes)
     : computeNullifier(userAddress, signalHash, scopeBytes);
 }
 

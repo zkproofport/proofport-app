@@ -251,6 +251,19 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
      `src/utils/__tests__/fixtures/dojangPlayground.json` from the circuits repo's
      Prover.toml files and the GIWA RPC.
 
+### App Attest prototype (developer switch, iOS only)
+
+More > Developer > "Coinbase KYC: App Attest prototype" makes an in-app
+Coinbase KYC proof with `coinbase_app_attest_poc` (circuits branch
+`coinbase-app-attest-poc`, files read from the commit pinned in
+`src/config/prototypeCircuits.ts`) instead of the shipped circuit. Right before
+proving, the app looks the EAS attestation up again by uid, refuses a revoked
+one (E2011), builds the circuit's 225-byte clientData and signs it with an
+Apple App Attest assertion (`src/appAttest/`, native module
+`ios/ProofportApp/AppAttestModule.m`). dApp requests always use the shipped
+circuit; the prototype has no verifier contract and is verified off-chain only.
+Android refuses with E2010; a simulator or an unsupported device with E2009.
+
 ### Standalone action testing
 
 With Laboratory turned on in More, open Laboratory in the Verify tab and choose

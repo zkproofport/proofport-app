@@ -34,6 +34,14 @@ export interface AppSettings {
    * (src/__tests__/developerModeGatesNoCircuit.test.ts).
    */
   laboratoryEnabled: boolean;
+  /**
+   * Developer switch: prove Coinbase KYC with the App Attest prototype
+   * (src/config/prototypeCircuits.ts) instead of the shipped
+   * coinbase_attestation. In-app proofs only -- a dApp's request always gets
+   * the shipped circuit, because the prototype has no verifier contract.
+   * iOS only; on Android the attempt is refused with E2010.
+   */
+  coinbaseAppAttestPrototype: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -45,6 +53,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultNetwork: 'base',
   useOmniOneCxUi: true,
   laboratoryEnabled: false,
+  coinbaseAppAttestPrototype: false,
 };
 
 // Every partial update reads after the preceding write settles. More, theme,
@@ -87,6 +96,13 @@ export const settingsStore = {
         `[settings] saved laboratoryEnabled ${JSON.stringify(merged.laboratoryEnabled)} is not a boolean; reading it as off`,
       );
       merged.laboratoryEnabled = false;
+    }
+    // Same rule: only a real `true` switches the prototype on.
+    if (typeof merged.coinbaseAppAttestPrototype !== 'boolean') {
+      console.log(
+        `[settings] saved coinbaseAppAttestPrototype ${JSON.stringify(merged.coinbaseAppAttestPrototype)} is not a boolean; reading it as off`,
+      );
+      merged.coinbaseAppAttestPrototype = false;
     }
     return merged;
   },

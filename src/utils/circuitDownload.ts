@@ -9,6 +9,7 @@ import {resolveCircuitBaseUrl} from '../config/deployments';
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, CIRCUITS_BRANCH} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
+import {prototypeCircuit} from '../config/prototypeCircuits';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
@@ -27,8 +28,14 @@ interface CircuitVersionMetadata {
 }
 
 function getCircuitFilePaths(circuitName: string): CircuitFilePaths | null {
-  if (circuitName in CIRCUIT_FILE_PATHS) {
+  if (Object.prototype.hasOwnProperty.call(CIRCUIT_FILE_PATHS, circuitName)) {
     return CIRCUIT_FILE_PATHS[circuitName as CircuitName];
+  }
+  // A development prototype (src/config/prototypeCircuits.ts) has paths of
+  // its own and is read from its pinned commit -- see circuitBaseUrl.
+  const proto = prototypeCircuit(circuitName);
+  if (proto) {
+    return {basePath: proto.basePath, vkPath: proto.vkPath, vkFileName: proto.vkFileName};
   }
   return null;
 }
@@ -181,6 +188,10 @@ export async function circuitBaseUrl(
   circuitName: string,
   env: Environment,
 ): Promise<string> {
+  const proto = prototypeCircuit(circuitName);
+  if (proto) {
+    return GITHUB_RAW(proto.ref);
+  }
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
     return GITHUB_RAW(CIRCUITS_BRANCH);
   }
@@ -193,6 +204,8 @@ export async function circuitBaseUrl(
  * also written with the fallback, so the files would never be refreshed.
  */
 export function circuitDataVersion(circuitName: string): number {
+  const proto = prototypeCircuit(circuitName);
+  if (proto) return proto.dataVersion;
   const version = CIRCUIT_DATA_VERSIONS[circuitName as CircuitName];
   if (version === undefined) {
     throw new Error(
@@ -213,13 +226,18 @@ async function getCircuitFileUrl(
     return buildFilePath(baseUrl, circuitName, extension, configPath);
   }
 
-  const legacyConfig = LEGACY_CONFIGS[circuitName];
+  const legacyConfig = Object.prototype.hasOwnProperty.call(LEGACY_CONFIGS, circuitName)
+    ? LEGACY_CONFIGS[circuitName]
+    : undefined;
   if (legacyConfig) {
     return buildFilePath(legacyConfig.repoBase, circuitName, extension, legacyConfig);
   }
 
-  const baseUrl = await circuitBaseUrl(circuitName, env);
-  return `${baseUrl}/${circuitName}/target/${circuitName}.${extension}`;
+  // No row anywhere: an error, not a guessed `<id>/target/<id>.<ext>` path,
+  // which would download whatever happens to sit there under another name.
+  throw new Error(
+    `No file paths for circuit '${circuitName}'. Known: ${Object.keys(CIRCUIT_FILE_PATHS).join(', ')} and the prototypes in src/config/prototypeCircuits.ts.`,
+  );
 }
 
 async function downloadCircuitFileFromGitHub(
@@ -276,14 +294,23 @@ async function downloadCircuitFileFromGitHub(
     progressDivider: 5,
   });
 
+  // Cleared once the race is decided. Left running, it fired 120 s after
+  // every SUCCESSFUL download: it stopped a job that had already finished and
+  // rejected a promise nobody was listening to any more.
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    setTimeout(() => {
+    timer = setTimeout(() => {
       RNFS.stopDownload(downloadResult.jobId);
       reject(new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS / 1000}s: ${fileName}`));
     }, DOWNLOAD_TIMEOUT_MS);
   });
 
-  const result = await Promise.race([downloadResult.promise, timeoutPromise]);
+  let result: Awaited<typeof downloadResult.promise>;
+  try {
+    result = await Promise.race([downloadResult.promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (result.statusCode !== 200) {
     throw new Error(`Failed to download ${fileName}: HTTP ${result.statusCode}`);
