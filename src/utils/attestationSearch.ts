@@ -43,6 +43,7 @@ export async function searchAttestations(
         where: {
           recipient: { equals: $recipient }
           schemaId: { equals: $schemaId }
+          revoked: { equals: false }
         }
         orderBy: { time: desc }
         take: 10
@@ -52,6 +53,7 @@ export async function searchAttestations(
         attester
         recipient
         time
+        revoked
       }
     }
   `;
@@ -90,7 +92,16 @@ export async function searchAttestations(
         throw new Error(data.errors[0].message);
       }
 
-      const attestations = data.data?.attestations || [];
+      // Coinbase revokes a Verified Account by setting revocationTime on the
+      // existing EAS record; the attestAccount transaction stays on chain and
+      // still satisfies the circuit. Without this filter a revoked user's old
+      // transaction was picked and proved (2026-10-23). The query filters too;
+      // this second check holds if the indexer ever ignores the filter.
+      const returned: any[] = data.data?.attestations || [];
+      const attestations = returned.filter(a => a.revoked === false);
+      if (attestations.length !== returned.length) {
+        log(`[EAS] Dropped ${returned.length - attestations.length} revoked or unmarked attestation(s)`);
+      }
       log(`Found ${attestations.length} attestation(s)`);
       attestations.forEach((a: any, i: number) => {
         log(`[EAS] Attestation #${i + 1}: ID=${a.id}, attester=${a.attester}`);
