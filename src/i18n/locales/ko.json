@@ -761,7 +761,7 @@
         "title": "Coinbase 인증이 취소되었습니다",
         "description": "Coinbase가 이 지갑의 인증을 취소해 증명을 생성하지 않았습니다. Coinbase에서 다시 인증한 뒤 시도해 주세요."
       },
-      "E2012": {
+      "E2014": {
         "title": "App Attest 확인에 실패했습니다",
         "description": "이 기기의 App Attest 데이터를 증명에 사용할 수 없었습니다. 증명을 생성하지 않았습니다."
       },

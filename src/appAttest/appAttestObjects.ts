@@ -98,7 +98,7 @@ export interface DecodedAttestation {
 /**
  * Apple's validation steps for an attestation object, given the key id and
  * the clientDataHash the app passed to `attestKey`. Throws AppAttestError
- * (E2012) naming the first step that fails.
+ * (E2014) naming the first step that fails.
  */
 export function decodeAttestationObject(
   attestation: Uint8Array,

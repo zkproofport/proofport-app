@@ -163,7 +163,7 @@ describe('the key', () => {
   it('starts over with a new key after any other attestation failure', async () => {
     const {svc, deps} = setup();
     svc.failNext.attest = [NATIVE_CODE.unknownFailure];
-    expect(await code(ensureAttestedKey(deps()))).toBe('E2012');
+    expect(await code(ensureAttestedKey(deps()))).toBe('E2014');
     await ensureAttestedKey(deps());
     expect(svc.calls.generateKey).toBe(2);
     expect(svc.calls.attestKey[1][0]).not.toBe(svc.calls.attestKey[0][0]);
@@ -199,9 +199,9 @@ describe('the key', () => {
     expect((await ensureAttestedKey(dev.deps())).credential.production).toBe(false);
   });
 
-  it('refuses an AAGUID that is neither (e.g. "appattestsandbox") with E2012', async () => {
+  it('refuses an AAGUID that is neither (e.g. "appattestsandbox") with E2014', async () => {
     const {deps, storage} = setup({aaguid: AAGUID.sandbox});
-    expect(await code(ensureAttestedKey(deps()))).toBe('E2012');
+    expect(await code(ensureAttestedKey(deps()))).toBe('E2014');
     expect(await storage.getItem(APP_ATTEST_KEY_STORAGE)).toBeNull();
   });
 });
@@ -227,10 +227,10 @@ describe('an assertion', () => {
     expect(svc.calls.generateKey).toBe(2);
   });
 
-  it('gives up with E2012 when even a fresh key is refused', async () => {
+  it('gives up with E2014 when even a fresh key is refused', async () => {
     const {deps, svc} = setup();
     svc.failNext.assert = [NATIVE_CODE.invalidKey, NATIVE_CODE.invalidKey];
-    expect(await code(assertClientData(deps(), clientData))).toBe('E2012');
+    expect(await code(assertClientData(deps(), clientData))).toBe('E2014');
   });
 });
 

@@ -26,7 +26,7 @@ export const APP_ATTEST_ERROR_CODE = Object.freeze({
   /** The Coinbase attestation is revoked: no assertion is made. */
   revoked: 'E2011',
   /** An object Apple returned, or the chain it carries, is not what the circuit takes. */
-  malformed: 'E2012',
+  malformed: 'E2014',
   /** Apple's App Attest service could not be reached to certify the key. */
   serviceUnavailable: 'E3006',
   /** The EAS lookup did not complete. */

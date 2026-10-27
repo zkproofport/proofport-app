@@ -71,7 +71,7 @@ describe('decodeCbor', () => {
   });
 });
 
-describe('the App Attest decoders report CBOR damage as E2012', () => {
+describe('the App Attest decoders report CBOR damage as E2014', () => {
   const code = (f: () => unknown) => {
     try {
       f();
@@ -82,16 +82,16 @@ describe('the App Attest decoders report CBOR damage as E2012', () => {
   };
 
   it('for an attestation object', () => {
-    expect(code(() => decodeAttestationObject(bytes(0x5a, 0xff, 0xff, 0xff, 0xff), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2012');
-    expect(code(() => decodeAttestationObject(cbor(new Map([['fmt', 'packed']])), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2012');
-    expect(code(() => decodeAttestationObject(cbor(new Map<string, unknown>([['fmt', 'apple-appattest'], ['attStmt', new Map([['x5c', []]])], ['authData', new Uint8Array(1)]])), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2012');
-    expect(code(() => decodeAttestationObject(new Uint8Array(20000), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2012');
+    expect(code(() => decodeAttestationObject(bytes(0x5a, 0xff, 0xff, 0xff, 0xff), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2014');
+    expect(code(() => decodeAttestationObject(cbor(new Map([['fmt', 'packed']])), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2014');
+    expect(code(() => decodeAttestationObject(cbor(new Map<string, unknown>([['fmt', 'apple-appattest'], ['attStmt', new Map([['x5c', []]])], ['authData', new Uint8Array(1)]])), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2014');
+    expect(code(() => decodeAttestationObject(new Uint8Array(20000), 'AAAA', new Uint8Array(32), APP_ATTEST_APP_ID))).toBe('E2014');
   });
 
   it('for an assertion', () => {
-    expect(code(() => decodeAssertion(bytes(0xa0), APP_ATTEST_APP_ID))).toBe('E2012');
-    expect(code(() => decodeAssertion(cbor(new Map<string, unknown>([['signature', new Uint8Array(70)], ['authenticatorData', new Uint8Array(129)]])), APP_ATTEST_APP_ID))).toBe('E2012');
-    expect(code(() => decodeAssertion(new Uint8Array(2048), APP_ATTEST_APP_ID))).toBe('E2012');
+    expect(code(() => decodeAssertion(bytes(0xa0), APP_ATTEST_APP_ID))).toBe('E2014');
+    expect(code(() => decodeAssertion(cbor(new Map<string, unknown>([['signature', new Uint8Array(70)], ['authenticatorData', new Uint8Array(129)]])), APP_ATTEST_APP_ID))).toBe('E2014');
+    expect(code(() => decodeAssertion(new Uint8Array(2048), APP_ATTEST_APP_ID))).toBe('E2014');
   });
 });
 

@@ -127,8 +127,8 @@ export const ErrorCodes = {
     description:
       'Coinbase has revoked the verification for this wallet, so no proof was generated. Verify again with Coinbase, then try again.',
   },
-  E2012: {
-    code: 'E2012',
+  E2014: {
+    code: 'E2014',
     title: 'App Attest Check Failed',
     description:
       'The App Attest data from this device could not be used for the proof. Nothing was generated.',

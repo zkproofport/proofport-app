@@ -73,7 +73,7 @@ describe("Apple's published attestation object", () => {
       }
     })();
     expect(err).toBeInstanceOf(AppAttestError);
-    expect((err as AppAttestError).code).toBe('E2012');
+    expect((err as AppAttestError).code).toBe('E2014');
   });
 
   it('refuses a key id that is not the certificate key', () => {
