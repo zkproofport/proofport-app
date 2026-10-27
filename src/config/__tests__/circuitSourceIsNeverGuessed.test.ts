@@ -1,21 +1,19 @@
 /**
- * Where a production build reads circuit data from, when GitHub does not answer.
+ * Where a build reads circuit data and verifier records from. Never guessed,
+ * and never asked of GitHub.
  *
- * WHY THIS EXISTS. The resolver used to end with `if (!tag) return
- * GITHUB_RAW('main')`. Nothing failed when it fired: the download succeeded,
- * the digest manifest published beside the file at the same ref agreed with it,
- * and the app proved with circuit bytes that were never released — while the
- * verifier ADDRESS stayed at the release's, because the broadcast resolver
- * returns null on the same failure instead of moving to main. A single
- * unreachable API call paired a circuit with a verifier never deployed for it.
+ * WHY THIS EXISTS. Production used to ask
+ * `api.github.com/repos/zkproofport/circuits/releases/latest` at launch, so a
+ * newly published circuits tag switched every installed app to new circuits
+ * and verifiers -- apps whose input builders predate them included. Decided
+ * 2026-10-27: each app version pins one exact tag (CIRCUITS_RELEASE_TAG) for
+ * the official circuits; development and staging read `main`; the Laboratory
+ * circuits read `main` everywhere. A pinned tag that does not answer is an
+ * error naming the tag, never a fallback to `main` or another release.
  *
- * The API call is unreachable more often than it sounds: the unauthenticated
- * GitHub API allows 60 calls an hour per IP, and phones behind one carrier NAT
- * share that IP.
- *
- * What replaces it: the tag this device resolved LAST time, at any age, because
- * that is the release the files on disk actually came from. Only when there has
- * never been one does resolution fail — and then it says so.
+ * Before that, the resolver ended with `if (!tag) return GITHUB_RAW('main')`,
+ * which paired a circuit from main with a release's verifier address; the
+ * "never main" cases below keep that closed.
  */
 
 const mockDisk = new Map<string, string>();
@@ -43,155 +41,183 @@ jest.mock('react-native-fs', () => ({
   },
 }));
 
-const TAG_KEY = '@proofport/deployment/release-tag';
-const HOUR = 60 * 60 * 1000;
+const TAG = 'v2.0.0';
+const RAW = 'https://raw.githubusercontent.com/zkproofport/circuits';
+const OFFICIAL = ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'] as const;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const {resolveCircuitBaseUrl, fetchDeploymentAddress, getVerifierAddress} = require('../deployments');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+/* eslint-disable @typescript-eslint/no-var-requires */
+const {
+  resolveCircuitBaseUrl,
+  fetchDeploymentAddress,
+  getVerifierAddress,
+  syncDeployments,
+  circuitsRef,
+  isCircuitsReleaseMissingError,
+} = require('../deployments');
 const {circuitBaseUrl} = require('../../utils/circuitDownload');
+const {CIRCUITS_RELEASE_TAG, STATIC_CONFIGS} = require('../contracts');
+/* eslint-enable @typescript-eslint/no-var-requires */
 
-function githubAnswers(tag: string) {
-  const fetchMock = jest.fn(async () => ({
-    ok: true,
-    json: async () => ({tag_name: tag}),
-  }));
-  (globalThis as {fetch?: unknown}).fetch = fetchMock;
-  return fetchMock;
-}
-
-function githubFails(kind: 'offline' | 'rate-limited' | 'no-tag') {
-  const fetchMock = jest.fn(async () => {
-    if (kind === 'offline') throw new Error('Network request failed');
-    if (kind === 'rate-limited') return {ok: false, status: 403, json: async () => ({})};
-    return {ok: true, json: async () => ({message: 'Not Found'})};
+/** Every URL fetched; answers from `records` (path after RAW), 404 otherwise. */
+function github(records: Record<string, string> = {}, opts: {offline?: boolean} = {}) {
+  const fetchMock = jest.fn(async (url: string) => {
+    if (opts.offline) throw new Error('Network request failed');
+    const address = records[url.replace(RAW, '')];
+    if (!address) return {ok: false, status: 404, json: async () => ({})};
+    return {ok: true, status: 200, json: async () => ({
+      chain: 0, timestamp: 1790092800, commit: 'fixture', libraries: [],
+      transactions: [{contractName: 'HonkVerifier', contractAddress: address}],
+    })};
   });
   (globalThis as {fetch?: unknown}).fetch = fetchMock;
   return fetchMock;
 }
+
+/** The production broadcast records every official circuit has at `tag`. */
+function releaseRecords(tag = TAG): Record<string, string> {
+  return {
+    [`/${tag}/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json`]: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
+    [`/${tag}/broadcast/DeployCoinbaseCountryAttestation.s.sol/8453/run-latest.json`]: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
+    [`/${tag}/broadcast/DeployOidcDomainAttestation.s.sol/8453/run-latest.json`]: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
+  };
+}
+
+const urlsOf = (m: jest.Mock) => m.mock.calls.map(([u]) => u as string);
 
 beforeEach(() => {
   mockDisk.clear();
   delete (globalThis as {fetch?: unknown}).fetch;
 });
 
-describe('a production build asks GitHub which release to read', () => {
-  it('uses the tag GitHub names, and remembers it', async () => {
-    const fetchMock = githubAnswers('v1.3.0');
-
-    expect(await resolveCircuitBaseUrl('production')).toBe(
-      'https://raw.githubusercontent.com/zkproofport/circuits/v1.3.0',
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(mockDisk.get(TAG_KEY)!).tag).toBe('v1.3.0');
+describe('one exact circuits tag per app version', () => {
+  it('is a plain semver tag, v2.0.0 for this circuit set', () => {
+    expect(CIRCUITS_RELEASE_TAG).toBe(TAG);
+    expect(CIRCUITS_RELEASE_TAG).toMatch(/^v\d+\.\d+\.\d+$/);
   });
 
-  it('does not ask again while the remembered tag is under an hour old', async () => {
-    mockDisk.set(TAG_KEY, JSON.stringify({tag: 'v1.3.0', fetchedAt: Date.now() - (HOUR - 1000)}));
-    const fetchMock = githubAnswers('v9.9.9');
+  it('production names that tag; development and staging name main', () => {
+    expect(STATIC_CONFIGS.production.circuitsSource).toEqual({type: 'release', tag: TAG});
+    expect(STATIC_CONFIGS.development.circuitsSource).toEqual({type: 'branch', branch: 'main'});
+    expect(STATIC_CONFIGS.staging.circuitsSource).toEqual({type: 'branch', branch: 'main'});
+  });
 
-    expect(await resolveCircuitBaseUrl('production')).toContain('/v1.3.0');
+  it.each(OFFICIAL)('production reads %s files from the exact tag, without asking GitHub', async circuit => {
+    const fetchMock = github();
+    expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/${TAG}`);
+    expect(circuitsRef(circuit, 'production')).toBe(TAG);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('asks again once the remembered tag reaches an hour old', async () => {
-    mockDisk.set(TAG_KEY, JSON.stringify({tag: 'v1.3.0', fetchedAt: Date.now() - HOUR}));
-    const fetchMock = githubAnswers('v1.4.0');
+  it.each(OFFICIAL)('production reads the %s verifier record from the same tag', async circuit => {
+    const fetchMock = github(releaseRecords());
+    expect(await fetchDeploymentAddress(circuit, 'production')).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    const urls = urlsOf(fetchMock);
+    expect(urls).toHaveLength(1);
+    expect(urls[0].startsWith(`${RAW}/${TAG}/broadcast/`)).toBe(true);
+    expect(urls[0].endsWith('/8453/run-latest.json')).toBe(true);
+  });
 
-    expect(await resolveCircuitBaseUrl('production')).toContain('/v1.4.0');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+  it('a whole production sync touches only the tag and main, never the API', async () => {
+    const fetchMock = github({
+      ...releaseRecords(),
+      '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
+    });
+    await syncDeployments('production').catch(() => undefined);
+    const urls = urlsOf(fetchMock);
+    expect(urls.length).toBeGreaterThan(3);
+    for (const u of urls) {
+      expect(u).not.toMatch(/api\.github\.com|releases/);
+      expect(u.startsWith(`${RAW}/${TAG}/`) || u.startsWith(`${RAW}/main/`)).toBe(true);
+    }
+    // The official circuits never read main in production.
+    expect(urls.filter(u => u.startsWith(`${RAW}/main/`) && /Coinbase|Oidc/.test(u))).toEqual([]);
+  });
+
+  it('a "latest" tag remembered by an older app version changes nothing', async () => {
+    mockDisk.set('@proofport/deployment/release-tag', JSON.stringify({tag: 'v9.9.9', fetchedAt: Date.now()}));
+    const fetchMock = github(releaseRecords());
+    expect(await circuitBaseUrl('coinbase_attestation', 'production')).toBe(`${RAW}/${TAG}`);
+    await fetchDeploymentAddress('coinbase_attestation', 'production');
+    expect(urlsOf(fetchMock).some(u => u.includes('v9.9.9'))).toBe(false);
+  });
+
+  it('a verifier cached under another tag, or under the old unkeyed key, is not used', async () => {
+    mockDisk.set('@proofport/deployment/production/coinbase_attestation', JSON.stringify({address: '0x1111111111111111111111111111111111111111'}));
+    mockDisk.set('@proofport/deployment/production/coinbase_attestation@v1.3.0', JSON.stringify({address: '0x2222222222222222222222222222222222222222'}));
+    github({}, {offline: true});
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382');
+  });
+
+  it('a verifier read from this tag is cached under it and survives going offline', async () => {
+    const redeployed = '0x3333333333333333333333333333333333333333';
+    github({[`/${TAG}/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json`]: redeployed});
+    expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBe(redeployed);
+    expect(JSON.parse(mockDisk.get(`@proofport/deployment/production/coinbase_attestation@${TAG}`)!).ref).toBe(TAG);
+    github({}, {offline: true});
+    expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBeNull();
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe(redeployed);
   });
 });
 
-describe('when GitHub cannot be read', () => {
-  it.each(['offline', 'rate-limited', 'no-tag'] as const)(
-    'keeps using the tag this device saw before (%s)',
-    async kind => {
-      // A month old, which the old TTL would have thrown away.
-      mockDisk.set(TAG_KEY, JSON.stringify({tag: 'v1.3.0', fetchedAt: Date.now() - 30 * 24 * HOUR}));
-      githubFails(kind);
-
-      expect(await resolveCircuitBaseUrl('production')).toBe(
-        'https://raw.githubusercontent.com/zkproofport/circuits/v1.3.0',
-      );
-    },
-  );
-
-  it.each(['offline', 'rate-limited', 'no-tag'] as const)(
-    'fails, naming the repo, when no tag was ever seen (%s)',
-    async kind => {
-      githubFails(kind);
-
-      await expect(resolveCircuitBaseUrl('production')).rejects.toThrow(
-        /zkproofport\/circuits/,
-      );
-    },
-  );
-
-  it('never answers with main — the whole point', async () => {
-    githubFails('offline');
-
-    const err = await resolveCircuitBaseUrl('production').catch((e: Error) => e);
-    expect(err).toBeInstanceOf(Error);
-    expect((err as Error).message).not.toMatch(/githubusercontent\.com\/[^ ]*\/main/);
+describe('the pinned tag is missing', () => {
+  it('a 404 at the tag is an error naming the tag and the file, never main', async () => {
+    github({});
+    const err = await fetchDeploymentAddress('coinbase_attestation', 'production').catch((e: Error) => e);
+    expect(isCircuitsReleaseMissingError(err)).toBe(true);
+    expect((err as Error).message).toContain(`Circuits release ${TAG} is not available`);
+    expect((err as Error).message).toContain(`${RAW}/${TAG}/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json`);
+    expect((err as Error).message).not.toMatch(/circuits\/main\//);
   });
 
-  it.each([
-    ['not JSON at all', 'not json'],
-    ['a tag that is not a string', JSON.stringify({tag: 12345, fetchedAt: Date.now()})],
-    ['an empty tag', JSON.stringify({tag: '', fetchedAt: Date.now()})],
-  ])('treats %s in storage as no tag at all', async (_label, stored) => {
-    mockDisk.set(TAG_KEY, stored);
-    githubFails('offline');
-
-    await expect(resolveCircuitBaseUrl('production')).rejects.toThrow();
+  it('a sync tries every circuit, caches the ones that answer, then names every missing file', async () => {
+    const one = '0x1111111111111111111111111111111111111111';
+    github({[`/${TAG}/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json`]: one});
+    const err = await syncDeployments('production').catch((e: Error) => e);
+    expect(isCircuitsReleaseMissingError(err)).toBe(true);
+    expect((err as Error).message).toContain('DeployCoinbaseCountryAttestation');
+    expect((err as Error).message).toContain('DeployOidcDomainAttestation');
+    expect((err as Error).message).not.toContain('DeployCoinbaseAttestation.s.sol');
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe(one);
   });
 
-  it('accepts a remembered tag with no timestamp rather than discarding it', async () => {
-    mockDisk.set(TAG_KEY, JSON.stringify({tag: 'v1.3.0'}));
-    githubFails('offline');
+  it('offline is not a missing tag: no error, built-in addresses answer', async () => {
+    github({}, {offline: true});
+    await expect(syncDeployments('production')).resolves.toBe(false);
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382');
+  });
 
-    expect(await resolveCircuitBaseUrl('production')).toContain('/v1.3.0');
+  it('a server error (500) is not a missing tag either', async () => {
+    (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({ok: false, status: 500, json: async () => ({})}));
+    await expect(fetchDeploymentAddress('coinbase_attestation', 'production')).resolves.toBeNull();
+  });
+
+  it.each(['development', 'staging'] as const)('a 404 on main in %s stays a quiet null (not a pinned release)', async env => {
+    github({});
+    await expect(fetchDeploymentAddress('coinbase_attestation', env)).resolves.toBeNull();
   });
 });
 
 describe('development and staging', () => {
-  it.each(['development', 'staging'] as const)(
-    '%s reads main and never asks GitHub for a tag',
-    async env => {
-      const fetchMock = githubAnswers('v1.3.0');
+  it.each(['development', 'staging'] as const)('%s reads main and never asks GitHub for a tag', async env => {
+    const fetchMock = github();
+    expect(resolveCircuitBaseUrl(env)).toBe(`${RAW}/main`);
+    for (const circuit of OFFICIAL) {
+      expect(await circuitBaseUrl(circuit, env)).toBe(`${RAW}/main`);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
-      expect(await resolveCircuitBaseUrl(env)).toBe(
-        'https://raw.githubusercontent.com/zkproofport/circuits/main',
-      );
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
+  it('an unknown environment is an error, not production or main', () => {
+    expect(() => resolveCircuitBaseUrl('prod')).toThrow(/Unknown environment 'prod'/);
+  });
 });
 
 describe('the circuits that live only on main', () => {
-  it.each(['giwa_attestation', 'mdl_kr_age'])(
-    '%s reads main on a production build, with no tag involved',
-    async circuit => {
-      const fetchMock = githubFails('offline');
-
-      expect(await circuitBaseUrl(circuit, 'production')).toBe(
-        'https://raw.githubusercontent.com/zkproofport/circuits/main',
-      );
-      // The release resolver is not consulted, so an offline production build
-      // can still work with these.
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each(['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'])(
-    '%s reads the release tag on a production build',
-    async circuit => {
-      githubAnswers('v1.3.0');
-
-      expect(await circuitBaseUrl(circuit, 'production')).toContain('/v1.3.0');
-    },
-  );
+  it.each(['giwa_attestation', 'mdl_kr_age'])('%s reads main on a production build, with no tag involved', async circuit => {
+    const fetchMock = github({}, {offline: true});
+    expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/main`);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('a verifier follows the circuit bytes', () => {
@@ -199,78 +225,54 @@ describe('a verifier follows the circuit bytes', () => {
   const oldGiwa = '0xeb9eb5452790cfe549ff83ceb3dbe1c432231492';
 
   function broadcasts(currentGiwa = giwa) {
-    const fetchMock = jest.fn(async (url: string) => {
-      if (url.endsWith('/releases/latest')) {
-        return {ok: true, json: async () => ({tag_name: 'v1.3.0'})};
-      }
-      const records: Record<string, {chain: number; address: string}> = {
-        '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: currentGiwa},
-        '/v1.3.0/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': {chain: 91342, address: oldGiwa},
-        '/v1.3.0/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json': {chain: 8453, address: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382'},
-        '/main/broadcast/DeployCoinbaseAttestation.s.sol/84532/run-latest.json': {chain: 84532, address: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c'},
-      };
-      const path = url.replace('https://raw.githubusercontent.com/zkproofport/circuits', '');
-      const record = records[path];
-      if (!record) return {ok: false, status: 404, json: async () => ({})};
-      return {ok: true, json: async () => ({
-        chain: record.chain, timestamp: 1790092800, commit: 'fixture', libraries: [],
-        transactions: [{contractName: 'HonkVerifier', contractAddress: record.address}],
-      })};
+    return github({
+      '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': currentGiwa,
+      [`/${TAG}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: oldGiwa,
+      [`/${TAG}/broadcast/DeployCoinbaseAttestation.s.sol/8453/run-latest.json`]: '0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382',
+      '/main/broadcast/DeployCoinbaseAttestation.s.sol/84532/run-latest.json': '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c',
     });
-    (globalThis as {fetch?: unknown}).fetch = fetchMock;
-    return fetchMock;
   }
 
-  it.each(['development', 'staging', 'production'])(
-    '%s resolves GIWA to the current main verifier', async env => {
-      const fetchMock = broadcasts();
-      expect(await fetchDeploymentAddress('giwa_attestation', env)).toBe(giwa);
-      expect(fetchMock.mock.calls.every(([url]) => url.includes('/main/broadcast/'))).toBe(true);
-    },
-  );
+  it.each(['development', 'staging', 'production'])('%s resolves GIWA to the current main verifier', async env => {
+    const fetchMock = broadcasts();
+    expect(await fetchDeploymentAddress('giwa_attestation', env)).toBe(giwa);
+    expect(urlsOf(fetchMock).every(url => url.includes('/main/broadcast/'))).toBe(true);
+  });
 
-  it('keeps supported production verifiers on the release and staging on main', async () => {
+  it('keeps supported production verifiers on the tag and staging on main', async () => {
     broadcasts();
     expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBe('0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382');
     expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBe('0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c');
   });
 
-  it.each(['giwa_attestation'])(
-    'ignores the old unversioned %s cache and has an offline verifier', async circuit => {
-      mockDisk.set(`@proofport/deployment/production/${circuit}`, JSON.stringify({address: oldGiwa}));
-      const fetchMock = githubFails('offline');
-      const address = await getVerifierAddress(circuit, 'production');
-      expect(address.toLowerCase()).toBe(giwa);
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
+  it('ignores the old unversioned giwa cache and has an offline verifier', async () => {
+    mockDisk.set('@proofport/deployment/production/giwa_attestation', JSON.stringify({address: oldGiwa}));
+    const fetchMock = github({}, {offline: true});
+    const address = await getVerifierAddress('giwa_attestation', 'production');
+    expect(address.toLowerCase()).toBe(giwa);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
   it('keeps a refreshed experimental verifier available offline', async () => {
     const redeployed = '0x2222222222222222222222222222222222222222';
     broadcasts(redeployed);
     expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBe(redeployed);
-    githubFails('offline');
+    github({}, {offline: true});
     expect(await getVerifierAddress('giwa_attestation', 'production')).toBe(redeployed);
   });
 
   it('ignores a cache for an earlier experimental circuit data version', async () => {
     mockDisk.set('@proofport/deployment/production/giwa_attestation/v1', JSON.stringify({address: oldGiwa}));
-    githubFails('offline');
+    github({}, {offline: true});
     expect((await getVerifierAddress('giwa_attestation', 'production')).toLowerCase()).toBe(giwa);
-  });
-
-  it('retains the supported-circuit cache when GitHub is unavailable', async () => {
-    const cached = '0x1111111111111111111111111111111111111111';
-    mockDisk.set('@proofport/deployment/production/coinbase_attestation', JSON.stringify({address: cached}));
-    githubFails('offline');
-    expect(await fetchDeploymentAddress('coinbase_attestation', 'production')).toBeNull();
-    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe(cached);
   });
 });
 
 describe('a circuit cache version is never guessed', () => {
+  /* eslint-disable @typescript-eslint/no-var-requires */
   const {circuitDataVersion} = require('../../utils/circuitDownload');
   const {CIRCUIT_DATA_VERSIONS} = require('../contracts');
+  /* eslint-enable @typescript-eslint/no-var-requires */
 
   it('returns the configured version for every known circuit', () => {
     for (const [id, version] of Object.entries(CIRCUIT_DATA_VERSIONS)) {
@@ -278,9 +280,63 @@ describe('a circuit cache version is never guessed', () => {
     }
   });
 
+  it('OIDC is at v5, the v2 circuit (214 public inputs)', () => {
+    expect(CIRCUIT_DATA_VERSIONS.oidc_domain_attestation).toBe(5);
+  });
+
   it('throws on an unknown circuit instead of answering 0', () => {
     // 0 would match an old cache written with the same fallback, and the
     // stale files would never be refreshed.
     expect(() => circuitDataVersion('not_a_circuit')).toThrow(/No CIRCUIT_DATA_VERSIONS entry for circuit 'not_a_circuit'/);
+  });
+});
+
+describe('a tag change invalidates the circuit files on disk', () => {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const {cacheNeedsInvalidation} = require('../../utils/cacheInvalidation');
+  const {CIRCUIT_DATA_VERSIONS} = require('../contracts');
+  /* eslint-enable @typescript-eslint/no-var-requires */
+  const v = CIRCUIT_DATA_VERSIONS.coinbase_attestation;
+
+  it('files from another release are replaced', () => {
+    expect(cacheNeedsInvalidation({
+      stored: {baseUrl: `${RAW}/v1.3.0`, downloadedAt: 0, dataVersion: v},
+      expectedVersion: v,
+      currentBaseUrl: resolveCircuitBaseUrl('production'),
+      hasCachedFiles: true,
+    })).toBe(true);
+  });
+
+  it('files from this exact tag and version are kept', () => {
+    expect(cacheNeedsInvalidation({
+      stored: {baseUrl: `${RAW}/${TAG}`, downloadedAt: 0, dataVersion: v},
+      expectedVersion: v,
+      currentBaseUrl: resolveCircuitBaseUrl('production'),
+      hasCachedFiles: true,
+    })).toBe(false);
+  });
+});
+
+describe('no code path asks for the latest release', () => {
+  it('no source file under src names releases/latest or the GitHub API', () => {
+    /* eslint-disable @typescript-eslint/no-var-requires */
+    const fs = require('node:fs');
+    const path = require('node:path');
+    /* eslint-enable @typescript-eslint/no-var-requires */
+    const root = path.join(__dirname, '..', '..');
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of fs.readdirSync(dir, {withFileTypes: true})) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          if (e.name !== '__tests__') walk(p);
+        } else if (/\.(ts|tsx|js)$/.test(e.name)) {
+          const text = fs.readFileSync(p, 'utf8');
+          if (/releases\/latest|api\.github\.com\/repos/.test(text)) offenders.push(path.relative(root, p));
+        }
+      }
+    };
+    walk(root);
+    expect(offenders).toEqual([]);
   });
 });

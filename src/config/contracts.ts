@@ -53,13 +53,16 @@ export interface StaticConfig {
   };
   relay: RelayConfig;
   /**
-   * How to resolve the broadcast JSON URL.
-   * - development: read directly from main branch (latest deployments)
-   * - production: resolve latest GitHub Release tag first (verified deployments)
+   * Which circuits ref the officially supported circuits (Coinbase KYC,
+   * Coinbase Country, OIDC domain) read their files AND verifier records from.
+   * - development / staging: the branch `CIRCUITS_BRANCH` (`main`), on purpose:
+   *   test builds follow the circuits as they are developed.
+   * - production: exactly `CIRCUITS_RELEASE_TAG`, fixed at build time.
+   * The Laboratory circuits read `main` in every build (MAIN_BRANCH_CIRCUIT_IDS).
    */
-  broadcastSource:
-    | {type: 'branch'; baseUrl: string}
-    | {type: 'release'; repo: string};
+  circuitsSource:
+    | {type: 'branch'; branch: string}
+    | {type: 'release'; tag: string};
 }
 
 export const AUTHORIZED_SIGNERS = [
@@ -76,6 +79,26 @@ const GITHUB_REPO = 'zkproofport/circuits';
  * another branch -- a toolchain change, say -- by changing one line.
  */
 export const CIRCUITS_BRANCH = 'main';
+
+/**
+ * THE circuits release a production build of this app proves with: circuit
+ * files (json / srs / vk / SHA256SUMS) and verifier records (broadcast JSON)
+ * for every officially supported circuit come from this exact tag, and from
+ * nothing else.
+ *
+ * Decided 2026-10-27 ("the app must not follow the latest release"). Until
+ * then production asked the GitHub API for the newest release at launch, so
+ * publishing a circuits tag silently switched every installed app to new
+ * circuits and verifiers -- including apps whose input builders predate them.
+ * Now a new circuit set reaches users only with a new app version that names
+ * it here.
+ *
+ * `v2.0.0` is the tag planned for the OIDC v2 / beta.19 circuit set. It does
+ * not exist yet; a production build made before it is published fails at
+ * launch (E3007) and at circuit download (E3005) naming this tag. It never
+ * falls back to `main` or to another release.
+ */
+export const CIRCUITS_RELEASE_TAG = 'v2.0.0';
 const GITHUB_RAW = (ref: string) =>
   `https://raw.githubusercontent.com/${GITHUB_REPO}/${ref}`;
 
@@ -103,10 +126,7 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       trustedHosts: ['localhost', 'stg-relay.zkproofport.app', 'relay.zkproofport.app'],
       allowPrivateIps: true,
     },
-    broadcastSource: {
-      type: 'branch',
-      baseUrl: `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast`,
-    },
+    circuitsSource: {type: 'branch', branch: CIRCUITS_BRANCH},
   },
   staging: {
     network: {
@@ -131,10 +151,7 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       trustedHosts: ['stg-relay.zkproofport.app', 'relay.zkproofport.app'],
       allowPrivateIps: false,
     },
-    broadcastSource: {
-      type: 'branch',
-      baseUrl: `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast`,
-    },
+    circuitsSource: {type: 'branch', branch: CIRCUITS_BRANCH},
   },
   production: {
     network: {
@@ -160,10 +177,7 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       trustedHosts: ['relay.zkproofport.app'],
       allowPrivateIps: false,
     },
-    broadcastSource: {
-      type: 'release',
-      repo: GITHUB_REPO,
-    },
+    circuitsSource: {type: 'release', tag: CIRCUITS_RELEASE_TAG},
   },
 };
 
@@ -270,7 +284,11 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // device holding the old files would hand beta.8 bytecode to the new prover.
   coinbase_attestation: 2,
   coinbase_country_attestation: 2,
-  oidc_domain_attestation: 4, // provider public input + MAX_PARTIAL_DATA_LENGTH 768
+  // v4: provider public input + MAX_PARTIAL_DATA_LENGTH 768.
+  // v5: OIDC v2 (circuits a874776) -- aud_hash, nonce_mode, nonce_binding, now
+  // appended (148 -> 214 public inputs), MAX_PARTIAL_DATA_LENGTH 2048. A v4
+  // file set would be handed v2 inputs and fail to execute.
+  oidc_domain_attestation: 5,
   // v2: the circuit signs an EIP-712 action when one is supplied, dropped
   // signal_hash from the nullifier, and grew from 128 to 192 public inputs.
   giwa_attestation: 3,
@@ -384,11 +402,31 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
  * fetch/AbortSignal/setTimeout typings). Core's root stays in
  * utils/proofVerification.ts only.
  */
+/**
+ * FILL IN: the OIDC v2 verifier (214 public inputs, circuits a874776) on Base
+ * Sepolia, checksummed. The ONE place this build names it; development and
+ * staging read it through FALLBACK_VERIFIERS below.
+ *
+ * Empty = not deployed yet. Take it from the circuits repo's deployment record
+ * (`deployments/84532/OidcDomainAttestation.json`, or
+ * `broadcast/DeployOidcDomainAttestation.s.sol/84532/run-latest.json`, the
+ * `HonkVerifier` transaction) -- never from memory. While empty the app
+ * reports OIDC on-chain verification as unavailable instead of calling the
+ * v1 contract (0x5D9E...F485), which rejects every v2 proof.
+ *
+ * Filling it is not the whole step: core (`@zkproofport-app/core` 0.2.0) pins
+ * the v1 contract and the v1 layout (148 inputs), and the app's on-chain check
+ * goes through core. OIDC on-chain verification works once a core release
+ * pins this address with the 214-input layout; `verifierAddressesComeFromCore`
+ * then holds this row to it.
+ */
+export const OIDC_V2_VERIFIER_BASE_SEPOLIA = '';
+
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
     coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
-    oidc_domain_attestation: '0x5D9ECe4F0276D12693F79659760a68011EFeF485',
+    oidc_domain_attestation: OIDC_V2_VERIFIER_BASE_SEPOLIA,
     // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
     // Every testnet verifier was redeployed 2026-10-22 for the nargo
     // 1.0.0-beta.19 / bb 4.2.0 toolchain (circuits/deployments/). The previous
@@ -407,7 +445,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   staging: {
     coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
-    oidc_domain_attestation: '0x5D9ECe4F0276D12693F79659760a68011EFeF485',
+    oidc_domain_attestation: OIDC_V2_VERIFIER_BASE_SEPOLIA,
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
     mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',

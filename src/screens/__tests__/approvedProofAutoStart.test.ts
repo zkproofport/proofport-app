@@ -94,7 +94,7 @@ function expectStandaloneProof(scope: string) {
   const nonce = mockSignIn.mock.calls[mockSignIn.mock.calls.length - 1][0];
   expect(nonce).toMatch(/^[0-9a-f]{64}$/);
   expect(nonce).not.toBe(deriveOidcNonce(scope, APPROVED));
-  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(nonce), scopeString: scope, domain: '', provider: 'google'}, mockNoop);
+  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(nonce), scopeString: scope, domain: '', provider: 'google', nonce}, mockNoop);
 }
 
 let tree: ReactTestRenderer;
@@ -136,7 +136,7 @@ it('keeps the approved auto-start scheduled across an ordinary rerender', async 
   await act(async () => {await jest.advanceTimersByTimeAsync(500);});
   expect(mockSignIn).toHaveBeenCalledTimes(1);
   expect(mockSignIn).toHaveBeenCalledWith(deriveOidcNonce('scope', APPROVED));
-  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(deriveOidcNonce('scope', APPROVED)), scopeString: 'scope', domain: '', provider: 'google'}, mockNoop);
+  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(deriveOidcNonce('scope', APPROVED)), scopeString: 'scope', domain: '', provider: 'google', nonce: deriveOidcNonce('scope', APPROVED)}, mockNoop);
 });
 
 it('cancels the scheduled sign-in when the proof screen is removed', async () => {
@@ -180,7 +180,7 @@ it('uses its approved route request when another request is already in the activ
   setActiveProofRequest(next);
   await mountAndWait();
   expect(mockSignIn).toHaveBeenCalledWith(deriveOidcNonce('scope', APPROVED));
-  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(deriveOidcNonce('scope', APPROVED)), scopeString: 'scope', domain: '', provider: 'google'}, mockNoop);
+  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(deriveOidcNonce('scope', APPROVED)), scopeString: 'scope', domain: '', provider: 'google', nonce: deriveOidcNonce('scope', APPROVED)}, mockNoop);
   await publishProof();
   expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: APPROVED, proof: '0x1234'}), mockRequest, expect.any(Function));
   expect(getActiveProofRequest()).toBe(next);

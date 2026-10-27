@@ -342,7 +342,7 @@ describe('every inline failure path answers once, with its code', () => {
     await mount('oidc_domain_attestation', oidcRequest());
     expect(mockSignIn).toHaveBeenCalledWith(deriveOidcNonce('s', OIDC_RID));
     expect(mockGenerate).toHaveBeenCalledWith(
-      expect.objectContaining({jwtToken: jwt({nonce: deriveOidcNonce('s', OIDC_RID), email: 'a@corp.com'}), scopeString: 's'}),
+      expect.objectContaining({jwtToken: jwt({nonce: deriveOidcNonce('s', OIDC_RID), email: 'a@corp.com'}), scopeString: 's', nonce: deriveOidcNonce('s', OIDC_RID)}),
       expect.any(Function),
     );
   });

@@ -145,6 +145,16 @@ export const ErrorCodes = {
     description:
       'The proof files could not be downloaded. Reopen the app once you are back online.',
   },
+  // A production build proves only with one circuits release
+  // (CIRCUITS_RELEASE_TAG, src/config/contracts.ts). When that tag does not
+  // answer, nothing is read from main or another release instead. E3006 is
+  // taken on the app-attest branch.
+  E3007: {
+    code: 'E3007',
+    title: 'Proof Files Not Published',
+    description:
+      'The proof files this version of ZKProofport needs are not available yet, so proofs cannot be made. Please update the app or try again later.',
+  },
 
   // Wallet errors
   E4001: {

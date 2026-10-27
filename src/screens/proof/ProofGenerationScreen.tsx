@@ -973,7 +973,7 @@ export const ProofGenerationScreen: React.FC = () => {
         addLog(`[OIDC] ${providerName} Sign-In successful — JWT carries this request's nonce`);
 
         await generateOidcProof(
-          {jwtToken, scopeString: binding.scope, domain: domainStr, provider: providerStr},
+          {jwtToken, scopeString: binding.scope, domain: domainStr, provider: providerStr, nonce: binding.nonce},
           addLog,
         );
         // Hook errors are caught internally — detected via useEffect on proofSteps
