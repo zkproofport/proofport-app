@@ -11,14 +11,14 @@
  *   the same circuit, VK and hash, so it answers "did the phone make a proof
  *   its own verifier accepts".
  * - On-chain goes through `verifyProofOnChain` from `@zkproofport-app/core`,
- *   the same function the relay, proofport-ai and dApps use, so the app asks
- *   the contract exactly the way everyone else does. The app still decides
- *   WHICH contract and WHICH chain: the verifier address it resolved for the
- *   circuit, on the circuit's own network from CIRCUIT_NETWORKS.
+ *   the same function proofport-ai and dApps use, so the app asks the
+ *   contract exactly the way everyone else does. The app decides WHICH CHAIN
+ *   (the circuit's own, from CIRCUIT_NETWORKS); core's pinned table decides
+ *   WHICH CONTRACT on it, and the app's resolved address is only compared.
  */
 import {ethers} from 'ethers';
 import {verifyNoirProof} from 'mopro-ffi';
-import {verifyProofOnChain, VERIFIER_ABI, type ParsedProof} from '@zkproofport-app/core';
+import {verifyProofOnChain, type ParsedProof} from '@zkproofport-app/core';
 import {
   getEnvironment,
   getNetworkConfigForCircuit,
@@ -155,11 +155,18 @@ export async function verifyProofOnChainWithCore(
     addLog('[OnChain] Calling verify(bytes, bytes32[])...');
     const startTime = Date.now();
 
-    const result = await verifyProofOnChain(circuit, parsedProof, provider, {
-      address: verifierAddress,
-      chainId: network.chainId,
-      abi: VERIFIER_ABI,
-    });
+    // The contract is core's pinned verifier for this circuit on this chain,
+    // the one every dApp on core 0.2.0+ calls. The address the app resolved
+    // (cache or fallback) goes in as what the app CLAIMS: when it differs,
+    // core refuses, and the phone learns the same answer the dApp will give
+    // instead of a "valid" from a contract nobody else checks.
+    const result = await verifyProofOnChain(
+      circuit,
+      parsedProof,
+      provider,
+      {chainId: network.chainId},
+      {verifierAddress, chainId: network.chainId},
+    );
 
     const elapsed = Date.now() - startTime;
 

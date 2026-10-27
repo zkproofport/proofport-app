@@ -369,7 +369,20 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
 
 /**
  * Fallback verifier addresses (used when runtime fetch fails).
- * Updated by scripts/sync-deployments.sh or manually.
+ *
+ * Each row MUST equal `@zkproofport-app/core`'s pinned verifier for the
+ * circuit on its CIRCUIT_NETWORKS chain. Since core 0.2.0 every verifier --
+ * dApps, proofport-ai, and this app's own on-chain check -- calls the pinned
+ * contract and refuses a proof whose response names another address, and the
+ * app sends this address with every proof. A row that drifts would make every
+ * dApp refuse the app's proofs. `verifierAddressesComeFromCore.test.ts` holds
+ * the rows to core's table.
+ *
+ * Kept as literals rather than read from core at load: importing core's root
+ * here pulls ethers v5's `@types/node` reference ahead of React Native's
+ * globals and breaks `tsc` across the app (measured 2026-10-27: 36 errors in
+ * fetch/AbortSignal/setTimeout typings). Core's root stays in
+ * utils/proofVerification.ts only.
  */
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {

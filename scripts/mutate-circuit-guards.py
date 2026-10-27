@@ -207,6 +207,26 @@ MUTATIONS: list[Mutation] = [
         expect_case="FALLBACK_VERIFIERS.staging has a row",
     ),
     Mutation(
+        name="fallback-verifier-drifts-from-core",
+        defect="a verifier address the app sends with every proof is not core's "
+        "pinned one, so every dApp on core 0.2.0 refuses the app's proofs",
+        path="src/config/contracts.ts",
+        old="    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',\n    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',\n  },\n  staging: {",
+        new="    mdl_kr_age:       '0x3333333333333333333333333333333333333333',\n    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',\n  },\n  staging: {",
+        guard="src/config/__tests__/verifierAddressesComeFromCore.test.ts",
+        expect_case="development: each address is core's pinned verifier",
+    ),
+    Mutation(
+        name="on-chain-check-trusts-the-app-address",
+        defect="the app's on-chain check called the address it resolved itself, "
+        "not core's pinned verifier, so it could say valid where every dApp refuses",
+        path="src/utils/proofVerification.ts",
+        old="      {chainId: network.chainId},\n      {verifierAddress, chainId: network.chainId},\n",
+        new="      {address: verifierAddress, chainId: network.chainId, abi: []},\n",
+        guard="src/utils/__tests__/proofVerification.test.ts",
+        expect_case="differs from the pinned verifier is refused",
+    ),
+    Mutation(
         name="circuit-unreachable-from-verify-tab",
         defect="a circuit on no network and not network-independent has a card "
         "that is never rendered",

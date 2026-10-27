@@ -2,8 +2,8 @@
  * The shared proof checks every proof hook calls.
  *
  * On-chain verification must go through `verifyProofOnChain` from
- * `@zkproofport-app/core`, with the verifier address the app resolved for the
- * circuit and a provider for that circuit's own chain. Off-chain verification
+ * `@zkproofport-app/core`, against core's pinned verifier on the circuit's own
+ * chain, with the address the app resolved passed only as a claim to compare. Off-chain verification
  * must stay on mopro, the prover that made the proof. Both used to be copied
  * into six hooks; the last describe block holds them to the shared helpers.
  */
@@ -49,7 +49,7 @@ jest.mock('ethers', () => {
   };
 });
 
-import {VERIFIER_ABI} from '@zkproofport-app/core';
+import {getPinnedVerifier} from '@zkproofport-app/core';
 import {
   verifyProofOffChainWithMopro,
   verifyProofOnChainWithCore,
@@ -108,14 +108,16 @@ describe('on-chain verification goes through @zkproofport-app/core', () => {
       await expect(verifyProofOnChainWithCore(circuit as CircuitName, parsed, r)).resolves.toBe(true);
 
       expect(mockVerifyProofOnChain).toHaveBeenCalledTimes(1);
-      const [c, proof, provider, verifier] = mockVerifyProofOnChain.mock.calls[0];
+      const [c, proof, provider, target, claimed] = mockVerifyProofOnChain.mock.calls[0];
       expect(c).toBe(circuit);
       expect(proof).toBe(parsed);
       expect((provider as {mockUrl: string}).mockUrl).toBe(NETWORKS[circuit].rpcUrl);
-      expect(verifier).toEqual({
-        address: ADDRESSES[circuit],
+      // The contract is core's pinned one on the circuit's chain -- never the
+      // address the app resolved, which is only handed over to be compared.
+      expect(target).toEqual({chainId: NETWORKS[circuit].chainId});
+      expect(claimed).toEqual({
+        verifierAddress: ADDRESSES[circuit],
         chainId: NETWORKS[circuit].chainId,
-        abi: VERIFIER_ABI,
       });
       expect(statuses).toEqual(['Verifying proof on-chain...', 'Proof verified on-chain!']);
       expect(loading).toEqual([true, false]);
@@ -181,6 +183,38 @@ describe('on-chain verification goes through @zkproofport-app/core', () => {
     expect(statuses).toEqual([]);
     expect(loading).toEqual([]);
     expect(mockVerifyProofOnChain).not.toHaveBeenCalled();
+  });
+});
+
+describe('with the real core: the pinned table decides, the app only claims', () => {
+  // These run core's own verifyProofOnChain. Each refusal below must come
+  // before core reaches for the provider: the provider here cannot dial out.
+  beforeEach(() => {
+    mockVerifyProofOnChain.mockImplementation(
+      jest.requireActual('@zkproofport-app/core').verifyProofOnChain,
+    );
+  });
+
+  it('an app address that differs from the pinned verifier is refused, not checked elsewhere', async () => {
+    // ADDRESSES.coinbase_attestation is 0x1111..., which core does not pin.
+    const {r, statuses, logs} = reporter();
+    await expect(verifyProofOnChainWithCore('coinbase_attestation', parsed, r)).resolves.toBe(false);
+    expect(statuses.at(-1)).toBe('Error: on-chain verification failed');
+    const pinned = getPinnedVerifier('coinbase_attestation', 84532).address;
+    const errorLine = logs.find(l => l.startsWith('On-chain verification error: '));
+    expect(errorLine).toBeDefined();
+    expect(errorLine!.toLowerCase()).toContain(pinned);
+  });
+
+  it('a chain core pins nothing on is an error naming the chain, never another chain', async () => {
+    mockGetNetworkConfigForCircuit.mockReturnValue({
+      name: 'Nowhere', chainId: 999999, rpcUrl: 'https://nowhere.example',
+    });
+    mockGetVerifierAddress.mockResolvedValue(getPinnedVerifier('coinbase_attestation', 84532).address);
+    const {r, statuses, logs} = reporter();
+    await expect(verifyProofOnChainWithCore('coinbase_attestation', parsed, r)).resolves.toBe(false);
+    expect(statuses.at(-1)).toBe('Error: on-chain verification failed');
+    expect(logs.some(l => l.includes('999999'))).toBe(true);
   });
 });
 
