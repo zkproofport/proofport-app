@@ -420,7 +420,7 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
  * pins this address with the 214-input layout; `verifierAddressesComeFromCore`
  * then holds this row to it.
  */
-export const OIDC_V2_VERIFIER_BASE_SEPOLIA = '';
+export const OIDC_V2_VERIFIER_BASE_SEPOLIA: string = '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167';
 
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
