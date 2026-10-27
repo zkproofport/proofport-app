@@ -48,6 +48,8 @@ import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {newStandaloneRequestId} from '../../oidc/oidcNonce';
 import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
+import {proofLogEnabled, proofLogText} from '../../utils/proofLog';
+import {describeIdTokenClaims} from '../../utils/idTokenClaims';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -352,11 +354,14 @@ export const ProofGenerationScreen: React.FC = () => {
   // inline path can all see the same failure.
   const attemptEndedRef = useRef(false);
   const lastErrorStepsRef = useRef<unknown>(null);
+  // Whether THIS attempt keeps its log (Developer Mode + live logs), decided
+  // from the settings read when the attempt starts.
+  const keepLogRef = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const {logs, addLog, clearLogs} = useLogs();
+  const {logs, addLog, clearLogs, getLatestLogs} = useLogs();
   const {settings} = useSettings();
 
   // No default. A missing or unrecognised id is refused below, never quietly
@@ -497,7 +502,13 @@ export const ProofGenerationScreen: React.FC = () => {
   ];
   const userSteps = isOidc ? oidcUserSteps : toUserSteps(hook.proofSteps, circuitReady, isSearching);
 
-  // Mark history as failed (idempotent via ref)
+  /** The attempt's log for its History record, or nothing when logs are off. */
+  const attemptLog = useCallback(
+    (): {log?: string} => (keepLogRef.current ? {log: proofLogText(getLatestLogs())} : {}),
+    [getLatestLogs],
+  );
+
+  // Mark history as failed (idempotent via ref), with the log up to the failure.
   const markHistoryFailed = useCallback(() => {
     if (failedMarkedRef.current || !historyIdRef.current) return;
     failedMarkedRef.current = true;
@@ -505,8 +516,9 @@ export const ProofGenerationScreen: React.FC = () => {
       overallStatus: 'failed',
       offChainStatus: 'failed',
       onChainStatus: 'failed',
+      ...attemptLog(),
     }).catch(console.error);
-  }, []);
+  }, [attemptLog]);
 
   /**
    * End this attempt as FAILED: inline text, ErrorModal, History, and — for a
@@ -518,6 +530,8 @@ export const ProofGenerationScreen: React.FC = () => {
     ({code, error, inline, details}: {code: ErrorCode; error: string; inline?: string; details?: string}) => {
       if (attemptEndedRef.current) return;
       attemptEndedRef.current = true;
+      // What the person was shown, so the kept log ends with it.
+      addLog(`[Failed] ${code}: ${details ?? error}`);
       setErrorMessage(inline ?? error);
       showGlobalError(code, details ?? error);
       markHistoryFailed();
@@ -526,7 +540,7 @@ export const ProofGenerationScreen: React.FC = () => {
         clearActiveProofRequest(proofRequest);
       }
     },
-    [proofRequest, sendError, markHistoryFailed],
+    [proofRequest, sendError, markHistoryFailed, addLog],
   );
 
   /** End this attempt because the person declined (sign-in sheet, wallet). */
@@ -534,6 +548,7 @@ export const ProofGenerationScreen: React.FC = () => {
     (reason: string) => {
       if (attemptEndedRef.current) return;
       attemptEndedRef.current = true;
+      addLog(`[Cancelled] ${reason}`);
       setErrorMessage(reason);
       markHistoryFailed();
       if (proofRequest) {
@@ -541,7 +556,7 @@ export const ProofGenerationScreen: React.FC = () => {
         clearActiveProofRequest(proofRequest);
       }
     },
-    [proofRequest, sendCancelled, markHistoryFailed],
+    [proofRequest, sendCancelled, markHistoryFailed, addLog],
   );
 
   // CRITICAL: Watch hook's proofSteps for errors.
@@ -591,6 +606,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
     const generatedAt = Date.now();
     const resolved: CircuitName = canonical;
+    const kept = attemptLog();
 
     if (historyIdRef.current) {
       proofHistoryStore.update(historyIdRef.current, {
@@ -598,6 +614,7 @@ export const ProofGenerationScreen: React.FC = () => {
         offChainStatus: 'generated',
         onChainStatus: 'generated',
         overallStatus: 'generated',
+        ...kept,
       }).catch(console.error);
     }
 
@@ -649,12 +666,14 @@ export const ProofGenerationScreen: React.FC = () => {
       },
       walletAddress: account || undefined,
       historyId: historyIdRef.current || undefined,
+      // The completion screen continues this log through verification.
+      proofLog: kept.log,
     });
     // Clear the "in-flight proof" marker so a re-mount of this screen with a
     // stale `hook.parsedProof` value can't navigate again.
     proofStartedAt.current = null;
     historyIdRef.current = null;
-  }, [parsedProof, signalHash, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc]);
+  }, [parsedProof, signalHash, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc, attemptLog]);
 
   // An unrecognised circuit id is refused on arrival, not on button press, so
   // nobody sits looking at a form for a proof the app will not generate.
@@ -725,7 +744,13 @@ export const ProofGenerationScreen: React.FC = () => {
     setErrorMessage(null);
     failedMarkedRef.current = false;
     attemptEndedRef.current = false;
+    keepLogRef.current = false;
     proofStartedAt.current = Date.now();
+    addLog(
+      `[Attempt] ${canonical}, ${proofRequest
+        ? `relay request ${proofRequest.requestId} from ${JSON.stringify(proofRequest.dappName ?? null)}`
+        : 'in-app'}, started ${new Date(proofStartedAt.current).toISOString()}`,
+    );
 
     // OIDC: which request this proof answers, fixed before History records
     // it. A route carries a dApp request or an in-app DomainInput, never both.
@@ -772,6 +797,9 @@ export const ProofGenerationScreen: React.FC = () => {
       });
       return;
     }
+
+    // Kept only with Developer Mode AND live logs on; otherwise nothing is.
+    keepLogRef.current = proofLogEnabled(currentSettings);
 
     if (currentSettings.autoSaveProofs) {
       try {
@@ -924,7 +952,13 @@ export const ProofGenerationScreen: React.FC = () => {
         // so nothing here reads a state value that has not landed yet — which
         // is why every failure used to read "cancelled". A token without this
         // request's nonce comes back as a failure (E2012) and is never proved.
-        const signIn = await signInBound(promptSignIn, binding.nonce);
+        // The claims (aud/azp/nonce/iss/exp, never the token) are logged
+        // BEFORE the nonce check, so a refused token still shows what it carried.
+        const signIn = await signInBound(async nonce => {
+          const result = await promptSignIn(nonce);
+          if ('token' in result) addLog(describeIdTokenClaims(result.token));
+          return result;
+        }, binding.nonce);
         if (!('token' in signIn)) {
           const msg = signIn.cancelled
             ? `${providerName} Sign-In was cancelled`
@@ -1265,7 +1299,7 @@ export const ProofGenerationScreen: React.FC = () => {
           </Card>
         )}
 
-        {settings?.developerMode && settings.showLiveLogs !== false && (
+        {proofLogEnabled(settings) && (
           <View style={styles.logsWrap}>
             <LiveLogsPanel logs={logs} />
           </View>

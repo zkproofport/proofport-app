@@ -137,7 +137,8 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({navigation}) 
       </SettingsGroup>
 
       {settings.developerMode && <SettingsGroup title={t('host.more.sectionDeveloper')}>
-        <SettingsToggle testID="more-live-logs" label={t('host.more.showLiveLogs')} value={settings.showLiveLogs} onValueChange={value => saveSetting({showLiveLogs: value})} />
+        <SettingsToggle testID="more-live-logs" label={t('host.more.showLiveLogs')} value={settings.showLiveLogs} onValueChange={value => saveSetting({showLiveLogs: value})}
+          description={t('host.more.showLiveLogsHint')} />
         <SettingsToggle testID="more-omnione" label={t('host.more.useOmniOneCxUi')} value={settings.useOmniOneCxUi} onValueChange={value => saveSetting({useOmniOneCxUi: value})} separated />
         <SettingsToggle testID="more-openstoa" label={t('host.more.openStoaEnabled')} value={openStoaOverride} onValueChange={handleOpenStoaOverride}
           description={t('host.more.openStoaEnabledHint')} separated />

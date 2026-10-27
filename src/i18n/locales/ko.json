@@ -64,7 +64,8 @@
       "subtitle": "내게 맞게 ZKProofport를 설정하세요.",
       "sectionAbout": "앱 정보",
       "saveError": "설정을 저장하지 못했습니다. 다시 시도해 주세요.",
-      "loadError": "설정을 불러오지 못했습니다."
+      "loadError": "설정을 불러오지 못했습니다.",
+      "showLiveLogsHint": "증명이 진행되는 동안 로그를 보여 주고, 토큰·서명·키를 지운 뒤 그 증명의 이력에 남깁니다."
     },
     "about": {
       "tagline": "개인정보 보호 최우선 영지식 증명 생성",
@@ -198,7 +199,11 @@
         "verificationPending": "완료되지 않음",
         "circuitId": "증명 유형 ID",
         "scope": "증명 범위",
-        "scopeString": "범위 문자열"
+        "scopeString": "범위 문자열",
+        "proofLog": "증명 로그",
+        "proofLogHint": "개발자 모드와 라이브 로그가 켜져 있어 남긴 로그입니다. 토큰·서명·키는 지웠습니다.",
+        "copyLog": "로그 복사",
+        "logCopied": "복사했습니다"
       },
       "statusLabel": "상태",
       "dateLabel": "날짜",
@@ -357,7 +362,9 @@
         "viewGiwaExplorer": "GIWA 익스플로러에서 보기",
         "generateAnother": "다른 증명 생성하기",
         "stackTitle": "증명 완료",
-        "done": "완료"
+        "done": "완료",
+        "copyLog": "로그 복사",
+        "logCopied": "로그를 복사했습니다"
       },
       "generation": {
         "portalLabel": "증명 포털",

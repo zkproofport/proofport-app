@@ -21,6 +21,7 @@ interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  testID?: string;
 }
 
 const SIZE_STYLES: Record<ButtonSize, {height: number; fontSize: number}> = {
@@ -37,6 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   loading = false,
   style,
+  testID,
 }) => {
   const {mode, colors: themeColors} = useThemeColors();
   const isDark = mode === 'dark';
@@ -71,6 +73,7 @@ export const Button: React.FC<ButtonProps> = ({
   if (variant === 'primary') {
     return (
       <TouchableOpacity
+        testID={testID}
         onPress={onPress}
         disabled={isDisabled}
         activeOpacity={0.8}
@@ -90,6 +93,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <TouchableOpacity
+      testID={testID}
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.7}
