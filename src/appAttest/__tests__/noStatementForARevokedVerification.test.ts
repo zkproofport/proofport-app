@@ -21,13 +21,13 @@ import {
 } from '../revocationStatement';
 import type {AppAttestNative} from '../nativeAppAttest';
 import * as crypto from 'crypto';
-import {cbor, ecKey, sha256, syntheticDevice, verifyP1363} from './syntheticAppAttest';
+import {AAGUID, cbor, ecKey, sha256, syntheticDevice, verifyP1363} from './syntheticAppAttest';
 
 const WALLET = '0x5a7D0f4ecc8bBFDE105ab34c1a5d1A2f4372580F';
 const UID = '0x' + 'ab'.repeat(32);
 const NOW = 1792740823;
 
-function harness(opts: {supported?: boolean} = {}) {
+function harness(opts: {supported?: boolean; development?: boolean} = {}) {
   __resetAppAttestKeyForTests();
   const ca = ecKey('secp384r1');
   const device = syntheticDevice(APP_ATTEST_APP_ID, ca);
@@ -35,7 +35,7 @@ function harness(opts: {supported?: boolean} = {}) {
   const native: AppAttestNative = {
     isSupported: async () => opts.supported ?? true,
     generateKey: async () => device.keyId,
-    attestKey: async (_k, cdh) => Buffer.from(device.attestation(new Uint8Array(Buffer.from(cdh, 'base64')))).toString('base64'),
+    attestKey: async (_k, cdh) => Buffer.from(device.attestation(new Uint8Array(Buffer.from(cdh, 'base64')), opts.development ? {aaguid: AAGUID.development} : undefined)).toString('base64'),
     generateAssertion: async (_k, hash) => {
       calls.assert++;
       // The device signs authData || the hash it is given.
@@ -93,6 +93,14 @@ describe('the revocation statement', () => {
   it('carries a lookup failure through with its own code, and nothing is signed', async () => {
     const h = harness();
     expect(codeOf(await h.run(new AppAttestError('E3002', 'EAS down')))).toBe('E3002');
+    expect(h.calls.assert).toBe(0);
+  });
+
+  it('is refused for a development (sandbox) key with E2014 BEFORE the lookup, and nothing is signed', async () => {
+    // Coinbase KYC v2 enforces the production AAGUID in-circuit.
+    const h = harness({development: true});
+    expect(codeOf(await h.run({}))).toBe('E2014');
+    expect(h.calls.status).toBe(0);
     expect(h.calls.assert).toBe(0);
   });
 

@@ -134,6 +134,25 @@ export interface RevocationDeps {
   now?: () => number;
 }
 
+/**
+ * The circuit (circuits coinbase-attestation-v2, `APP_ATTEST_PRODUCTION`)
+ * accepts production App Attest keys only. A development (sandbox) key --
+ * what an Xcode-signed build without the
+ * `com.apple.developer.devicecheck.appattest-environment = production`
+ * entitlement gets -- would make a proof the prover refuses with "App Attest
+ * environment does not match", after the wallet signed. Refused here instead,
+ * with the App Attest code (E2014), before anything is signed.
+ */
+export function requireProductionCredential(credential: CircuitCredential): void {
+  if (!credential.production) {
+    throw new AppAttestError(
+      APP_ATTEST_ERROR_CODE.malformed,
+      'This build\'s App Attest key is a development (sandbox) key; Coinbase KYC v2 accepts production keys only ' +
+        '(TestFlight and App Store builds use production).',
+    );
+  }
+}
+
 export async function makeRevocationStatement(
   req: RevocationStatementRequest,
   deps: RevocationDeps,
@@ -141,7 +160,8 @@ export async function makeRevocationStatement(
   const log = deps.appAttest.log;
   // The key first: a device that cannot do App Attest is told so before any
   // network lookup, and a first run certifies its key here.
-  await ensureAttestedKey(deps.appAttest);
+  const key = await ensureAttestedKey(deps.appAttest);
+  requireProductionCredential(key.credential);
 
   const status = await (deps.fetchStatus ?? fetchAttestationStatus)(req.attestationUid, log);
   if (status.schemaId.toLowerCase() !== COINBASE_KYC_SCHEMA_UID) {
@@ -171,6 +191,8 @@ export async function makeRevocationStatement(
     scope: req.scope,
   });
   const signed = await assertClientData(deps.appAttest, clientData);
+  // assertClientData may have replaced the key; check the one that signed.
+  requireProductionCredential(signed.credential);
   log(`[AppAttest] Assertion made with key ${signed.keyId} (counter ${signed.assertion.counter})`);
   return {clientData, attestedAt, credential: signed.credential, assertion: signed.assertion};
 }

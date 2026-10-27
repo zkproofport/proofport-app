@@ -2,10 +2,12 @@
  * The app's clientData and input vector, byte for byte against what the
  * circuit's own fixture generator produced.
  *
- * fixtures/generateProverTomlVector.json was made by running
- * circuits/scripts/coinbase-app-attest-poc/generate-prover-toml.js (circuits
- * b281485) with a throwaway random wallet and an all-zero Coinbase half, then
- * reading both Prover.toml files and the compiled circuit's ABI. Its
+ * fixtures/generateProverTomlVector.json is written by
+ * circuits/scripts/coinbase-attestation-v2/export-app-vector.js (circuits
+ * fb6aed3; the circuit is tag v2.0.0-rc.1's): it runs the circuit's fixture
+ * generator with a throwaway random wallet and an all-zero Coinbase half and
+ * records both Prover.toml files and the compiled circuit's ABI. Regenerate
+ * with that script whenever the circuit changes. Its
  * clientData is the one the circuit's acceptance run proves with, so if the
  * app builds a different byte anywhere the proof fails -- this catches it
  * without a phone.
@@ -23,6 +25,7 @@ import {
 } from '../../utils/coinbaseAppAttestInputs';
 import {bytesToNoirInput, computeScope, type AttesterCircuitInputs} from '../../utils/circuitHelpers';
 import {coinbaseKycArtifact} from '../../config/circuitArtifacts';
+import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../constants';
 import type {TypedAction} from '../../config/circuitIds';
 import vector from './fixtures/generateProverTomlVector.json';
 
@@ -63,7 +66,8 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
     expect(ethers.utils.hexlify(built)).toBe(str(toml(m).client_data));
   });
 
-  it('builds the same 2,897-value vector, in fn main order', () => {
+  it('builds the same 2,769-value vector, in fn main order, as the app signer kind', () => {
+    expect(toml(m).signer_kind).toBe('1');
     const t = toml(m);
     const b = (k: string) => bytesToNoirInput(Array.from(bytesOf(str(t[k]))));
     const coinbase: AttesterCircuitInputs = {
@@ -94,23 +98,26 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
           publicHashes: m === 'action'
             ? {domainSeparator: str(t.domain_separator), actionHash: str(t.action_hash)}
             : undefined,
+          // The vector's credential is signed by the generator's SYNTHETIC
+          // intermediate; the app pins Apple's CA 1 in its place.
+          pinnedCaKeyHash: vector.caKeyHash,
         },
         {
           clientData: bytesOf(str(t.client_data)),
           attestedAt: Number(t.attested_at),
           credential: {
-            caKey: bytesOf(str(t.app_attest_ca_key)),
-            caKeyHash: str(t.app_attest_ca_key_hash),
+            caKey: new Uint8Array(96), // not a circuit input since CA 1 is pinned in-circuit
+            caKeyHash: vector.caKeyHash,
             credentialTbs: cut('credential_tbs', 'credential_tbs_len'),
             credentialSig: bytesOf(str(t.credential_sig)),
             attAuthData: cut('att_auth_data', 'att_auth_data_len'),
             attClientDataHash: bytesOf(str(t.att_client_data_hash)),
             credentialKey: new Uint8Array(64),
-            production: t.app_attest_production === 'true',
+            production: true,
           },
           assertion: {
             authenticatorData: cut('assertion_auth_data', 'assertion_auth_data_len'),
-            signature: bytesOf(str(t.assertion_sig)),
+            signature: bytesOf(str(t.statement_sig)),
             counter: 1,
           },
         },
@@ -125,18 +132,18 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
       if (/^0x/.test(v)) return Array.from(bytesOf(v)).map(BigInt);
       return [BigInt(v)];
     });
-    expect(expected.length).toBe(2897);
+    expect(expected.length).toBe(2769);
     expect(flat.length).toBe(expected.length);
     expect(flat.map(x => BigInt(x))).toEqual(expected);
   });
 });
 
 describe('what the circuit makes public', () => {
-  it('is 226 field elements, which is what the app checks after proving', () => {
+  it('is 193 field elements, which is what the app checks after proving', () => {
     const pub = vector.abi.filter(p => p.visibility === 'public');
     expect(pub.map(p => p.name)).toEqual([
       'signal_hash', 'domain_separator', 'action_hash', 'signer_list_merkle_root', 'scope', 'nullifier',
-      'app_attest_ca_key_hash', 'attested_at', 'app_attest_production',
+      'attested_at',
     ]);
     expect(pub.reduce((n, p) => n + p.fields, 0)).toBe(coinbaseKycArtifact().publicInputCount);
   });
@@ -176,6 +183,7 @@ describe('a statement that must not be made', () => {
 });
 
 describe('the vector builder refuses a statement for another proof', () => {
+  const PINNED = '0x' + 'ab'.repeat(32);
   const t = toml('noAction');
   const base = () => ({
     coinbase: {
@@ -184,7 +192,7 @@ describe('the vector builder refuses a statement for another proof', () => {
     witness: {
       clientData: bytesOf(str(t.client_data)),
       attestedAt: Number(t.attested_at),
-      credential: {caKey: new Uint8Array(96), caKeyHash: '0x' + '00'.repeat(32), credentialTbs: new Uint8Array(10),
+      credential: {caKey: new Uint8Array(96), caKeyHash: PINNED, credentialTbs: new Uint8Array(10),
         credentialSig: new Uint8Array(96), attAuthData: new Uint8Array(164), attClientDataHash: new Uint8Array(32),
         credentialKey: new Uint8Array(64), production: true},
       assertion: {authenticatorData: new Uint8Array(37), signature: new Uint8Array(64), counter: 1},
@@ -195,26 +203,79 @@ describe('the vector builder refuses a statement for another proof', () => {
 
   it('names another wallet', () => {
     const {coinbase, witness} = base();
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: '0x' + '33'.repeat(20), scope, signedDigest: digest}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: '0x' + '33'.repeat(20), scope, signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/clientData names wallet/);
   });
 
   it('binds another request', () => {
     const {coinbase, witness} = base();
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope, signedDigest: '0x' + '44'.repeat(32)}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope, signedDigest: '0x' + '44'.repeat(32), pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/binds request/);
   });
 
   it('binds another scope', () => {
     const {coinbase, witness} = base();
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope: computeScope('another'), signedDigest: digest}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope: computeScope('another'), signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/another scope/);
   });
 
   it('carries a TBS longer than the circuit holds', () => {
     const {coinbase, witness} = base();
     witness.credential.credentialTbs = new Uint8Array(1001);
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope, signedDigest: digest}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope, signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/the circuit holds 1000/);
+  });
+
+  const codeOf = (f: () => unknown) => {
+    try {
+      f();
+    } catch (e) {
+      return e instanceof AppAttestError ? e.code : (e as Error).message;
+    }
+    return 'built';
+  };
+  const request = (o: Record<string, unknown> = {}) => ({userAddress: wallet, scope, signedDigest: digest, pinnedCaKeyHash: PINNED, ...o});
+
+  it('refuses an intermediate the circuit does not pin with E2014, before anything else', () => {
+    const {coinbase, witness} = base();
+    witness.credential.caKeyHash = '0x' + 'cd'.repeat(32);
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(coinbase, request(), witness))).toBe('E2014');
+    // Apple's CA 1 is not the synthetic one: the app's own pin refuses the vector.
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(coinbase, request({pinnedCaKeyHash: APPLE_APP_ATTEST_CA1_KEY_HASH}), witness))).toBe('E2014');
+  });
+
+  it('compares the CA hash without regard to hex case', () => {
+    const {coinbase, witness} = base();
+    witness.credential.caKeyHash = PINNED.toUpperCase().replace('0X', '0x');
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(coinbase, request(), witness))).not.toBe('E2014');
+  });
+
+  it('refuses a development-environment key with E2014', () => {
+    const {coinbase, witness} = base();
+    witness.credential.production = false;
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(coinbase, request(), witness))).toBe('E2014');
+  });
+
+  it('refuses an assertion signature whose s is high, and accepts n/2 exactly', () => {
+    const half = (BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551') >> 1n);
+    const sig = (sv: bigint) => new Uint8Array(ethers.utils.arrayify(ethers.utils.hexConcat([ethers.utils.hexZeroPad('0x01', 32), ethers.utils.hexZeroPad(ethers.BigNumber.from(sv.toString()).toHexString(), 32)])));
+    const high = base();
+    high.witness.assertion.signature = sig(half + 1n);
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(high.coinbase, request(), high.witness))).toBe('E2014');
+    const edge = base();
+    edge.witness.assertion.signature = sig(half);
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(edge.coinbase, request(), edge.witness))).not.toBe('E2014');
+  });
+
+  it('refuses an assertion signature of the wrong length', () => {
+    const {coinbase, witness} = base();
+    witness.assertion.signature = new Uint8Array(65);
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(coinbase, request(), witness))).toMatch(/statement_sig is 65 bytes/);
+  });
+
+  it('refuses signal mode with an all-zero signal_hash (the circuit refuses a request that signs nothing)', () => {
+    const {coinbase, witness} = base();
+    coinbase.signal_hash = bytesToNoirInput(new Array(32).fill(0));
+    expect(codeOf(() => prepareCoinbaseAppAttestInputs(coinbase, request(), witness))).toMatch(/all-zero signal_hash/);
   });
 });

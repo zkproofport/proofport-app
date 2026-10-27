@@ -2,7 +2,7 @@
  * A synthetic App Attest device for tests: our own P-384 "CA" and P-256
  * Secure Enclave key, producing attestation and assertion objects in Apple's
  * shapes. Ported from the circuit's fixture generator
- * (circuits/scripts/coinbase-app-attest-poc/generate-prover-toml.js) so the
+ * (circuits/scripts/coinbase-attestation-v2/generate-prover-toml.js) so the
  * app parses what the circuit was tested with; the CBOR envelope follows
  * Apple's "Validating apps that connect to your server".
  *

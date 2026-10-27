@@ -231,7 +231,7 @@ export function computeNullifier(
  */
 const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, false | {tag: string}>> = Object.freeze({
   // v2 (App Attest, optional action): the wallet + keccak256("coinbase_attestation")
-  // rule, as the circuit computes it (coinbase-app-attest-poc/src/main.nr,
+  // rule, as the circuit computes it (coinbase-attestation-v2/src/main.nr,
   // CIRCUIT_TAG). Nullifiers of the v1 circuit (signal_hash rule) do not
   // carry over; decided 2026-10-23 (circuits-dev.md, "Decisions").
   coinbase_attestation: {tag: 'coinbase_attestation'},

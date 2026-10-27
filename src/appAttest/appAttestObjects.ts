@@ -6,8 +6,8 @@
  * server" (developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server),
  * checked against Apple's sample in the "attestation object validation guide"
  * (developer.apple.com/documentation/devicecheck/attestation-object-validation-guide).
- * What the circuit does with them: circuits branch `coinbase-app-attest-poc`,
- * `app-attest-libs/src/{credential,assertion}.nr`.
+ * What the circuit does with them: circuits `coinbase-attestation-v2`
+ * (tag v2.0.0-rc.1) via `app-attest-libs/src/{credential,assertion}.nr`.
  *
  * Two layers, deliberately:
  *   - `decodeAttestationObject` performs Apple's own steps and nothing more,

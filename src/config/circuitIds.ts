@@ -160,7 +160,7 @@ export type {CircuitActionBinding};
 /**
  * TEMPORARY, until the core release that ships Coinbase KYC v2.
  *
- * `coinbase_attestation` v2 (circuits branch `coinbase-app-attest-poc`) binds
+ * `coinbase_attestation` v2 (circuits `coinbase-attestation-v2`, tag v2.0.0-rc.1) binds
  * an optional EIP-712 action exactly as `giwa_attestation` does, while the
  * published core still says 'none' for it. This app proves v2, so its own
  * validation must accept what v2 accepts. One table, read through

@@ -1,26 +1,33 @@
 /**
- * Where a circuit's compiled files come from when it is NOT the build on the
- * circuits repository's main branch / release tag.
+ * Where a circuit's compiled files come from when it is NOT the build at the
+ * ref every other official circuit is read from (`main` in development and
+ * staging, `CIRCUITS_RELEASE_TAG` in production).
  *
- * Coinbase KYC v2 (`coinbase_attestation`: Apple App Attest revocation
- * binding, optional EIP-712 action, wallet + circuit-tag nullifier) is built
- * on the circuits branch `coinbase-app-attest-poc`, where its Nargo package is
- * named `coinbase_app_attest_poc`. Until it lands on main and in a release,
- * this app reads its files from the commit below, under the canonical id
+ * Coinbase KYC v2 (`coinbase_attestation`: revocation bound by an Apple App
+ * Attest statement, optional EIP-712 action, wallet + circuit-tag nullifier)
+ * is built in the circuits directory `coinbase-attestation-v2` as package
+ * `coinbase_attestation_v2`, beside v1's `coinbase-attestation`. This app
+ * reads its files from the pre-release tag below, under the canonical id
  * `coinbase_attestation`: the cache, the prover and the verifier all see
  * `coinbase_attestation`, and only the download URL differs.
  *
- * Read from a COMMIT, not a branch: a branch moves under an installed app, a
- * commit does not, and the commit is part of the cache key (another ref is
- * another base URL, which invalidates the cached files).
+ * Why a pre-release tag: v2 is not in any production release yet
+ * (`v2.0.0`, the planned one, is not published), and `main` moves under an
+ * installed app. `v2.0.0-rc.1` is commit b0ca9fe (2026-10-28): CA 1 and the
+ * AI server's Cloud KMS key pinned, 983,451 gates, 2^20, verifier on Base
+ * Sepolia 0x1885aA22...08E6. It is published as a GitHub pre-release, so it
+ * never becomes Latest. The ref is part of the cache key (another ref is
+ * another base URL, which invalidates cached files), and the files are
+ * checked against `coinbase-attestation-v2/target/SHA256SUMS` and
+ * `target/vk/SHA256SUMS` at the same tag.
  *
- * Remove the row when the circuit is on main / in a release; the core list
- * and CIRCUIT_VK_PATHS then describe it like every other circuit.
+ * Remove the row when v2 is in the release this app pins; the core list and
+ * CIRCUIT_VK_PATHS then describe it like every other circuit.
  */
 import type {CircuitName} from './circuitIds';
 
 export interface CircuitArtifactSource {
-  /** zkproofport/circuits commit holding the files. */
+  /** zkproofport/circuits tag or commit holding the files. */
   ref: string;
   /** Directory holding `<remoteFileName>.json` and `.srs`. */
   basePath: string;
@@ -35,16 +42,16 @@ export interface CircuitArtifactSource {
 }
 
 export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, CircuitArtifactSource>>> = Object.freeze({
-  // Commit 33344e2 adds the build output to the circuit at b281485: nargo
-  // 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2, 2^20 (.srs 67,109,076 bytes).
+  // v2.0.0-rc.1 = circuits b0ca9fe: nargo 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2,
+  // 2^20 (.srs 67,109,076 bytes), 193 public inputs.
   coinbase_attestation: Object.freeze({
-    ref: '33344e2924fd6e9a19dcfb6b294bd7df7b51d62c',
-    basePath: 'coinbase-app-attest-poc/target',
-    vkPath: 'coinbase-app-attest-poc/target/vk',
+    ref: 'v2.0.0-rc.1',
+    basePath: 'coinbase-attestation-v2/target',
+    vkPath: 'coinbase-attestation-v2/target/vk',
     vkFileName: 'vk',
-    remoteFileName: 'coinbase_app_attest_poc',
-    dataVersion: 1,
-    publicInputCount: 226,
+    remoteFileName: 'coinbase_attestation_v2',
+    dataVersion: 2,
+    publicInputCount: 193,
   }),
 });
 

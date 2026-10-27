@@ -87,11 +87,11 @@ describe('a circuit download from the pinned release', () => {
     expect(mockFiles.has('/docs/circuits/coinbase_country_attestation.json')).toBe(false);
   });
 
-  it('a 404 for Coinbase KYC v2 names its pinned commit, never the release tag', async () => {
+  it('a 404 for Coinbase KYC v2 names its pinned pre-release tag, never CIRCUITS_RELEASE_TAG', async () => {
     mockStatus = 404;
     const err = await downloadCircuitFiles('coinbase_attestation', 'production', undefined, () => {}).catch((e: Error) => e);
-    expect((err as Error).message).toContain('/circuits/33344e2924fd6e9a19dcfb6b294bd7df7b51d62c/');
-    expect((err as Error).message).toContain('circuits commit 33344e2924fd6e9a19dcfb6b294bd7df7b51d62c (src/config/circuitArtifacts.ts) does not contain this file');
+    expect((err as Error).message).toContain('/circuits/v2.0.0-rc.1/');
+    expect((err as Error).message).toContain('circuits ref v2.0.0-rc.1 (src/config/circuitArtifacts.ts) does not contain this file');
     expect((err as Error).message).not.toContain('CIRCUITS_RELEASE_TAG');
     expect(mockFiles.has('/docs/circuits/coinbase_attestation.json')).toBe(false);
   });

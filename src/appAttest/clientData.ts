@@ -2,8 +2,8 @@
  * The 225-byte statement the app asks App Attest to sign, right after it has
  * looked the Coinbase attestation up and found it unrevoked.
  *
- * Spec: circuits branch `coinbase-app-attest-poc`,
- * `coinbase-app-attest-poc/README.md` ("clientData format") and
+ * Spec: circuits `coinbase-attestation-v2/README.md` (tag v2.0.0-rc.1,
+ * "clientData format") and
  * `src/client_data.nr`, which checks every field at these offsets.
  *
  *   off  len  field

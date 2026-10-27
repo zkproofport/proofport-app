@@ -332,7 +332,7 @@ async function downloadCircuitFileFromGitHub(
     const pinned = !artifact && !MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName) && isPinnedRelease(env);
     let reason = `Failed to download ${fileName}: HTTP ${result.statusCode} from ${url}`;
     if (result.statusCode === 404 && artifact) {
-      reason += ` -- circuits commit ${artifact.ref} (src/config/circuitArtifacts.ts) does not contain this file`;
+      reason += ` -- circuits ref ${artifact.ref} (src/config/circuitArtifacts.ts) does not contain this file`;
     } else if (result.statusCode === 404 && pinned) {
       reason += ` -- circuits release ${environmentCircuitsRef(env)} (CIRCUITS_RELEASE_TAG) is missing or does not contain this file`;
     }

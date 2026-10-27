@@ -2,8 +2,8 @@
  * Constants Coinbase KYC v2's App Attest path shares with its circuit.
  *
  * Every value here is also a constant (or a bound) in
- * `circuits/coinbase-app-attest-poc` / `circuits/app-attest-libs` on the
- * circuits branch `coinbase-app-attest-poc`. When they disagree the proof
+ * `circuits/coinbase-attestation-v2` / `circuits/app-attest-libs` (circuits
+ * tag v2.0.0-rc.1). When they disagree the proof
  * fails inside the prover with a message that names none of this, so the app
  * checks each bound itself first and refuses with the reason.
  */
@@ -17,16 +17,19 @@ export const APP_ATTEST_APP_ID = 'R4G32CVY29.com.masselabs.zkproofport';
 
 /**
  * SHA256(X || Y) of "Apple App Attestation CA 1", the intermediate that signs
- * every App Attest credential certificate (valid to 2030-03-13). Printed by
- * `circuits/scripts/coinbase-app-attest-poc/check-apple-vector.js`, which
- * checks the intermediate against Apple's published root; it is the value a
- * verifier pins for the public input `app_attest_ca_key_hash`.
+ * every App Attest credential certificate (valid to 2030-03-13). The circuit
+ * PINS this intermediate's key as a constant (`src/apple_ca.nr`, decided
+ * 2026-10-27), so an attestation chaining to any other intermediate cannot be
+ * proved; `toCircuitCredential` and the input builder refuse it first.
+ * `circuits/scripts/coinbase-attestation-v2/check-apple-vector.js` checks the
+ * pinned key against Apple's published root.
  *
- * Development-environment keys are certified by the same intermediate: the
- * real chain in that script's vector is a development credential certificate
- * signed by CA 1, and Apple's own production sample (the attestation-object
- * validation guide) carries the same intermediate. Only the authenticator
- * data's AAGUID tells the environments apart.
+ * When Apple issues a successor intermediate, this refusal is the first sign:
+ * a new circuit release (and this constant) is then needed.
+ *
+ * Development-environment keys are certified by the same intermediate; only
+ * the AAGUID tells the environments apart, and the circuit accepts
+ * production only (`requireProductionCredential`).
  */
 export const APPLE_APP_ATTEST_CA1_KEY_HASH =
   '0x8ef85f951d5958d17e728c881f11f059f370aff763503903a96417405b59747f';

@@ -24,6 +24,7 @@ import {
 } from '../utils';
 import {getEnvironment, type CircuitName} from '../config';
 import {coinbaseKycArtifact} from '../config/circuitArtifacts';
+import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../appAttest/constants';
 import type {TypedAction} from '../config/circuitIds';
 import {signedDigestOf} from '../utils/signedAction';
 import {computeScope} from '../utils/circuitHelpers';
@@ -458,6 +459,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
                   scope: computeScope(inputs.scopeString),
                   signedDigest: signedDigestOf(signed),
                   publicHashes: signed.publicHashes,
+                  pinnedCaKeyHash: APPLE_APP_ATTEST_CA1_KEY_HASH,
                 },
                 statement.witness,
               ),

@@ -191,10 +191,14 @@ export {GITHUB_RAW};
  * Pattern: <DeployScript>.s.sol/<chainId>/run-latest.json
  */
 export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) | null> = {
-  // Coinbase KYC v2 is not on circuits main or in a release yet, so no
-  // broadcast there names its verifier; the address is the per-environment
-  // fallback below. A broadcast read from main would hand back the v1
-  // verifier, which rejects every v2 proof.
+  // Coinbase KYC v2's deploy record is DeployCoinbaseAttestationV2.s.sol
+  // (circuits main and v2.0.0-rc.1, Base Sepolia only). It stays null here on
+  // purpose: production reads broadcasts from CIRCUITS_RELEASE_TAG (v2.0.0,
+  // not published), where a missing record ends at E3007, and this row's
+  // DeployCoinbaseAttestation record names v1's verifier, which rejects every
+  // v2 proof. The address is the per-environment fallback below, and
+  // getVerifierAddress skips the cache for a null row, so neither can win.
+  // Point it at DeployCoinbaseAttestationV2 when the pinned release carries it.
   coinbase_attestation: null,
   coinbase_country_attestation: (chainId) =>
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
@@ -407,11 +411,12 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
  */
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
-    // Coinbase KYC v2 (App Attest), Base Sepolia, deployed 2026-10-23 by
-    // circuits scripts/deploy_verifier.sh coinbase-app-attest-poc base-sepolia
-    // (circuits deployments/84532/CoinbaseAppAttestPoc.json, branch
-    // coinbase-app-attest-poc).
-    coinbase_attestation: '0xF898db959351E305c88ACC4e7bda4Ea74731Bb12',
+    // Coinbase KYC v2, Base Sepolia, deployed 2026-10-28 by circuits
+    // scripts/deploy_verifier.sh coinbase-attestation-v2 base-sepolia
+    // (circuits e498841, broadcast/DeployCoinbaseAttestationV2.s.sol/84532,
+    // in tag v2.0.0-rc.1). Replaces the 2026-10-23 circuit's 0xF898db95...Bb12
+    // (circuits 33344e2), which rejects every final-v2 proof (other vk).
+    coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
     // OIDC v2 (214 public inputs), pinned by core 0.3.0. The v1 contract
     // 0x5D9E...F485 rejects every v2 proof.
@@ -432,7 +437,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   staging: {
-    coinbase_attestation: '0xF898db959351E305c88ACC4e7bda4Ea74731Bb12',
+    coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
     oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',

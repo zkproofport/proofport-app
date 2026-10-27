@@ -252,7 +252,7 @@ describe('a verifier follows the circuit bytes', () => {
     const fetchMock = broadcasts();
     mockDisk.set('@proofport/deployment/staging/coinbase_attestation', JSON.stringify({address: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c'}));
     expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBeNull();
-    expect(await getVerifierAddress('coinbase_attestation', 'staging')).toBe('0xF898db959351E305c88ACC4e7bda4Ea74731Bb12');
+    expect(await getVerifierAddress('coinbase_attestation', 'staging')).toBe('0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6');
     expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployCoinbaseAttestation'))).toBe(false);
   });

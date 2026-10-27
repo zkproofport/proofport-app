@@ -227,9 +227,9 @@ describe('with the real core: the pinned table decides, the app only claims', ()
   });
 });
 
-describe('Coinbase KYC v2 (pinned circuits commit) is checked against the contract the app configures', () => {
+describe('Coinbase KYC v2 (pinned circuits tag) is checked against the contract the app configures', () => {
   it('names the v2 contract as the target, because core 0.3.0 pins only the v1 Coinbase verifier', async () => {
-    const v2 = '0xF898db959351E305c88ACC4e7bda4Ea74731Bb12';
+    const v2 = '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6';
     mockGetVerifierAddress.mockResolvedValue(v2);
     mockGetNetworkConfigForCircuit.mockReturnValue(NETWORKS.coinbase_country_attestation);
     mockVerifyProofOnChain.mockResolvedValue({valid: true});

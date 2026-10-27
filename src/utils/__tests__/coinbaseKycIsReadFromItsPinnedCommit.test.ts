@@ -46,16 +46,19 @@ beforeEach(() => {
 });
 
 describe('coinbase_attestation (v2)', () => {
-  it('is pinned to a full commit hash', () => {
-    expect(coinbaseKycArtifact().ref).toMatch(/^[0-9a-f]{40}$/);
+  it('is pinned to a circuits pre-release tag, never a branch', () => {
+    // v2.0.0-rc.1 is a GitHub pre-release on circuits commit b0ca9fe. A branch
+    // name (main, coinbase-app-attest-poc) would move under installed apps.
+    expect(coinbaseKycArtifact().ref).toMatch(/^v\d+\.\d+\.\d+-rc\.\d+$/);
+    expect(coinbaseKycArtifact().ref).toBe('v2.0.0-rc.1');
   });
 
   it.each(['development', 'staging', 'production'])('downloads from that commit in a %s build, stored as coinbase_attestation', async env => {
     await downloadCircuitFiles('coinbase_attestation', env, undefined, () => {});
     expect(mockDownloads.map(d => d.fromUrl)).toEqual([
-      `${RAW}/coinbase-app-attest-poc/target/coinbase_app_attest_poc.json`,
-      `${RAW}/coinbase-app-attest-poc/target/coinbase_app_attest_poc.srs`,
-      `${RAW}/coinbase-app-attest-poc/target/vk/vk`,
+      `${RAW}/coinbase-attestation-v2/target/coinbase_attestation_v2.json`,
+      `${RAW}/coinbase-attestation-v2/target/coinbase_attestation_v2.srs`,
+      `${RAW}/coinbase-attestation-v2/target/vk/vk`,
     ]);
     expect(mockDownloads.map(d => d.toFile)).toEqual([
       '/tmp/documents/circuits/coinbase_attestation.json',

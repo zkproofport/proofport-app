@@ -1,26 +1,33 @@
 /**
- * The input vector for Coinbase KYC v2 (`coinbase_attestation`; circuits branch
- * `coinbase-app-attest-poc`, `coinbase-app-attest-poc/src/main.nr`), in its
- * `fn main` order.
+ * The input vector for Coinbase KYC v2 (`coinbase_attestation`; circuits
+ * `coinbase-attestation-v2/src/main.nr`, package `coinbase_attestation_v2`,
+ * pre-release tag v2.0.0-rc.1), in its `fn main` order, as the APP signer kind.
  *
  * bb reads the vector positionally, so the order below IS the contract:
  *
  *   public   signal_hash 32, domain_separator 32, action_hash 32,
- *            signer_list_merkle_root 32, scope 32, nullifier 32,
- *            app_attest_ca_key_hash 32, attested_at 1, app_attest_production 1
- *            -> 226 field elements
+ *            signer_list_merkle_root 32, scope 32, nullifier 32, attested_at 1
+ *            -> 193 field elements
  *   private  user_address 20, user_signature 64, user_pubkey_x 32, user_pubkey_y 32,
  *            raw_transaction 300, tx_length 1, coinbase_attester_pubkey_x 32,
  *            coinbase_attester_pubkey_y 32, coinbase_signer_merkle_proof 256,
  *            coinbase_signer_leaf_index 1, merkle_proof_depth 1,
- *            client_data 225, app_attest_ca_key 96, credential_tbs 1000,
- *            credential_tbs_len 1, credential_sig 96, att_auth_data 256,
- *            att_auth_data_len 1, att_client_data_hash 32,
- *            assertion_auth_data 128, assertion_auth_data_len 1, assertion_sig 64
- *            -> 2,897 values in all
+ *            client_data 225, signer_kind 1 (app = 1), statement_sig 64 (the
+ *            App Attest assertion signature, r || s, low s),
+ *            credential_tbs 1000, credential_tbs_len 1, credential_sig 96,
+ *            att_auth_data 256, att_auth_data_len 1, att_client_data_hash 32,
+ *            assertion_auth_data 128, assertion_auth_data_len 1
+ *            -> 2,769 values in all
  *
- * `coinbaseAppAttestInputs.test.ts` holds this against the compiled circuit's
- * ABI and against a vector the circuit's own fixture generator produced.
+ * The circuit pins Apple's intermediate ("Apple App Attestation CA 1") and the
+ * production AAGUID as constants, so neither the CA key, its hash nor an
+ * environment flag is an input any more (the 2026-10-23 build had all three). This
+ * builder refuses a credential the circuit would refuse for either reason:
+ * an intermediate other than the pinned one, or a development-environment key.
+ *
+ * `theAppBuildsTheCircuitsOwnVector.test.ts` holds this against a vector the
+ * circuit's own fixture generator produced (circuits
+ * scripts/coinbase-attestation-v2/export-app-vector.js), and its ABI.
  */
 import {ethers} from 'ethers';
 import type {AppAttestWitness} from '../appAttest/revocationStatement';
@@ -31,6 +38,11 @@ import {
 } from '../appAttest/constants';
 import {CLIENT_DATA_LEN} from '../appAttest/clientData';
 import {bytesToNoirInput, nullifierForCircuit, padArray, type AttesterCircuitInputs} from './circuitHelpers';
+import {AppAttestError, APP_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
+
+/** main.nr `KIND_APP`: the statement is signed by an App Attest key. */
+const SIGNER_KIND_APP = '1';
+const N_P256_HALF = BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551') >> 1n;
 
 const ZERO32 = new Array(32).fill(0);
 
@@ -41,9 +53,7 @@ export interface CoinbaseAppAttestInputs {
   signer_list_merkle_root: string[];
   scope: string[];
   nullifier: string[];
-  app_attest_ca_key_hash: string[];
   attested_at: string;
-  app_attest_production: string;
 
   user_address: string[];
   user_signature: string[];
@@ -58,7 +68,8 @@ export interface CoinbaseAppAttestInputs {
   merkle_proof_depth: string;
 
   client_data: string[];
-  app_attest_ca_key: string[];
+  signer_kind: string;
+  statement_sig: string[];
   credential_tbs: string[];
   credential_tbs_len: string;
   credential_sig: string[];
@@ -67,7 +78,6 @@ export interface CoinbaseAppAttestInputs {
   att_client_data_hash: string[];
   assertion_auth_data: string[];
   assertion_auth_data_len: string;
-  assertion_sig: string[];
 }
 
 function fixed(bytes: Uint8Array, length: number, what: string): string[] {
@@ -102,9 +112,29 @@ export function prepareCoinbaseAppAttestInputs(
     signedDigest: string;
     /** Present in EIP-712 action mode. */
     publicHashes?: {domainSeparator: string; actionHash: string};
+    /**
+     * SHA256(X || Y) of the intermediate the circuit pins: Apple's CA 1
+     * (APPLE_APP_ATTEST_CA1_KEY_HASH) in the app, the synthetic one in the
+     * vector test. Required -- no default, so a test cannot quietly prove
+     * against Apple's while the app uses another.
+     */
+    pinnedCaKeyHash: string;
   },
   witness: AppAttestWitness,
 ): CoinbaseAppAttestInputs {
+  const {credential, assertion} = witness;
+  const refuse = (why: string): never => {
+    throw new AppAttestError(APP_ATTEST_ERROR_CODE.malformed, why);
+  };
+  if (credential.caKeyHash.toLowerCase() !== request.pinnedCaKeyHash.toLowerCase()) {
+    refuse(`intermediate CA key hash ${credential.caKeyHash} is not the one the circuit pins (${request.pinnedCaKeyHash})`);
+  }
+  if (!credential.production) {
+    refuse('development (sandbox) App Attest key; the circuit accepts production keys only');
+  }
+  if (assertion.signature.length === 64 && BigInt(ethers.utils.hexlify(assertion.signature.slice(32))) > N_P256_HALF) {
+    refuse('assertion signature s is not in low form; the circuit refuses a high s');
+  }
   const cd = witness.clientData;
   if (cd.length !== CLIENT_DATA_LEN) throw new Error(`clientData is ${cd.length} bytes, not ${CLIENT_DATA_LEN}`);
   const hexOf = (from: number, len: number) => ethers.utils.hexlify(cd.slice(from, from + len)).toLowerCase();
@@ -131,7 +161,6 @@ export function prepareCoinbaseAppAttestInputs(
     : bytesToNoirInput(ZERO32);
 
   const nullifier = nullifierForCircuit('coinbase_attestation', request.userAddress, new Uint8Array(32), request.scope);
-  const {credential, assertion} = witness;
 
   return {
     signal_hash: signal,
@@ -140,9 +169,7 @@ export function prepareCoinbaseAppAttestInputs(
     signer_list_merkle_root: coinbase.signer_list_merkle_root,
     scope: fixed(request.scope, 32, 'scope'),
     nullifier: bytesToNoirInput(Array.from(nullifier)),
-    app_attest_ca_key_hash: fixed(ethers.utils.arrayify(credential.caKeyHash), 32, 'app_attest_ca_key_hash'),
     attested_at: String(witness.attestedAt),
-    app_attest_production: credential.production ? '1' : '0',
 
     user_address: coinbase.user_address,
     user_signature: coinbase.user_signature,
@@ -157,7 +184,8 @@ export function prepareCoinbaseAppAttestInputs(
     merkle_proof_depth: coinbase.merkle_proof_depth,
 
     client_data: fixed(cd, CLIENT_DATA_LEN, 'client_data'),
-    app_attest_ca_key: fixed(credential.caKey, 96, 'app_attest_ca_key'),
+    signer_kind: SIGNER_KIND_APP,
+    statement_sig: fixed(assertion.signature, 64, 'statement_sig'),
     credential_tbs: padded(credential.credentialTbs, CREDENTIAL_TBS_MAX_LEN, 'credential_tbs'),
     credential_tbs_len: String(credential.credentialTbs.length),
     credential_sig: fixed(credential.credentialSig, 96, 'credential_sig'),
@@ -166,11 +194,10 @@ export function prepareCoinbaseAppAttestInputs(
     att_client_data_hash: fixed(credential.attClientDataHash, 32, 'att_client_data_hash'),
     assertion_auth_data: padded(assertion.authenticatorData, ASSERT_AUTH_DATA_MAX_LEN, 'assertion_auth_data'),
     assertion_auth_data_len: String(assertion.authenticatorData.length),
-    assertion_sig: fixed(assertion.signature, 64, 'assertion_sig'),
   };
 }
 
-/** `fn main`'s order. The first 226 values are the public inputs. */
+/** `fn main`'s order. The first 193 values are the public inputs. */
 export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): string[] {
   return [
     ...i.signal_hash,
@@ -179,9 +206,7 @@ export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): stri
     ...i.signer_list_merkle_root,
     ...i.scope,
     ...i.nullifier,
-    ...i.app_attest_ca_key_hash,
     i.attested_at,
-    i.app_attest_production,
     ...i.user_address,
     ...i.user_signature,
     ...i.user_pubkey_x,
@@ -194,7 +219,8 @@ export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): stri
     i.coinbase_signer_leaf_index,
     i.merkle_proof_depth,
     ...i.client_data,
-    ...i.app_attest_ca_key,
+    i.signer_kind,
+    ...i.statement_sig,
     ...i.credential_tbs,
     i.credential_tbs_len,
     ...i.credential_sig,
@@ -203,6 +229,5 @@ export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): stri
     ...i.att_client_data_hash,
     ...i.assertion_auth_data,
     i.assertion_auth_data_len,
-    ...i.assertion_sig,
   ];
 }
