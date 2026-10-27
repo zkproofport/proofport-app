@@ -402,31 +402,13 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
  * fetch/AbortSignal/setTimeout typings). Core's root stays in
  * utils/proofVerification.ts only.
  */
-/**
- * FILL IN: the OIDC v2 verifier (214 public inputs, circuits a874776) on Base
- * Sepolia, checksummed. The ONE place this build names it; development and
- * staging read it through FALLBACK_VERIFIERS below.
- *
- * Empty = not deployed yet. Take it from the circuits repo's deployment record
- * (`deployments/84532/OidcDomainAttestation.json`, or
- * `broadcast/DeployOidcDomainAttestation.s.sol/84532/run-latest.json`, the
- * `HonkVerifier` transaction) -- never from memory. While empty the app
- * reports OIDC on-chain verification as unavailable instead of calling the
- * v1 contract (0x5D9E...F485), which rejects every v2 proof.
- *
- * Filling it is not the whole step: core (`@zkproofport-app/core` 0.2.0) pins
- * the v1 contract and the v1 layout (148 inputs), and the app's on-chain check
- * goes through core. OIDC on-chain verification works once a core release
- * pins this address with the 214-input layout; `verifierAddressesComeFromCore`
- * then holds this row to it.
- */
-export const OIDC_V2_VERIFIER_BASE_SEPOLIA: string = '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167';
-
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
     coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
-    oidc_domain_attestation: OIDC_V2_VERIFIER_BASE_SEPOLIA,
+    // OIDC v2 (214 public inputs), pinned by core 0.3.0. The v1 contract
+    // 0x5D9E...F485 rejects every v2 proof.
+    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',
     // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
     // Every testnet verifier was redeployed 2026-10-22 for the nargo
     // 1.0.0-beta.19 / bb 4.2.0 toolchain (circuits/deployments/). The previous
@@ -445,7 +427,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   staging: {
     coinbase_attestation: '0x42d165a48256Ae184e1dE4e7E6372E870E2bC883',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
-    oidc_domain_attestation: OIDC_V2_VERIFIER_BASE_SEPOLIA,
+    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
     mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',

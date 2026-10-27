@@ -131,9 +131,7 @@ export async function verifyProofOnChainWithCore(
 
     if (!verifierAddress) {
       addLog(
-        circuit === 'oidc_domain_attestation'
-          ? '[OnChain] No OIDC v2 verifier is configured for this build yet (OIDC_V2_VERIFIER_BASE_SEPOLIA in src/config/contracts.ts is empty); the v1 contract would reject this proof'
-          : `[OnChain] ERROR: Verifier address is empty for ${circuit} - check FALLBACK_VERIFIERS and the environment config`,
+        `[OnChain] ERROR: Verifier address is empty for ${circuit} - check FALLBACK_VERIFIERS and the environment config`,
       );
       addLog('[OnChain] Environment: ' + getEnvironment());
       setStatus('Verification unavailable');

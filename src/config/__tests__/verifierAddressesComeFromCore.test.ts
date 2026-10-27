@@ -13,21 +13,9 @@ jest.mock('react-native', () => ({NativeModules: {}}));
 import {ethers} from 'ethers';
 import {getPinnedVerifier, OIDC_PUBLIC_INPUT_COUNT as CORE_OIDC_PUBLIC_INPUT_COUNT} from '@zkproofport-app/core';
 import {ALL_CIRCUIT_IDS} from '../circuitIds';
-import {CIRCUIT_NETWORKS, FALLBACK_VERIFIERS, OIDC_V2_VERIFIER_BASE_SEPOLIA} from '../contracts';
+import {CIRCUIT_NETWORKS, FALLBACK_VERIFIERS} from '../contracts';
 import type {Environment} from '../contracts';
 import {OIDC_PUBLIC_INPUT_COUNT} from '../../utils/oidcDomain';
-
-/*
- * The one exemption, and it expires by itself. This build proves OIDC v2
- * (214 public inputs); core 0.2.0 pins the v1 contract and layout (148), so
- * the testnet OIDC rows cannot equal core's table yet -- they hold the v2
- * address from OIDC_V2_VERIFIER_BASE_SEPOLIA instead. The moment core's OIDC
- * layout is v2, `coreIsBehindOidcV2` turns false and those rows are held to
- * core's pinned address like every other row.
- */
-const coreIsBehindOidcV2 = (CORE_OIDC_PUBLIC_INPUT_COUNT as number) !== (OIDC_PUBLIC_INPUT_COUNT as number);
-const exemptFromCore = (env: Environment, circuit: string) =>
-  coreIsBehindOidcV2 && circuit === 'oidc_domain_attestation' && env !== 'production';
 
 const ENVS: Environment[] = ['development', 'staging', 'production'];
 
@@ -46,7 +34,6 @@ describe('every environment resolves every circuit through core', () => {
 
   it.each(ENVS)('%s: each address is core\'s pinned verifier on the circuit\'s own chain', env => {
     for (const circuit of ALL_CIRCUIT_IDS) {
-      if (exemptFromCore(env, circuit)) continue;
       const chainId = CIRCUIT_NETWORKS[env][circuit].chainId;
       expect(FALLBACK_VERIFIERS[env][circuit].toLowerCase()).toBe(
         getPinnedVerifier(circuit, chainId).address,
@@ -58,7 +45,6 @@ describe('every environment resolves every circuit through core', () => {
     for (const env of ENVS) {
       for (const circuit of ALL_CIRCUIT_IDS) {
         const a = FALLBACK_VERIFIERS[env][circuit];
-        if (exemptFromCore(env, circuit) && a === '') continue;
         expect(a).toBe(ethers.utils.getAddress(a));
       }
     }
@@ -73,25 +59,20 @@ describe('every environment resolves every circuit through core', () => {
   });
 });
 
-describe('the OIDC v2 verifier has exactly one place to be filled in', () => {
-  it('core 0.2.0 is still on the v1 layout (148), so the exemption above is live', () => {
-    // When this fails, core has moved to v2: delete the exemption and this case.
-    expect(CORE_OIDC_PUBLIC_INPUT_COUNT).toBe(148);
+describe('OIDC v2: the app and core agree on the circuit', () => {
+  it('core counts the same 214 public inputs the app proves', () => {
+    // A core on another layout refuses every OIDC proof this build makes.
     expect(OIDC_PUBLIC_INPUT_COUNT).toBe(214);
+    expect(CORE_OIDC_PUBLIC_INPUT_COUNT).toBe(OIDC_PUBLIC_INPUT_COUNT);
   });
 
-  it('development and staging read OIDC_V2_VERIFIER_BASE_SEPOLIA, never the v1 contract', () => {
+  it('development and staging name the Base Sepolia v2 verifier, never the v1 contract', () => {
     for (const env of ['development', 'staging'] as const) {
-      expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation).toBe(OIDC_V2_VERIFIER_BASE_SEPOLIA);
+      expect(CIRCUIT_NETWORKS[env].oidc_domain_attestation.chainId).toBe(84532);
+      expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation).toBe('0x003334A7C2ff15ee9ee845Ab88e152A2A3694167');
       expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation.toLowerCase()).not.toBe(
-        getPinnedVerifier('oidc_domain_attestation', 84532).address,
+        '0x5d9ece4f0276d12693f79659760a68011efef485',
       );
-    }
-  });
-
-  it('is empty (not deployed) or a checksummed address, nothing else', () => {
-    if (OIDC_V2_VERIFIER_BASE_SEPOLIA !== '') {
-      expect(OIDC_V2_VERIFIER_BASE_SEPOLIA).toBe(ethers.utils.getAddress(OIDC_V2_VERIFIER_BASE_SEPOLIA));
     }
   });
 });

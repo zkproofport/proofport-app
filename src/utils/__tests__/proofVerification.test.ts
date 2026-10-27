@@ -166,12 +166,12 @@ describe('on-chain verification goes through @zkproofport-app/core', () => {
     expect(statuses.at(-1)).toBe('Verification unavailable');
   });
 
-  it('an OIDC proof with no v2 verifier yet names the constant to fill, and never asks core', async () => {
+  it('an OIDC proof with an empty verifier address names the circuit, and never asks core', async () => {
     mockGetVerifierAddress.mockResolvedValue('');
     const {r, logs, statuses} = reporter();
     await expect(verifyProofOnChainWithCore('oidc_domain_attestation', parsed, r)).resolves.toBe(false);
     expect(mockVerifyProofOnChain).not.toHaveBeenCalled();
-    expect(logs.join('\n')).toContain('OIDC_V2_VERIFIER_BASE_SEPOLIA');
+    expect(logs.join('\n')).toContain('Verifier address is empty for oidc_domain_attestation');
     expect(statuses.at(-1)).toBe('Verification unavailable');
   });
 
