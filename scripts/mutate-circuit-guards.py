@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -307,11 +308,16 @@ def sha256(path: Path) -> str:
 
 
 def run_guard(guard: str) -> tuple[int, str]:
+    # NODE_OPTIONS is dropped: a shell that points it at a missing preload file
+    # makes node exit before jest starts, and every mutation then read as
+    # "failed a DIFFERENT case" (seen 2026-10-27).
+    env = {k: v for k, v in os.environ.items() if k != "NODE_OPTIONS"}
     proc = subprocess.run(
         ["npx", "jest", "--ci", "--runInBand", guard],
         cwd=APP,
         capture_output=True,
         text=True,
+        env=env,
     )
     return proc.returncode, proc.stdout + proc.stderr
 
