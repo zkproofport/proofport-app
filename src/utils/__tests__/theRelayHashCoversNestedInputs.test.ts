@@ -74,6 +74,30 @@ describe('the app hashes exactly what the relay hashes', () => {
   });
 });
 
+// Digests produced by proofport-relay's own src/inputsHash.ts (origin/main,
+// computeInputsHashes) on 2026-10-28, run under tsx against these exact
+// objects. A change on either side that alters the bytes fails here.
+describe('vectors computed by the relay itself', () => {
+  it.each([
+    [{scope: 's', action: {value: 1, to: '0xabc'}},
+      '603daadc9ad59eaf1b8f99917de8f7254e155e40c44ab1f5daffe4c7098f1aab',
+      '6a66b0692219b555410c33f2ef0e4be14ad684bf668f6ba4a5373cf4817075f8'],
+    // Same legacy digest as the row above: the nested value is not covered there.
+    [{scope: 's', action: {value: 1000, to: '0xabc'}},
+      '71c66f8e3a96b56011b70e6a8c1fc0cc19980c900fccb4e63a49f92022a2f4a4',
+      '6a66b0692219b555410c33f2ef0e4be14ad684bf668f6ba4a5373cf4817075f8'],
+    [{b: [3, {z: 1, a: [true, null, '한국어 🎉']}], a: -0.5, c: '\u2028\n\t"\\'},
+      '153b720775cae393e6d38fa5f4b9d63ea50ca4637568ed7842e6705e8fb71e03',
+      'e3eadaf302e63cc36cccd910a98a06b22d34434265880bf06411ba2ed4715c2a'],
+    [{countryList: ['US', 'KR'], isIncluded: true, scope: 'x'},
+      '29975ee165a06adf0761043a36010877eef2dcd6fc1078373beedb9331a48ea1',
+      '29975ee165a06adf0761043a36010877eef2dcd6fc1078373beedb9331a48ea1'],
+  ] as const)('%j', (inputs, v2, legacy) => {
+    expect(computeInputsHashV2(inputs as unknown as Record<string, unknown>)).toBe(v2);
+    expect(computeLegacyInputsHash(inputs as unknown as Record<string, unknown>)).toBe(legacy);
+  });
+});
+
 describe('checkInputsHash', () => {
   const inputs = giwa('1');
   const v2 = computeInputsHashV2(inputs);

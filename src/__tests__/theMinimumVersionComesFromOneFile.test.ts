@@ -48,6 +48,27 @@ describe('the minimum-version file', () => {
     expect(compareVersions(shipping, minimum)).toBeGreaterThanOrEqual(0);
   });
 
+  // The running app compares its NATIVE version (expo-application
+  // nativeApplicationVersion), not package.json, so the native numbers are
+  // the ones a minimum must not exceed.
+  it('does not block the native version this tree builds (iOS MARKETING_VERSION, Android versionName)', () => {
+    const json = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+    const pbxproj = fs.readFileSync(path.join(APP_ROOT, 'ios', 'ProofportApp.xcodeproj', 'project.pbxproj'), 'utf8');
+    const gradle = fs.readFileSync(path.join(APP_ROOT, 'android', 'app', 'build.gradle'), 'utf8');
+    const ios = [...pbxproj.matchAll(/MARKETING_VERSION = ([^;]+);/g)].map(m => m[1].trim());
+    const android = [...gradle.matchAll(/versionName "([^"]+)"/g)].map(m => m[1]);
+    expect(ios.length).toBeGreaterThan(0);
+    expect(android.length).toBeGreaterThan(0);
+    for (const [platform, versions] of [['ios', ios], ['android', android]] as const) {
+      const minimum = parseVersion(json[platform].minimum) as Version;
+      for (const v of versions) {
+        const native = parseVersion(v);
+        expect(native).not.toBeNull();
+        expect(compareVersions(native as Version, minimum)).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
   it('carries a message in both languages', () => {
     const json = JSON.parse(fs.readFileSync(FILE, 'utf8'));
     expect(typeof json.message.ko).toBe('string');

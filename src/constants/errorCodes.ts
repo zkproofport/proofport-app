@@ -124,8 +124,8 @@ export const ErrorCodes = {
       'The sign-in answer was not issued for this request, so no proof was generated. Try signing in again.',
   },
   // The raw-HTTP mobile ID path (Developer Mode) answered OACX_NO_PARAM_PROVIDER
-  // for the chosen card type -- see src/utils/oacxErrors.ts. E2014 is left for
-  // the app-attest branch's "App Attest Check Failed", which also took E2012.
+  // for the chosen card type -- see src/utils/oacxErrors.ts. E2009-E2011 and
+  // E2014 are App Attest codes on the app-attest branch.
   E2013: {
     code: 'E2013',
     title: 'Card Type Not Accepted',
