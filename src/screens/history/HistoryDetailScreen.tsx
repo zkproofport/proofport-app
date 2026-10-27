@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {useTranslation} from 'react-i18next';
@@ -16,6 +16,36 @@ import {formatHistoryDate} from '../../utils/historyPresentation';
 import {historyRecordText} from './historyRecordText';
 import {HistoryStatusBadge} from './HistoryStatusBadge';
 import {useHistoryRecords} from './useHistoryRecords';
+import {useSettings} from '../../hooks/useSettings';
+import {readStoredLog, storedLogsVisible} from '../../utils/proofLog';
+
+/**
+ * The attempt's kept log, with "Copy log". Rendered only while Developer Mode
+ * is on and the record holds a readable log (utils/proofLog.ts).
+ */
+function ProofLogCard({log}: {log: string}) {
+  const {t} = useTranslation();
+  const colors = useProofUiColors();
+  const {showError} = useError();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setCopied(false), [log]);
+  return <View testID="history-log" style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
+    <Text style={[styles.sectionTitle, {color: colors.text}]}>{t('host.history.detail.proofLog')}</Text>
+    <Text style={[styles.note, {color: colors.secondary}]}>{t('host.history.detail.proofLogHint')}</Text>
+    <TouchableOpacity testID="history-copy-log" accessibilityRole="button" style={styles.copy} onPress={() => {
+      try {Clipboard.setString(log); setCopied(true);}
+      catch (error) {showError('E5001', error instanceof Error ? error.message : String(error));}
+    }}>
+      <ProofUiIcon name={copied ? 'check' : 'copy'} size={16} color={colors.blue} />
+      <Text accessibilityLiveRegion="polite" style={[styles.copyText, {color: colors.blue}]}>
+        {t(copied ? 'host.history.detail.logCopied' : 'host.history.detail.copyLog')}
+      </Text>
+    </TouchableOpacity>
+    <ScrollView nestedScrollEnabled style={[styles.logBox, {borderColor: colors.border}]}>
+      <Text testID="history-log-text" selectable style={[styles.logText, {color: colors.secondary}]}>{log}</Text>
+    </ScrollView>
+  </View>;
+}
 
 function savedReview(value: ProofHistoryItem['review']): ProofHistoryItem['review'] {
   if (!value || value.version !== 1 || !value.inputs || typeof value.inputs !== 'object' || Array.isArray(value.inputs)) return undefined;
@@ -54,6 +84,7 @@ const HistoryDetailScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<HistoryStackParamList>>();
   const {proofId} = route.params;
   const {items, loading, failed, refresh} = useHistoryRecords();
+  const {settings} = useSettings();
   // `items` may hold damaged records; only a stored string id can match.
   const proof = items.find(item => typeof item === 'object' && item !== null && item.id === proofId);
   const [technicalOpen, setTechnicalOpen] = useState(false);
@@ -120,6 +151,8 @@ const HistoryDetailScreen: React.FC = () => {
     const hasAction = review !== undefined && Object.prototype.hasOwnProperty.call(review, 'action');
     // The generation failure writer marks both channels failed before a proof exists.
     const verificationNotCompleted = proof.overallStatus === 'failed' && !proof.proofHash;
+    // Developer Mode off hides a kept log; it is not deleted.
+    const log = storedLogsVisible(settings) ? readStoredLog(proof) : null;
     content = <>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
@@ -183,6 +216,7 @@ const HistoryDetailScreen: React.FC = () => {
               <TechnicalValue id="scope-string" label={t('host.history.detail.scopeString')} value={review.inputs.scopeString} provided />}
           </View>}
         </View>
+        {log !== null && <ProofLogCard log={log} />}
         {deleteFailed && <Text testID="history-delete-error" accessibilityLiveRegion="polite"
           style={[styles.note, {color: colors.red}]}>{t('host.history.detail.deleteFailed')}</Text>}
         <TouchableOpacity testID="history-delete" accessibilityRole="button" disabled={deleting}
@@ -221,6 +255,8 @@ const styles = StyleSheet.create({
   technicalValue: {paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth},
   copy: {alignSelf: 'flex-start', flexDirection: 'row', gap: 7, alignItems: 'center', minHeight: 40},
   copyText: {fontSize: 12, fontWeight: '600'},
+  logBox: {maxHeight: 280, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, padding: 10},
+  logText: {fontSize: 11, lineHeight: 16, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'},
   deleteButton: {flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', minHeight: 44},
   deleteText: {fontSize: 13, fontWeight: '500'},
   state: {flex: 1, padding: 28, alignItems: 'center', justifyContent: 'center', gap: 16},

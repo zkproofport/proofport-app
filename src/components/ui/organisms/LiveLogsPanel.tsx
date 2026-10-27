@@ -10,6 +10,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Icon} from '../atoms/Icon';
 import {useThemeColors} from '../../../context';
+import {scrubLogText} from '../../../utils/proofLog';
 
 interface LiveLogsPanelProps {
   logs: string[];
@@ -60,7 +61,8 @@ export const LiveLogsPanel: React.FC<LiveLogsPanelProps> = ({
   }, [logs, autoScroll]);
 
   const handleCopyLogs = () => {
-    const logText = filteredLogs.map(stripTimestamp).join('\n');
+    // Same scrub as a kept log: no token, signature or key reaches the clipboard.
+    const logText = scrubLogText(filteredLogs.map(stripTimestamp).join('\n'));
     Clipboard.setString(logText);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);

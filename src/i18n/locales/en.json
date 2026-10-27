@@ -64,7 +64,8 @@
       "subtitle": "Make ZKProofport work your way.",
       "sectionAbout": "ABOUT",
       "saveError": "Could not save this setting. Please try again.",
-      "loadError": "Could not load settings."
+      "loadError": "Could not load settings.",
+      "showLiveLogsHint": "Shows the log while a proof runs and keeps it in that proof's History record, without tokens, signatures or keys."
     },
     "about": {
       "tagline": "Privacy-first zero-knowledge proof generation",
@@ -198,7 +199,11 @@
         "verificationPending": "Not completed",
         "circuitId": "Proof type ID",
         "scope": "Scope",
-        "scopeString": "Scope text"
+        "scopeString": "Scope text",
+        "proofLog": "Proof log",
+        "proofLogHint": "Kept because Developer Mode and live logs were on. Tokens, signatures and keys were removed.",
+        "copyLog": "Copy log",
+        "logCopied": "Copied"
       },
       "statusLabel": "Status",
       "dateLabel": "Date",
@@ -357,7 +362,9 @@
         "viewGiwaExplorer": "View on GIWA Explorer",
         "generateAnother": "Generate Another Proof",
         "stackTitle": "Proof Complete",
-        "done": "Done"
+        "done": "Done",
+        "copyLog": "Copy log",
+        "logCopied": "Log copied"
       },
       "generation": {
         "portalLabel": "PROOF PORTAL",

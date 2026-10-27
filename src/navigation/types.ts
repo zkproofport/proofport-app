@@ -89,6 +89,12 @@ export type ProofStackParamList = {
     };
     walletAddress?: string;
     historyId?: string;
+    /**
+     * The generation log, scrubbed and capped (src/utils/proofLog.ts). Present
+     * only when Developer Mode and live logs were on for this attempt; its
+     * presence is what turns on "Copy log" and verification logging here.
+     */
+    proofLog?: string;
   };
   InAppBrowser: { url: string; title?: string };
 };

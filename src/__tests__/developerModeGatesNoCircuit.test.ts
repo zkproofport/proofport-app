@@ -1,5 +1,6 @@
 /**
- * Developer Mode is for developer tools — live logs and the OpenStoa switch —
+ * Developer Mode is for developer tools — live logs, the kept proof log and
+ * the OpenStoa switch —
  * and decides nothing about circuits. It used to hide the GIWA and Korea
  * Mobile ID networks, their wallet rows and their startup download while the
  * Laboratory offered the same proofs to everyone. Only the files below may read
@@ -13,7 +14,9 @@ const ALLOWED = [
   'stores/settingsStore.ts',
   'screens/more/AboutScreen.tsx',
   'screens/more/MoreMainScreen.tsx',
-  'screens/proof/ProofGenerationScreen.tsx',
+  // The live panel and the kept proof log read it through this module's two
+  // gates (proofLogEnabled, storedLogsVisible), not the flag directly.
+  'utils/proofLog.ts',
   'screens/openstoa/OpenStoaRootScreen.tsx',
   'openstoa-host/zkProofportHostApi.ts',
 ];
@@ -35,11 +38,18 @@ describe('Developer Mode gates no circuit', () => {
     expect(readers).toEqual([...ALLOWED].sort());
   });
 
-  it('leaves the proof screen reading it for live logs only', () => {
-    const lines = fs.readFileSync(path.join(SRC, 'screens/proof/ProofGenerationScreen.tsx'), 'utf8')
+  it('leaves the proof log module reading it in its two gates only', () => {
+    const lines = fs.readFileSync(path.join(SRC, 'utils/proofLog.ts'), 'utf8')
       .split('\n').filter(line => line.includes('developerMode'));
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain('showLiveLogs');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('settings.developerMode === true && settings.showLiveLogs === true');
+    expect(lines[1]).toContain('settings.developerMode === true;');
+  });
+
+  it('leaves the proof screen with no developerMode check of its own', () => {
+    const screen = fs.readFileSync(path.join(SRC, 'screens/proof/ProofGenerationScreen.tsx'), 'utf8');
+    expect(screen).not.toContain('developerMode');
+    expect(screen).toContain('proofLogEnabled(settings)');
   });
 
   it('leaves the More screen reading it for the developer section only', () => {
