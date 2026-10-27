@@ -33,6 +33,35 @@ const CI_LEN = 88;
 const NAME_MAX = 64;
 const TELNO_MAX = 16;
 const REGION_MAX = 64;
+
+/**
+ * The 17 first-level administrative divisions (si/do), spelled as the mobile
+ * ID's address spells them: the region circuit hashes the address's first
+ * token and compares it with the hash of the name picked here, so a name that
+ * is out of date can never match.
+ *
+ * Renamed so far: 강원도 -> 강원특별자치도 (2023-06-11), 전라북도 -> 전북특별자치도
+ * (2024-01-18, jeonbuk.go.kr). The one list; the input screen reads it.
+ */
+export const KR_SI_DO: ReadonlyArray<string> = [
+  '서울특별시',
+  '부산광역시',
+  '대구광역시',
+  '인천광역시',
+  '광주광역시',
+  '대전광역시',
+  '울산광역시',
+  '세종특별자치시',
+  '경기도',
+  '강원특별자치도',
+  '충청북도',
+  '충청남도',
+  '전북특별자치도',
+  '전라남도',
+  '경상북도',
+  '경상남도',
+  '제주특별자치도',
+];
 const BIRTH_LEN = 8;
 // TODO(HS256): Re-enable when RAON registration provides the RP shared
 // secret. Currently disabled because no off-chain HS256 verifier exists,

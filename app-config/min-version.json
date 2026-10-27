@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "ios": {
+    "minimum": "1.4.0",
+    "storeUrl": "https://apps.apple.com/app/id6803903114"
+  },
+  "android": {
+    "minimum": "1.4.0",
+    "storeUrl": "https://play.google.com/store/apps/details?id=com.masselabs.zkproofport"
+  },
+  "message": {
+    "ko": "이 버전의 ZKProofport는 더 이상 지원되지 않습니다. 계속 사용하려면 최신 버전으로 업데이트해 주세요.",
+    "en": "This version of ZKProofport is no longer supported. Update to the latest version to keep using the app."
+  }
+}

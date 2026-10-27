@@ -2,6 +2,7 @@ import {captureHistoryReview} from '../../utils/historyReview';
 import {historyDisplay} from '../../utils/historyDisplay';
 import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {MobileIdTypeSheet, type MdlProvider} from '../../components/MobileIdTypeSheet';
+import {errorCodeForOacxFailure} from '../../utils/oacxErrors';
 import {
   View,
   Text,
@@ -573,7 +574,10 @@ export const ProofGenerationScreen: React.FC = () => {
       cancelAttempt(detail);
       return;
     }
-    failAttempt({code: errorCodeForStep(flow, errStep.id), error: detail});
+    // An OACX result code with its own meaning (the raw-HTTP path refused the
+    // card type) gets its own modal rather than the step's generic one.
+    const oacxCode = flow === 'mdl' ? errorCodeForOacxFailure(detail) : null;
+    failAttempt({code: oacxCode ?? errorCodeForStep(flow, errStep.id), error: detail});
   }, [hook.proofSteps, flow, failAttempt, cancelAttempt]);
 
   // Leaving the screen before the request was answered — back button, a
@@ -868,6 +872,14 @@ export const ProofGenerationScreen: React.FC = () => {
         } | undefined;
         const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
         const mInputs = route.params?.mdlKrInputs;
+        // Only the document-type sheet chooses the provider (the guard above
+        // opens it first). No default: a card type the person did not pick
+        // is never substituted.
+        const provider = chosenMdlProviderRef.current;
+        if (provider === null) {
+          failAttempt({code: 'E2004', error: 'No mobile ID type was chosen — pick one in the document-type sheet'});
+          return;
+        }
 
         if (mdlVariant === 'ownership') {
           const discloseFlags =
@@ -875,7 +887,7 @@ export const ProofGenerationScreen: React.FC = () => {
           await generateMdlProof(
             {
               variant: 'ownership',
-              provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
+              provider,
               scopeString: scopeStr,
               discloseFlags,
               expectedName:  mInputs?.expectedName,
@@ -896,7 +908,7 @@ export const ProofGenerationScreen: React.FC = () => {
           await generateMdlProof(
             {
               variant: 'age',
-              provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
+              provider,
               scopeString: scopeStr,
               ageThreshold,
               currentYear,
@@ -912,7 +924,7 @@ export const ProofGenerationScreen: React.FC = () => {
           await generateMdlProof(
             {
               variant: 'region',
-              provider: chosenMdlProviderRef.current ?? mInputs?.provider ?? 'comdl_v1.5',
+              provider,
               scopeString: scopeStr,
               targetRegion,
             },
