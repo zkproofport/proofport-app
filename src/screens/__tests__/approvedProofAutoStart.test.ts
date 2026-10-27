@@ -16,7 +16,10 @@ let mockAutoSave = false;
 let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number} | null = null;
 const mockT = (key: string) => key;
 const mockNavigate = {navigate: jest.fn()};
-const mockRequest: ProofRequest = {requestId: 'approved', circuit: 'oidc_domain_attestation', createdAt: 1,
+// The relay mints uuidv4 ids; an OIDC request's nonce is derived from one.
+const APPROVED = '7f3c2a10-5b6e-4d8f-9a1b-2c3d4e5f6a7b';
+const NEXT = '00000000-0000-4000-8000-000000000001';
+const mockRequest: ProofRequest = {requestId: APPROVED, circuit: 'oidc_domain_attestation', createdAt: 1,
   callbackUrl: 'https://relay.example/callback', inputs: {scope: 'scope', provider: 'google'}};
 const mockRoute: {params: ProofStackParamList['ProofGeneration']} = {params: {circuitId: 'oidc_domain_attestation', proofRequest: mockRequest}};
 const mockSteps: unknown[] = [];
@@ -80,6 +83,19 @@ jest.mock('../../utils/circuit', () => ({getCircuitDisplayName: () => 'OIDC Doma
 import {ProofGenerationScreen} from '../proof/ProofGenerationScreen';
 import {clearActiveProofRequest, getActiveProofRequest, setActiveProofRequest} from '../../stores/activeProofRequestStore';
 import {resetRelayAnswersForTests} from '../../utils/relayAnswer';
+import {deriveOidcNonce} from '../../oidc/oidcNonce';
+import {jwt} from '../../oidc/__tests__/jwt';
+
+/** The token a provider returns for a nonce: it carries that nonce. */
+const tokenFor = (nonce: string) => jwt({nonce, email: 'a@corp.com'});
+
+/** An in-app proof mints its own UUID; the nonce asked for is bound to it and the token proved carries it. */
+function expectStandaloneProof(scope: string) {
+  const nonce = mockSignIn.mock.calls[mockSignIn.mock.calls.length - 1][0];
+  expect(nonce).toMatch(/^[0-9a-f]{64}$/);
+  expect(nonce).not.toBe(deriveOidcNonce(scope, APPROVED));
+  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(nonce), scopeString: scope, domain: '', provider: 'google', nonce}, mockNoop);
+}
 
 let tree: ReactTestRenderer;
 let errors: jest.SpyInstance;
@@ -88,13 +104,13 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   clearActiveProofRequest();
-  // Each test reuses requestId 'approved'; one test's answer must not make the
+  // Each test reuses requestId APPROVED; one test's answer must not make the
   // next test's request look already answered.
   resetRelayAnswersForTests();
   mockAutoSave = false;
   mockParsedProof = null;
   mockRoute.params = {circuitId: 'oidc_domain_attestation', proofRequest: mockRequest};
-  mockSignIn.mockResolvedValue({token: 'approved-token'});
+  mockSignIn.mockImplementation(async (nonce: string) => ({token: tokenFor(nonce)}));
   mockGenerate.mockResolvedValue(undefined);
   mockDeliver.mockResolvedValue(true);
   mockHistoryAdd.mockResolvedValue({id: 'history-1'});
@@ -119,7 +135,8 @@ it('keeps the approved auto-start scheduled across an ordinary rerender', async 
   expect(mockSignIn).not.toHaveBeenCalled();
   await act(async () => {await jest.advanceTimersByTimeAsync(500);});
   expect(mockSignIn).toHaveBeenCalledTimes(1);
-  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: 'approved-token', scopeString: 'scope', domain: '', provider: 'google'}, mockNoop);
+  expect(mockSignIn).toHaveBeenCalledWith(deriveOidcNonce('scope', APPROVED));
+  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(deriveOidcNonce('scope', APPROVED)), scopeString: 'scope', domain: '', provider: 'google', nonce: deriveOidcNonce('scope', APPROVED)}, mockNoop);
 });
 
 it('cancels the scheduled sign-in when the proof screen is removed', async () => {
@@ -149,7 +166,7 @@ it('does not auto-start or reuse a pending callback when the next proof is stand
   const generate = tree.root.findAllByType('Button' as never)
     .find(button => button.props.title === 'host.proof.generation.signInGoogle')!;
   await act(async () => {await generate.props.onPress();});
-  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: 'approved-token', scopeString: 'manual-scope', domain: '', provider: 'google'}, mockNoop);
+  expectStandaloneProof('manual-scope');
   await publishProof();
   expect(mockDeliver).not.toHaveBeenCalled();
   expect(mockNavigate.navigate).toHaveBeenCalledWith('ProofComplete', expect.objectContaining({proofHex: '0x1234'}));
@@ -158,13 +175,14 @@ it('does not auto-start or reuse a pending callback when the next proof is stand
 });
 
 it('uses its approved route request when another request is already in the active store', async () => {
-  const next = {...mockRequest, requestId: 'next', callbackUrl: 'https://relay.example/next',
+  const next = {...mockRequest, requestId: NEXT, callbackUrl: 'https://relay.example/next',
     inputs: {scope: 'next-scope', provider: 'google'}};
   setActiveProofRequest(next);
   await mountAndWait();
-  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: 'approved-token', scopeString: 'scope', domain: '', provider: 'google'}, mockNoop);
+  expect(mockSignIn).toHaveBeenCalledWith(deriveOidcNonce('scope', APPROVED));
+  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: tokenFor(deriveOidcNonce('scope', APPROVED)), scopeString: 'scope', domain: '', provider: 'google', nonce: deriveOidcNonce('scope', APPROVED)}, mockNoop);
   await publishProof();
-  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: 'approved', proof: '0x1234'}), mockRequest, expect.any(Function));
+  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: APPROVED, proof: '0x1234'}), mockRequest, expect.any(Function));
   expect(getActiveProofRequest()).toBe(next);
 });
 
@@ -175,7 +193,7 @@ it.each(['delivered', 'failed', 'rejected'] as const)('retains a newer request w
   setActiveProofRequest(mockRequest);
   await mountAndWait();
   await publishProof();
-  const next = {...mockRequest, requestId: 'next', callbackUrl: 'https://relay.example/next'};
+  const next = {...mockRequest, requestId: NEXT, callbackUrl: 'https://relay.example/next'};
   setActiveProofRequest(next);
   await act(async () => {tree.update(React.createElement(ProofGenerationScreen));});
   const deliveryError = new Error('Callback unavailable');
@@ -185,7 +203,7 @@ it.each(['delivered', 'failed', 'rejected'] as const)('retains a newer request w
     else finish(outcome === 'delivered');
   });
   expect(mockDeliver).toHaveBeenCalledTimes(1);
-  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: 'approved'}), mockRequest, expect.any(Function));
+  expect(mockDeliver).toHaveBeenCalledWith(expect.objectContaining({requestId: APPROVED}), mockRequest, expect.any(Function));
   expect(getActiveProofRequest()).toBe(next);
   expect(mockNavigate.navigate).toHaveBeenCalledTimes(1);
   expect(mockHistoryAdd).not.toHaveBeenCalled();
@@ -202,7 +220,7 @@ it('saves reviewed conditions and action without authentication material when au
   }} as ProofRequest;
   await mountAndWait();
   expect(mockHistoryAdd).toHaveBeenCalledTimes(1);
-  expect(mockHistoryAdd).toHaveBeenCalledWith(expect.objectContaining({source: 'deeplink', requestId: 'approved',
+  expect(mockHistoryAdd).toHaveBeenCalledWith(expect.objectContaining({source: 'deeplink', requestId: APPROVED,
     review: {version: 1, inputs: {scope: 'scope', provider: 'google'}, action},
   }));
   expect(JSON.stringify(mockHistoryAdd.mock.calls[0][0])).not.toMatch(/private-jwt|private-transaction|jwtToken|rawTransaction/);
@@ -238,5 +256,30 @@ it('stops on unreadable settings and retries without proving or delivering stale
   expect(retry.props.loading).toBe(false);
   await act(async () => {await retry.props.onPress();});
   expect(mockSettingsGet).toHaveBeenCalledTimes(2);
-  expect(mockGenerate).toHaveBeenCalledWith({jwtToken: 'approved-token', scopeString: 'manual-scope', domain: '', provider: 'google'}, mockNoop);
+  expectStandaloneProof('manual-scope');
+});
+
+it('records the minted request id of an in-app OIDC proof in History, and binds the nonce to it', async () => {
+  mockAutoSave = true;
+  mockRoute.params = {circuitId: 'oidc_domain_attestation', domainInput: {provider: 'google', scope: '한국어 scope 🚀'}};
+  await mountAndWait();
+  const generate = tree.root.findAllByType('Button' as never)
+    .find(button => button.props.title === 'host.proof.generation.signInGoogle')!;
+  await act(async () => {await generate.props.onPress();});
+  const saved = mockHistoryAdd.mock.calls[0][0];
+  expect(saved).toEqual(expect.objectContaining({source: 'manual'}));
+  expect(saved.requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  expect(mockSignIn).toHaveBeenCalledWith(deriveOidcNonce('한국어 scope 🚀', saved.requestId));
+  expectStandaloneProof('한국어 scope 🚀');
+});
+
+it('mints a different request id, so a different nonce, for each in-app attempt', async () => {
+  mockRoute.params = {circuitId: 'oidc_domain_attestation', domainInput: {provider: 'google', scope: 'manual-scope'}};
+  mockGenerate.mockRejectedValue(new Error('prover crashed'));
+  await mountAndWait();
+  const button = (title: string) => tree.root.findAllByType('Button' as never).find(b => b.props.title === title)!;
+  await act(async () => {await button('host.proof.generation.signInGoogle').props.onPress();});
+  await act(async () => {await button('host.proof.generation.retryButton').props.onPress();});
+  expect(mockSignIn).toHaveBeenCalledTimes(2);
+  expect(mockSignIn.mock.calls[0][0]).not.toBe(mockSignIn.mock.calls[1][0]);
 });

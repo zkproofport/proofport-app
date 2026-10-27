@@ -13,7 +13,7 @@ const mockAlert = jest.fn();
 const mockNavigation = {goBack: mockGoBack, navigate: mockNavigate, canGoBack: () => true};
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ScrollView: 'ScrollView',
-  ActivityIndicator: 'ActivityIndicator', Modal: 'Modal', SafeAreaView: 'SafeAreaView',
+  ActivityIndicator: 'ActivityIndicator', Modal: 'Modal', SafeAreaView: 'SafeAreaView', Platform: {OS: 'ios'},
   Alert: {alert: (...args: unknown[]) => mockAlert(...args)},
   StyleSheet: {create: (value: unknown) => value, hairlineWidth: 1},
 }));

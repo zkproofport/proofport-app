@@ -1,25 +1,56 @@
 /**
- * OIDC Domain Attestation — Input builder for on-device proof generation.
+ * OIDC Domain Attestation v2 — input builder for on-device proof generation.
  *
- * Ported from proofport-ai/packages/sdk/src/oidc-inputs.ts for React Native.
- * All computation happens locally on the device — no AI server calls.
+ * Must produce what the circuits repo's reference builder produces for the
+ * same token (`circuits/oidc-domain-attestation/scripts/oidc-inputs.ts`, v2,
+ * circuits a874776); `oidcDomainMatchesTheCircuitsBuilder.test.ts` holds the
+ * two to identical vectors. All computation happens on the device; the only
+ * network call is the provider's JWKS.
  *
- * Steps:
- * 1. Decode JWT header → kid, alg, iss
- * 2. Fetch JWKS via OIDC Discovery → find matching RSA public key
- * 3. Compute RSA limbs (modulus, redc_params, signature) — 18 × 120-bit
- * 4. Compute partial SHA-256 (precompute up to "email" key)
- * 5. Extract email → derive domain
- * 6. Compute scope = keccak256(scope_string)
- * 7. Compute nullifier = keccak256(keccak256(email) ++ scope)
+ * Public inputs, in order (214 field elements):
+ *   0-17     pubkey_modulus_limbs   18 x u128 (120-bit limbs)
+ *   18-82    domain                 64 storage bytes + len
+ *   83-114   scope                  keccak256(utf8(scope string))
+ *   115-146  nullifier              keccak256(keccak256(email) || scope)
+ *   147      provider               0 = Google, 1 = Microsoft
+ *   148-179  aud_hash               keccak256(utf8(aud))
+ *   180      nonce_mode             always 1 from the app (nonce bound)
+ *   181-212  nonce_binding          the 32 bytes whose lowercase hex is the token's nonce
+ *   213      now                    unix seconds, iat <= now < exp
+ *
+ * SHA precompute: the signed data is hashed up to the 64-byte block holding
+ * the header/payload `.` (cut = floor(dot / 64) * 64); partial_data is the
+ * rest, so it carries the whole payload, and base64_decode_offset = dot + 1 -
+ * cut (1..64). The circuit refuses any other offset.
+ *
+ * This builder is the careful one: it refuses, with a message, every token
+ * the circuit would refuse for a claim reason (aud, iss, iat/exp, nonce,
+ * email verification, lengths), so a person sees why instead of a witness
+ * failure after a minute of proving.
  */
 
 import {ethers} from 'ethers';
 
 // ─── Circuit constants (must match main.nr) ─────────────────────────────
 
-export const OIDC_MAX_PARTIAL_DATA_LENGTH = 768;
+export const OIDC_MAX_PARTIAL_DATA_LENGTH = 2048;
 export const OIDC_MAX_DOMAIN_LENGTH = 64;
+export const OIDC_MAX_EMAIL_LENGTH = 128;
+export const OIDC_MAX_AUD_LENGTH = 128;
+export const OIDC_PUBLIC_INPUT_COUNT = 214;
+/** nonce_mode 1: the token's nonce claim is bound. The app always binds it. */
+export const OIDC_NONCE_MODE_BOUND = 1;
+/**
+ * How far behind the token's `iat` the phone's clock may be and still prove,
+ * with `now` = iat. The real time is at least iat (the token exists), so iat
+ * is a true lower bound; a clock further behind is reported, not corrected.
+ */
+export const OIDC_MAX_CLOCK_BEHIND_SECONDS = 300;
+
+const GOOGLE_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
+const MICROSOFT_V2_ISSUER =
+  /^https:\/\/login\.microsoftonline\.com\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/v2\.0$/;
+const NONCE_HEX = /^[0-9a-f]{64}$/;
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -30,6 +61,10 @@ export interface OidcCircuitInputs {
   scope: number[]; // 32 bytes
   nullifier: number[]; // 32 bytes
   provider: number; // 0 = Google (email_verified), 1 = Microsoft (xms_edov)
+  aud_hash: number[]; // 32 bytes, keccak256(utf8(aud))
+  nonce_mode: number; // 1 = nonce bound
+  nonce_binding: number[]; // 32 bytes; the token nonce is their lowercase hex
+  now: string; // u64 unix seconds, decimal
 
   // Private inputs
   partial_data: {storage: number[]; len: number};
@@ -51,6 +86,62 @@ export interface PrepareOidcParams {
   jwksUrl?: string;
   /** OIDC provider: 'google' | 'microsoft'. Determines email verification claim check. */
   provider?: 'google' | 'microsoft';
+  /**
+   * The nonce this request asked the provider for: 64 lowercase hex
+   * characters (src/oidc/oidcNonce.ts). Becomes nonce_binding, and the token's
+   * nonce claim must equal it.
+   */
+  nonce: string;
+  /** The phone's clock, unix seconds. `now` is chosen from it (proofTimeFor). */
+  clockSeconds: number;
+}
+
+/**
+ * The `now` a proof claims: the phone's clock when iat <= clock < exp; iat
+ * when the clock is at most OIDC_MAX_CLOCK_BEHIND_SECONDS behind it. Anything
+ * else throws -- an expired token, or a clock too far off to trust.
+ */
+export function proofTimeFor(clockSeconds: number, iat: number, exp: number): number {
+  if (!Number.isSafeInteger(clockSeconds) || clockSeconds < 0) {
+    throw new Error(`Device clock is not a unix time in seconds: ${clockSeconds}`);
+  }
+  if (!(iat < exp)) {
+    throw new Error(`ID token iat ${iat} is not before exp ${exp}`);
+  }
+  if (clockSeconds >= exp) {
+    throw new Error(`ID token expired at ${exp}; the device clock reads ${clockSeconds}. Sign in again.`);
+  }
+  if (clockSeconds >= iat) return clockSeconds;
+  if (iat - clockSeconds <= OIDC_MAX_CLOCK_BEHIND_SECONDS) return iat;
+  throw new Error(
+    `The device clock (${clockSeconds}) is ${iat - clockSeconds}s behind the ID token's issue time (${iat}). ` +
+      'Set the clock automatically and try again.',
+  );
+}
+
+/**
+ * An integer claim as the circuit reads it: a bare run of digits in the raw
+ * JSON. `1.7e9`, `"1700000000"` and `1700000000.0` all parse in JS and are
+ * all refused in-circuit, so they are refused here.
+ */
+function integerClaim(payloadJson: string, payload: Record<string, unknown>, name: string): number {
+  const value = payload[name];
+  const raw = new RegExp(`"${name}"\\s*:\\s*(\\d+)\\s*[,}]`).exec(payloadJson);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0 || !raw || Number(raw[1]) !== value) {
+    throw new Error(`ID token ${name} claim is not a whole number of seconds: ${JSON.stringify(value)}`);
+  }
+  return value;
+}
+
+function utf8Length(s: string): number {
+  return new TextEncoder().encode(s).length;
+}
+
+function hexToBytes32(hex: string): Uint8Array {
+  if (!NONCE_HEX.test(hex)) {
+    throw new Error(`OIDC nonce must be 64 lowercase hex characters, got ${JSON.stringify(hex)}`);
+  }
+  return ethers.utils.arrayify(`0x${hex}`);
 }
 
 // ─── Base64url helpers ──────────────────────────────────────────────────
@@ -249,9 +340,11 @@ export async function prepareOidcInputs(
   const header = JSON.parse(
     new TextDecoder().decode(base64urlToBytes(headerB64)),
   );
-  const payload = JSON.parse(
-    new TextDecoder().decode(base64urlToBytes(payloadB64)),
-  );
+  const payloadJson = new TextDecoder().decode(base64urlToBytes(payloadB64));
+  const payload = JSON.parse(payloadJson);
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('JWT payload is not a JSON object');
+  }
 
   if (header.alg !== 'RS256') {
     throw new Error(
@@ -266,27 +359,73 @@ export async function prepareOidcInputs(
   }
   // Provider-specific email verification check
   if (params.provider === 'microsoft') {
-    if (!payload.xms_edov) {
+    // The circuit reads the literal `true`; a string "true" or 1 is refused there.
+    if (payload.xms_edov !== true) {
       throw new Error('Microsoft JWT xms_edov is not true. Email domain is not verified.');
     }
   } else if (params.provider === 'google' || !params.provider) {
-    if (!payload.email_verified) {
+    if (payload.email_verified !== true) {
       throw new Error('JWT email_verified is not true');
     }
   } else {
     throw new Error(`Unsupported OIDC provider: ${params.provider}`);
   }
 
-  const email = payload.email as string;
-  const atIndex = email.indexOf('@');
-  if (atIndex === -1) {
+  // iss -- checked before it is used to find the provider's keys.
+  const iss = payload.iss;
+  if (params.provider === 'microsoft') {
+    if (typeof iss !== 'string' || !MICROSOFT_V2_ISSUER.test(iss)) {
+      throw new Error(
+        `ID token iss ${JSON.stringify(iss)} is not a Microsoft v2.0 tenant issuer (https://login.microsoftonline.com/<tenant>/v2.0).`,
+      );
+    }
+  } else if (typeof iss !== 'string' || !GOOGLE_ISSUERS.has(iss)) {
+    throw new Error(`ID token iss ${JSON.stringify(iss)} is not Google.`);
+  }
+
+  // aud -- one string; the circuit binds its keccak256.
+  const aud = payload.aud;
+  if (typeof aud !== 'string' || aud.length === 0) {
+    throw new Error(`ID token aud must be one non-empty string, got ${JSON.stringify(aud)}`);
+  }
+  if (utf8Length(aud) > OIDC_MAX_AUD_LENGTH) {
+    throw new Error(`ID token aud is ${utf8Length(aud)} bytes; the circuit holds ${OIDC_MAX_AUD_LENGTH}.`);
+  }
+
+  // iat / exp -> now.
+  const iat = integerClaim(payloadJson, payload, 'iat');
+  const exp = integerClaim(payloadJson, payload, 'exp');
+  const now = proofTimeFor(params.clockSeconds, iat, exp);
+
+  // nonce -- the one this request asked for.
+  const nonceBinding = hexToBytes32(params.nonce);
+  if (payload.nonce !== params.nonce) {
+    throw new Error(
+      `ID token nonce ${JSON.stringify(payload.nonce)} is not this request's nonce ${params.nonce}.`,
+    );
+  }
+
+  if (typeof payload.email !== 'string') {
+    throw new Error('JWT payload email claim is not a string');
+  }
+  const email = payload.email;
+  if (utf8Length(email) > OIDC_MAX_EMAIL_LENGTH) {
+    throw new Error(`Email is ${utf8Length(email)} bytes; the circuit holds ${OIDC_MAX_EMAIL_LENGTH}.`);
+  }
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex <= 0 || atIndex === email.length - 1) {
     throw new Error(`Invalid email format: ${email}`);
   }
-  // Domain is optional — auto-extract from JWT email if not provided
-  const domain = params.domain || email.substring(atIndex + 1);
+  // Domain is optional — auto-extract from JWT email if not provided. The
+  // circuit requires the email to END in exactly this domain after its '@'.
+  const emailDomain = email.substring(atIndex + 1);
+  const domain = params.domain || emailDomain;
+  if (domain !== emailDomain) {
+    throw new Error(`Email domain "${emailDomain}" is not the requested domain "${domain}"`);
+  }
 
   // 2. Fetch JWKS and find matching key
-  const jwksUrl = params.jwksUrl || (await fetchJwksUrl(payload.iss));
+  const jwksUrl = params.jwksUrl || (await fetchJwksUrl(iss));
   const jwk = await fetchMatchingKey(jwksUrl, header.kid);
 
   // 3. Compute RSA limbs
@@ -307,35 +446,25 @@ export async function prepareOidcInputs(
     v.toString(),
   );
 
-  // 4. Partial SHA-256 (precompute up to "email" key)
-  const payloadJson = new TextDecoder().decode(base64urlToBytes(payloadB64));
-  const emailKeyIndex = payloadJson.indexOf('"email"');
-  if (emailKeyIndex === -1) {
-    throw new Error('Could not find "email" key in JWT payload');
-  }
-
-  // Align to the base64 group boundary that contains the email key start.
-  const emailKeyIndexB64 = Math.floor(emailKeyIndex / 3) * 4;
-  const sliceStart = headerB64.length + 1 + emailKeyIndexB64;
-
-  const {partialHash, remainingData} = generatePartialSHA256(
-    signedData,
-    sliceStart,
-  );
+  // 4. Partial SHA-256: precompute the blocks before the one holding the
+  // header/payload '.', so partial_data carries the whole payload (the circuit
+  // reads iss and aud, which come before email).
+  const dot = headerB64.length;
+  const cut = Math.floor(dot / 64) * 64;
+  const {partialHash, remainingData} = generatePartialSHA256(signedData, cut);
 
   if (remainingData.length > OIDC_MAX_PARTIAL_DATA_LENGTH) {
     throw new Error(
-      `Remaining data after partial SHA (${remainingData.length} bytes) exceeds ` +
-        `MAX_PARTIAL_DATA_LENGTH (${OIDC_MAX_PARTIAL_DATA_LENGTH}). JWT payload is too large.`,
+      `ID token too large: ${remainingData.length} bytes after the SHA precompute; ` +
+        `the circuit holds ${OIDC_MAX_PARTIAL_DATA_LENGTH}.`,
     );
   }
 
   const partialDataPadded = new Uint8Array(OIDC_MAX_PARTIAL_DATA_LENGTH);
   partialDataPadded.set(remainingData);
 
-  const shaCutoffIndex = signedData.length - remainingData.length;
-  const payloadBytesInShaPrecompute = shaCutoffIndex - (headerB64.length + 1);
-  const base64DecodeOffset = (4 - (payloadBytesInShaPrecompute % 4)) % 4;
+  // Index of the first payload byte within partial_data: 1..64.
+  const base64DecodeOffset = dot + 1 - cut;
 
   // 5. Domain BoundedVec
   const domainBytes = new TextEncoder().encode(domain);
@@ -360,12 +489,19 @@ export async function prepareOidcInputs(
   preimage.set(scopeBytes, 32);
   const nullifierBytes = keccak256Bytes(preimage);
 
+  // 8. aud_hash = keccak256(aud)
+  const audHash = keccak256Bytes(new TextEncoder().encode(aud));
+
   return {
     pubkey_modulus_limbs: pubkeyLimbs,
     domain: {storage: Array.from(domainStorage), len: domainBytes.length},
     scope: Array.from(scopeBytes),
     nullifier: Array.from(nullifierBytes),
     provider: params.provider === 'microsoft' ? 1 : 0,
+    aud_hash: Array.from(audHash),
+    nonce_mode: OIDC_NONCE_MODE_BOUND,
+    nonce_binding: Array.from(nonceBinding),
+    now: String(now),
     partial_data: {
       storage: Array.from(partialDataPadded),
       len: remainingData.length,
@@ -384,9 +520,11 @@ export async function prepareOidcInputs(
  * Convert OidcCircuitInputs to a flat string[] for mopro's generateNoirProof().
  *
  * Order MUST match the circuit's main() parameter order:
- *   pubkey_modulus_limbs, domain, scope, nullifier,
+ *   pubkey_modulus_limbs, domain, scope, nullifier, provider,
+ *   aud_hash, nonce_mode, nonce_binding, now,
  *   partial_data, partial_hash, full_data_length, base64_decode_offset,
  *   redc_params_limbs, signature_limbs
+ * The first OIDC_PUBLIC_INPUT_COUNT values are the public inputs.
  *
  * Noir noir_js format:
  * - u128 limbs: decimal strings (no conversion needed)
@@ -422,7 +560,23 @@ export function flattenOidcInputs(inputs: OidcCircuitInputs): string[] {
   // provider: u8 (0 = Google, 1 = Microsoft)
   flat.push(inputs.provider.toString());
 
-  // partial_data: BoundedVec<u8, 768> — ABI order: storage[768] then len
+  // aud_hash: [u8; 32]
+  for (const b of inputs.aud_hash) {
+    flat.push(b.toString());
+  }
+
+  // nonce_mode: u8
+  flat.push(inputs.nonce_mode.toString());
+
+  // nonce_binding: [u8; 32]
+  for (const b of inputs.nonce_binding) {
+    flat.push(b.toString());
+  }
+
+  // now: u64, decimal
+  flat.push(inputs.now);
+
+  // partial_data: BoundedVec<u8, 2048> — ABI order: storage[2048] then len
   for (const b of inputs.partial_data.storage) {
     flat.push(b.toString());
   }

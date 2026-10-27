@@ -285,12 +285,16 @@ extension to their development provisioning profiles when exporting the IPA.
 Experimental circuit files and verifier broadcasts read `main` in every build,
 including production. Their verifier cache follows the circuit data version so
 an address cached for older circuit bytes cannot override the current verifier.
-Supported production circuits continue reading their release tag.
+Supported circuits (Coinbase KYC, Coinbase Country, OIDC domain) in a production
+build read exactly `CIRCUITS_RELEASE_TAG` (`src/config/contracts.ts`), one tag per
+app version -- never the newest release, never `main`. A missing tag is an error
+naming it (E3007 at launch, E3005 on download).
 
 ### Download Locations
 
 - **Development**: `https://raw.githubusercontent.com/zkproofport/circuits/main/...`
-- **Production**: Resolved from latest GitHub Release tag
+- **Development / staging**: `main` for every circuit
+- **Production**: `https://raw.githubusercontent.com/zkproofport/circuits/<CIRCUITS_RELEASE_TAG>/...` for the supported circuits
 
 ### Cached Files
 

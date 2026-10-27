@@ -1,5 +1,6 @@
 import {bootstrapCircuits} from '../utils/circuitBootstrap';
 import {showGlobalError} from '../utils/errorBridge';
+import {syncDeploymentsAtLaunch} from '../utils/launchDeploymentSync';
 import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {View, Text, StyleSheet, Image, Animated, ActivityIndicator} from 'react-native';
 import {useTranslation} from 'react-i18next';
@@ -82,17 +83,13 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
   const checkAndDownloadCircuits = useCallback(async () => {
     const env = getEnvironment();
 
-    // Sync deployments (non-blocking for loading)
-    try {
-      const updated = await initDeployments();
-      console.log(
-        updated
-          ? 'Deployment sync: addresses updated'
-          : 'Deployment sync: using cached addresses',
-      );
-    } catch (deployError) {
-      console.warn('Deployment sync failed, using fallback addresses:', deployError);
-    }
+    // Sync deployments. A production build whose pinned circuits release is
+    // missing is told so (E3007); anything else falls back to cached addresses.
+    await syncDeploymentsAtLaunch({
+      sync: initDeployments,
+      showError: showGlobalError,
+      log: (m) => console.log(m),
+    });
 
     // Main-branch circuits are fetched from `main`, never a release tag, so
     // none of them can 404 here. When the settings cannot be read the person's

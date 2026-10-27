@@ -133,6 +133,19 @@ describe('a proof request is checked before the prover runs', () => {
     expect(r.valid).toBe(false);
     expect(r.error).toMatch(/scope/);
   });
+
+  it.each([['whitespace', ' \t'], ['empty', ''], ['a number', 7], ['null', null]])(
+    'oidc_domain_attestation refuses a scope that is %s (it is half of the ID token nonce)',
+    (_label, scope) => {
+      const r = validateProofRequest(base({circuit: 'oidc_domain_attestation', inputs: {scope}} as Partial<ProofRequest>));
+      expect(r.valid).toBe(false);
+      expect(r.error).toMatch(/scope/);
+    },
+  );
+
+  it('oidc_domain_attestation accepts a Korean scope', () => {
+    expect(validateProofRequest(base({circuit: 'oidc_domain_attestation', inputs: {scope: '한국어 🚀'}} as Partial<ProofRequest>)).valid).toBe(true);
+  });
 });
 
 describe('only our own proof links are treated as ours', () => {

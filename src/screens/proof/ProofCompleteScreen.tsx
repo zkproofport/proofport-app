@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,14 @@ import {useRoute, useNavigation, RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useTranslation} from 'react-i18next';
 import {Icon, Badge, Button, Card} from '../../components/ui';
-import {useThemeColors} from '../../context';
+import {useError, useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useLogs} from '../../hooks';
 import {useMdlKr} from '../../hooks/useMdlKr';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, isCircuitId, type CircuitName} from '../../config';
 import {findGiwaAttestationTransaction, findDojangPlaygroundIssuance, getCircuitDisplayName} from '../../utils';
+import {proofLogText} from '../../utils/proofLog';
 
 type ProofCompleteRouteProp = RouteProp<ProofStackParamList, 'ProofComplete'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofComplete'>;
@@ -111,7 +112,31 @@ export const ProofCompleteScreen: React.FC = () => {
   // verification refuses below, and the Coinbase hook only fills the slot.
   const activeHook = canonical ? HOOK_OF_CIRCUIT[canonical] : kycHook;
   const {verifyProofOffChain, verifyProofOnChain, resetProofCache} = activeHook;
-  const {addLog} = useLogs();
+  const {addLog, getLatestLogs} = useLogs();
+  const {showError} = useError();
+  // Present only when this attempt keeps its log (Developer Mode + live logs).
+  const generationLog = typeof params.proofLog === 'string' ? params.proofLog : null;
+  const [logCopied, setLogCopied] = useState(false);
+  useEffect(() => {
+    if (!logCopied) return;
+    const timer = setTimeout(() => setLogCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [logCopied]);
+
+  /** The whole attempt so far: generation, then this screen's verification lines. */
+  const attemptLog = (): {log?: string} =>
+    generationLog === null ? {} : {log: proofLogText([generationLog, ...getLatestLogs()])};
+
+  const handleCopyLog = () => {
+    const {log} = attemptLog();
+    if (log === undefined) return;
+    try {
+      Clipboard.setString(log);
+      setLogCopied(true);
+    } catch (error) {
+      showError('E5001', error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const handleCopyProof = () => {
     Clipboard.setString(proofHex);
@@ -124,19 +149,23 @@ export const ProofCompleteScreen: React.FC = () => {
     try {
       const result = await verifyProofOffChain(addLog);
       const newStatus = result ? 'verified' : 'failed';
+      addLog(`[Verify] Off-chain: ${newStatus}`);
       setOffChainStatus(newStatus);
       if (historyIdFromParams) {
         proofHistoryStore.update(historyIdFromParams, {
           offChainStatus: result ? 'verified' : 'failed',
           overallStatus: result ? 'verified' : 'verified_failed',
+          ...attemptLog(),
         }).catch(console.error);
       }
-    } catch {
+    } catch (error) {
+      addLog(`[Verify] Off-chain threw: ${error instanceof Error ? error.message : String(error)}`);
       setOffChainStatus('failed');
       if (historyIdFromParams) {
         proofHistoryStore.update(historyIdFromParams, {
           offChainStatus: 'failed',
           overallStatus: 'verified_failed',
+          ...attemptLog(),
         }).catch(console.error);
       }
     }
@@ -157,19 +186,23 @@ export const ProofCompleteScreen: React.FC = () => {
       }
       const result = await verifyProofOnChain(circuitId, addLog);
       const newStatus = result ? 'verified' : 'failed';
+      addLog(`[Verify] On-chain: ${newStatus}`);
       setOnChainStatus(newStatus);
       if (historyIdFromParams) {
         proofHistoryStore.update(historyIdFromParams, {
           onChainStatus: result ? 'verified' : 'failed',
           overallStatus: result ? 'verified' : 'verified_failed',
+          ...attemptLog(),
         }).catch(console.error);
       }
-    } catch {
+    } catch (error) {
+      addLog(`[Verify] On-chain threw: ${error instanceof Error ? error.message : String(error)}`);
       setOnChainStatus('failed');
       if (historyIdFromParams) {
         proofHistoryStore.update(historyIdFromParams, {
           onChainStatus: 'failed',
           overallStatus: 'verified_failed',
+          ...attemptLog(),
         }).catch(console.error);
       }
     }
@@ -347,6 +380,26 @@ export const ProofCompleteScreen: React.FC = () => {
                 variant="secondary"
                 size="large"
               />
+              <View style={styles.buttonSpacer} />
+            </>
+          )}
+          {generationLog !== null && (
+            <>
+              <Button
+                testID="proof-complete-copy-log"
+                title={t('host.proof.complete.copyLog')}
+                onPress={handleCopyLog}
+                variant="secondary"
+                size="large"
+              />
+              {logCopied && (
+                <Text
+                  testID="proof-complete-log-copied"
+                  accessibilityLiveRegion="polite"
+                  style={{fontSize: 13, color: themeColors.success[400], textAlign: 'center', marginTop: 8}}>
+                  {t('host.proof.complete.logCopied')}
+                </Text>
+              )}
               <View style={styles.buttonSpacer} />
             </>
           )}

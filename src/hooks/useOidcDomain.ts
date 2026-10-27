@@ -16,7 +16,7 @@ import {
   allCircuitFilesExist,
 } from '../utils';
 import {getEnvironment, type CircuitName} from '../config';
-import {prepareOidcInputs, flattenOidcInputs} from '../utils/oidcDomain';
+import {prepareOidcInputs, flattenOidcInputs, OIDC_PUBLIC_INPUT_COUNT} from '../utils/oidcDomain';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -37,6 +37,11 @@ export interface OidcDomainProofInputs {
   scopeString: string; // dApp scope identifier (REQUIRED)
   domain?: string; // Target domain to prove — auto-extracted from JWT email if omitted
   provider?: string; // Workspace provider (e.g., 'google') — when set, verifies org membership via hd claim
+  /**
+   * The nonce this request signed in with (64 lowercase hex, oidcNonce.ts).
+   * The circuit binds the token to it (nonce_mode 1, nonce_binding).
+   */
+  nonce: string;
 }
 
 export interface ParsedProofData {
@@ -147,6 +152,11 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
 
       if (!inputs.scopeString) {
         addLog('Scope is required');
+        return;
+      }
+
+      if (!inputs.nonce) {
+        addLog('The request nonce is required');
         return;
       }
 
@@ -281,6 +291,8 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           scope: inputs.scopeString,
           domain,
           provider: inputs.provider as 'google' | 'microsoft' | undefined,
+          nonce: inputs.nonce,
+          clockSeconds: Math.floor(Date.now() / 1000),
         });
         const inputsElapsed = Date.now() - inputsStartTime;
 
@@ -311,6 +323,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog(`[Debug] partial_data.len: ${circuitInputs.partial_data.len}`);
         addLog(`[Debug] full_data_length: ${circuitInputs.full_data_length}`);
         addLog(`[Debug] base64_decode_offset: ${circuitInputs.base64_decode_offset}`);
+        addLog(`[Inputs] nonce_mode: ${circuitInputs.nonce_mode}, now: ${circuitInputs.now}`);
         updateStep('inputs', {
           status: 'completed',
           detail: `${flatInputs.length} input values`,
@@ -339,6 +352,17 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
 
+        // These inputs are for the v2 circuit. A v1 file set (148 public
+        // inputs) left on disk would fail inside the prover with a witness
+        // error that names nothing; say what it is instead.
+        const circuitPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        if (circuitPublicInputs !== OIDC_PUBLIC_INPUT_COUNT) {
+          throw new Error(
+            `The downloaded ${CIRCUIT_NAME} circuit has ${circuitPublicInputs} public inputs; ` +
+              `this app builds inputs for ${OIDC_PUBLIC_INPUT_COUNT} (OIDC v2). Delete the circuit files and download them again.`,
+          );
+        }
+
         addLog('[Proof] Starting Noir proof generation (low memory mode)...');
         addLog('[Proof] This may take 30-60 seconds...');
         const proofStartTime = Date.now();
@@ -365,7 +389,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         updateStep('parse', {status: 'in_progress'});
         addLog('Step 7: Parsing proof...');
 
-        const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        const numPublicInputs = circuitPublicInputs;
         addLog(`[Parse] Number of public inputs: ${numPublicInputs}`);
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(
           currentProof,

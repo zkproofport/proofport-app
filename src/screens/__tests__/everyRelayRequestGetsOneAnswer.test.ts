@@ -15,7 +15,9 @@
  *                sign, storage, proof, OIDC validate), thrown error, no
  *                attestation, Dojang none / lookup failed, no wallet provider,
  *                missing country inputs, missing mDL age, unreadable settings,
- *                OIDC sign-in failed / not ready, unknown circuit
+ *                OIDC sign-in failed / not ready, unknown circuit,
+ *                OIDC token without this request's nonce (E2012), OIDC
+ *                request with a non-UUID id / unknown provider / no scope (E2004)
  *   cancel     → wallet rejection, dismissed sign-in, leaving the screen
  *   success    → one `completed`, and leaving afterwards sends nothing more
  *   race       → the hook's error step AND the thrown error in one attempt
@@ -41,6 +43,7 @@ type Step = {id: string; label: string; status: string; detail?: string};
 
 const mockGenerate = jest.fn();
 const mockSignIn = jest.fn();
+const mockMsSignIn = jest.fn();
 const mockReset = jest.fn();
 const mockNoop = jest.fn();
 const mockPost = jest.fn();
@@ -79,7 +82,7 @@ jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
   useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
   useGoogleAuth: () => ({isReady: mockAuthReady, promptSignIn: mockSignIn}),
-  useMicrosoftAuth: () => ({isReady: mockAuthReady, promptSignIn: mockSignIn}),
+  useMicrosoftAuth: () => ({isReady: mockAuthReady, promptSignIn: mockMsSignIn}),
   useWallet: () => ({account: ACCOUNT, isReady: true, getProvider: mockGetProvider, connect: mockNoop, disconnect: mockNoop}),
   useLogs: () => ({logs: [], addLog: mockNoop, clearLogs: mockNoop}),
   useDeepLink: jest.requireActual('../../hooks/useDeepLink').useDeepLink,
@@ -135,10 +138,21 @@ import {ProofGenerationScreen, STEP_ERROR_CODE} from '../proof/ProofGenerationSc
 import {WALLET_REJECTED_PREFIX} from '../../utils/walletRejection';
 import {resetRelayAnswersForTests} from '../../utils/relayAnswer';
 import {clearActiveProofRequest} from '../../stores/activeProofRequestStore';
+import {deriveOidcNonce} from '../../oidc/oidcNonce';
+import {jwt} from '../../oidc/__tests__/jwt';
 
 function request(circuit: ProofRequest['circuit'], inputs: Record<string, unknown> = {scope: 'scope'}): ProofRequest {
   return {requestId: `req-${circuit}`, circuit, callbackUrl: CALLBACK, createdAt: 1, inputs} as ProofRequest;
 }
+
+/** The relay mints uuidv4 request ids; an OIDC request's nonce is derived from one. */
+const OIDC_RID = '7f3c2a10-5b6e-4d8f-9a1b-2c3d4e5f6a7b';
+function oidcRequest(inputs: Record<string, unknown> = {scope: 's', provider: 'google'}): ProofRequest {
+  return {...request('oidc_domain_attestation', inputs), requestId: OIDC_RID};
+}
+
+/** A provider that honours the nonce it was asked for. */
+const tokenFor = async (nonce: string) => ({token: jwt({nonce, email: 'a@corp.com'})});
 
 let tree: ReactTestRenderer | null;
 let errors: jest.SpyInstance;
@@ -162,7 +176,8 @@ beforeEach(() => {
   mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
   mockStatement.mockResolvedValue({clientData: new Uint8Array(225), attestedAt: 1});
   mockGenerate.mockResolvedValue(undefined);
-  mockSignIn.mockResolvedValue({token: 'jwt'});
+  mockSignIn.mockImplementation(tokenFor);
+  mockMsSignIn.mockImplementation(tokenFor);
   errors = jest.spyOn(console, 'error').mockImplementation(() => {});
   logs = jest.spyOn(console, 'log').mockImplementation(() => {});
 });
@@ -234,7 +249,7 @@ describe('a failed hook step answers once, with its code', () => {
   });
 
   it('OIDC validate is a sign-in failure (E2008), not an attestation one', async () => {
-    await mount('oidc_domain_attestation', request('oidc_domain_attestation', {scope: 's', provider: 'google'}));
+    await mount('oidc_domain_attestation', oidcRequest());
     await failStep('validate', 'JWT expired');
     expectOneError('E2008');
   });
@@ -313,20 +328,57 @@ describe('every inline failure path answers once, with its code', () => {
 
   it('OIDC sign-in failed -> E2008', async () => {
     mockSignIn.mockResolvedValue({error: 'keychain error -2', cancelled: false});
-    await mount('oidc_domain_attestation', request('oidc_domain_attestation', {scope: 's', provider: 'google'}));
+    await mount('oidc_domain_attestation', oidcRequest());
     expectOneError('E2008');
   });
 
   it('OIDC sign-in not ready -> E2008', async () => {
     mockAuthReady = false;
-    await mount('oidc_domain_attestation', request('oidc_domain_attestation', {scope: 's', provider: 'google'}));
+    await mount('oidc_domain_attestation', oidcRequest());
     expectOneError('E2008');
   });
 
   it('a dismissed OIDC sign-in answers cancelled', async () => {
     mockSignIn.mockResolvedValue({error: 'closed', cancelled: true});
-    await mount('oidc_domain_attestation', request('oidc_domain_attestation', {scope: 's', provider: 'google'}));
+    await mount('oidc_domain_attestation', oidcRequest());
     expect(answers()).toEqual([expect.objectContaining({status: 'cancelled'})]);
+  });
+
+  it('OIDC asks the provider for the nonce of THIS request and proves its token', async () => {
+    await mount('oidc_domain_attestation', oidcRequest());
+    expect(mockSignIn).toHaveBeenCalledWith(deriveOidcNonce('s', OIDC_RID));
+    expect(mockGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({jwtToken: jwt({nonce: deriveOidcNonce('s', OIDC_RID), email: 'a@corp.com'}), scopeString: 's', nonce: deriveOidcNonce('s', OIDC_RID)}),
+      expect.any(Function),
+    );
+  });
+
+  it('OIDC microsoft signs in with Microsoft, with the same nonce rule', async () => {
+    await mount('oidc_domain_attestation', oidcRequest({scope: 's', provider: 'microsoft'}));
+    expect(mockSignIn).not.toHaveBeenCalled();
+    expect(mockMsSignIn).toHaveBeenCalledWith(deriveOidcNonce('s', OIDC_RID));
+  });
+
+  it.each([
+    ['no nonce', async () => ({token: jwt({email: 'a@corp.com'})})],
+    ['another request’s nonce', async () => ({token: jwt({nonce: deriveOidcNonce('s', '00000000-0000-4000-8000-000000000000')})})],
+    ['a Math.random-style nonce', async () => ({token: jwt({nonce: 'k3j4h5g6'})})],
+  ])('OIDC token with %s -> E2012, and nothing is proved', async (_label, impl) => {
+    mockSignIn.mockImplementation(impl);
+    await mount('oidc_domain_attestation', oidcRequest());
+    expectOneError('E2012');
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a request id that is not a UUID', {...oidcRequest(), requestId: 'req-oidc'}],
+    ['an unknown provider', oidcRequest({scope: 's', provider: 'Microsoft'})],
+    ['no scope', oidcRequest({provider: 'google'})],
+  ])('OIDC with %s -> E2004 before any sign-in', async (_label, req) => {
+    await mount('oidc_domain_attestation', req);
+    expectOneError('E2004');
+    expect(mockSignIn).not.toHaveBeenCalled();
+    expect(mockMsSignIn).not.toHaveBeenCalled();
   });
 
   it('an unknown circuit is refused on arrival -> E2006', async () => {

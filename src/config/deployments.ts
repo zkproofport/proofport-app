@@ -1,14 +1,19 @@
 /**
  * Runtime deployment fetcher.
  *
- * Fetches Foundry broadcast JSON from GitHub to get the latest
- * deployed contract addresses. Uses AsyncStorage for offline cache.
+ * Fetches Foundry broadcast JSON from GitHub to get deployed verifier
+ * addresses. Uses AsyncStorage for offline cache.
  *
- * Resolution strategy per environment:
- *   - development: fetch from main branch (latest deployments, immediate)
- *   - production:  fetch from latest GitHub Release tag (verified only)
+ * Which circuits ref is read, per environment (`circuitsRef`):
+ *   - development / staging: branch `main` (CIRCUITS_BRANCH)
+ *   - production: exactly CIRCUITS_RELEASE_TAG, fixed in this build
+ *   - Laboratory circuits (MAIN_BRANCH_CIRCUIT_IDS): `main` in every build
  *
- * Flow: resolve broadcast URL → fetch JSON → AsyncStorage cache → fallback
+ * Nothing asks GitHub which release is "latest". Until 2026-10-27 production
+ * did, so publishing a circuits tag switched every installed app's circuits
+ * and verifiers at its next launch.
+ *
+ * Flow: broadcast URL at that ref -> fetch JSON -> AsyncStorage cache -> fallback
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,7 +31,6 @@ import {MAIN_BRANCH_CIRCUIT_IDS} from './circuitIds';
 import type {CircuitName, Environment} from './contracts';
 
 const CACHE_PREFIX = '@proofport/deployment';
-const RELEASE_TAG_CACHE_KEY = `${CACHE_PREFIX}/release-tag`;
 
 interface BroadcastTransaction {
   contractName: string;
@@ -46,8 +50,58 @@ interface CachedDeployment {
   timestamp: number;
   chain: number;
   commit: string;
-  releaseTag?: string;
+  /** The circuits ref (branch or tag) the address was read from. */
+  ref?: string;
   fetchedAt: number;
+}
+
+/**
+ * A production build's pinned circuits release does not answer: the tag was
+ * never published, or was cut without this file. Raised instead of falling
+ * back to `main` or to another release, and shown at launch as E3007.
+ */
+export class CircuitsReleaseMissingError extends Error {
+  readonly tag: string;
+  readonly urls: string[];
+  constructor(tag: string, urls: string[]) {
+    super(
+      `Circuits release ${tag} is not available: ${urls.join(', ')} answered HTTP 404. ` +
+        `This build proves only with circuits tag ${tag} (CIRCUITS_RELEASE_TAG) -- ` +
+        'publish that release, or build with the tag that exists. Not falling back to main or another release.',
+    );
+    this.name = 'CircuitsReleaseMissingError';
+    this.tag = tag;
+    this.urls = urls;
+  }
+}
+
+export function isCircuitsReleaseMissingError(e: unknown): e is CircuitsReleaseMissingError {
+  return e instanceof CircuitsReleaseMissingError;
+}
+
+/**
+ * The circuits ref (branch or exact tag) THIS circuit is read from in `env`:
+ * circuit files and verifier record alike. One answer for both, so a circuit
+ * is never paired with a verifier from another ref.
+ */
+export function circuitsRef(circuit: CircuitName, env: Environment): string {
+  if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) return CIRCUITS_BRANCH;
+  return environmentCircuitsRef(env);
+}
+
+/** The ref for the officially supported circuits in `env`. */
+export function environmentCircuitsRef(env: Environment): string {
+  const config = STATIC_CONFIGS[env];
+  if (!config) {
+    throw new Error(`Unknown environment '${env}'. Known: ${Object.keys(STATIC_CONFIGS).join(', ')}.`);
+  }
+  const source = config.circuitsSource;
+  return source.type === 'branch' ? source.branch : source.tag;
+}
+
+function isReleaseRef(env: Environment, ref: string): boolean {
+  const source = STATIC_CONFIGS[env].circuitsSource;
+  return source.type === 'release' && source.tag === ref;
 }
 
 function cacheKey(env: Environment, circuit: CircuitName): string {
@@ -56,95 +110,16 @@ function cacheKey(env: Environment, circuit: CircuitName): string {
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) {
     return `${CACHE_PREFIX}/${env}/${circuit}/v${CIRCUIT_DATA_VERSIONS[circuit]}`;
   }
-  return `${CACHE_PREFIX}/${env}/${circuit}`;
-}
-
-/** How long a resolved tag is used without asking GitHub again. */
-const RELEASE_TAG_TTL_MS = 60 * 60 * 1000;
-
-/**
- * The release tag this device last resolved, whatever its age.
- *
- * Separate from the TTL check because the two questions are different: "is it
- * fresh enough to skip the network" and "is there a real tag here at all". The
- * second one is what keeps an offline launch working.
- */
-async function readCachedReleaseTag(): Promise<{tag: string; fetchedAt: number} | null> {
-  try {
-    const raw = await AsyncStorage.getItem(RELEASE_TAG_CACHE_KEY);
-    if (!raw) return null;
-    const {tag, fetchedAt} = JSON.parse(raw);
-    // A stored entry that is not a tag is not a tag. Storage can hold a
-    // truncated write or a value from an older shape of this record.
-    if (typeof tag !== 'string' || !tag) return null;
-    return {tag, fetchedAt: typeof fetchedAt === 'number' ? fetchedAt : 0};
-  } catch {
-    return null;
-  }
+  // Keyed by the ref, so an address cached by an app version pinned to another
+  // circuits tag is never read back by this one.
+  return `${CACHE_PREFIX}/${env}/${circuit}@${circuitsRef(circuit, env)}`;
 }
 
 /**
- * The latest GitHub Release tag, or null when this device has never seen one.
- *
- * Fresh cache -> that tag. Otherwise ask GitHub; and when GitHub cannot be
- * asked — offline, timed out, HTTP 403 because the unauthenticated API allows
- * 60 calls an hour per IP and a carrier NAT shares one — fall back to the tag
- * this device resolved LAST TIME, however old it is.
- *
- * A stale tag is a real tag: it is the release the circuit files on disk
- * actually came from, so reusing it keeps an offline app working on the bytes
- * it already verified. What must never be substituted is a DIFFERENT source.
- * Returning null here is how the caller learns it has nothing.
+ * The broadcast JSON URL for this circuit at its ref, or null when the
+ * circuit has no broadcast record.
  */
-async function resolveReleaseTag(repo: string): Promise<string | null> {
-  const cached = await readCachedReleaseTag();
-  if (cached && Date.now() - cached.fetchedAt < RELEASE_TAG_TTL_MS) {
-    return cached.tag;
-  }
-
-  const controller = new AbortController();
-  // Cleared in `finally`, not after the await: when fetch REJECTS — which is
-  // the offline case, the one this whole function is about — a timer left
-  // running holds the process for another ten seconds and then aborts a
-  // request nobody is waiting for.
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-  try {
-    const response = await fetch(
-      `https://api.github.com/repos/${repo}/releases/latest`,
-      {
-        headers: {Accept: 'application/vnd.github.v3+json'},
-        signal: controller.signal,
-      },
-    );
-
-    if (response.ok) {
-      const release = await response.json();
-      const tag = release?.tag_name;
-      if (typeof tag === 'string' && tag) {
-        await AsyncStorage.setItem(
-          RELEASE_TAG_CACHE_KEY,
-          JSON.stringify({tag, fetchedAt: Date.now()}),
-        );
-        return tag;
-      }
-    }
-  } catch {
-    // Falls through to the stale tag below.
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  return cached?.tag ?? null;
-}
-
-/**
- * Build the broadcast JSON URL based on environment source config.
- */
-async function resolveBroadcastUrl(
-  circuit: CircuitName,
-  env: Environment,
-): Promise<string | null> {
-  const config = STATIC_CONFIGS[env];
+function resolveBroadcastUrl(circuit: CircuitName, env: Environment): string | null {
   /*
    * The CIRCUIT's chain, not the build's.
    *
@@ -161,40 +136,40 @@ async function resolveBroadcastUrl(
   const chainId = CIRCUIT_NETWORKS[env][circuit].chainId;
   const pathFn = BROADCAST_PATHS[circuit];
   if (!pathFn) return null;
-
-  // These circuits download their bytes from main in every build environment.
-  // Their verifier must come from the same source, never an older release.
-  if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) {
-    return `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast/${pathFn(chainId)}`;
-  }
-
-  const source = config.broadcastSource;
-
-  if (source.type === 'branch') {
-    return `${source.baseUrl}/${pathFn(chainId)}`;
-  }
-
-  // Release mode: resolve tag first
-  const tag = await resolveReleaseTag(source.repo);
-  if (!tag) return null;
-  return `${GITHUB_RAW(tag)}/broadcast/${pathFn(chainId)}`;
+  return `${GITHUB_RAW(circuitsRef(circuit, env))}/broadcast/${pathFn(chainId)}`;
 }
 
 /**
- * Fetch the latest deployment address from GitHub broadcast JSON.
+ * Fetch the deployment address from the broadcast JSON at the circuit's ref.
+ *
+ * Null when the record cannot be read right now (offline, timeout, a server
+ * error): the cache or the build's fallback then answers, as before. A 404 at
+ * a production build's pinned release is different -- the tag is missing or
+ * incomplete, which no retry fixes -- and throws CircuitsReleaseMissingError.
  */
 export async function fetchDeploymentAddress(
   circuit: CircuitName,
   env: Environment,
 ): Promise<string | null> {
-  const url = await resolveBroadcastUrl(circuit, env);
+  const url = resolveBroadcastUrl(circuit, env);
   if (!url) return null;
+  const ref = circuitsRef(circuit, env);
+
+  let response: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    response = await fetch(url, {signal: controller.signal});
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  if (response.status === 404 && isReleaseRef(env, ref)) {
+    throw new CircuitsReleaseMissingError(ref, [url]);
+  }
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    const response = await fetch(url, {signal: controller.signal});
-    clearTimeout(timeoutId);
     if (!response.ok) return null;
 
     const broadcast: BroadcastJson = await response.json();
@@ -209,6 +184,7 @@ export async function fetchDeploymentAddress(
       timestamp: broadcast.timestamp,
       chain: broadcast.chain,
       commit: broadcast.commit,
+      ref,
       fetchedAt: Date.now(),
     };
 
@@ -280,7 +256,9 @@ export async function syncDeployments(env: Environment): Promise<boolean> {
   const circuits: ReadonlyArray<CircuitName> = CIRCUITS_WITH_BROADCAST;
   let updated = false;
 
-  await Promise.all(
+  // Every circuit is tried before a missing release is reported, so the ones
+  // that do answer are still cached, and the error names every missing file.
+  const results = await Promise.allSettled(
     circuits.map(async (circuit) => {
       const oldAddress = await getCachedAddress(circuit, env);
       const newAddress = await fetchDeploymentAddress(circuit, env);
@@ -289,6 +267,15 @@ export async function syncDeployments(env: Environment): Promise<boolean> {
       }
     }),
   );
+
+  const missing = results.flatMap((r) =>
+    r.status === 'rejected' && isCircuitsReleaseMissingError(r.reason) ? [r.reason] : [],
+  );
+  if (missing.length > 0) {
+    throw new CircuitsReleaseMissingError(missing[0].tag, missing.flatMap((e) => e.urls));
+  }
+  const other = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (other) throw other.reason;
 
   return updated;
 }
@@ -310,42 +297,12 @@ export async function getDeploymentInfo(
 }
 
 /**
- * Where a release-pinned build reads circuit data from.
- *
- * Development and staging read `main`. Production reads the latest GitHub
- * Release tag, and when no tag can be produced it THROWS.
- *
- * It used to answer `main` in that case, and that is the shape this repository
- * bans: the download succeeds, against bytes nobody released. The failure is
- * invisible from here — the digest manifest is published beside the file at the
- * same ref, so `main`'s circuit and `main`'s digests agree — and it is
- * asymmetric: `resolveBroadcastUrl` returns null on the very same failure, so
- * the verifier ADDRESS stays at the release's while the circuit bytes come from
- * `main`. One unreachable API call was enough to pair a circuit with a verifier
- * that was never deployed for it.
- *
- * Offline is not that case: `resolveReleaseTag` reuses the last tag this device
- * saw. Throwing here means there is no tag at all — a first launch that has
- * never reached GitHub — and then there is nothing to download from.
+ * Where the officially supported circuits' files are read from in `env`:
+ * `main` for development and staging, the exact CIRCUITS_RELEASE_TAG for
+ * production. No network call decides it, and there is nothing to fall back
+ * to: a production build whose tag is missing fails when it downloads (404,
+ * naming the tag), never by reading `main` or another release.
  */
-export async function resolveCircuitBaseUrl(env: Environment): Promise<string> {
-  const config = STATIC_CONFIGS[env];
-  const source = config.broadcastSource;
-
-  if (source.type === 'branch') {
-    // Branch mode: strip '/broadcast' suffix from baseUrl
-    return source.baseUrl.replace(/\/broadcast$/, '');
-  }
-
-  const tag = await resolveReleaseTag(source.repo);
-  if (!tag) {
-    throw new Error(
-      `No circuits release tag for the ${env} build: ` +
-        `https://api.github.com/repos/${source.repo}/releases/latest could not be read ` +
-        'and this device has no tag cached from an earlier launch. ' +
-        'Refusing to read circuit data from main — an untagged circuit would be ' +
-        "proved against the release's verifier address.",
-    );
-  }
-  return GITHUB_RAW(tag);
+export function resolveCircuitBaseUrl(env: Environment): string {
+  return GITHUB_RAW(environmentCircuitsRef(env));
 }

@@ -32,7 +32,10 @@ jest.mock('@react-navigation/native-stack', () => ({
 }));
 jest.mock('react-i18next', () => ({useTranslation: () => ({t: (key: string) => key, i18n: {language: 'en'}})}));
 jest.mock('../../components/ui', () => ({Icon: 'Icon', Badge: 'Badge', Button: 'Button', Card: 'Card'}));
-jest.mock('../../context', () => ({useThemeColors: () => ({colors: jest.requireActual('../../theme').darkColors})}));
+jest.mock('../../context', () => ({
+  useThemeColors: () => ({colors: jest.requireActual('../../theme').darkColors}),
+  useError: () => ({showError: jest.fn()}),
+}));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
   useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),

@@ -5,8 +5,8 @@ import {
   verifyCircuitFile,
 } from './circuitIntegrity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {resolveCircuitBaseUrl} from '../config/deployments';
-import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, CIRCUITS_BRANCH} from '../config/contracts';
+import {environmentCircuitsRef, resolveCircuitBaseUrl} from '../config/deployments';
+import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, CIRCUITS_BRANCH, STATIC_CONFIGS} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
 import {circuitArtifactSource} from '../config/circuitArtifacts';
@@ -172,6 +172,10 @@ async function copyBundledCircuitFile(
   return downloadCircuitFileFromGitHub(circuitName, extension, env, onProgress, log);
 }
 
+function isPinnedRelease(env: Environment): boolean {
+  return STATIC_CONFIGS[env].circuitsSource.type === 'release';
+}
+
 /**
  * Which ref THIS circuit reads from. One answer, three readers.
  *
@@ -186,8 +190,10 @@ async function copyBundledCircuitFile(
  * the files each used to work this out on their own, and only the first one
  * knew about the main-only circuits. The other two asked for the ENVIRONMENT's
  * base URL, so on a production build they recorded and compared a release tag
- * for files that had come from main — a stored value that was simply untrue,
- * and one that now decides whether a release-tag build is allowed to throw.
+ * for files that had come from main — a stored value that was simply untrue.
+ *
+ * The stored base URL carries the ref, so a build pinned to another circuits
+ * tag than the one the files came from re-downloads them (cacheInvalidation).
  */
 export async function circuitBaseUrl(
   circuitName: string,
@@ -299,12 +305,11 @@ async function downloadCircuitFileFromGitHub(
     progressDivider: 5,
   });
 
-  // Cleared once the race is decided. Left running, it fired 120 s after
-  // every SUCCESSFUL download: it stopped a job that had already finished and
-  // rejected a promise nobody was listening to any more.
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  // Cleared once the race settles: left running, it stopped an already
+  // finished job two minutes later and held a test process open as long.
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => {
+    timeoutId = setTimeout(() => {
       RNFS.stopDownload(downloadResult.jobId);
       reject(new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS / 1000}s: ${fileName}`));
     }, DOWNLOAD_TIMEOUT_MS);
@@ -314,11 +319,24 @@ async function downloadCircuitFileFromGitHub(
   try {
     result = await Promise.race([downloadResult.promise, timeoutPromise]);
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timeoutId);
   }
 
   if (result.statusCode !== 200) {
-    throw new Error(`Failed to download ${fileName}: HTTP ${result.statusCode}`);
+    await RNFS.unlink(destPath).catch(() => {});
+    // A 404 at a pinned release tag is a missing or incomplete release, not a
+    // network problem: say which tag, so it is not retried as one.
+    // A circuit read from a pinned commit (circuitArtifacts.ts) never reads
+    // the release tag, so its 404 names the commit instead.
+    const artifact = circuitArtifactSource(circuitName);
+    const pinned = !artifact && !MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName) && isPinnedRelease(env);
+    let reason = `Failed to download ${fileName}: HTTP ${result.statusCode} from ${url}`;
+    if (result.statusCode === 404 && artifact) {
+      reason += ` -- circuits commit ${artifact.ref} (src/config/circuitArtifacts.ts) does not contain this file`;
+    } else if (result.statusCode === 404 && pinned) {
+      reason += ` -- circuits release ${environmentCircuitsRef(env)} (CIRCUITS_RELEASE_TAG) is missing or does not contain this file`;
+    }
+    throw new Error(reason);
   }
 
   const stat = await RNFS.stat(destPath);

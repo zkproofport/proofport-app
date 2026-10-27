@@ -20,6 +20,7 @@
 		B4520EFD8F92C2025F44D46B /* ChatMediaEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A529CE78FD5DADCE5E8738 /* ChatMediaEnvelope.swift */; };
 		B558A5FCED2BE62F00587196 /* OpenStoaNSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1698125A04E207FDDE5F36F4 /* OpenStoaNSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BAA2811CD5B08E4604D083CE /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E3BEDCD2ECEFC3271EB1A4 /* NotificationService.swift */; };
+		D4E5F6A7B8C9D0E1F2A3B4C6 /* GoogleIdTokenModule.m in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C9D0E1F2A3B4C5 /* GoogleIdTokenModule.m */; };
 		DA9F5A994DF2C0AF205F3536 /* ArchiveDecryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9773765DAB1913961F2176D3 /* ArchiveDecryptor.swift */; };
 		F375E371E56193014C2599E8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -67,6 +68,7 @@
 		C2D3E4F5A6B7C8D9E0F1A2B3 /* AppAttestModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppAttestModule.m; path = ProofportApp/AppAttestModule.m; sourceTree = "<group>"; };
 		A78377E712470CA3BBF55EA4 /* OpenStoaNSE.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = OpenStoaNSE.entitlements; sourceTree = "<group>"; };
 		A8D8B6D6FBD4B09F360BE42B /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		D4E5F6A7B8C9D0E1F2A3B4C5 /* GoogleIdTokenModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GoogleIdTokenModule.m; path = ProofportApp/GoogleIdTokenModule.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		EEA58DF4D7675AA875171AFC /* Pods-ProofportApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ProofportApp.release.xcconfig"; path = "Target Support Files/Pods-ProofportApp/Pods-ProofportApp.release.xcconfig"; sourceTree = "<group>"; };
 		F33809F85DF055B7544A983B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-ProofportApp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
@@ -100,6 +102,7 @@
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AppEnvModule.m */,
 				C2D3E4F5A6B7C8D9E0F1A2B3 /* AppAttestModule.m */,
+				D4E5F6A7B8C9D0E1F2A3B4C5 /* GoogleIdTokenModule.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -407,6 +410,7 @@
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AppEnvModule.m in Sources */,
 				C2D3E4F5A6B7C8D9E0F1A2B4 /* AppAttestModule.m in Sources */,
+				D4E5F6A7B8C9D0E1F2A3B4C6 /* GoogleIdTokenModule.m in Sources */,
 				6319A64F98E2F6BD86C5F3E8 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

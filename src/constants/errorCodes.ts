@@ -127,6 +127,15 @@ export const ErrorCodes = {
     description:
       'Coinbase has revoked the verification for this wallet, so no proof was generated. Verify again with Coinbase, then try again.',
   },
+  // The provider returned an ID token without the nonce this request asked
+  // for (src/oidc/oidcNonce.ts). Such a token is not tied to this request, so
+  // it is never proved. E2009-E2011 and E2014 are App Attest.
+  E2012: {
+    code: 'E2012',
+    title: 'Sign-In Not Tied to This Request',
+    description:
+      'The sign-in answer was not issued for this request, so no proof was generated. Try signing in again.',
+  },
   E2014: {
     code: 'E2014',
     title: 'App Attest Check Failed',
@@ -163,12 +172,20 @@ export const ErrorCodes = {
     description:
       'The proof files could not be downloaded. Reopen the app once you are back online.',
   },
-
   E3006: {
     code: 'E3006',
     title: 'Apple Service Unreachable',
     description:
       "Apple's App Attest service could not be reached to certify this device. Check your connection and try again.",
+  },
+  // A production build proves only with one circuits release
+  // (CIRCUITS_RELEASE_TAG, src/config/contracts.ts). When that tag does not
+  // answer, nothing is read from main or another release instead.
+  E3007: {
+    code: 'E3007',
+    title: 'Proof Files Not Published',
+    description:
+      'The proof files this version of ZKProofport needs are not available yet, so proofs cannot be made. Please update the app or try again later.',
   },
 
   // Wallet errors

@@ -64,7 +64,8 @@
       "subtitle": "내게 맞게 ZKProofport를 설정하세요.",
       "sectionAbout": "앱 정보",
       "saveError": "설정을 저장하지 못했습니다. 다시 시도해 주세요.",
-      "loadError": "설정을 불러오지 못했습니다."
+      "loadError": "설정을 불러오지 못했습니다.",
+      "showLiveLogsHint": "증명이 진행되는 동안 로그를 보여 주고, 토큰·서명·키를 지운 뒤 그 증명의 이력에 남깁니다."
     },
     "about": {
       "tagline": "개인정보 보호 최우선 영지식 증명 생성",
@@ -198,7 +199,11 @@
         "verificationPending": "완료되지 않음",
         "circuitId": "증명 유형 ID",
         "scope": "증명 범위",
-        "scopeString": "범위 문자열"
+        "scopeString": "범위 문자열",
+        "proofLog": "증명 로그",
+        "proofLogHint": "개발자 모드와 라이브 로그가 켜져 있어 남긴 로그입니다. 토큰·서명·키는 지웠습니다.",
+        "copyLog": "로그 복사",
+        "logCopied": "복사했습니다"
       },
       "statusLabel": "상태",
       "dateLabel": "날짜",
@@ -357,7 +362,9 @@
         "viewGiwaExplorer": "GIWA 익스플로러에서 보기",
         "generateAnother": "다른 증명 생성하기",
         "stackTitle": "증명 완료",
-        "done": "완료"
+        "done": "완료",
+        "copyLog": "로그 복사",
+        "logCopied": "로그를 복사했습니다"
       },
       "generation": {
         "portalLabel": "증명 포털",
@@ -761,6 +768,10 @@
         "title": "Coinbase 인증이 취소되었습니다",
         "description": "Coinbase가 이 지갑의 인증을 취소해 증명을 생성하지 않았습니다. Coinbase에서 다시 인증한 뒤 시도해 주세요."
       },
+      "E2012": {
+        "title": "이 요청의 로그인이 아닙니다",
+        "description": "로그인 응답이 이 요청에 대해 발급되지 않아 증명을 생성하지 않았습니다. 다시 로그인해 주세요."
+      },
       "E2014": {
         "title": "App Attest 확인에 실패했습니다",
         "description": "이 기기의 App Attest 데이터를 증명에 사용할 수 없었습니다. 증명을 생성하지 않았습니다."
@@ -848,6 +859,10 @@
       "E3006": {
         "title": "Apple 서비스에 연결하지 못했습니다",
         "description": "이 기기를 확인하기 위한 Apple App Attest 서비스에 연결하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요."
+      },
+      "E3007": {
+        "title": "증명 파일이 아직 공개되지 않았습니다",
+        "description": "이 버전의 ZKProofport에 필요한 증명 파일을 아직 받을 수 없어 증명을 만들 수 없습니다. 앱을 업데이트하거나 나중에 다시 시도해 주세요."
       },
       "E4004": {
         "title": "연결 해제에 실패했습니다",

@@ -87,8 +87,8 @@ describe('no switch', () => {
 
 describe('the verifier', () => {
   it('is the Base Sepolia v2 deploy for development and staging, and none for production', () => {
-    expect(FALLBACK_VERIFIERS.development.coinbase_attestation).toBe('0xf898db959351e305c88acc4e7bda4ea74731bb12');
-    expect(FALLBACK_VERIFIERS.staging.coinbase_attestation).toBe('0xf898db959351e305c88acc4e7bda4ea74731bb12');
+    expect(FALLBACK_VERIFIERS.development.coinbase_attestation).toBe('0xF898db959351E305c88ACC4e7bda4Ea74731Bb12');
+    expect(FALLBACK_VERIFIERS.staging.coinbase_attestation).toBe('0xF898db959351E305c88ACC4e7bda4Ea74731Bb12');
     expect(FALLBACK_VERIFIERS.production.coinbase_attestation).toBe('');
   });
 
