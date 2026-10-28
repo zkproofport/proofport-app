@@ -195,6 +195,33 @@ describe('a proof fetches its own circuit, once', () => {
     expect(logs.filter(l => l.endsWith('already exists'))).toHaveLength(3);
   });
 
+  it('a cached, hash-valid circuit is never fetched again, not even its checksum list', async () => {
+    publish('oidc_domain_attestation');
+    await download('oidc_domain_attestation');
+    mockRequests.length = 0;
+    (globalThis.fetch as jest.Mock).mockClear();
+    for (let i = 0; i < 3; i++) expect((await download('oidc_domain_attestation')).error).toBeUndefined();
+    expect(mockRequests).toEqual([]);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('an app update with unchanged circuits downloads nothing (a fresh process, same files on disk)', async () => {
+    publish('oidc_domain_attestation');
+    await download('oidc_domain_attestation');
+    mockRequests.length = 0;
+    (globalThis.fetch as jest.Mock).mockClear();
+    let fresh: {downloadCircuitFiles: typeof downloadCircuitFiles} | undefined;
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('../../config/signerPlatform').__setAndroidChainKindForTests('android');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      fresh = require('../circuitDownload');
+    });
+    await fresh!.downloadCircuitFiles('oidc_domain_attestation', 'production', undefined, () => {});
+    expect(mockRequests).toEqual([]);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
   it('two circuits keep their own files, and the second does not touch the first', async () => {
     const c = publish('coinbase_attestation');
     const o = publish('oidc_domain_attestation');

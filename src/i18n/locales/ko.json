@@ -411,6 +411,23 @@
           "firstTime": "이 휴대폰에서 처음 만드는 증명은 몇 분 걸릴 수 있어요",
           "keepOpen": "끝날 때까지 ZKProofport를 열어 두세요",
           "backgrounded": "앱이 잠시 백그라운드에 있었어요. 지금 이어서 진행해요"
+        },
+        "steps": {
+          "google": "Google 로그인",
+          "download": "증명 파일 확인",
+          "vk": "검증 키 불러오기",
+          "validate": "로그인 토큰 확인",
+          "jwks": "제공자 키 확인 및 이 휴대폰에서 서명",
+          "inputs": "증명 입력값 준비",
+          "storage": "저장 공간 확인",
+          "proof": "증명 만들기",
+          "parse": "증명 읽기",
+          "cleanup": "마무리",
+          "wallet": "지갑 연결됨",
+          "attestation": "인증 기록 찾기",
+          "transaction": "거래 내역 가져오기",
+          "signer": "발급자 확인",
+          "signing": "요청에 서명"
         }
       },
       "domain": {

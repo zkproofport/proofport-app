@@ -411,6 +411,23 @@
           "firstTime": "The first proof on this phone can take a few minutes",
           "keepOpen": "Keep ZKProofport open until it finishes",
           "backgrounded": "The app was in the background for a while; the proof continues now"
+        },
+        "steps": {
+          "google": "Sign in with Google",
+          "download": "Check the proof files",
+          "vk": "Load the verification key",
+          "validate": "Check the sign-in token",
+          "jwks": "Check the provider key and sign it on this phone",
+          "inputs": "Prepare the proof inputs",
+          "storage": "Check free space",
+          "proof": "Make the proof",
+          "parse": "Read the proof",
+          "cleanup": "Tidy up",
+          "wallet": "Wallet connected",
+          "attestation": "Find the attestation",
+          "transaction": "Get the transaction",
+          "signer": "Check the attester",
+          "signing": "Sign the request"
         }
       },
       "domain": {

@@ -311,6 +311,12 @@ const progressStyles = StyleSheet.create({
   },
 });
 
+/** Step ids with a label under host.proof.generation.steps in every locale. */
+const TRANSLATED_STEP_IDS: ReadonlySet<string> = new Set([
+  'google', 'download', 'vk', 'validate', 'jwks', 'inputs', 'storage', 'proof', 'parse', 'cleanup',
+  'wallet', 'attestation', 'transaction', 'signer', 'signing',
+]);
+
 const toUserSteps = (
   hookSteps: Array<{id: string; label: string; status: string}>,
   walletConnected: boolean,
@@ -529,7 +535,11 @@ export const ProofGenerationScreen: React.FC = () => {
       };
     }),
   ];
-  const userSteps = isOidc ? oidcUserSteps : toUserSteps(hook.proofSteps, circuitReady, isSearching);
+  // Shown in the person's language; a step id without a translation keeps
+  // the hook's own wording.
+  const userSteps = (isOidc ? oidcUserSteps : toUserSteps(hook.proofSteps, circuitReady, isSearching)).map(s =>
+    TRANSLATED_STEP_IDS.has(s.id) ? {...s, label: t(`host.proof.generation.steps.${s.id}`)} : s,
+  );
 
   /** The attempt's log for its History record, or nothing when logs are off. */
   const attemptLog = useCallback(
@@ -1452,8 +1462,6 @@ export const ProofGenerationScreen: React.FC = () => {
           </Text>
         </Card>
 
-        <ProofProgressCard />
-
         {(hasStepsStarted || isProcessing) && (
           <Card style={styles.steps}>
             <StepIndicator steps={userSteps} />
@@ -1471,6 +1479,13 @@ export const ProofGenerationScreen: React.FC = () => {
             <Text style={{color: themeColors.error[400], fontSize: 14, textAlign: 'center'}}>{errorMessage}</Text>
           </Card>
         )}
+
+        {/*
+          * Directly above the progress button: the screen keeps scrolling to
+          * its end while a proof runs, and the notice and the bar have to
+          * stay in view together.
+          */}
+        <ProofProgressCard />
 
         <View style={styles.btnWrap}>
           {isProcessing && (btn as any).progress != null ? (

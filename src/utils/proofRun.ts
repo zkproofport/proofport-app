@@ -41,9 +41,11 @@ export async function circuitFilesForProof(
       current = {name: p.fileName, bytes: 0};
     }
     current.bytes = p.bytesWritten;
+    // "Downloading" only once bytes are actually arriving: a cached circuit
+    // never shows it.
     updateProofProgress({stage: 'download', downloadedBytes: finished + current.bytes});
   };
-  updateProofProgress({stage: 'download', downloadedBytes: 0, downloadTotalBytes: null});
+  updateProofProgress({stage: 'prepare', downloadedBytes: 0, downloadTotalBytes: null});
   const files = await timer.step('circuit files', () => downloadCircuitFiles(circuit, getEnvironment(), onProgress, log));
   const received = finished + current.bytes;
   timer.note(received > 0 ? `circuit files downloaded ${received} bytes` : 'circuit files from cache');
