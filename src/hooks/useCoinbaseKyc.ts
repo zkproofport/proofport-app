@@ -47,6 +47,9 @@ import {
 } from '../config/signerPlatform';
 import type {AttesterCircuitInputs} from '../utils/circuitHelpers';
 import type {ProofStatus} from '../types';
+import type {ErrorCode} from '../constants/errorCodes';
+import {AppAttestError} from '../appAttest/appAttestError';
+import {requireVerifierForVariant} from '../utils/proofSignerVariant';
 import type {Step} from '../components';
 
 // The circuit this hook proves. The same id is hashed into the deterministic
@@ -299,6 +302,10 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           throw new Error('Coinbase KYC v2 needs a device statement; none was made for this request.');
         }
         const signerVariant = currentSignerVariant();
+        // An Android proof verifies only on its package's own contract; with
+        // none in this build it could not be checked by anyone (E2018) --
+        // refused before the circuit files are fetched.
+        requireVerifierForVariant(circuitName, signerVariant);
         const artifact = coinbaseKycArtifact(signerVariant);
         addLog(`[Statement] Coinbase KYC v2, ${signerVariant} signer (circuits ${artifact.ref}, ${artifact.remoteFileName})`);
         checkStatementAge(statement.witness.attestedAt, Math.floor(Date.now() / 1000));
@@ -632,11 +639,18 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         addLog(`Error: ${errorMessage}`);
         setStatus('Error generating proof');
 
-        setProofSteps(prev =>
-          prev.map(step =>
-            step.status === 'in_progress' ? {...step, status: 'error', detail: errorMessage} : step,
-          ),
-        );
+        // A device-signer refusal carries its own modal code. A failure before
+        // the first step started (statement age, verifier) marks the first
+        // step, so the screen always sees it.
+        const code: ErrorCode | undefined = error instanceof AppAttestError ? error.code : undefined;
+        setProofSteps(prev => {
+          const active = prev.some(step => step.status === 'in_progress');
+          return prev.map((step, i) =>
+            (active ? step.status === 'in_progress' : i === 0)
+              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {})}
+              : step,
+          );
+        });
       } finally {
         setIsLoading(false);
       }

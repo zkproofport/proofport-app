@@ -19,6 +19,7 @@ import {getEnvironment, type CircuitName} from '../config';
 import {currentSignerVariant, wireSignerVariant, type WireSignerVariant} from '../config/signerPlatform';
 import {prepareOidcInputs, flattenOidcInputs, OIDC_PUBLIC_INPUT_COUNT, requireOidcAbi} from '../utils/oidcDomain';
 import {AppAttestError} from '../appAttest/appAttestError';
+import {requireVerifierForVariant} from '../utils/proofSignerVariant';
 import {OidcProviderKeyError} from '../oidc/providerKeyStatement';
 import type {ProviderKeySigner} from '../oidc/oidcAppSigner';
 import type {ErrorCode} from '../constants/errorCodes';
@@ -193,6 +194,11 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         // the key) and fetches only what is stale, so files from an older
         // circuit on this phone are replaced rather than proved with.
         updateStep('download', {status: 'in_progress'});
+        // An Android proof verifies only on its package's own contract; with
+        // none in this build it could not be checked by anyone (E2018) --
+        // refused before any file is fetched.
+        const signerVariant = currentSignerVariant();
+        requireVerifierForVariant(CIRCUIT_NAME, signerVariant);
         addLog('Step 1: Checking circuit files...');
         await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
 
@@ -202,7 +208,6 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         // An older file set (148 inputs, or 214 without the signer) or the
         // other platform's would fail inside the prover with a witness error
         // that names nothing -- and only after the device had signed.
-        const signerVariant = currentSignerVariant();
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
         const circuitPublicInputs = getNumPublicInputsFromCircuit(circuitPath);

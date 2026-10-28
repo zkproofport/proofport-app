@@ -64,6 +64,10 @@ PLATFORM_TEST = "src/config/__tests__/eachPlatformReadsItsOwnCircuitFiles.test.t
 SPLIT_TEST = "src/utils/__tests__/aSplitSrsIsJoinedOnlyWhenEveryDigestMatches.test.ts"
 PLAY = "src/androidAttest/playIntegrity.ts"
 VARIANT = "src/utils/proofSignerVariant.ts"
+VARIANT_VERIFIERS = "src/config/variantVerifiers.ts"
+SCREEN = "src/screens/proof/ProofGenerationScreen.tsx"
+RELAY_TEST = "src/screens/__tests__/everyRelayRequestGetsOneAnswer.test.ts"
+VERIFY_TEST = "src/utils/__tests__/proofVerification.test.ts"
 FACTORY_CHECK_TEST = "src/androidAttest/__tests__/aFactoryPhoneIsCheckedLikeTheCircuit.test.ts"
 FACTORY_SIGN_TEST = "src/androidAttest/__tests__/aFactoryPhoneSignsWithAVerdict.test.ts"
 FACTORY_CONVERTER_TEST = "src/utils/__tests__/androidFactoryChainMatchesTheCircuitsConverter.test.ts"
@@ -233,6 +237,15 @@ MUTATIONS: list[Mutation] = [
              "  throw new Error(`The ${circuit} proof does not say which package made it",
              "  return 'standard';\n  throw new Error(`The ${circuit} proof does not say which package made it",
              FACTORY_SIGN_TEST, "a per-signer proof that does not say is an error"),
+    # --- Android verifiers ---
+    Mutation("callback-sends-standard-address", SCREEN,
+             "        verifierAddress = variantVerifier ? variantVerifier.address : getVerifierAddressSync(resolved);",
+             "        verifierAddress = getVerifierAddressSync(resolved);",
+             RELAY_TEST, "a factory-phone proof tells the relay which package made it"),
+    Mutation("missing-android-verifier-filled-in", VARIANT_VERIFIERS,
+             "  if (!row || !row.address) throw new AndroidVerifierMissingError(circuit, env, variant);",
+             "  if (!row || !row.address) return {address: '', chainId: BASE_SEPOLIA};",
+             VERIFY_TEST, "production has no Android verifier: refused by name, core never asked"),
 ]
 
 

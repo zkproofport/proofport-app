@@ -154,8 +154,8 @@ describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s'
 });
 
 describe('the Android circuits ref', () => {
-  it('is a full 40-hex commit or not set yet -- never a branch or a tag', () => {
-    expect(ANDROID_SIGNATURE_CIRCUITS_REF === '' || /^[0-9a-f]{40}$/.test(ANDROID_SIGNATURE_CIRCUITS_REF)).toBe(true);
+  it('is a full 40-hex commit -- never a branch, a tag or empty', () => {
+    expect(ANDROID_SIGNATURE_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it.each(['android', 'android_factory'])('refuses a branch name or a short sha on an %s row, naming the constant', variant => {
@@ -166,13 +166,21 @@ describe('the Android circuits ref', () => {
     expect(requireArtifactRef({...row, ref: 'ab'.repeat(20)})).toBe('ab'.repeat(20));
   });
 
-  (ANDROID_SIGNATURE_CIRCUITS_REF === '' ? it : it.skip)('while empty, an Android download fails naming it and fetches nothing', async () => {
+  it.each([
+    ['android', 'oidc_domain_attestation', 'oidc-domain-attestation-android/target/oidc_domain_attestation_android'],
+    ['android_factory', 'coinbase_attestation', 'coinbase-attestation-v2-android-factory/target/coinbase_attestation_v2_android_factory'],
+  ] as const)('an %s phone reads %s from the filled commit, under its own package', async (kind, id, file) => {
+    const RAW = `https://raw.githubusercontent.com/zkproofport/circuits/${ANDROID_SIGNATURE_CIRCUITS_REF}`;
     mockPlatform.OS = 'android';
-    __setAndroidChainKindForTests('android');
-    await expect(circuitBaseUrl('coinbase_attestation', 'production')).rejects.toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is empty/);
-    __setAndroidChainKindForTests('android_factory');
-    await expect(downloadCircuitFiles('oidc_domain_attestation', 'staging', undefined, () => {})).rejects.toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is empty/);
-    expect(mockDownloads).toEqual([]);
+    __setAndroidChainKindForTests(kind);
+    for (const env of ['development', 'staging', 'production'] as const) {
+      expect(await circuitBaseUrl(id, env)).toBe(RAW);
+    }
+    // The .srs is joined from parts only against a published SHA256SUMS; the
+    // fetch mock has none, so the download stops there -- after the json was
+    // requested from the right place.
+    await expect(downloadCircuitFiles(id, 'staging', undefined, () => {})).rejects.toThrow(/No SHA256SUMS at .*: a \.srs published in parts is never joined unchecked/);
+    expect(mockDownloads[0]).toBe(`${RAW}/${file}.json`);
   });
 });
 

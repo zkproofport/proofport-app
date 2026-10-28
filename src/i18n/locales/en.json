@@ -784,6 +784,10 @@
         "title": "Device Integrity Not Met",
         "description": "This phone did not pass the integrity check this proof requires: the official ZKProofport app on an unmodified device. Nothing was generated."
       },
+      "E2018": {
+        "title": "Proof Cannot Be Checked Here",
+        "description": "A proof from this phone for this request could not be checked by the requesting service, so none was made."
+      },
       "E3001": {
         "title": "Network Error",
         "description": "Unable to connect to the server. Please check your internet connection."

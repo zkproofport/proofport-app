@@ -429,7 +429,11 @@ describe('success, leaving, retrying', () => {
     await mount('coinbase_attestation', request('coinbase_attestation'));
     mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'android_factory'};
     await rerender();
-    expect(answers()).toEqual([expect.objectContaining({status: 'completed', signerVariant: 'android_factory'})]);
+    // Its package's own contract (development build: Base Sepolia), never the
+    // iPhone circuit's address the config mock answers for the id.
+    expect(answers()).toEqual([expect.objectContaining({
+      status: 'completed', signerVariant: 'android_factory', verifierAddress: '0xBFAf9390c36d14D596556e42eb52d984De040Aa1',
+    })]);
   });
 
   it('a Coinbase KYC proof that does not say which package made it answers E2016, never completed', async () => {

@@ -48,7 +48,8 @@ import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
 import {prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
-import {proofSignerVariant} from '../../utils/proofSignerVariant';
+import {proofSignerVariant, verifierForProof} from '../../utils/proofSignerVariant';
+
 import {newStandaloneRequestId} from '../../oidc/oidcNonce';
 import {prepareOidcAppSigner, type ProviderKeySigner} from '../../oidc/oidcAppSigner';
 import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
@@ -152,6 +153,22 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
 type HookStepId =
   | 'vk' | 'download' | 'validate' | 'jwks' | 'oacx' | 'signal' | 'sign' | 'pubkey'
   | 'scope' | 'country' | 'inputs' | 'storage' | 'proof' | 'parse' | 'cleanup';
+
+/**
+ * The contract shown on the completion screen: the Android package's own for
+ * an Android proof, the standard one otherwise. Display only: a proof with no
+ * verifier in this build was refused before it got here, and an empty string
+ * reads as "verification unavailable".
+ */
+function completionVerifier(circuit: CircuitName, parsedProof: object): string {
+  try {
+    const v = verifierForProof(circuit, proofSignerVariant(circuit, parsedProof));
+    return v ? v.address : getVerifierAddressSync(circuit);
+  } catch (e) {
+    console.warn('[Proof] No verifier to show for this proof:', e);
+    return '';
+  }
+}
 
 export const STEP_ERROR_CODE: Record<HookStepId, ErrorCode> = {
   // Loading the key downloads the circuit files when they are missing.
@@ -626,12 +643,18 @@ export const ProofGenerationScreen: React.FC = () => {
 
     if (proofRequest) {
       let signerVariant: ReturnType<typeof proofSignerVariant>;
+      let verifierAddress: string;
       try {
         signerVariant = proofSignerVariant(resolved, parsedProof);
+        // An Android proof names its package's own contract; with none in
+        // this build it is refused (E2018), never sent with the iPhone
+        // circuit's address, which rejects it.
+        const variantVerifier = verifierForProof(resolved, signerVariant);
+        verifierAddress = variantVerifier ? variantVerifier.address : getVerifierAddressSync(resolved);
       } catch (variantError) {
         const msg = variantError instanceof Error ? variantError.message : String(variantError);
         addLog(`Error: ${msg}`);
-        failAttempt({code: 'E2016', error: msg});
+        failAttempt({code: variantError instanceof AppAttestError ? variantError.code : 'E2016', error: msg});
         return;
       }
       let nullifierHex = '0x' + '00'.repeat(32);
@@ -661,7 +684,7 @@ export const ProofGenerationScreen: React.FC = () => {
         verificationResult: false,
         startedAt: proofStartedAt.current,
         completedAt: generatedAt,
-        verifierAddress: getVerifierAddressSync(resolved),
+        verifierAddress,
         chainId: circuitNet.chainId,
       }).then(() => clearActiveProofRequest(proofRequest)).catch(console.error);
     }
@@ -676,7 +699,7 @@ export const ProofGenerationScreen: React.FC = () => {
       verification: {
         offChain: null,
         onChain: null,
-        verifierContract: getVerifierAddressSync(resolved),
+        verifierContract: completionVerifier(resolved, parsedProof),
         chainName: circuitNet.name,
         explorerUrl: circuitNet.explorerUrl,
       },

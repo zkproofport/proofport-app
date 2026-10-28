@@ -24,7 +24,7 @@ import {COINBASE_ATTESTER, COINBASE_KYC_SCHEMA_UID} from '../../appAttest/client
 import {prepareCoinbaseKycStatement} from '../../appAttest/coinbaseKycStatement';
 import {__setAndroidChainKindForTests, knownAndroidChainKind} from '../../config/signerPlatform';
 import {GOOGLE_KEY_ATTESTATION_CA1} from '../../utils/androidKeyAttestation';
-import {proofSignerVariant} from '../../utils/proofSignerVariant';
+import {proofSignerVariant, requireVerifierForVariant, verifierForProof} from '../../utils/proofSignerVariant';
 import factory from '../../utils/__tests__/fixtures/androidFactoryVectors.json';
 import {ZKPROOFPORT_ANDROID_APP} from '../androidChainChecks';
 import {CHAIN_KIND_PROBE, ensureAndroidChainKind, signStatementOnAndroid} from '../androidSigner';
@@ -226,5 +226,29 @@ describe("the proof callback's signerVariant", () => {
   it('a per-signer proof that does not say is an error, never "standard"', () => {
     expect(() => proofSignerVariant('oidc_domain_attestation', {})).toThrow(/does not say which package made it \(signerVariant null\)/);
     expect(() => proofSignerVariant('coinbase_attestation', {signerVariant: 'app_attest'})).toThrow(/"app_attest"/);
+  });
+});
+
+describe("the verifier an Android proof names", () => {
+  it('is its package\'s own contract in development and staging, null for standard', () => {
+    expect(verifierForProof('coinbase_attestation', 'standard', 'staging')).toBeNull();
+    expect(verifierForProof('coinbase_attestation', 'android_factory', 'staging')).toEqual({address: '0xBFAf9390c36d14D596556e42eb52d984De040Aa1', chainId: 84532});
+    expect(verifierForProof('oidc_domain_attestation', 'android', 'development')).toEqual({address: '0x64866bf6734ed43d34799C7949f5eCb35B7e7e44', chainId: 84532});
+  });
+
+  it.each(['android', 'android_factory'] as const)('production has none for %s: E2018 before proving, never the standard address', variant => {
+    for (const circuit of ['coinbase_attestation', 'oidc_domain_attestation']) {
+      let code = '';
+      try {
+        requireVerifierForVariant(circuit, variant, 'production');
+      } catch (e) {
+        code = e instanceof AppAttestError ? e.code : String(e);
+      }
+      expect([circuit, code]).toEqual([circuit, 'E2018']);
+    }
+  });
+
+  it('an iPhone proof is never refused for want of an Android verifier', () => {
+    expect(() => requireVerifierForVariant('coinbase_attestation', 'app_attest', 'production')).not.toThrow();
   });
 });

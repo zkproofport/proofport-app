@@ -157,6 +157,12 @@ export const ErrorCodes = {
     description:
       'This phone did not pass the integrity check this proof requires: the official ZKProofport app on an unmodified device. Nothing was generated.',
   },
+  E2018: {
+    code: 'E2018',
+    title: 'Proof Cannot Be Checked Here',
+    description:
+      'A proof from this phone for this request could not be checked by the requesting service, so none was made.',
+  },
 
   // Network errors
   E3001: {

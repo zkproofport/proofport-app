@@ -108,3 +108,94 @@ describe('OIDC v2: the app and core agree on the circuit', () => {
     expect(FALLBACK_VERIFIERS.production.oidc_domain_attestation).toBe('');
   });
 });
+
+/*
+ * The Android packages' verifiers (src/config/variantVerifiers.ts). The
+ * published core (0.3.0) has no per-variant table; core's android-signature
+ * branch (abf5291) pins the OIDC ones in PINNED_VARIANT_VERIFIERS. When that
+ * source is checked out beside this app (the parent repository's
+ * proofport-app-sdk submodule), the rows are held to it; the Coinbase rows,
+ * which core does not pin, are held to the circuits repository's own
+ * deployment records. CI checks out this app alone: there these two read
+ * nothing and the literal rows below stand.
+ */
+describe('Android package verifiers', () => {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const {ANDROID_VARIANT_VERIFIERS, androidVerifierFor, AndroidVerifierMissingError} = require('../variantVerifiers');
+  const {FALLBACK_VERIFIERS: FALLBACK} = require('../contracts');
+  /* eslint-enable @typescript-eslint/no-var-requires */
+  const PARENT = path.join(__dirname, '..', '..', '..', '..');
+  const VARIANTS = ['android', 'android_factory'] as const;
+  const CIRCUITS = ['oidc_domain_attestation', 'coinbase_attestation'] as const;
+  const EXPECTED: Record<string, Record<string, string>> = {
+    android: {oidc_domain_attestation: '0x64866bf6734ed43d34799c7949f5ecb35b7e7e44', coinbase_attestation: '0x395b3bcc27e7e405ec909a81374243fd0b44aacc'},
+    android_factory: {oidc_domain_attestation: '0x9e47e3c2b30e840cfc4d6901ba3e28fc666b3135', coinbase_attestation: '0xbfaf9390c36d14d596556e42eb52d984de040aa1'},
+  };
+
+  it.each(['development', 'staging'] as const)("%s: each variant's Base Sepolia contract, checksummed, never the standard address", env => {
+    for (const v of VARIANTS) {
+      for (const c of CIRCUITS) {
+        const row = androidVerifierFor(c, env, v);
+        expect(row.address.toLowerCase()).toBe(EXPECTED[v][c]);
+        expect(row.address).toBe(ethers.utils.getAddress(row.address));
+        expect(row.chainId).toBe(84532);
+        expect(CIRCUIT_NETWORKS[env][c].chainId).toBe(84532);
+        expect(row.address.toLowerCase()).not.toBe(FALLBACK[env][c].toLowerCase());
+      }
+    }
+    expect(new Set(VARIANTS.flatMap(v => CIRCUITS.map(c => androidVerifierFor(c, env, v).address))).size).toBe(4);
+  });
+
+  it('production has no Android rows: every lookup is refused by name', () => {
+    expect(ANDROID_VARIANT_VERIFIERS.production).toEqual({android: {}, android_factory: {}});
+    for (const v of VARIANTS) {
+      for (const c of CIRCUITS) {
+        expect(() => androidVerifierFor(c, 'production', v)).toThrow(AndroidVerifierMissingError);
+        expect(() => androidVerifierFor(c, 'production', v)).toThrow(`No ${v} verifier for ${c} in the production build`);
+      }
+    }
+  });
+
+  it('an unknown variant, environment or circuit is an error, never a default', () => {
+    expect(() => androidVerifierFor('oidc_domain_attestation', 'staging', 'standard')).toThrow(/Unknown Android signer variant 'standard'/);
+    expect(() => androidVerifierFor('oidc_domain_attestation', 'mainnet', 'android')).toThrow(/Unknown environment 'mainnet'/);
+    expect(() => androidVerifierFor('coinbase_country_attestation', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
+    expect(() => androidVerifierFor('__proto__', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
+  });
+
+  const coreSource = path.join(PARENT, 'proofport-app-sdk', 'packages', 'core', 'src', 'pinnedVerifiers.generated.ts');
+  (fs.existsSync(coreSource) ? it : it.skip)("the OIDC rows are core's PINNED_VARIANT_VERIFIERS on Base Sepolia (core source beside this app)", () => {
+    const text: string = fs.readFileSync(coreSource, 'utf8');
+    const start = text.indexOf('export const PINNED_VARIANT_VERIFIERS');
+    expect(start).toBeGreaterThan(-1);
+    const block = text.slice(start);
+    for (const v of VARIANTS) {
+      const vAt = block.indexOf(`  ${v}: Object.freeze({`);
+      expect(vAt).toBeGreaterThan(-1);
+      const oidcAt = block.indexOf('oidc_domain_attestation:', vAt);
+      const row = /84532: Object\.freeze\(\{ address: '(0x[0-9a-f]{40})'/.exec(block.slice(oidcAt));
+      expect([v, row?.[1]]).toEqual([v, EXPECTED[v].oidc_domain_attestation]);
+    }
+  });
+
+  const BROADCAST: Record<string, Record<string, string>> = {
+    android: {oidc_domain_attestation: 'DeployOidcDomainAttestationAndroid', coinbase_attestation: 'DeployCoinbaseAttestationV2Android'},
+    android_factory: {oidc_domain_attestation: 'DeployOidcDomainAttestationAndroidFactory', coinbase_attestation: 'DeployCoinbaseAttestationV2AndroidFactory'},
+  };
+  const broadcastDir = path.join(PARENT, 'circuits', 'broadcast');
+  (fs.existsSync(path.join(broadcastDir, `${BROADCAST.android.coinbase_attestation}.s.sol`)) ? it : it.skip)(
+    "every row is the circuits repository's own Base Sepolia deployment record (circuits checkout beside this app)",
+    () => {
+      for (const v of VARIANTS) {
+        for (const c of CIRCUITS) {
+          const run = JSON.parse(fs.readFileSync(path.join(broadcastDir, `${BROADCAST[v][c]}.s.sol`, '84532', 'run-latest.json'), 'utf8'));
+          const created = run.transactions.filter((t: {transactionType: string}) => t.transactionType === 'CREATE');
+          expect(created).toHaveLength(1);
+          expect([v, c, created[0].contractAddress.toLowerCase()]).toEqual([v, c, EXPECTED[v][c]]);
+        }
+      }
+    },
+  );
+});

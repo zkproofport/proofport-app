@@ -243,3 +243,58 @@ it('does nothing without a nonce', async () => {
   expect(mockGenerate).not.toHaveBeenCalled();
   expect(logs).toContain('The request nonce is required');
 });
+
+describe('on an Android phone', () => {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const rn = jest.requireMock('react-native') as {Platform: {OS: string}};
+  const {__setAndroidChainKindForTests} = require('../../config/signerPlatform');
+  const {setEnvironmentOverride} = require('../../config/environment');
+  const {OIDC_ANDROID_ABI_PARAMETERS, OIDC_ANDROID_FLAT_INPUT_COUNT} = require('../../utils/oidcDomain');
+  /* eslint-enable @typescript-eslint/no-var-requires */
+  const ANDROID_SIGNED = {
+    variant: 'android',
+    statement_sig: new Uint8Array(64).fill(3),
+    ca2_tbs: new Uint8Array(600), ca2_tbs_len: 495, ca2_sig: new Uint8Array(96),
+    ca3_tbs: new Uint8Array(768), ca3_tbs_len: 633, ca3_sig: new Uint8Array(96),
+    att_tbs: new Uint8Array(512), att_tbs_len: 400, att_sig: new Uint8Array(64),
+    leaf_tbs: new Uint8Array(1024), leaf_tbs_len: 611, leaf_sig: new Uint8Array(64),
+  };
+  beforeEach(() => {
+    rn.Platform.OS = 'android';
+    __setAndroidChainKindForTests('android');
+  });
+  afterEach(() => {
+    rn.Platform.OS = 'ios';
+    __setAndroidChainKindForTests(null);
+    setEnvironmentOverride(null);
+  });
+
+  it('a production build has no Android verifier: refused (E2018) before any file is fetched or anything signed', async () => {
+    setEnvironmentOverride('production');
+    const {steps, logs} = await prove(PAYLOAD);
+    expect(mockDownload).not.toHaveBeenCalled();
+    expect(mockSigner).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(steps.find(s => s.status === 'error')).toMatchObject({id: 'download', code: 'E2018'});
+    expect(logs.join('\n')).toMatch(/No android verifier for oidc_domain_attestation in the production build/);
+  });
+
+  it("a development build proves the Android package's ABI and says so in the parsed proof", async () => {
+    mockAbi = [...OIDC_ANDROID_ABI_PARAMETERS];
+    mockSigner.mockImplementation(async () => ANDROID_SIGNED as never);
+    const get = hook();
+    await act(async () => {
+      await get().generateProofWithSteps({jwtToken: token(PAYLOAD), scopeString: SCOPE, nonce: NONCE, providerKeySigner: mockSigner}, () => {});
+    });
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    expect((mockGenerate.mock.calls[0][2] as string[]).length).toBe(OIDC_ANDROID_FLAT_INPUT_COUNT);
+    expect(get().parsedProof?.signerVariant).toBe('android');
+  });
+
+  it('the iPhone file set is refused on an Android phone by its ABI, before signing', async () => {
+    mockAbi = [...OIDC_ABI_PARAMETERS];
+    const {steps} = await prove(PAYLOAD);
+    expect(mockSigner).not.toHaveBeenCalled();
+    expect(steps.find(s => s.status === 'error')?.detail).toMatch(/this app builds/);
+  });
+});

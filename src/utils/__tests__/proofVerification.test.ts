@@ -25,8 +25,9 @@ jest.mock('mopro-ffi', () => ({
 
 const mockGetVerifierAddress = jest.fn();
 const mockGetNetworkConfigForCircuit = jest.fn();
+let mockEnv = 'development';
 jest.mock('../../config/environment', () => ({
-  getEnvironment: () => 'development',
+  getEnvironment: () => mockEnv,
   getVerifierAddress: (...args: unknown[]) => mockGetVerifierAddress(...args),
   getNetworkConfigForCircuit: (...args: unknown[]) => mockGetNetworkConfigForCircuit(...args),
 }));
@@ -335,5 +336,53 @@ describe('every proof hook uses the shared checks and carries no copy', () => {
       .filter(f => f.endsWith('.ts'))
       .filter(f => /verifyProofOnChain|verifyNoirProof|ethers\.Contract/.test(code(f)));
     expect(verifying.sort()).toEqual([...HOOKS].sort());
+  });
+});
+
+describe('an Android proof is checked on its own package\'s contract', () => {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const rn = jest.requireMock('react-native') as {Platform: {OS: string}};
+  const {__setAndroidChainKindForTests} = require('../../config/signerPlatform');
+  const {androidVerifierFor} = require('../../config/variantVerifiers');
+  /* eslint-enable @typescript-eslint/no-var-requires */
+  beforeEach(() => {
+    mockVerifyProofOnChain.mockReset();
+    mockGetVerifierAddress.mockReset();
+    mockGetNetworkConfigForCircuit.mockReturnValue({name: 'Base Sepolia', chainId: 84532, rpcUrl: 'https://base-sepolia.example'});
+    rn.Platform.OS = 'android';
+  });
+  afterEach(() => {
+    rn.Platform.OS = 'ios';
+    mockEnv = 'development';
+    __setAndroidChainKindForTests(null);
+  });
+
+  it.each([
+    ['android', 'coinbase_attestation'],
+    ['android_factory', 'coinbase_attestation'],
+    ['android', 'oidc_domain_attestation'],
+    ['android_factory', 'oidc_domain_attestation'],
+  ] as const)('%s %s: the variant\'s address, named as the target, never the standard one', async (kind, circuit) => {
+    __setAndroidChainKindForTests(kind);
+    mockVerifyProofOnChain.mockResolvedValue({valid: true});
+    const rep = reporter();
+    await expect(verifyProofOnChainWithCore(circuit, parsed, rep.r)).resolves.toBe(true);
+    const want = androidVerifierFor(circuit, 'development', kind).address;
+    const [c, , , target, claim] = mockVerifyProofOnChain.mock.calls[0];
+    expect(c).toBe(circuit);
+    expect(target).toMatchObject({address: want, chainId: 84532});
+    expect(claim).toEqual({verifierAddress: want, chainId: 84532});
+    expect(mockGetVerifierAddress).not.toHaveBeenCalled();
+  });
+
+  it('production has no Android verifier: refused by name, core never asked', async () => {
+    mockEnv = 'production';
+    __setAndroidChainKindForTests('android_factory');
+    const rep = reporter();
+    await expect(verifyProofOnChainWithCore('coinbase_attestation', parsed, rep.r)).resolves.toBe(false);
+    expect(mockVerifyProofOnChain).not.toHaveBeenCalled();
+    expect(mockGetVerifierAddress).not.toHaveBeenCalled();
+    expect(rep.logs.join('\n')).toMatch(/No android_factory verifier for coinbase_attestation in the production build/);
+    expect(rep.statuses.at(-1)).toBe('Verification unavailable');
   });
 });

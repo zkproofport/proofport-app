@@ -56,6 +56,12 @@ export const ANDROID_ATTEST_ERROR_CODE = Object.freeze({
    */
   integrityNotMet: 'E2017',
   /**
+   * No verifier contract exists for this phone's Android package of the
+   * circuit in this build (src/config/variantVerifiers.ts), so a proof could
+   * not be checked by anyone: refused before proving.
+   */
+  noVerifier: 'E2018',
+  /**
    * The device check could not be made now: Play Integrity's service or the
    * relay that decrypts its answer did not answer, rate-limited, or is not
    * configured. Worth trying again later; nothing is wrong with the phone.

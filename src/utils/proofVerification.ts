@@ -26,6 +26,8 @@ import {
 } from '../config/environment';
 import type {CircuitName} from '../config/circuitIds';
 import {circuitArtifactSource} from '../config/circuitArtifacts';
+import {wireSignerVariant} from '../config/signerPlatform';
+import {verifierForProof} from './proofSignerVariant';
 import type {ProofStatus} from '../types';
 import {getAssetPath} from './asset';
 
@@ -128,18 +130,42 @@ export async function verifyProofOnChainWithCore(
 
   try {
     // The Android package of a circuit id has its own vk, so its own verifier
-    // contract; the address the app holds for the id is the iPhone
-    // circuit's, which rejects every Android proof. No Android verifier is
-    // configured, so the check is refused by name rather than run against
-    // the wrong contract and reported "invalid".
+    // contract (src/config/variantVerifiers.ts); the address in
+    // FALLBACK_VERIFIERS is the iPhone circuit's and rejects every Android
+    // proof. A build with no row for the variant is refused by name.
     const artifact = circuitArtifactSource(circuit);
     if (artifact && artifact.variant !== 'app_attest') {
-      addLog(
-        `[OnChain] ${circuit} on Android is proved by ${artifact.remoteFileName}; no verifier contract is configured ` +
-          'for it in this app, so it is not checked on-chain (off-chain verification uses its own vk).',
+      let variantVerifier: {address: string; chainId: number} | null;
+      try {
+        variantVerifier = verifierForProof(circuit, wireSignerVariant(artifact.variant));
+      } catch (e) {
+        addLog(`[OnChain] ${circuit} (${artifact.remoteFileName}): ${e instanceof Error ? e.message : String(e)}`);
+        setStatus('Verification unavailable');
+        return false;
+      }
+      if (!variantVerifier) throw new Error(`No ${artifact.variant} verifier resolved for ${circuit}`);
+      const net = getNetworkConfigForCircuit(circuit);
+      addLog(`[OnChain] Circuit: ${circuit} (${artifact.remoteFileName})`);
+      addLog(`[OnChain] Contract: ${variantVerifier.address}`);
+      addLog(`[OnChain] Chain: ${net.name} (${net.chainId})`);
+      const startedAt = Date.now();
+      const r = await verifyProofOnChain(
+        circuit,
+        parsedProof,
+        new ethers.providers.JsonRpcProvider(net.rpcUrl),
+        {address: variantVerifier.address, chainId: variantVerifier.chainId, abi: VERIFIER_ABI},
+        {verifierAddress: variantVerifier.address, chainId: variantVerifier.chainId},
       );
-      setStatus('Verification unavailable');
-      return false;
+      if (r.error !== undefined) {
+        addLog(`On-chain verification error: ${r.error}`);
+        logOnChainErrorHint(r.error, addLog);
+        setStatus('Error: on-chain verification failed');
+        return false;
+      }
+      addLog(`[OnChain] Verification time: ${Date.now() - startedAt}ms`);
+      addLog(`[OnChain] Result: ${r.valid ? 'VALID ✓' : 'INVALID ✗'}`);
+      setStatus(r.valid ? 'Proof verified on-chain!' : 'Proof invalid (on-chain)');
+      return r.valid;
     }
     addLog('[OnChain] Loading network configuration...');
     const verifierAddress = await getVerifierAddress(circuit);
