@@ -18,7 +18,14 @@
  */
 import {ethers} from 'ethers';
 import {verifyNoirProof} from 'mopro-ffi';
-import {verifyProofOnChain, VERIFIER_ABI, type ParsedProof} from '@zkproofport-app/core';
+import {
+  getVerifierContract,
+  OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT,
+  OIDC_NOW_MAX_AGE_SECONDS,
+  verifyProofOnChain,
+  VERIFIER_ABI,
+  type ParsedProof,
+} from '@zkproofport-app/core';
 import {
   getEnvironment,
   getNetworkConfigForCircuit,
@@ -30,7 +37,7 @@ import {wireSignerVariant} from '../config/signerPlatform';
 import {verifierForProof} from './proofSignerVariant';
 import type {ProofStatus} from '../types';
 import {getAssetPath} from './asset';
-import {timed} from './proofTiming';
+import {PROOF_TIMING_PREFIX, timed} from './proofTiming';
 
 /** The hook state a verification reports into. */
 export interface VerificationReporter {
@@ -117,11 +124,75 @@ function logOnChainErrorHint(errorMessage: string, addLog: (msg: string) => void
  * Returns false (never throws) for every failure, with the reason logged and
  * the status set — the same contract the hooks had before.
  */
+/**
+ * Long hex runs (proof bytes, public inputs, call data an RPC error echoes
+ * back) shortened to `0x1234…abcd` for logcat: a public input can be a
+ * nullifier. Addresses (40 hex) stay whole.
+ */
+export function maskLongHex(text: string): string {
+  return text.replace(/0x([0-9a-fA-F]{4})[0-9a-fA-F]{56,}([0-9a-fA-F]{4})/g, '0x$1…$2');
+}
+
+/**
+ * Seconds since an OIDC proof's `now`, or null for any other circuit (or a
+ * public input that does not read as a number).
+ */
+export function oidcProofAgeSeconds(circuit: string, publicInputsHex: readonly string[], nowSeconds: number): number | null {
+  if (circuit !== 'oidc_domain_attestation') return null;
+  const raw = publicInputsHex[OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT.NOW];
+  if (typeof raw !== 'string') return null;
+  try {
+    return nowSeconds - Number(BigInt(raw));
+  } catch {
+    return null;
+  }
+}
+
+type OnChainTarget = {address: string; chainId: number; abi: typeof VERIFIER_ABI} | {chainId: number};
+
+/**
+ * core's verifyProofOnChain, except for an OIDC proof older than the window a
+ * requesting service accepts (OIDC_NOW_MAX_AGE_SECONDS): core refuses those
+ * before asking the contract -- correct for a dApp judging a fresh answer,
+ * wrong for this phone checking a proof from its History, which then read
+ * "failed" for a proof the contract accepts. That case asks the contract
+ * directly and says how old the proof is.
+ */
+async function askVerifier(
+  circuit: CircuitName,
+  parsedProof: ParsedProof,
+  provider: ethers.providers.JsonRpcProvider,
+  target: OnChainTarget,
+  claimed: {verifierAddress: string; chainId: number},
+  log: (m: string) => void,
+): Promise<{valid: boolean; error?: string}> {
+  const age = oidcProofAgeSeconds(circuit, parsedProof.publicInputsHex, Math.floor(Date.now() / 1000));
+  if (age !== null && age > OIDC_NOW_MAX_AGE_SECONDS && 'address' in target) {
+    log(
+      `[OnChain] Proof made ${age}s ago, past the ${OIDC_NOW_MAX_AGE_SECONDS}s a requesting service accepts; ` +
+        'asking the contract directly',
+    );
+    try {
+      const valid = (await getVerifierContract(provider, target).verify(parsedProof.proofHex, parsedProof.publicInputsHex)) === true;
+      return {valid};
+    } catch (e) {
+      return {valid: false, error: e instanceof Error ? e.message : String(e)};
+    }
+  }
+  return verifyProofOnChain(circuit, parsedProof, provider, target, claimed);
+}
+
 export async function verifyProofOnChainWithCore(
   circuit: CircuitName,
   parsedProof: ParsedProof | null,
-  {addLog, setStatus, setIsLoading}: VerificationReporter,
+  {addLog: attemptLog, setStatus, setIsLoading}: VerificationReporter,
 ): Promise<boolean> {
+  // Every line also goes to logcat / the Xcode console under [ProofTiming],
+  // long hex masked: a failed on-chain check used to leave no trace there.
+  const addLog = (m: string) => {
+    attemptLog(m);
+    console.log(`${PROOF_TIMING_PREFIX} onchain ${maskLongHex(m)}`);
+  };
   if (!parsedProof) {
     addLog('Please generate proof first');
     return false;
@@ -152,12 +223,16 @@ export async function verifyProofOnChainWithCore(
       addLog(`[OnChain] Contract: ${variantVerifier.address}`);
       addLog(`[OnChain] Chain: ${net.name} (${net.chainId})`);
       const startedAt = Date.now();
-      const r = await verifyProofOnChain(
-        circuit,
-        parsedProof,
-        new ethers.providers.JsonRpcProvider(net.rpcUrl),
-        {address: variantVerifier.address, chainId: variantVerifier.chainId, abi: VERIFIER_ABI},
-        {verifierAddress: variantVerifier.address, chainId: variantVerifier.chainId},
+      addLog(`[OnChain] Proof: ${parsedProof.proofHex.length} hex chars, ${parsedProof.publicInputsHex.length} public inputs`);
+      const r = await timed('onchain verify', () =>
+        askVerifier(
+          circuit,
+          parsedProof,
+          new ethers.providers.JsonRpcProvider(net.rpcUrl),
+          {address: variantVerifier!.address, chainId: variantVerifier!.chainId, abi: VERIFIER_ABI},
+          {verifierAddress: variantVerifier!.address, chainId: variantVerifier!.chainId},
+          addLog,
+        ),
       );
       if (r.error !== undefined) {
         addLog(`On-chain verification error: ${r.error}`);
@@ -215,12 +290,8 @@ export async function verifyProofOnChainWithCore(
     const target = circuitArtifactSource(circuit)
       ? {address: verifierAddress, chainId: network.chainId, abi: VERIFIER_ABI}
       : {chainId: network.chainId};
-    const result = await verifyProofOnChain(
-      circuit,
-      parsedProof,
-      provider,
-      target,
-      {verifierAddress, chainId: network.chainId},
+    const result = await timed('onchain verify', () =>
+      askVerifier(circuit, parsedProof, provider, target, {verifierAddress, chainId: network.chainId}, addLog),
     );
 
     const elapsed = Date.now() - startTime;

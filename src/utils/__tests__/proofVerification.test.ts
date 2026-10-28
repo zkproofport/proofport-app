@@ -13,9 +13,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const mockVerifyProofOnChain = jest.fn();
+const mockContractVerify = jest.fn();
+const mockGetVerifierContract = jest.fn((..._a: unknown[]) => ({verify: (...a: unknown[]) => mockContractVerify(...a)}));
 jest.mock('@zkproofport-app/core', () => ({
   ...jest.requireActual('@zkproofport-app/core'),
   verifyProofOnChain: (...args: unknown[]) => mockVerifyProofOnChain(...args),
+  getVerifierContract: (...args: unknown[]) => mockGetVerifierContract(...args),
 }));
 
 const mockVerifyNoirProof = jest.fn();
@@ -54,6 +57,8 @@ jest.mock('ethers', () => {
 
 import {getPinnedVerifier} from '@zkproofport-app/core';
 import {
+  maskLongHex,
+  oidcProofAgeSeconds,
   verifyProofOffChainWithMopro,
   verifyProofOnChainWithCore,
 } from '../proofVerification';
@@ -384,5 +389,62 @@ describe('an Android proof is checked on its own package\'s contract', () => {
     expect(mockGetVerifierAddress).not.toHaveBeenCalled();
     expect(rep.logs.join('\n')).toMatch(/No android_factory verifier for coinbase_attestation in the production build/);
     expect(rep.statuses.at(-1)).toBe('Verification unavailable');
+  });
+});
+
+describe('an OIDC proof from History older than the request window', () => {
+  // 01:29 on 2026-10-29: a proof made at 01:06 read "on-chain failed". core's
+  // policy refuses a proof whose `now` is over 15 min old before it asks the
+  // contract -- right for a dApp, wrong for the phone checking its History.
+  const core = jest.requireActual('@zkproofport-app/core');
+  const NOW = core.OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT.NOW;
+  const oidcParsed = (ageSeconds: number) => {
+    const inputs = Array.from({length: 214}, () => '0x' + '00'.repeat(32));
+    const t = Math.floor(Date.now() / 1000) - ageSeconds;
+    inputs[NOW] = '0x' + t.toString(16).padStart(64, '0');
+    return {proofHex: '0x' + 'ab'.repeat(8800), publicInputsHex: inputs, numPublicInputs: 214};
+  };
+  const ADDRESS = '0x9E47e3c2000000000000000000000000000003135'.slice(0, 42);
+
+  beforeEach(() => {
+    mockGetVerifierAddress.mockResolvedValue(ADDRESS);
+    mockGetNetworkConfigForCircuit.mockReturnValue({name: 'Base Sepolia', chainId: 84532, rpcUrl: 'https://base-sepolia.example'});
+  });
+
+  it('is asked of the contract directly, and the contract decides', async () => {
+    mockContractVerify.mockResolvedValue(true);
+    const {r, logs} = reporter();
+    await expect(verifyProofOnChainWithCore('oidc_domain_attestation', oidcParsed(23 * 60), r)).resolves.toBe(true);
+    expect(mockVerifyProofOnChain).not.toHaveBeenCalled();
+    expect(mockContractVerify).toHaveBeenCalledTimes(1);
+    expect(logs.some(l => /Proof made 13\d\ds ago, past the 900s/.test(l))).toBe(true);
+  });
+
+  it('a contract that rejects it is still "invalid"', async () => {
+    mockContractVerify.mockResolvedValue(false);
+    const {r, statuses} = reporter();
+    await expect(verifyProofOnChainWithCore('oidc_domain_attestation', oidcParsed(3600), r)).resolves.toBe(false);
+    expect(statuses[statuses.length - 1]).toBe('Proof invalid (on-chain)');
+  });
+
+  it('a fresh one still goes through core, policy and all', async () => {
+    mockVerifyProofOnChain.mockResolvedValue({valid: true});
+    const {r} = reporter();
+    await expect(verifyProofOnChainWithCore('oidc_domain_attestation', oidcParsed(60), r)).resolves.toBe(true);
+    expect(mockVerifyProofOnChain).toHaveBeenCalledTimes(1);
+    expect(mockContractVerify).not.toHaveBeenCalled();
+  });
+
+  it('the age is read only for OIDC, and a garbled `now` reads as unknown', () => {
+    expect(oidcProofAgeSeconds('coinbase_attestation', ['0x01'], 100)).toBeNull();
+    expect(oidcProofAgeSeconds('oidc_domain_attestation', [], 100)).toBeNull();
+    const bad = Array(214).fill('0x00');
+    bad[NOW] = 'not hex';
+    expect(oidcProofAgeSeconds('oidc_domain_attestation', bad, 100)).toBeNull();
+  });
+
+  it('logcat lines carry no long hex (a public input can be a nullifier)', () => {
+    const line = `call failed data=0x${'12'.repeat(32)} to 0x1111111111111111111111111111111111111111`;
+    expect(maskLongHex(line)).toBe('call failed data=0x1212…1212 to 0x1111111111111111111111111111111111111111');
   });
 });
