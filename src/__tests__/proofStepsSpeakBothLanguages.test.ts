@@ -34,3 +34,21 @@ describe('proof step names', () => {
     for (const id of ids) expect(stepsOf(ko)[id]).not.toBe(stepsOf(en)[id]);
   });
 });
+
+describe('no hook step reaches the screen in its hard-coded English', () => {
+  // The OIDC hook's steps are shown one to one; every other hook's steps are
+  // folded into the screen's own (translated) wallet-flow steps.
+  const hook = fs.readFileSync(path.join(__dirname, '../hooks/useOidcDomain.ts'), 'utf8');
+  const initial = /INITIAL_PROOF_STEPS: Step\[\] = \[([\s\S]*?)\];/.exec(hook);
+  const hookIds = initial ? [...initial[1].matchAll(/id: '([a-z_]+)'/g)].map(m => m[1]) : [];
+
+  it('every OIDC hook step id has a translated label', () => {
+    expect(hookIds.length).toBeGreaterThanOrEqual(9);
+    for (const id of hookIds) expect(ids).toContain(id);
+  });
+
+  it('the circuit step never says "download" in its name', () => {
+    expect(stepsOf(en).download).not.toMatch(/download/i);
+    expect(stepsOf(ko).download).not.toMatch(/다운로드|내려받/);
+  });
+});

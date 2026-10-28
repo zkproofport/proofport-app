@@ -13,11 +13,11 @@ import {useState, useCallback, useRef} from 'react';
 import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
-  getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
 import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
+import {publicInputCountOf} from '../utils/circuitPublicInputs';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -238,7 +238,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         });
 
         updateStep('parse', {status: 'in_progress'});
-        const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        const numPublicInputs = await publicInputCountOf(circuitPath);
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(currentProof, numPublicInputs);
         const parsedData: ParsedProofData = {
           proofHex: '0x' + arrayBufferToHex(parsed.proof),

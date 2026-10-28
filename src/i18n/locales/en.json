@@ -396,7 +396,7 @@
         "dojangPlaygroundTitle": "Dojang Playground",
         "dojangPlaygroundDescription": "Generate a zero-knowledge proof that your wallet issued itself a Dojang in the GIWA Playground on GIWA Sepolia. Connect the wallet you issued it with.",
         "progress": {
-          "download": "Downloading proof files · {{received}}",
+          "download": "Downloading circuit files · {{received}}",
           "prepare": "Preparing the proof",
           "prove": "Making the proof on this phone",
           "phase": {
@@ -414,7 +414,7 @@
         },
         "steps": {
           "google": "Sign in with Google",
-          "download": "Check the proof files",
+          "download": "Prepare the proof circuit",
           "vk": "Load the verification key",
           "validate": "Check the sign-in token",
           "jwks": "Check the provider key and sign it on this phone",

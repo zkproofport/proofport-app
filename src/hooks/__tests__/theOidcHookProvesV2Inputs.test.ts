@@ -43,6 +43,7 @@ jest.mock('../../utils', () => ({
 jest.mock('../../config', () => ({getEnvironment: () => 'development'}));
 // The hook proves through proofRun (off the JS thread); the vector it hands
 // over is the third argument here, as it was for generateNoirProof.
+jest.mock('../../utils/circuitPublicInputs', () => ({publicInputCountOf: async () => mockCircuitInputs}));
 jest.mock('../../utils/proofRun', () => ({
   circuitFilesForProof: (...a: unknown[]) => (mockDownload as (...x: unknown[]) => Promise<unknown>)(...a),
   proveCircuit: async (r: {circuitPath: string; srsPath: string; inputs: string[]; vk: ArrayBuffer; variant: string}) =>

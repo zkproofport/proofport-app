@@ -56,6 +56,7 @@ jest.mock('../../utils/proofRun', () => ({
 // Native proving and chain lookup are outside this UI/signing boundary test.
 // The provider stops at the signature request, before proof generation.
 jest.mock('mopro-ffi', () => ({}));
+jest.mock('../../utils/circuitPublicInputs', () => ({publicInputCountOf: async () => 0}));
 // The shared verifier loads react-native-fs (circuit files) and ethers RPC.
 jest.mock('../../utils/proofVerification', () => ({}));
 jest.mock('../../utils/giwaKyc', () => ({

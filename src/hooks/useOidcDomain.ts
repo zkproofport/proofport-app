@@ -1,10 +1,10 @@
 import {useState, useCallback} from 'react';
 import {
-  getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
 import {circuitFilesForProof, proveCircuit, timerFor} from '../utils/proofRun';
+import {publicInputCountOf} from '../utils/circuitPublicInputs';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -210,7 +210,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
         const timer = timerFor(CIRCUIT_NAME, addLog);
-        const circuitPublicInputs = await timer.step('circuit public input count', () => getNumPublicInputsFromCircuit(circuitPath));
+        const circuitPublicInputs = await timer.step('circuit public input count', () => publicInputCountOf(circuitPath));
         if (circuitPublicInputs !== OIDC_PUBLIC_INPUT_COUNT) {
           throw new Error(
             `The downloaded ${CIRCUIT_NAME} circuit has ${circuitPublicInputs} public inputs; ` +

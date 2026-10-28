@@ -19,11 +19,11 @@
  */
 import {useCallback, useRef, useState} from 'react';
 import {
-  getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
 import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
+import {publicInputCountOf} from '../utils/circuitPublicInputs';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -423,7 +423,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
         const flatLen = flat.length;
         let circuitPubInputs = -1;
         try {
-          circuitPubInputs = getNumPublicInputsFromCircuit(circuitPath);
+          circuitPubInputs = await publicInputCountOf(circuitPath);
         } catch (e) {
           addLog(`[diag] getNumPublicInputsFromCircuit threw: ${String(e)}`);
         }
@@ -448,7 +448,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
 
         // Step 6: parse
         updateStep('parse', {status: 'in_progress'});
-        const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        const numPublicInputs = await publicInputCountOf(circuitPath);
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(
           currentProof!,
           numPublicInputs,

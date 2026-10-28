@@ -2,11 +2,11 @@ import {useState, useCallback, useRef} from 'react';
 import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
-  getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
 import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
+import {publicInputCountOf} from '../utils/circuitPublicInputs';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -572,7 +572,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         addLog('Step 10: Parsing proof...');
         addLog('[Parse] Extracting public inputs from proof...');
 
-        const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        const numPublicInputs = await publicInputCountOf(circuitPath);
         addLog(`[Parse] Number of public inputs: ${numPublicInputs}`);
         if (numPublicInputs !== artifact.publicInputCount) {
           throw new Error(

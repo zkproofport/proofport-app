@@ -396,7 +396,7 @@
         "dojangPlaygroundTitle": "Dojang Playground 증명",
         "dojangPlaygroundDescription": "GIWA Playground에서 이 지갑으로 직접 발급한 Dojang을 GIWA Sepolia 영지식 증명으로 생성해요. 발급에 사용한 지갑을 연결해 주세요.",
         "progress": {
-          "download": "증명 파일 내려받는 중 · {{received}}",
+          "download": "회로 파일 받는 중 · {{received}}",
           "prepare": "증명 준비 중",
           "prove": "이 휴대폰에서 증명을 만드는 중",
           "phase": {
@@ -414,7 +414,7 @@
         },
         "steps": {
           "google": "Google 로그인",
-          "download": "증명 파일 확인",
+          "download": "증명 회로 준비",
           "vk": "검증 키 불러오기",
           "validate": "로그인 토큰 확인",
           "jwks": "제공자 키 확인 및 이 휴대폰에서 서명",
