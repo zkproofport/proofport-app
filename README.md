@@ -287,10 +287,8 @@ are written by `scripts/export-android-signer-fixtures.js`.
 
 A phone launched with Android 12 or earlier attests with a factory-provisioned
 chain under Google's RSA root instead. Its proofs use the `*_android_factory`
-packages, and its statement also carries a Play Integrity verdict: after signing,
-the app requests a verdict for nonce = SHA-256(SHA-256(statement) || signature),
-the relay decrypts it (`POST /api/v1/play-integrity/decrypt`; the verdict's
-signature is checked in the circuit), and the app refuses before proving a
+packages, and its statement also carries a Google Play integrity verdict bound to
+the statement, which the circuit verifies; the app refuses before proving a
 verdict that does not show the store's build of the app on a device with device
 integrity (E2017). A check that cannot be made right now is E3008. Which chain a
 phone has is learned from one key before its first proof and kept.

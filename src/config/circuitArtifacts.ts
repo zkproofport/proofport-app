@@ -73,13 +73,14 @@ export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f1
 
 /**
  * The zkproofport/circuits commit carrying the CI-built Android packages
- * (`oidc_domain_attestation_android`, `coinbase_attestation_v2_android`):
- * their json, the split .srs with SHA256SUMS, and vk. A full 40-hex commit,
- * never a branch. Empty until CI has built them: every download of an Android
- * row then fails with an error naming this constant (requireArtifactRef),
- * instead of reading files from anywhere else.
+ * (`oidc_domain_attestation_android`, `coinbase_attestation_v2_android` and
+ * their `_android_factory` siblings): their json, the split .srs with
+ * SHA256SUMS, and vk. A full 40-hex commit, never a branch.
+ * 8fad8da (2026-10-28, branch android-signature): CI run 40669708612 over
+ * circuits b37468e; nargo 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2, all four 2^21,
+ * .srs in three parts. Testnet verifiers: circuits e02e674.
  */
-export const ANDROID_SIGNATURE_CIRCUITS_REF = '';
+export const ANDROID_SIGNATURE_CIRCUITS_REF = '8fad8daa4fc7cdb3315deb4a40cd6a263229a455';
 
 /** The .srs size of a 2^21 circuit (bb 4.2.0-aztecnr-rc.2), split for GitHub. */
 export const SRS_2_21_BYTES = 134_217_940;
