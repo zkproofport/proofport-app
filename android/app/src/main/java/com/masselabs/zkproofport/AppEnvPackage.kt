@@ -9,11 +9,17 @@ import com.facebook.react.uimanager.ViewManager
  * Hosts the app's small first-party native modules. Named after its first
  * occupant; `AppSwitcher` lives here too rather than earning a second
  * ReactPackage and a second registration in MainApplication. So does
- * `GoogleIdToken`, the nonce-carrying Google sign-in.
+ * `GoogleIdToken`, the nonce-carrying Google sign-in, and
+ * `AndroidKeyAttestation`, the statement signer for the Android circuits.
  */
 class AppEnvPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(AppEnvModule(reactContext), AppSwitcherModule(reactContext), GoogleIdTokenModule(reactContext))
+        return listOf(
+            AppEnvModule(reactContext),
+            AppSwitcherModule(reactContext),
+            GoogleIdTokenModule(reactContext),
+            AndroidKeyAttestationModule(reactContext),
+        )
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
