@@ -37,11 +37,24 @@ export declare function getNumPublicInputsFromCircuit(circuitPath: string): numb
  */
 export declare function moproHelloWorld(): string;
 /**
+ * Where a job is. Cheap: no proving work, one read of /proc/self/status.
+ */
+export declare function noirProofStatus(jobId: bigint): NoirProofStatus;
+/**
  * Parse a combined proof (proof + public inputs) into separated components
  * The mopro proof format has public inputs prepended to the proof bytes
  * This function separates them for on-chain verification
  */
 export declare function parseProofWithPublicInputs(proof: ArrayBuffer, numPublicInputs: number): ProofWithPublicInputs;
+/**
+ * Start proving on a new thread. Returns the job id; refuses while another
+ * job is running.
+ */
+export declare function startNoirProof(circuitPath: string, srsPath: string | undefined, inputs: Array<string>, onChain: boolean, vk: ArrayBuffer, options: NoirProofOptions): bigint;
+/**
+ * The proof of a finished job (once; the job's copy is released), or its error.
+ */
+export declare function takeNoirProof(jobId: bigint): ArrayBuffer;
 export declare function verifyCircomProof(zkeyPath: string, proofResult: CircomProofResult, proofLib: ProofLib): boolean;
 export declare function verifyHalo2Proof(srsPath: string, vkPath: string, proof: ArrayBuffer, publicInput: ArrayBuffer): boolean;
 /**
@@ -118,6 +131,84 @@ export declare const Halo2ProofResult: Readonly<{
     create: (partial: Partial<Halo2ProofResult> & Required<Omit<Halo2ProofResult, never>>) => Halo2ProofResult;
     new: (partial: Partial<Halo2ProofResult> & Required<Omit<Halo2ProofResult, never>>) => Halo2ProofResult;
     defaults: () => Partial<Halo2ProofResult>;
+}>;
+export type NoirProofOptions = {
+    /**
+     * Keep barretenberg's polynomials in files under `temp_dir` instead of RAM.
+     */
+    lowMemoryMode: boolean;
+    /**
+     * A writable directory for those files (the app's cache directory).
+     * Required with `low_memory_mode`: without one barretenberg silently
+     * keeps everything in RAM, because Android has no /tmp.
+     */
+    tempDir?: string;
+    /**
+     * Worker threads for barretenberg. None: every core.
+     */
+    threads?: number;
+};
+/**
+ * Generated factory for {@link NoirProofOptions} record objects.
+ */
+export declare const NoirProofOptions: Readonly<{
+    create: (partial: Partial<NoirProofOptions> & Required<Omit<NoirProofOptions, "tempDir" | "threads">>) => NoirProofOptions;
+    new: (partial: Partial<NoirProofOptions> & Required<Omit<NoirProofOptions, "tempDir" | "threads">>) => NoirProofOptions;
+    defaults: () => Partial<NoirProofOptions>;
+}>;
+export type NoirProofPhase = {
+    name: string;
+    durationMs: bigint;
+    /**
+     * Resident memory when the phase ended, KiB (0 where it cannot be read).
+     */
+    rssKbAfter: bigint;
+};
+/**
+ * Generated factory for {@link NoirProofPhase} record objects.
+ */
+export declare const NoirProofPhase: Readonly<{
+    create: (partial: Partial<NoirProofPhase> & Required<Omit<NoirProofPhase, never>>) => NoirProofPhase;
+    new: (partial: Partial<NoirProofPhase> & Required<Omit<NoirProofPhase, never>>) => NoirProofPhase;
+    defaults: () => Partial<NoirProofPhase>;
+}>;
+export type NoirProofStatus = {
+    jobId: bigint;
+    /**
+     * "running", "done" or "failed".
+     */
+    state: string;
+    /**
+     * The phase running now ("" once the job has ended).
+     */
+    phase: string;
+    elapsedMs: bigint;
+    phases: Array<NoirProofPhase>;
+    /**
+     * Resident memory now, KiB (Android/Linux; 0 elsewhere).
+     */
+    rssKb: bigint;
+    /**
+     * Swapped-out memory now, KiB (Android/Linux; 0 elsewhere).
+     */
+    swapKb: bigint;
+    /**
+     * Highest resident memory of the process so far, KiB.
+     */
+    peakRssKb: bigint;
+    /**
+     * Highest swapped-out memory seen while this job ran, KiB.
+     */
+    peakSwapKb: bigint;
+    error?: string;
+};
+/**
+ * Generated factory for {@link NoirProofStatus} record objects.
+ */
+export declare const NoirProofStatus: Readonly<{
+    create: (partial: Partial<NoirProofStatus> & Required<Omit<NoirProofStatus, "error">>) => NoirProofStatus;
+    new: (partial: Partial<NoirProofStatus> & Required<Omit<NoirProofStatus, "error">>) => NoirProofStatus;
+    defaults: () => Partial<NoirProofStatus>;
 }>;
 /**
  * Struct representing a proof with separated public inputs
@@ -426,6 +517,27 @@ declare const _default: Readonly<{
             allocationSize(value: MoproError): number;
             lift(value: UniffiByteArray): MoproError;
             lower(value: MoproError, alloc: import("@ubjs/core").RustBufferAllocator): UniffiByteArray;
+        };
+        FfiConverterTypeNoirProofOptions: {
+            read(from: RustBuffer): NoirProofOptions;
+            write(value: NoirProofOptions, into: RustBuffer): void;
+            allocationSize(value: NoirProofOptions): number;
+            lift(value: UniffiByteArray): NoirProofOptions;
+            lower(value: NoirProofOptions, alloc: import("@ubjs/core").RustBufferAllocator): UniffiByteArray;
+        };
+        FfiConverterTypeNoirProofPhase: {
+            read(from: RustBuffer): NoirProofPhase;
+            write(value: NoirProofPhase, into: RustBuffer): void;
+            allocationSize(value: NoirProofPhase): number;
+            lift(value: UniffiByteArray): NoirProofPhase;
+            lower(value: NoirProofPhase, alloc: import("@ubjs/core").RustBufferAllocator): UniffiByteArray;
+        };
+        FfiConverterTypeNoirProofStatus: {
+            read(from: RustBuffer): NoirProofStatus;
+            write(value: NoirProofStatus, into: RustBuffer): void;
+            allocationSize(value: NoirProofStatus): number;
+            lift(value: UniffiByteArray): NoirProofStatus;
+            lower(value: NoirProofStatus, alloc: import("@ubjs/core").RustBufferAllocator): UniffiByteArray;
         };
         FfiConverterTypeProofLib: {
             read(from: RustBuffer): ProofLib;

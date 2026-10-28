@@ -35,6 +35,7 @@ import {
   rsa4096Params,
 } from '../utils/androidKeyAttestation';
 import {knownAndroidChainKind, rememberAndroidChainKind, type AndroidChainKind} from '../config/signerPlatform';
+import {timed} from '../utils/proofTiming';
 import {
   requireAcceptableAndroidChain,
   requireAcceptableFactoryChain,
@@ -129,7 +130,9 @@ function decodeResult(result: AndroidAttestationResult): {chain: Uint8Array[]; s
 async function attest(native: AndroidKeyAttestationNative, statement: Uint8Array) {
   let result: AndroidAttestationResult;
   try {
-    result = await native.attestAndSign(ethers.utils.base64.encode(statement));
+    result = await timed('android: attested key + statement signature', () =>
+      native.attestAndSign(ethers.utils.base64.encode(statement)),
+    );
   } catch (e) {
     throw androidNativeFailure(e);
   }
@@ -182,7 +185,7 @@ export async function signStatementOnAndroid(statement: Uint8Array, opts: Androi
       `chain of ${chain.length} certificates (${chain.map(c => c.length).join(', ')} bytes)`,
   );
 
-  const kind = classifyAndroidChain(chain, opts.trust);
+  const kind = await timed('android: classify chain', () => classifyAndroidChain(chain, opts.trust));
   const known = knownAndroidChainKind();
   await rememberAndroidChainKind(kind);
   if (known !== null && known !== kind) {
@@ -194,7 +197,7 @@ export async function signStatementOnAndroid(statement: Uint8Array, opts: Androi
   }
   const statementSig = lowStatementSig(signature);
   return kind === 'android'
-    ? rkpInputs(chain, statementSig, opts)
+    ? timed('android: RKP chain checks + inputs', () => rkpInputs(chain, statementSig, opts))
     : factoryInputs(statement, chain, statementSig, native, opts);
 }
 
@@ -233,24 +236,26 @@ async function factoryInputs(
   opts: AndroidSignOptions,
 ): Promise<AndroidFactorySignerInputs> {
   const {app, rsaRootModulusHex, playIntegrityKey} = opts.trust;
-  const summary = requireAcceptableFactoryChain(chain, {app, rootModulusHex: rsaRootModulusHex});
+  const {summary, c} = await timed('android: factory chain checks + inputs', () => ({
+    summary: requireAcceptableFactoryChain(chain, {app, rootModulusHex: rsaRootModulusHex}),
+    c: androidFactoryChainInputs(chain, rsaRootModulusHex),
+  }));
   opts.log(`[AndroidAttest] Factory chain accepted: key in ${summary.securityLevel}, attestation version ${summary.attestationVersion}`);
-  const c = androidFactoryChainInputs(chain, rsaRootModulusHex);
 
   const nonce = playIntegrityNonce(statement, statementSig);
   const nonceText = playIntegrityNonceText(nonce);
   opts.log(`[PlayIntegrity] Requesting a verdict for nonce ${nonceText}`);
   let token: string;
   try {
-    token = await native.requestIntegrityToken(nonceText);
+    token = await timed('android: Play Integrity token', () => native.requestIntegrityToken(nonceText));
   } catch (e) {
     throw androidNativeFailure(e);
   }
-  const jws = await opts.integrity.decrypt(token);
-  const verdict = integrityTokenInputs(jws, {nonce, packageName: app.packageName});
+  const jws = await timed('relay: Play Integrity decrypt', () => opts.integrity.decrypt(token));
+  const verdict = await timed('android: verdict checks', () => integrityTokenInputs(jws, {nonce, packageName: app.packageName}));
   opts.log(`[PlayIntegrity] Verdict accepted (${verdict.integrity_payload_b64_len} base64url characters)`);
 
-  const root = rsa4096Params(rsaRootModulusHex);
+  const root = await timed('android: RSA root parameters', () => rsa4096Params(rsaRootModulusHex));
   if (playIntegrityKey.length !== 64) throw new Error(`The Play Integrity key is ${playIntegrityKey.length} bytes, not 64`);
   return {
     variant: 'android_factory',

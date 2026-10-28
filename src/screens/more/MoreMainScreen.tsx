@@ -12,7 +12,6 @@ import {useProofUiColors} from '../../theme/proofUi';
 import type {MoreTabScreenProps} from '../../navigation/types';
 import type {AppSettings} from '../../stores/settingsStore';
 import {getVersionDisplay} from '../../utils/version';
-import {prefetchLaboratoryCircuits} from '../../utils/laboratoryPrefetch';
 import {SettingsGroup, SettingsRow, SettingsToggle} from './SettingsParts';
 import {languageOption} from './languages';
 
@@ -38,10 +37,10 @@ const MoreMainScreen: React.FC<MoreTabScreenProps<'MoreMain'>> = ({navigation}) 
     catch {showError('E5001', t('host.more.saveError')); return false;}
   };
 
-  // Turning the Laboratory on warms its circuits in the background; each lab
-  // proof still downloads what it needs itself, so this is never awaited.
+  // Turning the Laboratory on downloads nothing: a lab proof fetches its own
+  // circuit when it starts.
   const handleLaboratory = async (next: boolean) => {
-    if (await saveSetting({laboratoryEnabled: next}) && next) void prefetchLaboratoryCircuits();
+    await saveSetting({laboratoryEnabled: next});
   };
 
   const handleOpenStoaOverride = async (next: boolean) => {

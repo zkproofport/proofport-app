@@ -253,7 +253,57 @@ async function getCircuitFileUrl(
   );
 }
 
-const DOWNLOAD_TIMEOUT_MS = 120000;
+/**
+ * Longest one file may take. A stalled connection is caught much sooner by
+ * `readTimeout` (no byte for 30 s); this bounds a connection that trickles.
+ * A 64 MiB .srs part at 1 Mbit/s takes about 9 minutes, so 15.
+ */
+const DOWNLOAD_TIMEOUT_MS = 15 * 60 * 1000;
+
+/**
+ * Attempts per file, and the wait before each retry. A flaky network drops a
+ * connection mid-file; a retry a few seconds later usually completes it. A
+ * 404 or 403 is an answer, not a flake, and is never retried.
+ */
+const DOWNLOAD_ATTEMPTS = 3;
+let retryDelaysMs: readonly number[] = [2000, 6000];
+
+/** Test seam: no real waiting between attempts. */
+export function __setDownloadRetryDelaysForTests(delays: readonly number[]): void {
+  retryDelaysMs = delays;
+}
+
+/** An HTTP answer that says the file is not there or not ours: final. */
+class FinalDownloadError extends Error {}
+
+function isRetryableStatus(statusCode: number): boolean {
+  return statusCode === 408 || statusCode === 429 || statusCode >= 500;
+}
+
+/**
+ * `attempt` until it resolves, at most DOWNLOAD_ATTEMPTS times. A
+ * FinalDownloadError ends it at once; anything else (a dropped connection,
+ * a timeout, a 5xx, a body that failed its check) is tried again. The last
+ * error is the one thrown, unchanged, so its message still names the file.
+ */
+async function withRetries<T>(what: string, log: (m: string) => void, attempt: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < DOWNLOAD_ATTEMPTS; i++) {
+    if (i > 0) {
+      const wait = retryDelaysMs[Math.min(i - 1, retryDelaysMs.length - 1)] ?? 0;
+      log(`Retrying ${what} in ${wait}ms (attempt ${i + 1} of ${DOWNLOAD_ATTEMPTS})`);
+      if (wait > 0) await new Promise<void>(resolve => setTimeout(resolve, wait));
+    }
+    try {
+      return await attempt();
+    } catch (e) {
+      lastError = e;
+      if (e instanceof FinalDownloadError) throw e;
+      log(`${what} failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  throw lastError;
+}
 
 /**
  * One HTTP download to `destPath`. Resolves the status and the
@@ -358,12 +408,34 @@ async function downloadCircuitFileFromGitHub(
   await ensureCircuitDirectory();
 
   log(`Downloading ${fileName}...`);
+  return withRetries(fileName, log, () =>
+    downloadAndVerifyOnce(circuitName, extension, env, url, destPath, fileName, onProgress, log),
+  );
+}
 
-  const {statusCode, declaredLength} = await fetchToFile(url, destPath, circuitName, fileName, onProgress);
+async function downloadAndVerifyOnce(
+  circuitName: string,
+  extension: string,
+  env: Environment,
+  url: string,
+  destPath: string,
+  fileName: string,
+  onProgress: ((progress: DownloadProgress) => void) | undefined,
+  log: (msg: string) => void,
+): Promise<string> {
+  let fetched: {statusCode: number; declaredLength: number};
+  try {
+    fetched = await fetchToFile(url, destPath, circuitName, fileName, onProgress);
+  } catch (e) {
+    await RNFS.unlink(destPath).catch(() => {});
+    throw e;
+  }
+  const {statusCode, declaredLength} = fetched;
 
   if (statusCode !== 200) {
     await RNFS.unlink(destPath).catch(() => {});
-    throw new Error(httpFailureReason(circuitName, fileName, url, statusCode, env));
+    const reason = httpFailureReason(circuitName, fileName, url, statusCode, env);
+    throw isRetryableStatus(statusCode) ? new Error(reason) : new FinalDownloadError(reason);
   }
 
   const stat = await RNFS.stat(destPath);
@@ -417,9 +489,15 @@ export const SRS_JOIN_CHUNK_BYTES = 4 * 1024 * 1024;
  *
  * Stricter than a single file on purpose: the manifest is REQUIRED (a part
  * has no other meaningful check -- its Content-Length says nothing about
- * whether it is the right part), every digest must actually be computed and
- * match, and anything that fails deletes every part, the half-joined file and
- * the destination, so a later launch never finds a file to trust.
+ * whether it is the right part), and every digest must actually be computed
+ * and match.
+ *
+ * Resumable by part: a part already on the phone whose sha256 matches the
+ * manifest (from a download a dropped connection or a killed app cut short)
+ * is used as it is, so a flaky network costs at most the part it was on, not
+ * all 128 MiB. Everything else that fails is deleted -- the failing part, the
+ * half-joined file and the destination -- so nothing unverified is ever
+ * trusted later. Each part gets DOWNLOAD_ATTEMPTS tries.
  */
 async function downloadSplitSrs(
   circuitName: string,
@@ -439,8 +517,7 @@ async function downloadSplitSrs(
   }
 
   await ensureCircuitDirectory();
-  const removeAll = async () => {
-    for (let i = 0; i < partCount; i++) await RNFS.unlink(partPath(i)).catch(() => {});
+  const removeUnverified = async () => {
     await RNFS.unlink(joinPath).catch(() => {});
     await RNFS.unlink(destPath).catch(() => {});
   };
@@ -448,11 +525,11 @@ async function downloadSplitSrs(
   try {
     const manifest = await manifestFor(manifestUrl, log);
     if (!manifest) {
-      throw new Error(`No SHA256SUMS at ${manifestUrl}: a .srs published in parts is never joined unchecked`);
+      throw new FinalDownloadError(`No SHA256SUMS at ${manifestUrl}: a .srs published in parts is never joined unchecked`);
     }
     const digestOf = (name: string): string => {
       const d = manifest[name];
-      if (!isSha256Hex(d)) throw new Error(`SHA256SUMS at ${manifestUrl} has no sha256 for ${name}`);
+      if (!isSha256Hex(d)) throw new FinalDownloadError(`SHA256SUMS at ${manifestUrl} has no sha256 for ${name}`);
       return d;
     };
     const joinedDigest = digestOf(joinedName);
@@ -461,24 +538,42 @@ async function downloadSplitSrs(
     for (let i = 0; i < partCount; i++) {
       const partName = `${joinedName}.part${i}`;
       const expectedDigest = digestOf(partName);
+      if (await RNFS.exists(partPath(i))) {
+        const kept = await digestOrNull(partPath(i), log);
+        if (kept === expectedDigest) {
+          const {size} = await RNFS.stat(partPath(i));
+          onProgress?.({circuitName, fileName: partName, bytesWritten: size, contentLength: size, percent: 100});
+          log(`Kept ${partName} from an earlier download: ${size} bytes (verified: sha256)`);
+          continue;
+        }
+        await RNFS.unlink(partPath(i)).catch(() => {});
+      }
       const url = `${joinedUrl}.part${i}`;
-      const {statusCode, declaredLength} = await fetchToFile(url, partPath(i), circuitName, partName, onProgress);
-      if (statusCode !== 200) {
-        throw new Error(httpFailureReason(circuitName, partName, url, statusCode, env));
-      }
-      const {size} = await RNFS.stat(partPath(i));
-      if (size > SRS_PART_MAX_BYTES) {
-        throw new Error(`${partName} is ${size} bytes; a part is at most ${SRS_PART_MAX_BYTES}`);
-      }
-      const verdict = verifyCircuitFile({
-        size,
-        declaredLength,
-        digest: await digestOrNull(partPath(i), log),
-        expectedDigest,
+      await withRetries(partName, log, async () => {
+        try {
+          const {statusCode, declaredLength} = await fetchToFile(url, partPath(i), circuitName, partName, onProgress);
+          if (statusCode !== 200) {
+            const reason = httpFailureReason(circuitName, partName, url, statusCode, env);
+            throw isRetryableStatus(statusCode) ? new Error(reason) : new FinalDownloadError(reason);
+          }
+          const {size} = await RNFS.stat(partPath(i));
+          if (size > SRS_PART_MAX_BYTES) {
+            throw new FinalDownloadError(`${partName} is ${size} bytes; a part is at most ${SRS_PART_MAX_BYTES}`);
+          }
+          const verdict = verifyCircuitFile({
+            size,
+            declaredLength,
+            digest: await digestOrNull(partPath(i), log),
+            expectedDigest,
+          });
+          if (!verdict.ok) throw new Error(`Downloaded ${partName} failed verification (${verdict.reason}): ${verdict.detail}`);
+          if (verdict.level !== 'sha256') throw new FinalDownloadError(`${partName} could not be hashed; a part is joined only after its sha256 matched`);
+          log(`Downloaded ${partName}: ${size} bytes (verified: sha256)`);
+        } catch (e) {
+          await RNFS.unlink(partPath(i)).catch(() => {});
+          throw e;
+        }
       });
-      if (!verdict.ok) throw new Error(`Downloaded ${partName} failed verification (${verdict.reason}): ${verdict.detail}`);
-      if (verdict.level !== 'sha256') throw new Error(`${partName} could not be hashed; a part is joined only after its sha256 matched`);
-      log(`Downloaded ${partName}: ${size} bytes (verified: sha256)`);
     }
 
     await RNFS.unlink(joinPath).catch(() => {});
@@ -492,9 +587,6 @@ async function downloadSplitSrs(
         await RNFS.appendFile(joinPath, chunk, 'base64');
       }
       joined += size;
-      // Freed as soon as it is in the joined file: the parts and the whole
-      // never sit on the phone twice over.
-      await RNFS.unlink(partPath(i));
     }
 
     const {size: joinedSize} = await RNFS.stat(joinPath);
@@ -507,10 +599,14 @@ async function downloadSplitSrs(
 
     await RNFS.unlink(destPath).catch(() => {});
     await RNFS.moveFile(joinPath, destPath);
+    // Only now: the parts and the whole never sit on the phone twice over
+    // for longer than the join, and a failed join can start again from the
+    // verified parts.
+    for (let i = 0; i < partCount; i++) await RNFS.unlink(partPath(i)).catch(() => {});
     log(`Joined ${circuitName}.srs from ${partCount} parts: ${joinedSize} bytes (verified: sha256)`);
     return destPath;
   } catch (e) {
-    await removeAll();
+    await removeUnverified();
     throw e;
   }
 }
@@ -654,7 +750,34 @@ async function shouldInvalidateCache(
   });
 }
 
-export async function downloadCircuitFiles(
+/**
+ * One download per circuit at a time. A second caller for the same circuit
+ * and environment (a retry tapped while the first is still running) waits for
+ * the first instead of writing the same files underneath it. Its progress
+ * callback and log are not attached to the running download.
+ */
+const inFlight = new Map<string, Promise<CircuitDownloadResult>>();
+
+export function downloadCircuitFiles(
+  circuitName: string,
+  env: Environment,
+  onProgress?: (progress: DownloadProgress) => void,
+  addLog?: (msg: string) => void,
+): Promise<CircuitDownloadResult> {
+  const key = `${env}/${circuitName}`;
+  const running = inFlight.get(key);
+  if (running) {
+    (addLog || console.log)(`${circuitName}: a download is already running; waiting for it`);
+    return running;
+  }
+  const started = downloadCircuitFilesNow(circuitName, env, onProgress, addLog).finally(() => {
+    inFlight.delete(key);
+  });
+  inFlight.set(key, started);
+  return started;
+}
+
+async function downloadCircuitFilesNow(
   circuitName: string,
   env: Environment,
   onProgress?: (progress: DownloadProgress) => void,
@@ -710,7 +833,11 @@ export async function deleteCircuitFiles(
 ): Promise<void> {
   const log = addLog || console.log;
 
-  for (const ext of CIRCUIT_EXTENSIONS) {
+  const pinned = circuitArtifactSource(circuitName);
+  const partFiles = pinned?.srsParts
+    ? Array.from({length: pinned.srsParts}, (_v, i) => `srs.part${i}`)
+    : [];
+  for (const ext of [...CIRCUIT_EXTENSIONS, ...partFiles, 'srs.joining']) {
     const filePath = getCircuitFilePath(circuitName, ext);
     try {
       if (await RNFS.exists(filePath)) {

@@ -30,6 +30,7 @@ import {wireSignerVariant} from '../config/signerPlatform';
 import {verifierForProof} from './proofSignerVariant';
 import type {ProofStatus} from '../types';
 import {getAssetPath} from './asset';
+import {timed} from './proofTiming';
 
 /** The hook state a verification reports into. */
 export interface VerificationReporter {
@@ -69,12 +70,14 @@ export async function verifyProofOffChainWithMopro(
 
     addLog('[OffChain] Calling mopro verifyNoirProof...');
     const startTime = Date.now();
-    const isValid = verifyNoirProof(
-      circuitPath,
-      fullProof,
-      true, // onChain format (Keccak hash)
-      vk,
-      true, // lowMemoryMode
+    const isValid = await timed('local verify', () =>
+      verifyNoirProof(
+        circuitPath,
+        fullProof,
+        true, // onChain format (Keccak hash)
+        vk,
+        true, // lowMemoryMode
+      ),
     );
     const elapsed = Date.now() - startTime;
 

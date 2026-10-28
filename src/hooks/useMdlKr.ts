@@ -19,11 +19,11 @@
  */
 import {useCallback, useRef, useState} from 'react';
 import {
-  generateNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -31,7 +31,6 @@ import {
   clearProofCache,
   ensureStorageAvailable,
   loadVkFromAssets,
-  downloadCircuitFiles,
 } from '../utils';
 import {
   prepareMdlKrOwnershipInputs,
@@ -72,7 +71,6 @@ import {settingsStore} from '../stores/settingsStore';
 import * as oacxResultBus from '../utils/oacxResultBus';
 import type {ProofStackParamList} from '../navigation/types';
 import {
-  getEnvironment,
 } from '../config';
 import type {CircuitName} from '../config/contracts';
 import type {ProofStatus} from '../types';
@@ -253,8 +251,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
         // data version differs. Gating this on `!filesExist` would skip the
         // version check whenever a stale circuit is already on disk, so a
         // CIRCUIT_DATA_VERSIONS bump would never self-heal without a reinstall.
-        const env = getEnvironment();
-        await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
+        await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         // Step 1: VK
         updateStep('vk', {status: 'in_progress'});
@@ -440,14 +437,7 @@ export const useMdlKr = (variant: MdlKrVariant): UseMdlKrReturn => {
         addLog(`[diag] owner_commit=0x${toHex(flat.slice(65, 97))}`);
 
         const proofStart = Date.now();
-        currentProof = generateNoirProof(
-          circuitPath,
-          srsPath,
-          flat,
-          true, // onChain
-          currentVk,
-          true, // lowMemoryMode
-        );
+        currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: 'standard', circuitPath, srsPath, inputs: flat, vk: currentVk, log: addLog});
         const proofElapsed = Date.now() - proofStart;
         setFullProof(currentProof);
         moduleCaches[variant].fullProof = currentProof;

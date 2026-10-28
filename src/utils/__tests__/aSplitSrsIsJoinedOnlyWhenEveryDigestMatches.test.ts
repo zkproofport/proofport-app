@@ -4,8 +4,9 @@
  * circuitDownload.ts must: fetch each part, check its sha256, append it to
  * the joined file in bounded chunks (never the whole file in JS at once),
  * check the joined sha256, and only then put it at `<id>.srs`. Any failure
- * deletes every part, the half-joined file and the destination -- a later
- * launch must never find a file to trust.
+ * deletes the half-joined file, the destination and every part that did not
+ * verify -- a later attempt must never find an unchecked file to trust. A part
+ * that DID verify is kept, so a retry resumes from it (and re-hashes it first).
  *
  * The filesystem is an in-memory RNFS; the circuits ref is set to a test
  * commit (the real ANDROID_SIGNATURE_CIRCUITS_REF is filled in when CI has
@@ -100,7 +101,7 @@ jest.mock('../../config/circuitArtifacts', () => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const {downloadCircuitFiles, SRS_JOIN_CHUNK_BYTES, __resetCircuitManifestCache} = require('../circuitDownload');
+const {downloadCircuitFiles, SRS_JOIN_CHUNK_BYTES, __resetCircuitManifestCache, __setDownloadRetryDelaysForTests} = require('../circuitDownload');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {__setAndroidChainKindForTests} = require('../../config/signerPlatform');
 
@@ -114,6 +115,7 @@ const MiB = 1024 * 1024;
 function publish(sizes = [9 * MiB + 5, 4 * MiB, 212], tweak: {manifest?: (lines: string[]) => string[]} = {}) {
   const parts = sizes.map((n, i) => Buffer.alloc(n, i + 1).map((_v, j) => (j * 31 + i) & 0xff) as Buffer);
   const joined = Buffer.concat(parts);
+  mockPublishedParts = parts;
   parts.forEach((p, i) => mockServed.set(`${BASE}/${NAME}.srs.part${i}`, {status: 200, body: p}));
   const json = Buffer.from('{"abi":{}}');
   const vk = Buffer.from('vk-bytes');
@@ -131,9 +133,17 @@ function publish(sizes = [9 * MiB + 5, 4 * MiB, 212], tweak: {manifest?: (lines:
 }
 
 const leftovers = () => [...mockFiles.keys()].filter(p => /\.srs\.(part\d+|joining)$/.test(p));
+/** Leftovers that are not a part byte-identical to the published one. */
+let mockPublishedParts: Buffer[] = [];
+const unverifiedLeftovers = () =>
+  leftovers().filter(p => {
+    const m = /\.srs\.part(\d+)$/.exec(p);
+    return !m || !mockFiles.get(p)?.equals(mockPublishedParts[Number(m[1])] ?? Buffer.alloc(0));
+  });
 
 beforeEach(() => {
   __setAndroidChainKindForTests('android');
+  __setDownloadRetryDelaysForTests([0]);
   mockFiles.clear();
   mockServed.clear();
   mockReads.length = 0;
@@ -218,12 +228,13 @@ describe('a .srs published in parts', () => {
       publish();
       mockHashFails.add(`${DEST}.joining`);
     }, /Joined coinbase_attestation\.srs could not be hashed/],
-  ])('%s is refused, and nothing is left behind', async (_l, arrange, message) => {
+  ])('%s is refused, and nothing unverified is left behind', async (_l, arrange, message) => {
     arrange();
     const {error} = await download();
     expect(error?.message).toMatch(message);
     expect(mockFiles.has(DEST)).toBe(false);
-    expect(leftovers()).toEqual([]);
+    expect(mockFiles.has(`${DEST}.joining`)).toBe(false);
+    expect(unverifiedLeftovers()).toEqual([]);
   });
 
   it('a part over 64 MiB is refused', async () => {
@@ -242,14 +253,15 @@ describe('a .srs published in parts', () => {
       RNFS.downloadFile = original;
     }
     expect(mockFiles.has(DEST)).toBe(false);
-    expect(leftovers()).toEqual([]);
+    expect(unverifiedLeftovers()).toEqual([]);
   });
 
   it('replaces a stale or half-joined file from an earlier attempt, and a retry after a failure succeeds', async () => {
     const {joined} = publish(undefined, {manifest: l => l.map(x => (x.endsWith('.part0') ? `${'0'.repeat(64)}  ${NAME}.srs.part0` : x))});
     mockFiles.set(`${DEST}.joining`, Buffer.from('half of something'));
     expect((await download()).error).toBeDefined();
-    expect(leftovers()).toEqual([]);
+    expect(mockFiles.has(`${DEST}.joining`)).toBe(false);
+    expect(unverifiedLeftovers()).toEqual([]);
 
     __resetCircuitManifestCache();
     publish();

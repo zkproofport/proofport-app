@@ -2,11 +2,11 @@ import {useState, useCallback, useRef} from 'react';
 import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
-  generateNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -19,10 +19,8 @@ import {
   clearProofCache,
   ensureStorageAvailable,
   loadVkFromAssets,
-  downloadCircuitFiles,
-  allCircuitFilesExist,
 } from '../utils';
-import {getEnvironment, type CircuitName} from '../config';
+import {type CircuitName} from '../config';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -200,14 +198,9 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
       let signerIndex = 0;
 
       try {
-        // Download circuit files if needed
-        const filesExist = await allCircuitFilesExist(CIRCUIT_NAME);
-        if (!filesExist) {
-          addLog('Circuit files not found, downloading...');
-          const env = getEnvironment();
-          await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
-          addLog('Circuit files downloaded');
-        }
+        // Always: downloadCircuitFiles owns the cache check (data version and
+        // ref). Gated on "files exist" a stale cached circuit was proved with.
+        await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         updateStep('vk', {status: 'in_progress'});
         addLog('Step 1: Loading verification key...');
@@ -448,16 +441,8 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
 
         addLog('[Proof] Starting Noir proof generation (low memory mode)...');
-        addLog('[Proof] This may take 30-60 seconds...');
         const proofStartTime = Date.now();
-        currentProof = generateNoirProof(
-          circuitPath,
-          srsPath,
-          flatInputs,
-          true,
-          currentVk,
-          true,
-        );
+        currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: 'standard', circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
         const proofElapsed = Date.now() - proofStartTime;
 
         addLog(`[Proof] Proof generated! Size: ${currentProof!.byteLength} bytes`);

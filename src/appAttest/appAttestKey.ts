@@ -30,6 +30,7 @@
  * always 32 bytes, as the circuit needs. Freshness comes from each proof's
  * assertion (timestamp, request digest, scope), not from this.
  */
+import {timed} from '../utils/proofTiming';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {ethers} from 'ethers';
 import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
@@ -150,7 +151,7 @@ async function createAndAttest(deps: AppAttestDeps, existing: StoredKey | null, 
 
   let attestation: string;
   try {
-    attestation = await native.attestKey(record.keyId, record.attestClientDataHash);
+    attestation = await timed('ios: App Attest key attestation', () => native.attestKey(record.keyId, record.attestClientDataHash));
   } catch (e) {
     const code = nativeCodeOf(e);
     if (code === NATIVE_CODE.serverUnavailable) {
@@ -245,7 +246,7 @@ export async function assertClientData(deps: AppAttestDeps, clientData: Uint8Arr
     const key = await ensureAttestedKey(deps);
     let raw: string;
     try {
-      raw = await deps.native.generateAssertion(key.keyId, hash);
+      raw = await timed('ios: App Attest assertion', () => deps.native.generateAssertion(key.keyId, hash));
     } catch (e) {
       if (nativeCodeOf(e) === NATIVE_CODE.invalidKey && attempt === 0) {
         deps.log(`[AppAttest] Key ${key.keyId} was refused for an assertion; replacing it`);

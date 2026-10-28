@@ -14,11 +14,11 @@ import {useState, useCallback, useRef} from 'react';
 import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
-  generateNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -29,7 +29,6 @@ import {
   ensureStorageAvailable,
   ensureWalletOnChain,
   loadVkFromAssets,
-  downloadCircuitFiles,
 } from '../utils';
 import {
   verifyGiwaAttestationTx,
@@ -39,7 +38,6 @@ import {
 import {flattenCircuitInputs} from '../utils/circuitHelpers';
 import type {TypedAction} from '../config/circuitIds';
 import {
-  getEnvironment,
   type CircuitName,
 } from '../config';
 import type {ProofStatus} from '../types';
@@ -200,7 +198,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         // files existing let a stale copy prove -- and since the startup
         // prefetch skips Laboratory circuits while the switch is off, this is
         // the one place a lab circuit's cache is brought up to date.
-        await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
+        await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         // Step 1: VK
         updateStep('vk', {status: 'in_progress'});
@@ -359,14 +357,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
         const proofStartTime = Date.now();
-        currentProof = generateNoirProof(
-          circuitPath,
-          srsPath,
-          flatInputs,
-          true, // onChain
-          currentVk,
-          true, // lowMemoryMode
-        );
+        currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: 'standard', circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
         const proofElapsed = Date.now() - proofStartTime;
         setFullProof(currentProof);
         _cachedFullProof = currentProof;

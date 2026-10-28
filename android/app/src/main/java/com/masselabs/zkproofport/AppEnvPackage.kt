@@ -10,7 +10,8 @@ import com.facebook.react.uimanager.ViewManager
  * occupant; `AppSwitcher` lives here too rather than earning a second
  * ReactPackage and a second registration in MainApplication. So does
  * `GoogleIdToken`, the nonce-carrying Google sign-in, and
- * `AndroidKeyAttestation`, the statement signer for the Android circuits.
+ * `AndroidKeyAttestation`, the statement signer for the Android circuits,
+ * and `ProofRuntime`, memory readings and keep-screen-on while proving.
  */
 class AppEnvPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
@@ -19,6 +20,7 @@ class AppEnvPackage : ReactPackage {
             AppSwitcherModule(reactContext),
             GoogleIdTokenModule(reactContext),
             AndroidKeyAttestationModule(reactContext),
+            ProofRuntimeModule(reactContext),
         )
     }
 

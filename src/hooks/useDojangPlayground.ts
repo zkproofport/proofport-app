@@ -13,11 +13,11 @@ import {useState, useCallback, useRef} from 'react';
 import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
-  generateNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -28,7 +28,6 @@ import {
   ensureStorageAvailable,
   ensureWalletOnChain,
   loadVkFromAssets,
-  downloadCircuitFiles,
 } from '../utils';
 import {
   checkDojangIssuanceTx,
@@ -37,7 +36,6 @@ import {
 } from '../utils/dojangPlayground';
 import type {TypedAction} from '../config/circuitIds';
 import {
-  getEnvironment,
   type CircuitName,
 } from '../config';
 import type {ProofStatus} from '../types';
@@ -130,7 +128,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
 
       try {
         // Always, as useMdlKr does -- see the same line in useGiwaKyc.
-        await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
+        await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         updateStep('vk', {status: 'in_progress'});
         const vkStart = Date.now();
@@ -231,7 +229,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
         const proofStart = Date.now();
-        const currentProof = generateNoirProof(circuitPath, srsPath, flatInputs, true, currentVk, true);
+        const currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: 'standard', circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
         setFullProof(currentProof);
         _cachedFullProof = currentProof;
         updateStep('proof', {

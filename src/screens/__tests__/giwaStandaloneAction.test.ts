@@ -6,8 +6,9 @@ let mockCircuit = 'giwa_attestation';
 const mockNavigation = {navigate: mockNavigate};
 const mockT = (key: string) => key;
 
+jest.mock('../../components/ProofProgressCard', () => ({ProofProgressCard: 'ProofProgressCard'}));
 jest.mock('react-native', () => ({
-  NativeModules: {},
+  NativeModules: {}, AppState: {addEventListener: () => ({remove: () => {}})},
   StyleSheet: {create: (styles: unknown) => styles},
   ScrollView: 'ScrollView', Text: 'Text', View: 'View', SafeAreaView: 'SafeAreaView',
   TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
@@ -45,9 +46,12 @@ jest.mock('../../utils', () => ({
   ...jest.requireActual('../../utils/signedAction'),
   ...jest.requireActual('../../utils/walletChain'),
   getCircuitIcon: () => 'shield',
-  // The hook runs it before every proof; nothing to fetch in this test.
-  downloadCircuitFiles: async () => ({circuitPath: '', srsPath: '', vkPath: ''}),
   loadVkFromAssets: async () => new ArrayBuffer(0),
+}));
+// The hook fetches its circuit before every proof; nothing to fetch in this test.
+jest.mock('../../utils/proofRun', () => ({
+  circuitFilesForProof: async () => ({circuitPath: '', srsPath: '', vkPath: ''}),
+  proveCircuit: async () => new ArrayBuffer(0),
 }));
 // Native proving and chain lookup are outside this UI/signing boundary test.
 // The provider stops at the signature request, before proof generation.

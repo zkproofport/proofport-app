@@ -41,6 +41,20 @@ jest.mock('../../utils', () => ({
   circuitAbiParameterNames: async () => mockAbi,
 }));
 jest.mock('../../config', () => ({getEnvironment: () => 'development'}));
+// The hook proves through proofRun (off the JS thread); the vector it hands
+// over is the third argument here, as it was for generateNoirProof.
+jest.mock('../../utils/proofRun', () => ({
+  circuitFilesForProof: (...a: unknown[]) => (mockDownload as (...x: unknown[]) => Promise<unknown>)(...a),
+  proveCircuit: async (r: {circuitPath: string; srsPath: string; inputs: string[]; vk: ArrayBuffer; variant: string}) =>
+    mockGenerate(r.circuitPath, r.srsPath, r.inputs, true, r.vk, r.variant),
+  timerFor: () => ({
+    attempt: 'test',
+    step: (_name: string, fn: () => unknown) => Promise.resolve().then(fn),
+    record: () => {},
+    note: () => {},
+    elapsed: () => 0,
+  }),
+}));
 
 import {useOidcDomain} from '../useOidcDomain';
 import {deriveOidcNonce} from '../../oidc/oidcNonce';

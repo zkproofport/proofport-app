@@ -1,4 +1,6 @@
 #import <React/RCTBridgeModule.h>
+#import <UIKit/UIKit.h>
+#import <mach/mach.h>
 
 /**
  * Build-time config, plus the one developer override that has to survive into
@@ -56,6 +58,53 @@ RCT_EXPORT_METHOD(setOpenStoaOverride:(BOOL)enabled) {
 /** Drop the override and go back to whatever the build says. */
 RCT_EXPORT_METHOD(clearOpenStoaOverride) {
   [[NSUserDefaults standardUserDefaults] removeObjectForKey:kOpenStoaOverrideKey];
+}
+
++ (BOOL)requiresMainQueueSetup {
+  return NO;
+}
+
+@end
+
+/**
+ * What a proof needs from the OS while it runs (Android: ProofRuntimeModule.kt):
+ * the app's memory for the `[ProofTiming]` log, and the idle timer off so the
+ * screen does not lock mid-proof. Kept in this file because it is already in
+ * the Xcode project.
+ */
+@interface ProofRuntimeModule : NSObject <RCTBridgeModule>
+@end
+
+@implementation ProofRuntimeModule
+
+RCT_EXPORT_MODULE(ProofRuntime)
+
+- (NSDictionary *)constantsToExport {
+  return @{
+    @"totalMemKb": @((double)[NSProcessInfo processInfo].physicalMemory / 1024.0),
+    @"cpuCount": @([NSProcessInfo processInfo].activeProcessorCount),
+  };
+}
+
+/** footprintKb is what iOS counts against the app's memory limit. */
+RCT_EXPORT_METHOD(memorySnapshot:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  task_vm_info_data_t info;
+  mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+  kern_return_t kr = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count);
+  if (kr != KERN_SUCCESS) {
+    reject(@"E_MEMORY", [NSString stringWithFormat:@"task_info failed: %d", kr], nil);
+    return;
+  }
+  resolve(@{
+    @"footprintKb": @((double)info.phys_footprint / 1024.0),
+    @"rssKb": @((double)info.resident_size / 1024.0),
+  });
+}
+
+RCT_EXPORT_METHOD(setKeepScreenOn:(BOOL)on) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [UIApplication sharedApplication].idleTimerDisabled = on;
+  });
 }
 
 + (BOOL)requiresMainQueueSetup {

@@ -42,10 +42,3 @@ export async function laboratoryRequestGate(circuit: CircuitName): Promise<Labor
   };
 }
 
-/** The circuits to warm up at launch: every circuit, minus the Laboratory's while it is off. */
-export function circuitsToPrefetch(circuits: readonly string[], laboratoryEnabled: boolean): string[] {
-  if (typeof laboratoryEnabled !== 'boolean') {
-    throw new Error(`laboratoryEnabled must be a boolean, got ${JSON.stringify(laboratoryEnabled)}.`);
-  }
-  return circuits.filter(id => laboratoryEnabled || !isLaboratoryCircuit(id));
-}

@@ -6,7 +6,7 @@
  * wallet rows and the deep-link gate all ask there; the screens are exercised
  * in their own suites (proofHomeCatalog, walletPresentation, morePresentation,
  * proofRequestReviewLifecycle). This file holds the table, the gate, the
- * prefetch selection, and who is allowed to read the flag at all.
+ * absence of any download ahead of a proof, and who is allowed to read the flag at all.
  */
 const mockDisk = new Map<string, string>();
 let mockReadFailure = false;
@@ -26,8 +26,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {ALL_CIRCUIT_IDS, MAIN_BRANCH_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
 import {isLaboratoryCircuit} from '../screens/proof/proofCatalog';
-import {circuitsToPrefetch, laboratoryRequestGate, LABORATORY_CIRCUIT_IDS} from '../utils/laboratory';
-import {prefetchLaboratoryCircuits} from '../utils/laboratoryPrefetch';
+import {laboratoryRequestGate, LABORATORY_CIRCUIT_IDS} from '../utils/laboratory';
 
 const SRC = path.resolve(__dirname, '..');
 const SETTINGS_KEY = '@zkproofport:settings:app';
@@ -91,68 +90,25 @@ describe('the deep-link gate', () => {
   });
 });
 
-describe('the startup prefetch selection', () => {
-  const everything = [...SUPPORTED_CIRCUIT_IDS, ...MAIN_BRANCH_CIRCUIT_IDS];
-
-  it('skips every lab circuit while off and keeps every other one', () => {
-    const picked = circuitsToPrefetch(everything, false);
-    expect(picked.filter(id => LAB.includes(id))).toEqual([]);
-    expect([...picked].sort()).toEqual(everything.filter(id => !LAB.includes(id)).sort());
-    expect(picked).toEqual(expect.arrayContaining(HOME));
-  });
-
-  it('fetches everything while on', () => {
-    expect(circuitsToPrefetch(everything, true)).toEqual(everything);
-  });
-
-  it.each(['true', 'false', 1, 0, null, undefined])('refuses a non-boolean switch %j', value => {
-    expect(() => circuitsToPrefetch(everything, value as never)).toThrow('laboratoryEnabled must be a boolean');
-  });
-
-  it('throws on an unknown id in the list instead of quietly keeping it', () => {
-    expect(() => circuitsToPrefetch(['coinbase_attestation', 'nope'], false)).toThrow("Unknown circuit 'nope'");
-  });
-
-  it('is what the launch screen uses, with the stored switch', () => {
-    const loading = fs.readFileSync(path.join(SRC, 'screens', 'LoadingScreen.tsx'), 'utf8');
-    expect(loading).toMatch(/circuits\s*=\s*circuitsToPrefetch\(\[\.\.\.BASE_CIRCUITS,\s*\.\.\.MAIN_BRANCH_CIRCUITS\],\s*laboratoryEnabled\)/);
-    expect(loading).toMatch(/laboratoryEnabled\s*=\s*\(await settingsStore\.get\(\)\)\.laboratoryEnabled/);
+describe('nothing downloads a circuit ahead of its proof', () => {
+  // Since 2026-10-29: no launch prefetch and no download when the switch is
+  // turned on. A circuit's files arrive when a proof of it starts.
+  it('neither the launch screen nor More downloads circuit files', () => {
+    for (const file of ['screens/LoadingScreen.tsx', 'screens/more/MoreMainScreen.tsx']) {
+      const source = fs.readFileSync(path.join(SRC, file), 'utf8');
+      expect([file, /downloadCircuitFiles|prefetch/i.test(source)]).toEqual([file, false]);
+    }
   });
 });
 
 describe('a lab proof downloads its own circuit, stale or missing', () => {
-  // The startup prefetch skips lab circuits while the switch is off, so the
-  // hook is the only thing that brings a cached lab circuit up to date. A hook
-  // gated on "files exist" would prove with a stale copy.
-  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts', 'useMdlKr.ts'])('%s calls downloadCircuitFiles unconditionally', hook => {
+  // Nothing prefetches, so the hook is the only thing that brings a cached
+  // lab circuit up to date. A hook gated on "files exist" would prove with a
+  // stale copy.
+  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts', 'useMdlKr.ts'])('%s fetches its circuit unconditionally', hook => {
     const source = fs.readFileSync(path.join(SRC, 'hooks', hook), 'utf8');
-    expect(source).toMatch(/\n\s*await downloadCircuitFiles\(CIRCUIT_NAME,/);
+    expect(source).toMatch(/\n\s*await circuitFilesForProof\(CIRCUIT_NAME,/);
     expect(source).not.toContain('allCircuitFilesExist');
-  });
-});
-
-describe('the background download when the switch is turned on', () => {
-  beforeEach(() => jest.spyOn(console, 'log').mockImplementation(() => {}));
-  afterEach(() => jest.restoreAllMocks());
-
-  it('asks for every lab circuit and nothing else', async () => {
-    const download = jest.fn().mockResolvedValue({});
-    await prefetchLaboratoryCircuits(download);
-    expect(download.mock.calls.map(call => call[0]).sort()).toEqual([...LAB].sort());
-  });
-
-  it('resolves and logs each failure in full when downloads reject or throw', async () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const download = jest.fn((circuit: string) => {
-      if (circuit === 'mdl_kr_age') throw new Error('sync boom');
-      if (circuit === 'giwa_attestation') return Promise.reject(new Error('offline'));
-      return Promise.resolve({});
-    });
-    await expect(prefetchLaboratoryCircuits(download as never)).resolves.toBeUndefined();
-    expect(warn.mock.calls.map(call => call[0]).sort()).toEqual([
-      '[laboratory] background download of giwa_attestation failed: offline',
-      '[laboratory] background download of mdl_kr_age failed: sync boom',
-    ]);
   });
 });
 
@@ -167,13 +123,12 @@ function sources(dir: string): string[] {
 describe('who reads the switch', () => {
   // Proof history is not on this list on purpose: a lab proof made while the
   // switch was on stays in History after it is turned off.
-  it('is read only by settings, More, the Proof tab, the Laboratory, the wallet rows, launch and the gate', () => {
+  it('is read only by settings, More, the Proof tab, the Laboratory, the wallet rows and the gate', () => {
     const readers = sources(SRC)
       .filter(file => /laboratoryEnabled/.test(fs.readFileSync(file, 'utf8')))
       .map(file => path.relative(SRC, file).split(path.sep).join('/'))
       .sort();
     expect(readers).toEqual([
-      'screens/LoadingScreen.tsx',
       'screens/more/MoreMainScreen.tsx',
       'screens/proof/CircuitSelectionScreen.tsx',
       'screens/proof/LaboratoryScreen.tsx',
@@ -185,7 +140,7 @@ describe('who reads the switch', () => {
 
   it('is not tied to Developer Mode in any reader', () => {
     for (const file of ['screens/proof/CircuitSelectionScreen.tsx', 'screens/proof/LaboratoryScreen.tsx',
-      'screens/wallet/CircuitWalletsCard.tsx', 'screens/LoadingScreen.tsx', 'utils/laboratory.ts']) {
+      'screens/wallet/CircuitWalletsCard.tsx', 'utils/laboratory.ts']) {
       expect(fs.readFileSync(path.join(SRC, file), 'utf8')).not.toMatch(/developerMode/i);
     }
     const more = fs.readFileSync(path.join(SRC, 'screens/more/MoreMainScreen.tsx'), 'utf8');

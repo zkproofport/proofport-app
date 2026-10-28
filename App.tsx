@@ -44,6 +44,7 @@ import {registerReturnNoticeHandler, type ReturnNoticeKind} from './src/utils/re
 import {useAppStateReset} from './src/hooks';
 import {answerRelayRequest, answerRequestsLeftOpen, rememberOpenRelayRequest} from './src/utils/relayAnswer';
 import {laboratoryRequestGate, type LaboratoryGate} from './src/utils/laboratory';
+import {reportInterruptedProof} from './src/utils/interruptedProof';
 
 /** The responder never rejects; this only makes an impossible failure loud. */
 function logAnswerFailure(error: unknown) {
@@ -356,6 +357,9 @@ const App: React.FC = () => {
   // review or proving) are answered once, at launch.
   useEffect(() => {
     answerRequestsLeftOpen().catch(error => console.error('[App] Answering requests left open failed:', error));
+    // A proof that was still running when an earlier run died is said out
+    // loud (E2019) instead of leaving a History entry "in progress" forever.
+    reportInterruptedProof().catch(error => console.error('[App] Reporting an interrupted proof failed:', error));
   }, []);
 
   // Listen for deep links

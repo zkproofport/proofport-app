@@ -55,6 +55,12 @@ import {prepareOidcAppSigner, type ProviderKeySigner} from '../../oidc/oidcAppSi
 import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
 import {proofLogEnabled, proofLogText} from '../../utils/proofLog';
 import {describeIdTokenClaims} from '../../utils/idTokenClaims';
+import {AppState} from 'react-native';
+import {deviceProfile, setActiveProofTimer, startProofTimer, timed, type ProofTimer} from '../../utils/proofTiming';
+import {getProofProgress, resetProofProgress, updateProofProgress} from '../../utils/proofProgress';
+import {clearProofInFlight, markProofInFlight} from '../../utils/proofInFlight';
+import {markOpenRequestProving} from '../../utils/relayAnswer';
+import {ProofProgressCard} from '../../components/ProofProgressCard';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
@@ -379,6 +385,8 @@ export const ProofGenerationScreen: React.FC = () => {
   // from the settings read when the attempt starts.
   const keepLogRef = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  // This attempt's [ProofTiming] timer (proofTiming.ts).
+  const timerRef = useRef<ProofTimer | null>(null);
 
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -529,6 +537,23 @@ export const ProofGenerationScreen: React.FC = () => {
     [getLatestLogs],
   );
 
+  /**
+   * The attempt is over: the timing summary, the running-proof record
+   * removed (a later launch must not report a proof that ended), the screen
+   * progress closed. On success the timer stays active so the completion
+   * screen's verification is timed under the same attempt.
+   */
+  const endAttemptTiming = useCallback((outcome: 'proved' | 'failed' | 'cancelled') => {
+    const timer = timerRef.current;
+    if (timer) timer.note(`attempt end ${outcome} total=${timer.elapsed()}ms`);
+    if (outcome !== 'proved') {
+      setActiveProofTimer(null);
+      timerRef.current = null;
+    }
+    updateProofProgress({stage: outcome === 'proved' ? 'done' : 'failed'});
+    clearProofInFlight().catch(console.error);
+  }, []);
+
   // Mark history as failed (idempotent via ref), with the log up to the failure.
   const markHistoryFailed = useCallback(() => {
     if (failedMarkedRef.current || !historyIdRef.current) return;
@@ -553,6 +578,7 @@ export const ProofGenerationScreen: React.FC = () => {
       attemptEndedRef.current = true;
       // What the person was shown, so the kept log ends with it.
       addLog(`[Failed] ${code}: ${details ?? error}`);
+      endAttemptTiming('failed');
       setErrorMessage(inline ?? error);
       showGlobalError(code, details ?? error);
       markHistoryFailed();
@@ -561,7 +587,7 @@ export const ProofGenerationScreen: React.FC = () => {
         clearActiveProofRequest(proofRequest);
       }
     },
-    [proofRequest, sendError, markHistoryFailed, addLog],
+    [proofRequest, sendError, markHistoryFailed, addLog, endAttemptTiming],
   );
 
   /** End this attempt because the person declined (sign-in sheet, wallet). */
@@ -570,6 +596,7 @@ export const ProofGenerationScreen: React.FC = () => {
       if (attemptEndedRef.current) return;
       attemptEndedRef.current = true;
       addLog(`[Cancelled] ${reason}`);
+      endAttemptTiming('cancelled');
       setErrorMessage(reason);
       markHistoryFailed();
       if (proofRequest) {
@@ -577,7 +604,7 @@ export const ProofGenerationScreen: React.FC = () => {
         clearActiveProofRequest(proofRequest);
       }
     },
-    [proofRequest, sendCancelled, markHistoryFailed, addLog],
+    [proofRequest, sendCancelled, markHistoryFailed, addLog, endAttemptTiming],
   );
 
   // CRITICAL: Watch hook's proofSteps for errors.
@@ -629,6 +656,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
     const generatedAt = Date.now();
     const resolved: CircuitName = canonical;
+    endAttemptTiming('proved');
     const kept = attemptLog();
 
     if (historyIdRef.current) {
@@ -674,7 +702,8 @@ export const ProofGenerationScreen: React.FC = () => {
       }
 
       const circuitNet = getNetworkConfigForCircuit(resolved);
-      sendProof(proofRequest, {
+      const startedAt = proofStartedAt.current;
+      timed('relay send', () => sendProof(proofRequest, {
         signerVariant,
         proof: parsedProof.proofHex,
         publicInputs: parsedProof.publicInputsHex,
@@ -682,11 +711,11 @@ export const ProofGenerationScreen: React.FC = () => {
         nullifier: nullifierHex,
         verificationType: 'off-chain',
         verificationResult: false,
-        startedAt: proofStartedAt.current,
+        startedAt,
         completedAt: generatedAt,
         verifierAddress,
         chainId: circuitNet.chainId,
-      }).then(() => clearActiveProofRequest(proofRequest)).catch(console.error);
+      })).then(() => clearActiveProofRequest(proofRequest)).catch(console.error);
     }
 
     const circuitNet = getNetworkConfigForCircuit(resolved);
@@ -712,7 +741,7 @@ export const ProofGenerationScreen: React.FC = () => {
     // stale `hook.parsedProof` value can't navigate again.
     proofStartedAt.current = null;
     historyIdRef.current = null;
-  }, [parsedProof, signalHash, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc, attemptLog, addLog, failAttempt]);
+  }, [parsedProof, signalHash, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc, attemptLog, addLog, failAttempt, endAttemptTiming]);
 
   // An unrecognised circuit id is refused on arrival, not on button press, so
   // nobody sits looking at a form for a proof the app will not generate.
@@ -890,6 +919,34 @@ export const ProofGenerationScreen: React.FC = () => {
       historyIdRef.current = null;
     }
 
+    // Timing, progress and the running-proof record start here, so every
+    // later step -- sign-in, device signature, download, proving -- is
+    // timed, and a death from here on is reported at the next launch.
+    const timer = startProofTimer(canonical, addLog);
+    timerRef.current = timer;
+    setActiveProofTimer(timer);
+    resetProofProgress();
+    const device = deviceProfile();
+    timer.note(
+      `attempt start ${proofRequest ? 'relay' : 'in-app'} ` +
+        `device totalMem=${device.totalMemKb === null ? '?' : `${Math.round(device.totalMemKb / 1024)}MiB`} ` +
+        `cpus=${device.cpuCount ?? '?'}`,
+    );
+    if (proofRequest) {
+      // The relay stops waiting a fixed time after it created the request
+      // (proofport-relay REQUEST_DEADLINE_MS); its age here is how much of
+      // that the person has already spent before the proof starts.
+      const created = typeof proofRequest.createdAt === 'string' ? Date.parse(proofRequest.createdAt) : proofRequest.createdAt;
+      timer.note(`relay request age ${Number.isFinite(created) ? `${Date.now() - created}ms` : 'unknown'}`);
+    }
+    await markProofInFlight({
+      circuit: canonical,
+      startedAt: proofStartedAt.current ?? Date.now(),
+      historyId: historyIdRef.current,
+      requestId: proofRequest ? proofRequest.requestId : null,
+    });
+    if (proofRequest) await markOpenRequestProving(proofRequest.requestId);
+
     try {
       if (isMdl) {
         // Korea Mobile ID (web2 OmniOne CX flow). Inputs come from either:
@@ -986,7 +1043,7 @@ export const ProofGenerationScreen: React.FC = () => {
         // (E2014), Apple unreachable (E3006), no Android module (E2015).
         // Thrown AppAttestErrors end the attempt with their code (catch below).
         addLog('=== Device signer: preparing to sign the provider key ===');
-        const providerKeySigner: ProviderKeySigner = await prepareOidcAppSigner(addLog);
+        const providerKeySigner: ProviderKeySigner = await timer.step('device signer ready', () => prepareOidcAppSigner(addLog));
 
         addLog(`[OIDC] Starting ${providerName} Sign-In...`);
 
@@ -1003,11 +1060,11 @@ export const ProofGenerationScreen: React.FC = () => {
         // request's nonce comes back as a failure (E2012) and is never proved.
         // The claims (aud/azp/nonce/iss/exp, never the token) are logged
         // BEFORE the nonce check, so a refused token still shows what it carried.
-        const signIn = await signInBound(async nonce => {
+        const signIn = await timer.step('sign-in', () => signInBound(async nonce => {
           const result = await promptSignIn(nonce);
           if ('token' in result) addLog(describeIdTokenClaims(result.token));
           return result;
-        }, binding.nonce);
+        }, binding.nonce));
         if (!('token' in signIn)) {
           const msg = signIn.cancelled
             ? `${providerName} Sign-In was cancelled`
@@ -1086,9 +1143,9 @@ export const ProofGenerationScreen: React.FC = () => {
         ? '=== Searching for Coinbase Country Attestation ==='
         : '=== Searching for Coinbase Attestation ===');
 
-      const txResult = isGiwa
-        ? await findGiwaAttestationTransaction(walletAddress, addLog)
-        : await findAttestationTransaction(walletAddress, addLog, selector);
+      const txResult = await timer.step('attestation lookup', () => isGiwa
+        ? findGiwaAttestationTransaction(walletAddress, addLog)
+        : findAttestationTransaction(walletAddress, addLog, selector));
       if (!txResult) {
         await recordLookupFailure(configName, walletAddress);
         const msg = isGiwa
@@ -1174,13 +1231,13 @@ export const ProofGenerationScreen: React.FC = () => {
         // Android phone or build the circuit does not accept (E2015 / E2016),
         // and for a revoked verification (E2011) -- before the wallet is asked.
         addLog('=== Device signer: checking revocation and signing the statement ===');
-        const appAttestWitness: CoinbaseStatementWitness = await prepareCoinbaseKycStatement({
+        const appAttestWitness: CoinbaseStatementWitness = await timer.step('device: Coinbase statement', () => prepareCoinbaseKycStatement({
           walletAddress,
           attestationUid: txResult.attestation.id,
           scopeString: scopeStr,
           action,
           log: addLog,
-        });
+        }));
 
         // The circuit is named, not inferred. `canonical` is the id the user
         // picked or the deep link asked for; the hook refuses any id it does
@@ -1301,6 +1358,32 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [proofRequest, circuitReady, isWalletReady, addLog]);
 
   const isProcessing = hook.isLoading || isSearching;
+
+  // Leaving the app mid-proof is timed and shown: Android may pause or kill
+  // an app in the background, and the person should see that the proof
+  // continued (or the next launch reports E2019 if it did not survive).
+  useEffect(() => {
+    if (!isProcessing) return;
+    let leftAt: number | null = null;
+    let leftWhileProving = false;
+    const sub = AppState.addEventListener('change', next => {
+      const timer = timerRef.current;
+      if (next === 'background' || next === 'inactive') {
+        if (leftAt === null) {
+          leftAt = Date.now();
+          // The sign-in sheet also takes the app out of the foreground; only
+          // time away while proving is worth telling the person about.
+          leftWhileProving = getProofProgress().stage === 'prove';
+          timer?.note(`app ${next} stage=${getProofProgress().stage}`);
+        }
+      } else if (next === 'active' && leftAt !== null) {
+        timer?.note(`app foreground after ${Date.now() - leftAt}ms away`);
+        if (leftWhileProving) updateProofProgress({wasInBackground: true});
+        leftAt = null;
+      }
+    });
+    return () => sub.remove();
+  }, [isProcessing]);
   const hasStepsStarted = hook.proofSteps.some(s => s.status !== 'pending');
 
   useEffect(() => {
@@ -1368,6 +1451,8 @@ export const ProofGenerationScreen: React.FC = () => {
             {canonical ? t(CIRCUIT_TEXT[canonical].description) : ''}
           </Text>
         </Card>
+
+        <ProofProgressCard />
 
         {(hasStepsStarted || isProcessing) && (
           <Card style={styles.steps}>

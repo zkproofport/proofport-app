@@ -1,10 +1,10 @@
 import {useState, useCallback} from 'react';
 import {
-  generateNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {circuitFilesForProof, proveCircuit, timerFor} from '../utils/proofRun';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -12,10 +12,9 @@ import {
   clearProofCache,
   ensureStorageAvailable,
   loadVkFromAssets,
-  downloadCircuitFiles,
   circuitAbiParameterNames,
 } from '../utils';
-import {getEnvironment, type CircuitName} from '../config';
+import {type CircuitName} from '../config';
 import {currentSignerVariant, wireSignerVariant, type WireSignerVariant} from '../config/signerPlatform';
 import {prepareOidcInputs, flattenOidcInputs, OIDC_PUBLIC_INPUT_COUNT, requireOidcAbi} from '../utils/oidcDomain';
 import {AppAttestError} from '../appAttest/appAttestError';
@@ -200,7 +199,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         const signerVariant = currentSignerVariant();
         requireVerifierForVariant(CIRCUIT_NAME, signerVariant);
         addLog('Step 1: Checking circuit files...');
-        await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
+        await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         // These inputs are for one circuit: 214 public inputs and this
         // phone's provider-key signer after them (App Attest on iPhone,
@@ -210,14 +209,15 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         // that names nothing -- and only after the device had signed.
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
-        const circuitPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        const timer = timerFor(CIRCUIT_NAME, addLog);
+        const circuitPublicInputs = await timer.step('circuit public input count', () => getNumPublicInputsFromCircuit(circuitPath));
         if (circuitPublicInputs !== OIDC_PUBLIC_INPUT_COUNT) {
           throw new Error(
             `The downloaded ${CIRCUIT_NAME} circuit has ${circuitPublicInputs} public inputs; ` +
               `this app builds inputs for ${OIDC_PUBLIC_INPUT_COUNT} (OIDC v2). Delete the circuit files and download them again.`,
           );
         }
-        requireOidcAbi(await circuitAbiParameterNames(CIRCUIT_NAME), signerVariant);
+        requireOidcAbi(await timer.step('circuit ABI check', () => circuitAbiParameterNames(CIRCUIT_NAME)), signerVariant);
         updateStep('download', {status: 'completed', detail: `${circuitPublicInputs} public inputs`});
 
         // Step 2: Load VK
@@ -225,7 +225,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog('Step 2: Loading verification key...');
 
         const vkStartTime = Date.now();
-        currentVk = await loadVkFromAssets(CIRCUIT_NAME, addLog);
+        currentVk = await timer.step('load vk', () => loadVkFromAssets(CIRCUIT_NAME, addLog));
         const vkElapsed = Date.now() - vkStartTime;
 
         addLog(`[VK] VK loaded: ${currentVk.byteLength} bytes (${vkElapsed}ms)`);
@@ -324,7 +324,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog('Step 3: Fetching the provider key list and signing the provider key...');
 
         const inputsStartTime = Date.now();
-        const circuitInputs = await prepareOidcInputs({
+        const circuitInputs = await timer.step('oidc inputs (provider keys + device signature)', () => prepareOidcInputs({
           jwt: inputs.jwtToken,
           scope: inputs.scopeString,
           domain,
@@ -332,7 +332,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           nonce: inputs.nonce,
           clockSeconds: Math.floor(Date.now() / 1000),
           signProviderKey: inputs.providerKeySigner,
-        });
+        }));
         const inputsElapsed = Date.now() - inputsStartTime;
 
         addLog(`[JWKS] Provider key found in the live list, statement signed (${inputsElapsed}ms)`);
@@ -345,7 +345,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         updateStep('inputs', {status: 'in_progress'});
         addLog('Step 4: Preparing circuit inputs...');
 
-        const flatInputs = flattenOidcInputs(circuitInputs);
+        const flatInputs = await timer.step('flatten inputs', () => flattenOidcInputs(circuitInputs));
         addLog(`[Inputs] Domain: ${domain}${!inputs.domain ? ' (auto-extracted)' : ''}`);
         addLog(`[Inputs] Scope: ${inputs.scopeString}`);
         addLog(`[Inputs] Partial data length: ${circuitInputs.partial_data.len}`);
@@ -373,7 +373,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         updateStep('storage', {status: 'in_progress'});
         addLog('Step 5: Checking storage availability...');
 
-        const hasSpace = await ensureStorageAvailable(500, addLog);
+        const hasSpace = await timer.step('storage check', () => ensureStorageAvailable(500, addLog));
         if (!hasSpace) {
           throw new Error('Insufficient storage for proof generation');
         }
@@ -389,17 +389,9 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog(`[Proof] Loading circuit file: ${CIRCUIT_NAME}.json`);
         addLog(`[Proof] Loading SRS file: ${CIRCUIT_NAME}.srs`);
 
-        addLog('[Proof] Starting Noir proof generation (low memory mode)...');
-        addLog('[Proof] This may take 30-60 seconds...');
+        addLog('[Proof] Starting Noir proof generation off the JS thread...');
         const proofStartTime = Date.now();
-        currentProof = generateNoirProof(
-          circuitPath,
-          srsPath,
-          flatInputs,
-          true, // onChain
-          currentVk,
-          true, // lowMemoryMode
-        );
+        currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: signerVariant, circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
         const proofElapsed = Date.now() - proofStartTime;
 
         addLog(`[Proof] Proof generated! Size: ${currentProof.byteLength} bytes`);
@@ -417,9 +409,9 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
 
         const numPublicInputs = circuitPublicInputs;
         addLog(`[Parse] Number of public inputs: ${numPublicInputs}`);
-        const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(
-          currentProof,
-          numPublicInputs,
+        const proofBytes = currentProof;
+        const parsed: ProofWithPublicInputs = await timer.step('parse proof', () =>
+          parseProofWithPublicInputs(proofBytes, numPublicInputs),
         );
 
         const proofHex = arrayBufferToHex(parsed.proof);

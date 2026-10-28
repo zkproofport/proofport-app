@@ -329,26 +329,15 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
     expect(deployments).not.toMatch(/'coinbase_attestation'/);
   });
 
-  it('THE REGRESSION: startup prefetches every circuit, in the right tier, minus a Laboratory turned off', () => {
+  it('launch downloads no circuit at all; each proof fetches its own', () => {
     /*
-     * The startup lists named three circuits plus GIWA and omitted the three
-     * Korea mDL ones, so a first mDL proof paid for a cold download. Derived
-     * from the SDK's own supported/planned split now: the union is the whole
-     * list by construction, and the split matches the one `circuitDownload.ts`
-     * uses to decide which circuits are read from `main`.
+     * Until 2026-10-29 launch prefetched every circuit, derived from the SDK
+     * lists so none was forgotten. On an Android phone that meant a 134 MB
+     * .srs for a proof nobody had asked for. Now nothing is prefetched, so
+     * there is no list here to keep complete.
      */
     const loading = codeOf(path.join(SRC, 'screens', 'LoadingScreen.tsx'));
-    expect(loading).toMatch(/BASE_CIRCUITS[^=]*=\s*SUPPORTED_CIRCUIT_IDS/);
-    // Experimental AND planned: an experimental circuit is neither supported
-    // nor planned, and for one commit one was in neither list, so its files
-    // were never prefetched.
-    expect(loading).toMatch(/MAIN_BRANCH_CIRCUITS[^=]*=\s*MAIN_BRANCH_CIRCUIT_IDS/);
-    // Both lists: Developer Mode used to drop the second one. Only the
-    // Laboratory switch narrows them now, through the catalog's own table
-    // (src/__tests__/theLaboratorySwitch.test.ts).
-    expect(loading).toMatch(/circuits\s*=\s*circuitsToPrefetch\(\[\.\.\.BASE_CIRCUITS,\s*\.\.\.MAIN_BRANCH_CIRCUITS\]/);
-    expect(loading).not.toContain('developerMode');
-    expect(loading).not.toMatch(/'(coinbase|giwa|oidc|mdl)_/);
+    expect(loading).not.toMatch(/downloadCircuitFiles|SUPPORTED_CIRCUIT_IDS|MAIN_BRANCH_CIRCUIT_IDS/);
     expect(
       [...SUPPORTED_CIRCUIT_IDS, ...EXPERIMENTAL_CIRCUIT_IDS, ...PLANNED_CIRCUIT_IDS].sort(),
     ).toEqual([...ALL_CIRCUIT_IDS].sort());

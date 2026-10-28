@@ -49,8 +49,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 jest.mock('../../../components/ProofUiIcon', () => ({ProofUiIcon: 'ProofUiIcon'}));
 jest.mock('../../../components/ui/atoms/Icon', () => ({Icon: 'Icon'}));
 jest.mock('../../../utils/version', () => ({getVersionDisplay: () => '1.3.1'}));
-const mockPrefetchLaboratory = jest.fn();
-jest.mock('../../../utils/laboratoryPrefetch', () => ({prefetchLaboratoryCircuits: (...args: unknown[]) => mockPrefetchLaboratory(...args)}));
 jest.mock('../../../../assets/brand/zkproofport-symbol.png', () => 1);
 jest.mock('../../../../assets/brand/zkproofport-wordmark-dark.png', () => 2);
 jest.mock('../../../../assets/brand/zkproofport-wordmark-light.png', () => 3);
@@ -241,19 +239,16 @@ describe('the Laboratory switch', () => {
     expect(en.errors.E1008.description).toContain(en.more.title);
   });
 
-  it('turns on, off and on again, persisting each and warming lab circuits only when turned on', async () => {
+  it('turns on, off and on again, persisting each', async () => {
     await render();
     await flip(true);
     expect(stored().laboratoryEnabled).toBe(true);
     expect(node('more-laboratory').props.value).toBe(true);
-    expect(mockPrefetchLaboratory).toHaveBeenCalledTimes(1);
     await flip(false);
     expect(stored().laboratoryEnabled).toBe(false);
     expect(node('more-laboratory').props.value).toBe(false);
-    expect(mockPrefetchLaboratory).toHaveBeenCalledTimes(1);
     await flip(true);
     expect(stored()).toMatchObject({laboratoryEnabled: true, theme: 'light', developerMode: false, defaultNetwork: 'base'});
-    expect(mockPrefetchLaboratory).toHaveBeenCalledTimes(2);
     expect(mockShowError).not.toHaveBeenCalled();
   });
 
@@ -270,12 +265,11 @@ describe('the Laboratory switch', () => {
     expect(node('more-laboratory').props.value).toBe(false);
   });
 
-  it('reports a failed save through ErrorModal, keeps it off and downloads nothing', async () => {
+  it('reports a failed save through ErrorModal and keeps it off', async () => {
     await render(); mockWriteFailure = true;
     await flip(true);
     expect(mockShowError).toHaveBeenCalledWith('E5001', mockTranslate('host.more.saveError'));
     expect(stored().laboratoryEnabled).toBeUndefined();
-    expect(mockPrefetchLaboratory).not.toHaveBeenCalled();
   });
 
   it('keeps both choices when the switch and another setting are changed together', async () => {

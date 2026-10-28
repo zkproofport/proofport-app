@@ -6,7 +6,7 @@
 /* eslint-disable */
 // @ts-nocheck
 import nativeModule from "./proofport-ffi.js";
-import { AbstractFfiConverterByteArray, FfiConverterArray, FfiConverterArrayBuffer, FfiConverterBool, FfiConverterInt32, FfiConverterMap, FfiConverterOptional, FfiConverterUInt32, UniffiError, UniffiInternalError, UniffiRustCaller, uniffiCreateFfiConverterString, uniffiCreateRecord, uniffiTypeNameSymbol } from "@ubjs/core";
+import { AbstractFfiConverterByteArray, FfiConverterArray, FfiConverterArrayBuffer, FfiConverterBool, FfiConverterInt32, FfiConverterMap, FfiConverterOptional, FfiConverterUInt32, FfiConverterUInt64, UniffiError, UniffiInternalError, UniffiRustCaller, uniffiCreateFfiConverterString, uniffiCreateRecord, uniffiTypeNameSymbol } from "@ubjs/core";
 const uniffiCaller = new UniffiRustCaller(() => ({
   code: 0
 }));
@@ -125,6 +125,21 @@ export function moproHelloWorld() {
 }
 
 /**
+ * Where a job is. Cheap: no proving work, one read of /proc/self/status.
+ */
+export function noirProofStatus(jobId) /*throws*/{
+  return (__rb => {
+    try {
+      return FfiConverterTypeNoirProofStatus.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  })(uniffiCaller.rustCallWithError(/*liftError:*/FfiConverterTypeMoproError.lift.bind(FfiConverterTypeMoproError), /*caller:*/callStatus => {
+    return nativeModule().ubrn_uniffi_proofport_fn_func_noir_proof_status(FfiConverterUInt64.lower(jobId, nativeModule().rustbuffer_alloc), callStatus);
+  }, /*liftString:*/FfiConverterString.lift.bind(FfiConverterString)));
+}
+
+/**
  * Parse a combined proof (proof + public inputs) into separated components
  * The mopro proof format has public inputs prepended to the proof bytes
  * This function separates them for on-chain verification
@@ -138,6 +153,31 @@ export function parseProofWithPublicInputs(proof, numPublicInputs) {
     }
   })(uniffiCaller.rustCall(/*caller:*/callStatus => {
     return nativeModule().ubrn_uniffi_proofport_fn_func_parse_proof_with_public_inputs(FfiConverterArrayBuffer.lower(proof, nativeModule().rustbuffer_alloc), FfiConverterUInt32.lower(numPublicInputs, nativeModule().rustbuffer_alloc), callStatus);
+  }, /*liftString:*/FfiConverterString.lift.bind(FfiConverterString)));
+}
+
+/**
+ * Start proving on a new thread. Returns the job id; refuses while another
+ * job is running.
+ */
+export function startNoirProof(circuitPath, srsPath, inputs, onChain, vk, options) /*throws*/{
+  return FfiConverterUInt64.lift(uniffiCaller.rustCallWithError(/*liftError:*/FfiConverterTypeMoproError.lift.bind(FfiConverterTypeMoproError), /*caller:*/callStatus => {
+    return nativeModule().ubrn_uniffi_proofport_fn_func_start_noir_proof(FfiConverterString.lower(circuitPath, nativeModule().rustbuffer_alloc), FfiConverterOptionalString.lower(srsPath, nativeModule().rustbuffer_alloc), FfiConverterSequenceString.lower(inputs, nativeModule().rustbuffer_alloc), FfiConverterBool.lower(onChain, nativeModule().rustbuffer_alloc), FfiConverterArrayBuffer.lower(vk, nativeModule().rustbuffer_alloc), FfiConverterTypeNoirProofOptions.lower(options, nativeModule().rustbuffer_alloc), callStatus);
+  }, /*liftString:*/FfiConverterString.lift.bind(FfiConverterString)));
+}
+
+/**
+ * The proof of a finished job (once; the job's copy is released), or its error.
+ */
+export function takeNoirProof(jobId) /*throws*/{
+  return (__rb => {
+    try {
+      return FfiConverterArrayBuffer.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  })(uniffiCaller.rustCallWithError(/*liftError:*/FfiConverterTypeMoproError.lift.bind(FfiConverterTypeMoproError), /*caller:*/callStatus => {
+    return nativeModule().ubrn_uniffi_proofport_fn_func_take_noir_proof(FfiConverterUInt64.lower(jobId, nativeModule().rustbuffer_alloc), callStatus);
   }, /*liftString:*/FfiConverterString.lift.bind(FfiConverterString)));
 }
 export function verifyCircomProof(zkeyPath, proofResult, proofLib) /*throws*/{
@@ -373,6 +413,125 @@ const FfiConverterTypeHalo2ProofResult = (() => {
     }
     allocationSize(value) {
       return FfiConverterArrayBuffer.allocationSize(value.proof) + FfiConverterArrayBuffer.allocationSize(value.inputs);
+    }
+  }
+  ;
+  return new FFIConverter();
+})();
+/**
+ * Generated factory for {@link NoirProofOptions} record objects.
+ */
+export const NoirProofOptions = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults())
+  });
+})();
+const FfiConverterTypeNoirProofOptions = (() => {
+  class FFIConverter extends AbstractFfiConverterByteArray {
+    read(from) {
+      return {
+        lowMemoryMode: FfiConverterBool.read(from),
+        tempDir: FfiConverterOptionalString.read(from),
+        threads: FfiConverterOptionalUInt32.read(from)
+      };
+    }
+    write(value, into) {
+      FfiConverterBool.write(value.lowMemoryMode, into);
+      FfiConverterOptionalString.write(value.tempDir, into);
+      FfiConverterOptionalUInt32.write(value.threads, into);
+    }
+    allocationSize(value) {
+      return FfiConverterBool.allocationSize(value.lowMemoryMode) + FfiConverterOptionalString.allocationSize(value.tempDir) + FfiConverterOptionalUInt32.allocationSize(value.threads);
+    }
+  }
+  ;
+  return new FFIConverter();
+})();
+/**
+ * Generated factory for {@link NoirProofPhase} record objects.
+ */
+export const NoirProofPhase = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults())
+  });
+})();
+const FfiConverterTypeNoirProofPhase = (() => {
+  class FFIConverter extends AbstractFfiConverterByteArray {
+    read(from) {
+      return {
+        name: FfiConverterString.read(from),
+        durationMs: FfiConverterUInt64.read(from),
+        rssKbAfter: FfiConverterUInt64.read(from)
+      };
+    }
+    write(value, into) {
+      FfiConverterString.write(value.name, into);
+      FfiConverterUInt64.write(value.durationMs, into);
+      FfiConverterUInt64.write(value.rssKbAfter, into);
+    }
+    allocationSize(value) {
+      return FfiConverterString.allocationSize(value.name) + FfiConverterUInt64.allocationSize(value.durationMs) + FfiConverterUInt64.allocationSize(value.rssKbAfter);
+    }
+  }
+  ;
+  return new FFIConverter();
+})();
+/**
+ * Generated factory for {@link NoirProofStatus} record objects.
+ */
+export const NoirProofStatus = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults())
+  });
+})();
+const FfiConverterTypeNoirProofStatus = (() => {
+  class FFIConverter extends AbstractFfiConverterByteArray {
+    read(from) {
+      return {
+        jobId: FfiConverterUInt64.read(from),
+        state: FfiConverterString.read(from),
+        phase: FfiConverterString.read(from),
+        elapsedMs: FfiConverterUInt64.read(from),
+        phases: FfiConverterSequenceTypeNoirProofPhase.read(from),
+        rssKb: FfiConverterUInt64.read(from),
+        swapKb: FfiConverterUInt64.read(from),
+        peakRssKb: FfiConverterUInt64.read(from),
+        peakSwapKb: FfiConverterUInt64.read(from),
+        error: FfiConverterOptionalString.read(from)
+      };
+    }
+    write(value, into) {
+      FfiConverterUInt64.write(value.jobId, into);
+      FfiConverterString.write(value.state, into);
+      FfiConverterString.write(value.phase, into);
+      FfiConverterUInt64.write(value.elapsedMs, into);
+      FfiConverterSequenceTypeNoirProofPhase.write(value.phases, into);
+      FfiConverterUInt64.write(value.rssKb, into);
+      FfiConverterUInt64.write(value.swapKb, into);
+      FfiConverterUInt64.write(value.peakRssKb, into);
+      FfiConverterUInt64.write(value.peakSwapKb, into);
+      FfiConverterOptionalString.write(value.error, into);
+    }
+    allocationSize(value) {
+      return FfiConverterUInt64.allocationSize(value.jobId) + FfiConverterString.allocationSize(value.state) + FfiConverterString.allocationSize(value.phase) + FfiConverterUInt64.allocationSize(value.elapsedMs) + FfiConverterSequenceTypeNoirProofPhase.allocationSize(value.phases) + FfiConverterUInt64.allocationSize(value.rssKb) + FfiConverterUInt64.allocationSize(value.swapKb) + FfiConverterUInt64.allocationSize(value.peakRssKb) + FfiConverterUInt64.allocationSize(value.peakSwapKb) + FfiConverterOptionalString.allocationSize(value.error);
     }
   }
   ;
@@ -620,14 +779,20 @@ const FfiConverterTypeProofLib = (() => {
 // FfiConverter for Array<string>
 const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
 
+// FfiConverter for string | undefined
+const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
+
+// FfiConverter for number | undefined
+const FfiConverterOptionalUInt32 = new FfiConverterOptional(FfiConverterUInt32);
+
+// FfiConverter for Array<NoirProofPhase>
+const FfiConverterSequenceTypeNoirProofPhase = new FfiConverterArray(FfiConverterTypeNoirProofPhase);
+
 // FfiConverter for Array<ArrayBuffer>
 const FfiConverterSequenceBytes = new FfiConverterArray(FfiConverterArrayBuffer);
 
 // FfiConverter for Map<string, Array<string>>
 const FfiConverterMapStringSequenceString = new FfiConverterMap(FfiConverterString, FfiConverterSequenceString);
-
-// FfiConverter for string | undefined
-const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
 
 /**
  * This should be called before anything else.
@@ -668,8 +833,17 @@ function uniffiEnsureInitialized() {
   if (nativeModule().ubrn_uniffi_proofport_checksum_func_mopro_hello_world() !== 5912) {
     throw new UniffiInternalError.ApiChecksumMismatch("uniffi_proofport_checksum_func_mopro_hello_world");
   }
+  if (nativeModule().ubrn_uniffi_proofport_checksum_func_noir_proof_status() !== 62042) {
+    throw new UniffiInternalError.ApiChecksumMismatch("uniffi_proofport_checksum_func_noir_proof_status");
+  }
   if (nativeModule().ubrn_uniffi_proofport_checksum_func_parse_proof_with_public_inputs() !== 30685) {
     throw new UniffiInternalError.ApiChecksumMismatch("uniffi_proofport_checksum_func_parse_proof_with_public_inputs");
+  }
+  if (nativeModule().ubrn_uniffi_proofport_checksum_func_start_noir_proof() !== 1486) {
+    throw new UniffiInternalError.ApiChecksumMismatch("uniffi_proofport_checksum_func_start_noir_proof");
+  }
+  if (nativeModule().ubrn_uniffi_proofport_checksum_func_take_noir_proof() !== 59503) {
+    throw new UniffiInternalError.ApiChecksumMismatch("uniffi_proofport_checksum_func_take_noir_proof");
   }
   if (nativeModule().ubrn_uniffi_proofport_checksum_func_verify_circom_proof() !== 157) {
     throw new UniffiInternalError.ApiChecksumMismatch("uniffi_proofport_checksum_func_verify_circom_proof");
@@ -690,6 +864,9 @@ export default Object.freeze({
     FfiConverterTypeG2,
     FfiConverterTypeHalo2ProofResult,
     FfiConverterTypeMoproError,
+    FfiConverterTypeNoirProofOptions,
+    FfiConverterTypeNoirProofPhase,
+    FfiConverterTypeNoirProofStatus,
     FfiConverterTypeProofLib,
     FfiConverterTypeProofWithPublicInputs
   }

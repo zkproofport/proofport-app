@@ -172,6 +172,29 @@ export function rememberOpenRelayRequest(request: RelayRequestRef): Promise<void
   ]).then(() => undefined);
 }
 
+/**
+ * The request is being proved now. If the app dies before it answers (killed
+ * for memory mid-proof, swiped away), the next launch answers it with E2019
+ * ("the proof was interrupted") instead of a plain cancel, so the dApp learns
+ * what happened. A record that is not open (an in-app proof) is left alone.
+ */
+export function markOpenRequestProving(requestId: string): Promise<void> {
+  return mutateOpen(records =>
+    records.map(r =>
+      r.requestId === requestId && !r.pending
+        ? {
+            ...r,
+            pending: {
+              status: 'error' as const,
+              errorCode: 'E2019' as ErrorCode,
+              error: 'The app closed while the proof was being made, so no proof was sent.',
+            },
+          }
+        : r,
+    ),
+  ).then(() => undefined);
+}
+
 function forgetOpen(requestId: string): Promise<void> {
   return mutateOpen(records => records.filter(r => r.requestId !== requestId)).then(() => undefined);
 }

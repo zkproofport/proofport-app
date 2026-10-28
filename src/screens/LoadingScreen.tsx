@@ -1,44 +1,22 @@
-import {circuitFilesDecidableNow} from '../config/circuitArtifacts';
-import {currentSignerPlatform, loadAndroidChainKind} from '../config/signerPlatform';
-import {bootstrapCircuits} from '../utils/circuitBootstrap';
 import {showGlobalError} from '../utils/errorBridge';
 import {syncDeploymentsAtLaunch} from '../utils/launchDeploymentSync';
 import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {View, Text, StyleSheet, Image, Animated, ActivityIndicator} from 'react-native';
 import {useTranslation} from 'react-i18next';
 
-import {
-  downloadCircuitFiles,
-  type DownloadProgress,
-} from '../utils/circuitDownload';
-import {getEnvironment, initDeployments} from '../config';
-import {MAIN_BRANCH_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
+import {initDeployments} from '../config';
 import {useThemeColors} from '../context';
 import {BRAND_SYMBOL, WORDMARK_ASPECT, wordmarkFor} from '../constants/brand';
-import {settingsStore} from '../stores/settingsStore';
-import {circuitsToPrefetch} from '../utils/laboratory';
 
 /*
- * What the app warms up at launch: every circuit, kept in the two lists the
- * SDK's split gives — `supported` circuits, which ship in the release tag, and
- * the experimental and planned ones, which live only on `main` — minus the
- * Laboratory's while More > Laboratory is off (`circuitsToPrefetch`). Those
- * are skipped because nothing depends on the prefetch: every lab proof hook
- * runs `downloadCircuitFiles` itself before proving, which also replaces a
- * stale cached copy, and turning the switch on starts a background download.
- *
- * The second list used to be fetched only under Developer Mode, because a
- * circuit absent from the production release tag 404s when prefetched and
- * `bootstrapCircuits` turns that into a "Download Failed" modal on a launch
- * nobody asked anything of. That no longer applies: `circuitDownload.ts` pins
- * every main-branch circuit to `main` in every environment. And the
- * Laboratory now offers those proofs without Developer Mode, so skipping the
- * prefetch only made a first GIWA, Dojang or mDL proof stall on a cold download.
+ * Launch downloads NO circuit files. Each proof downloads its own circuit's
+ * files (the variant this phone's signer needs) when it starts, shows the
+ * progress on the proving screen, and keeps them for the next proof
+ * (circuitDownload.ts). Until 2026-10-29 every launch fetched every circuit
+ * -- including a 134 MB Android .srs for a proof the person never asked for,
+ * on whatever network the phone happened to be on.
  */
-const BASE_CIRCUITS: ReadonlyArray<string> = SUPPORTED_CIRCUIT_IDS;
-const MAIN_BRANCH_CIRCUITS: ReadonlyArray<string> = MAIN_BRANCH_CIRCUIT_IDS;
 const SPLASH_DURATION = 3000;
-const MAX_LOADING_DURATION = 5000;
 
 interface LoadingScreenProps {
   onReady: () => void;
@@ -78,13 +56,7 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
     ).start();
   }, [pulseAnim]);
 
-  const handleProgress = useCallback((_prog: DownloadProgress) => {
-    // progress tracked internally for download logic
-  }, []);
-
-  const checkAndDownloadCircuits = useCallback(async () => {
-    const env = getEnvironment();
-
+  const syncAtLaunch = useCallback(async () => {
     // Sync deployments. A production build whose pinned circuits release is
     // missing is told so (E3007); anything else falls back to cached addresses.
     await syncDeploymentsAtLaunch({
@@ -92,59 +64,14 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       showError: showGlobalError,
       log: (m) => console.log(m),
     });
-
-    // Main-branch circuits are fetched from `main`, never a release tag, so
-    // none of them can 404 here. When the settings cannot be read the person's
-    // choice is unknown, and only bandwidth rides on it, so everything is
-    // fetched as before the switch existed.
-    let laboratoryEnabled: boolean;
-    try {
-      laboratoryEnabled = (await settingsStore.get()).laboratoryEnabled;
-    } catch (settingsError) {
-      console.warn('Settings unreadable at launch; prefetching the Laboratory circuits too:', settingsError);
-      laboratoryEnabled = true;
-    }
-    // On Android, Coinbase KYC and OIDC have one circuit per attestation chain
-    // kind. The kind kept from an earlier proof picks the files; with none
-    // kept yet, those two are downloaded by the proof once the kind is known.
-    try {
-      if (currentSignerPlatform() === 'android') await loadAndroidChainKind();
-    } catch (kindError) {
-      console.warn('Android chain kind unreadable at launch; its circuits wait for the proof:', kindError);
-    }
-    const circuits = circuitsToPrefetch([...BASE_CIRCUITS, ...MAIN_BRANCH_CIRCUITS], laboratoryEnabled)
-      .filter(c => circuitFilesDecidableNow(c));
-
-    // Start all circuit downloads in parallel
-    const downloadPromise = Promise.allSettled(
-      circuits.map((circuitName) =>
-        downloadCircuitFiles(circuitName, env, handleProgress, (msg) => {
-          console.log(msg);
-        }),
-      ),
-    );
-
-    await bootstrapCircuits({
-      downloads: downloadPromise,
-      maxLoadingMs: MAX_LOADING_DURATION,
-      wait: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
-      finishLoading,
-      /*
-       * The modal, not `Alert.alert` — every user-facing error in this app goes
-       * through one place. It is raised through the bridge because
-       * `ErrorProvider` wraps the MAIN tree and this screen returns before it;
-       * the bridge holds the error until the modal exists.
-       */
-      onFailed: (reasons) => showGlobalError('E3005', reasons.join('; ')),
-      log: (m) => console.log(m),
-    });
-  }, [handleProgress, finishLoading]);
+    finishLoading();
+  }, [finishLoading]);
 
   useEffect(() => {
     splashTimerRef.current = setTimeout(() => {
       setShowSplash(false);
-      checkAndDownloadCircuits().catch((error) => {
-        console.error('Circuit initialization error:', error);
+      syncAtLaunch().catch((error) => {
+        console.error('Launch sync error:', error);
         finishLoading();
       });
     }, SPLASH_DURATION);
@@ -154,7 +81,7 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
         clearTimeout(splashTimerRef.current);
       }
     };
-  }, [checkAndDownloadCircuits, finishLoading]);
+  }, [syncAtLaunch, finishLoading]);
 
   if (showSplash) {
     return (

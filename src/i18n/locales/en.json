@@ -394,7 +394,24 @@
         "confirmGenerate": "Generate",
         "stackTitle": "Generate Proof",
         "dojangPlaygroundTitle": "Dojang Playground",
-        "dojangPlaygroundDescription": "Generate a zero-knowledge proof that your wallet issued itself a Dojang in the GIWA Playground on GIWA Sepolia. Connect the wallet you issued it with."
+        "dojangPlaygroundDescription": "Generate a zero-knowledge proof that your wallet issued itself a Dojang in the GIWA Playground on GIWA Sepolia. Connect the wallet you issued it with.",
+        "progress": {
+          "download": "Downloading proof files · {{received}}",
+          "prepare": "Preparing the proof",
+          "prove": "Making the proof on this phone",
+          "phase": {
+            "read circuit": "Reading the circuit",
+            "load srs": "Loading proof parameters",
+            "solve witness": "Computing the inputs",
+            "serialize witness": "Packing the inputs",
+            "prove": "Building the proof"
+          },
+          "elapsed": "{{elapsed}} so far",
+          "estimate": "Last time this took {{time}} on this phone",
+          "firstTime": "The first proof on this phone can take a few minutes",
+          "keepOpen": "Keep ZKProofport open until it finishes",
+          "backgrounded": "The app was in the background for a while; the proof continues now"
+        }
       },
       "domain": {
         "heroLabel": "OIDC DOMAIN VERIFICATION",
@@ -883,6 +900,10 @@
       "E4004": {
         "title": "Disconnect Failed",
         "description": "The wallet did not let go of the session. Disconnecting from inside the wallet app usually clears it."
+      },
+      "E2019": {
+        "title": "Proof Interrupted",
+        "description": "The app closed while the proof was being made, so no proof was sent. Start the request again to make a new one."
       }
     },
     "browser": {

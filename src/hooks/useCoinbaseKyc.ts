@@ -2,11 +2,11 @@ import {useState, useCallback, useRef} from 'react';
 import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
 import {ethers} from 'ethers';
 import {
-  generateNoirProof,
   getNumPublicInputsFromCircuit,
   parseProofWithPublicInputs,
   type ProofWithPublicInputs,
 } from 'mopro-ffi';
+import {circuitFilesForProof, proveCircuit} from '../utils/proofRun';
 import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils/proofVerification';
 import {
   getAssetPath,
@@ -19,10 +19,9 @@ import {
   clearProofCache,
   ensureStorageAvailable,
   loadVkFromAssets,
-  downloadCircuitFiles,
   ensureWalletOnChain,
 } from '../utils';
-import {getEnvironment, type CircuitName} from '../config';
+import {type CircuitName} from '../config';
 import {coinbaseKycArtifact} from '../config/circuitArtifacts';
 import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../appAttest/constants';
 import type {TypedAction} from '../config/circuitIds';
@@ -311,7 +310,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         checkStatementAge(statement.witness.attestedAt, Math.floor(Date.now() / 1000));
         // Always: downloadCircuitFiles owns the version check (the pinned
         // commit is part of the cache key) and fetches only what is stale.
-        await downloadCircuitFiles(circuitName, getEnvironment(), undefined, addLog);
+        await circuitFilesForProof(circuitName, addLog);
 
         // Step 1: Load VK
         updateStep('vk', {status: 'in_progress'});
@@ -554,16 +553,8 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         const srsPath = await getAssetPath(`${circuitName}.srs`);
 
         addLog('[Proof] Starting Noir proof generation (low memory mode)...');
-        addLog('[Proof] This may take 30-60 seconds...');
         const proofStartTime = Date.now();
-        currentProof = generateNoirProof(
-          circuitPath,
-          srsPath,
-          flatInputs,
-          true, // onChain
-          currentVk,
-          true, // lowMemoryMode
-        );
+        currentProof = await proveCircuit({circuit: circuitName, variant: signerVariant, circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
         const proofElapsed = Date.now() - proofStartTime;
 
         addLog(`[Proof] Proof generated! Size: ${currentProof!.byteLength} bytes`);

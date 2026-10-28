@@ -194,6 +194,23 @@ extern "C" {
         int8_t low_memory_mode, 
         RustCallStatus *uniffi_out_err
     );
+    RustBuffer uniffi_proofport_fn_func_noir_proof_status(
+        uint64_t job_id, 
+        RustCallStatus *uniffi_out_err
+    );
+    uint64_t uniffi_proofport_fn_func_start_noir_proof(
+        RustBuffer circuit_path, 
+        RustBuffer srs_path, 
+        RustBuffer inputs, 
+        int8_t on_chain, 
+        RustBuffer vk, 
+        RustBuffer options, 
+        RustCallStatus *uniffi_out_err
+    );
+    RustBuffer uniffi_proofport_fn_func_take_noir_proof(
+        uint64_t job_id, 
+        RustCallStatus *uniffi_out_err
+    );
     RustBuffer ffi_proofport_rustbuffer_alloc(
         uint64_t size, 
         RustCallStatus *uniffi_out_err
@@ -412,6 +429,12 @@ extern "C" {
     uint16_t uniffi_proofport_checksum_func_get_noir_verification_key(
     );
     uint16_t uniffi_proofport_checksum_func_verify_noir_proof(
+    );
+    uint16_t uniffi_proofport_checksum_func_noir_proof_status(
+    );
+    uint16_t uniffi_proofport_checksum_func_start_noir_proof(
+    );
+    uint16_t uniffi_proofport_checksum_func_take_noir_proof(
     );
     uint32_t ffi_proofport_uniffi_contract_version(
     );
@@ -1961,6 +1984,30 @@ NativeProofport::NativeProofport(
             return this->cpp_uniffi_proofport_fn_func_verify_noir_proof(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_proofport_fn_func_noir_proof_status"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_noir_proof_status"),
+        1,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_fn_func_noir_proof_status(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_fn_func_start_noir_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_start_noir_proof"),
+        6,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_fn_func_start_noir_proof(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_fn_func_take_noir_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_fn_func_take_noir_proof"),
+        1,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_fn_func_take_noir_proof(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_proofport_checksum_func_combine_proof_and_public_inputs"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_combine_proof_and_public_inputs"),
@@ -2047,6 +2094,30 @@ NativeProofport::NativeProofport(
         0,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_proofport_checksum_func_verify_noir_proof(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_checksum_func_noir_proof_status"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_noir_proof_status"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_checksum_func_noir_proof_status(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_checksum_func_start_noir_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_start_noir_proof"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_checksum_func_start_noir_proof(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_proofport_checksum_func_take_noir_proof"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_proofport_checksum_func_take_noir_proof"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_proofport_checksum_func_take_noir_proof(rt, thisVal, args, count);
         }
     );
     props["ubrn_ffi_proofport_uniffi_contract_version"] = jsi::Function::createFromHostFunction(
@@ -2306,6 +2377,36 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_verify_noir_proof(jsi::
         
         return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_noir_proof_status(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_proofport_fn_func_noir_proof_status(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), 
+            &status
+        );
+        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_start_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_proofport_fn_func_start_noir_proof(uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi_jsi::Bridging<int8_t>::fromJs(rt, callInvoker, args[3]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]), uniffi::proofport::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[5]), 
+            &status
+        );
+        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_fn_func_take_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::proofport::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_proofport_fn_func_take_noir_proof(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]), 
+            &status
+        );
+        uniffi::proofport::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::proofport::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_combine_proof_and_public_inputs(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_proofport_checksum_func_combine_proof_and_public_inputs(
         );
@@ -2378,6 +2479,27 @@ jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_get_noir_verifica
 }
 jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_verify_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_proofport_checksum_func_verify_noir_proof(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_noir_proof_status(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_proofport_checksum_func_noir_proof_status(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_start_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_proofport_checksum_func_start_noir_proof(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeProofport::cpp_uniffi_proofport_checksum_func_take_noir_proof(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_proofport_checksum_func_take_noir_proof(
         );
 
         

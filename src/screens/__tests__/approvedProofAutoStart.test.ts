@@ -27,11 +27,13 @@ const mockProofHook = () => ({proofSteps: mockSteps, parsedProof: mockParsedProo
   generateProofWithSteps: mockGenerate, resetProofCache: mockReset});
 
 jest.mock('react-native', () => ({
+  NativeModules: {}, AppState: {addEventListener: () => ({remove: () => {}})},
   View: 'View', Text: 'Text', SafeAreaView: 'SafeAreaView', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
   StyleSheet: {create: (styles: unknown) => styles}, Alert: {alert: jest.fn()},
   Animated: {View: 'AnimatedView', Value: class {interpolate() {return 0;}},
     timing: () => ({}), loop: () => ({start() {}, stop() {}})},
 }));
+jest.mock('../../components/ProofProgressCard', () => ({ProofProgressCard: 'ProofProgressCard'}));
 jest.mock('react-native-linear-gradient', () => 'LinearGradient');
 jest.mock('../../components/MobileIdTypeSheet', () => ({MobileIdTypeSheet: 'MobileIdTypeSheet'}));
 jest.mock('../../components/ui', () => ({Button: 'Button', Card: 'Card', StepIndicator: 'StepIndicator', LiveLogsPanel: 'LiveLogsPanel'}));

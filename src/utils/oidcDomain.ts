@@ -39,6 +39,7 @@
  * every other check has passed.
  */
 
+import {timed} from './proofTiming';
 import {ethers} from 'ethers';
 import type {ProviderKeySigner, StatementSignerInputs} from '../oidc/oidcAppSigner';
 import {SIGNER_KIND_APP} from '../appAttest/appSignerInputs';
@@ -486,7 +487,7 @@ export async function prepareOidcInputs(
   // `provider` was checked above to be google, microsoft or absent; absent is
   // "any email", which signs in with Google (oidcSignIn.ts).
   const providerId = OIDC_PROVIDER_ID[params.provider ?? 'google'];
-  const live = await fetchLiveProviderKeys(providerId, iss, {jwksUrl: params.jwksUrl});
+  const live = await timed('oidc: provider key list', () => fetchLiveProviderKeys(providerId, iss, {jwksUrl: params.jwksUrl}));
   const jwk = liveKeyForKid(live, header.kid);
   // The circuit's RSA check is for e = 65537.
   if (jwk.e !== 'AQAB') {
@@ -562,7 +563,7 @@ export async function prepareOidcInputs(
 
   // 9. Last, once nothing else can refuse the token: the provider-key
   // statement for exactly the public provider, now and modulus.
-  const signer = await params.signProviderKey({provider: providerId, now, modulus, live});
+  const signer = await timed('device: sign provider-key statement', () => params.signProviderKey({provider: providerId, now, modulus, live}));
 
   return {
     pubkey_modulus_limbs: pubkeyLimbs,

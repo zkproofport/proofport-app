@@ -163,6 +163,15 @@ export const ErrorCodes = {
     description:
       'A proof from this phone for this request could not be checked by the requesting service, so none was made.',
   },
+  // A proof that was running when the app was closed (killed for memory,
+  // swiped away): reported on the next launch, and to the dApp for a relay
+  // request.
+  E2019: {
+    code: 'E2019',
+    title: 'Proof Interrupted',
+    description:
+      'The app closed while the proof was being made, so no proof was sent. Start the request again to make a new one.',
+  },
 
   // Network errors
   E3001: {

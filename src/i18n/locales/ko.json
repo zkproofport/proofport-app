@@ -394,7 +394,24 @@
         "confirmGenerate": "생성",
         "stackTitle": "증명 생성",
         "dojangPlaygroundTitle": "Dojang Playground 증명",
-        "dojangPlaygroundDescription": "GIWA Playground에서 이 지갑으로 직접 발급한 Dojang을 GIWA Sepolia 영지식 증명으로 생성해요. 발급에 사용한 지갑을 연결해 주세요."
+        "dojangPlaygroundDescription": "GIWA Playground에서 이 지갑으로 직접 발급한 Dojang을 GIWA Sepolia 영지식 증명으로 생성해요. 발급에 사용한 지갑을 연결해 주세요.",
+        "progress": {
+          "download": "증명 파일 내려받는 중 · {{received}}",
+          "prepare": "증명 준비 중",
+          "prove": "이 휴대폰에서 증명을 만드는 중",
+          "phase": {
+            "read circuit": "회로 읽는 중",
+            "load srs": "증명 매개변수 불러오는 중",
+            "solve witness": "입력값 계산 중",
+            "serialize witness": "입력값 정리 중",
+            "prove": "증명 생성 중"
+          },
+          "elapsed": "{{elapsed}} 지남",
+          "estimate": "지난번에는 이 휴대폰에서 {{time}} 걸렸어요",
+          "firstTime": "이 휴대폰에서 처음 만드는 증명은 몇 분 걸릴 수 있어요",
+          "keepOpen": "끝날 때까지 ZKProofport를 열어 두세요",
+          "backgrounded": "앱이 잠시 백그라운드에 있었어요. 지금 이어서 진행해요"
+        }
       },
       "domain": {
         "heroLabel": "OIDC 도메인 인증",
@@ -883,6 +900,10 @@
       "E4004": {
         "title": "연결 해제에 실패했습니다",
         "description": "지갑이 세션을 놓지 않았습니다. 지갑 앱 안에서 연결을 끊으면 대개 정리됩니다."
+      },
+      "E2019": {
+        "title": "증명이 중단되었습니다",
+        "description": "증명을 만드는 중에 앱이 종료되어 증명을 보내지 못했습니다. 요청을 다시 시작하면 새로 만들 수 있습니다."
       }
     },
     "browser": {
