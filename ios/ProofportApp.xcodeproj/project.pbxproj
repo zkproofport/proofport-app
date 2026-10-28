@@ -447,7 +447,7 @@
 				CODE_SIGN_ENTITLEMENTS = OpenStoaNSE/OpenStoaNSE.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=iphoneos*]" = Manual;
-				CURRENT_PROJECT_VERSION = 10400;
+				CURRENT_PROJECT_VERSION = 10401;
 				DEVELOPMENT_TEAM = R4G32CVY29;
 				ENABLE_BITCODE = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -458,7 +458,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.masselabs.zkproofport.OpenStoaNSE;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -484,7 +484,7 @@
 				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=iphoneos*]" = Manual;
-				CURRENT_PROJECT_VERSION = 10400;
+				CURRENT_PROJECT_VERSION = 10401;
 				DEVELOPMENT_TEAM = R4G32CVY29;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = ProofportApp/Info.plist;
@@ -493,7 +493,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				OPENSTOA_ENABLED = true;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -521,7 +521,7 @@
 				CODE_SIGN_ENTITLEMENTS = ProofportApp/ProofportApp.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=iphoneos*]" = Manual;
-				CURRENT_PROJECT_VERSION = 10400;
+				CURRENT_PROJECT_VERSION = 10401;
 				DEVELOPMENT_TEAM = R4G32CVY29;
 				INFOPLIST_FILE = ProofportApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -529,7 +529,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				OPENSTOA_ENABLED = false;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -554,7 +554,7 @@
 				CODE_SIGN_ENTITLEMENTS = OpenStoaNSE/OpenStoaNSE.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				"CODE_SIGN_STYLE[sdk=iphoneos*]" = Manual;
-				CURRENT_PROJECT_VERSION = 10400;
+				CURRENT_PROJECT_VERSION = 10401;
 				DEVELOPMENT_TEAM = R4G32CVY29;
 				ENABLE_BITCODE = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -565,7 +565,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.masselabs.zkproofport.OpenStoaNSE;
 				PRODUCT_NAME = "$(TARGET_NAME)";
