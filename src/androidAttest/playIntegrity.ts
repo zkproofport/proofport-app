@@ -156,7 +156,10 @@ export async function decryptIntegrityTokenViaRelay(token: string, opts: RelayDe
   const reason = typeof (body as {reason?: unknown})?.reason === 'string' ? (body as {reason: string}).reason : undefined;
   opts.log?.(`[PlayIntegrity] Relay answered HTTP ${res.status}${reason ? ` (${reason})` : ''}`);
   if (!res.ok) {
-    if (res.status === 429 || res.status >= 500 || reason === 'not_configured') {
+    // 404 with no reason: the relay does not have the endpoint (a relay
+    // deployed without it -- staging on 2026-10-28). That is the service's
+    // fault, not the phone's, so it is "try again later", not E2016.
+    if (res.status === 429 || res.status >= 500 || reason === 'not_configured' || (res.status === 404 && !reason)) {
       return serviceUnavailable(`The device check service answered HTTP ${res.status}${reason ? ` (${reason})` : ''}; try again later`);
     }
     if (reason && RELAY_REASONS_DEVICE.has(reason)) {
