@@ -97,11 +97,19 @@ jobs:
         id: cache-node
         uses: actions/cache@v4
         with:
-          path: proofport-app/node_modules
+          # mopro-ffi is `file:./mopro_bindings`, so npm installs its own
+          # dependencies (uniffi-bindgen-react-native, which the native CMake
+          # build resolves) under mopro_bindings/node_modules. Caching only the
+          # app's node_modules restored a tree without it, `npm ci` was skipped
+          # on the hit, and the NDK build died with "Cannot find module
+          # 'uniffi-bindgen-react-native'" (run 40680985597, 2026-10-28).
+          path: |
+            proofport-app/node_modules
+            proofport-app/mopro_bindings/node_modules
           # Includes the OpenStoa pin: bumping .openstoa-commit must bust this
           # cache, or a stale node_modules could keep a broken/outdated
           # `openstoa-mobile` symlink alive across the change that fixed it.
-          key: node-${{ hashFiles('proofport-app/package-lock.json', 'proofport-app/.openstoa-commit') }}
+          key: node-${{ hashFiles('proofport-app/package-lock.json', 'proofport-app/.openstoa-commit', 'proofport-app/mopro_bindings/package.json') }}
 
       - name: Free disk space
         run: |
