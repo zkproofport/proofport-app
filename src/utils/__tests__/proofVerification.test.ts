@@ -7,6 +7,8 @@
  * must stay on mopro, the prover that made the proof. Both used to be copied
  * into six hooks; the last describe block holds them to the shared helpers.
  */
+// Coinbase KYC v2 and OIDC read per-platform circuit files; this test is the iPhone's.
+jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 import * as fs from 'fs';
 import * as path from 'path';
 

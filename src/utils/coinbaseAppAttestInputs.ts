@@ -28,9 +28,24 @@
  * `theAppBuildsTheCircuitsOwnVector.test.ts` holds this against a vector the
  * circuit's own fixture generator produced (circuits
  * scripts/coinbase-attestation-v2/export-app-vector.js), and its ABI.
+ *
+ * ANDROID. The same id is proved on Android by `coinbase_attestation_v2_android`
+ * (circuits coinbase-attestation-v2-android): the same 193 public inputs and
+ * private inputs through client_data, then the Android signer instead of
+ * signer_kind and the App Attest values -- statement_sig 64, ca2_tbs 600,
+ * ca2_tbs_len 1, ca2_sig 96, ca3_tbs 768, ca3_tbs_len 1, ca3_sig 96, att_tbs
+ * 512, att_tbs_len 1, att_sig 64, leaf_tbs 1024, leaf_tbs_len 1, leaf_sig 64
+ * -> 4,481 values (prepareCoinbaseAndroidInputs). Held to that package's
+ * compiled ABI by `theAndroidInputsFollowTheCircuitAbi.test.ts`.
  */
 import {ethers} from 'ethers';
 import type {AppAttestWitness} from '../appAttest/revocationStatement';
+import {
+  flattenAndroidSigner,
+  isAndroidSignerInputs,
+  type AndroidSignerInputs,
+  type AndroidStatementWitness,
+} from '../androidAttest/androidSignerInputs';
 import {appSignerInputs} from '../appAttest/appSignerInputs';
 import {CLIENT_DATA_LEN} from '../appAttest/clientData';
 import {bytesToNoirInput, nullifierForCircuit, type AttesterCircuitInputs} from './circuitHelpers';
@@ -91,29 +106,41 @@ const hexOfBytes = (b: Uint8Array): string[] => bytesToNoirInput(Array.from(b));
  *   - the clientData's wallet, digest and scope, compared with what is being
  *     proved, so a mismatch is reported here and not by the prover.
  */
-export function prepareCoinbaseAppAttestInputs(
+/** Everything but the signer: the Coinbase half and the statement, as both circuits take them. */
+type CoinbaseCommonInputs = Omit<
+  CoinbaseAppAttestInputs,
+  | 'signer_kind' | 'statement_sig' | 'credential_tbs' | 'credential_tbs_len' | 'credential_sig'
+  | 'att_auth_data' | 'att_auth_data_len' | 'att_client_data_hash' | 'assertion_auth_data' | 'assertion_auth_data_len'
+>;
+
+export interface CoinbaseStatementRequest {
+  userAddress: string;
+  scope: Uint8Array;
+  /** The digest the wallet signed. */
+  signedDigest: string;
+  /** Present in EIP-712 action mode. */
+  publicHashes?: {domainSeparator: string; actionHash: string};
+}
+
+/**
+ * The inputs both Coinbase KYC v2 circuits share (the iPhone one and the
+ * Android package), from the Coinbase half and the statement.
+ *
+ * Takes over three things from the Coinbase half rather than trusting them:
+ *   - the request pair: personal_sign mode sends `signal_hash` and two zero
+ *     hashes; EIP-712 mode sends a zero `signal_hash` and the two hashes. The
+ *     circuit refuses a request with both or neither.
+ *   - the nullifier, recomputed by v2's own rule (wallet +
+ *     keccak256("coinbase_attestation") + scope), never signal_hash's.
+ *   - the clientData's wallet, digest and scope, compared with what is being
+ *     proved, so a mismatch is reported here and not by the prover.
+ */
+function coinbaseCommonInputs(
   coinbase: AttesterCircuitInputs,
-  request: {
-    userAddress: string;
-    scope: Uint8Array;
-    /** The digest the wallet signed. */
-    signedDigest: string;
-    /** Present in EIP-712 action mode. */
-    publicHashes?: {domainSeparator: string; actionHash: string};
-    /**
-     * SHA256(X || Y) of the intermediate the circuit pins: Apple's CA 1
-     * (APPLE_APP_ATTEST_CA1_KEY_HASH) in the app, the synthetic one in the
-     * vector test. Required -- no default, so a test cannot quietly prove
-     * against Apple's while the app uses another.
-     */
-    pinnedCaKeyHash: string;
-  },
-  witness: AppAttestWitness,
-): CoinbaseAppAttestInputs {
-  // The App Attest half, shared with the OIDC circuit: refuses (E2014) a
-  // non-pinned intermediate, a development key and a high s.
-  const signer = appSignerInputs(witness.credential, witness.assertion, request.pinnedCaKeyHash);
-  const cd = witness.clientData;
+  request: CoinbaseStatementRequest,
+  statement: {clientData: Uint8Array; attestedAt: number},
+): CoinbaseCommonInputs {
+  const cd = statement.clientData;
   if (cd.length !== CLIENT_DATA_LEN) throw new Error(`clientData is ${cd.length} bytes, not ${CLIENT_DATA_LEN}`);
   const hexOf = (from: number, len: number) => ethers.utils.hexlify(cd.slice(from, from + len)).toLowerCase();
   if (hexOf(48, 20) !== request.userAddress.toLowerCase()) {
@@ -147,7 +174,7 @@ export function prepareCoinbaseAppAttestInputs(
     signer_list_merkle_root: coinbase.signer_list_merkle_root,
     scope: fixed(request.scope, 32, 'scope'),
     nullifier: bytesToNoirInput(Array.from(nullifier)),
-    attested_at: String(witness.attestedAt),
+    attested_at: String(statement.attestedAt),
 
     user_address: coinbase.user_address,
     user_signature: coinbase.user_signature,
@@ -162,6 +189,29 @@ export function prepareCoinbaseAppAttestInputs(
     merkle_proof_depth: coinbase.merkle_proof_depth,
 
     client_data: fixed(cd, CLIENT_DATA_LEN, 'client_data'),
+  };
+}
+
+/** Build the v2 vector from the Coinbase half and the App Attest witness (iPhone). */
+export function prepareCoinbaseAppAttestInputs(
+  coinbase: AttesterCircuitInputs,
+  request: CoinbaseStatementRequest & {
+    /**
+     * SHA256(X || Y) of the intermediate the circuit pins: Apple's CA 1
+     * (APPLE_APP_ATTEST_CA1_KEY_HASH) in the app, the synthetic one in the
+     * vector test. Required -- no default, so a test cannot quietly prove
+     * against Apple's while the app uses another.
+     */
+    pinnedCaKeyHash: string;
+  },
+  witness: AppAttestWitness,
+): CoinbaseAppAttestInputs {
+  // The App Attest half, shared with the OIDC circuit: refuses (E2014) a
+  // non-pinned intermediate, a development key and a high s.
+  const signer = appSignerInputs(witness.credential, witness.assertion, request.pinnedCaKeyHash);
+  const common = coinbaseCommonInputs(coinbase, request, witness);
+  return {
+    ...common,
     signer_kind: String(signer.signer_kind),
     statement_sig: hexOfBytes(signer.statement_sig),
     credential_tbs: hexOfBytes(signer.credential_tbs),
@@ -175,8 +225,45 @@ export function prepareCoinbaseAppAttestInputs(
   };
 }
 
-/** `fn main`'s order. The first 193 values are the public inputs. */
-export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): string[] {
+/**
+ * The Android package's vector (`coinbase_attestation_v2_android`): the same
+ * common inputs, then the Android signer (ANDROID_SIGNER_ABI_PARAMETERS)
+ * where the iPhone circuit has its ten App Attest values. 4,481 values; the
+ * first 193 are the public inputs, identical to the iPhone circuit's.
+ */
+export interface CoinbaseAndroidInputs extends CoinbaseCommonInputs {
+  signer: AndroidSignerInputs;
+}
+
+export const COINBASE_ANDROID_FLAT_INPUT_COUNT = 4481;
+
+export function prepareCoinbaseAndroidInputs(
+  coinbase: AttesterCircuitInputs,
+  request: CoinbaseStatementRequest,
+  witness: AndroidStatementWitness,
+): CoinbaseAndroidInputs {
+  if (!isAndroidSignerInputs(witness.signer)) {
+    throw new Error('The Android statement carries no Android signer inputs');
+  }
+  return {...coinbaseCommonInputs(coinbase, request, witness), signer: witness.signer};
+}
+
+export function flattenCoinbaseAndroidInputs(i: CoinbaseAndroidInputs): string[] {
+  const flat = [
+    ...flattenCommon(i),
+    ...flattenAndroidSigner(
+      i.signer,
+      b => bytesToNoirInput([b])[0],
+      n => String(n),
+    ),
+  ];
+  if (flat.length !== COINBASE_ANDROID_FLAT_INPUT_COUNT) {
+    throw new Error(`Coinbase KYC v2 (Android) inputs flattened to ${flat.length} values; the circuit takes ${COINBASE_ANDROID_FLAT_INPUT_COUNT}`);
+  }
+  return flat;
+}
+
+function flattenCommon(i: CoinbaseCommonInputs): string[] {
   return [
     ...i.signal_hash,
     ...i.domain_separator,
@@ -197,6 +284,13 @@ export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): stri
     i.coinbase_signer_leaf_index,
     i.merkle_proof_depth,
     ...i.client_data,
+  ];
+}
+
+/** `fn main`'s order. The first 193 values are the public inputs. */
+export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): string[] {
+  return [
+    ...flattenCommon(i),
     i.signer_kind,
     ...i.statement_sig,
     ...i.credential_tbs,

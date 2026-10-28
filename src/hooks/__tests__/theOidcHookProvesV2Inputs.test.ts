@@ -10,6 +10,8 @@
  * signed, the signed inputs follow signature_limbs, and an App Attest or
  * key-list failure reaches the screen with its own code.
  */
+// Coinbase KYC v2 and OIDC read per-platform circuit files; this test is the iPhone's.
+jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 import * as crypto from 'node:crypto';
 import React from 'react';
 import {act, create} from 'react-test-renderer';

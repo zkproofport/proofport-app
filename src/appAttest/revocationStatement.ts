@@ -153,16 +153,17 @@ export function requireProductionCredential(credential: CircuitCredential, proof
   }
 }
 
-export async function makeRevocationStatement(
+/**
+ * The lookup half of a statement, shared by both device signers: a fresh EAS
+ * record for the uid, checked against the wallet, schema and attester, and
+ * the 225-byte clientData built from it (buildClientData refuses a revoked
+ * attestation, E2011, before anything is signed).
+ */
+export async function revocationClientData(
   req: RevocationStatementRequest,
-  deps: RevocationDeps,
-): Promise<AppAttestWitness> {
-  const log = deps.appAttest.log;
-  // The key first: a device that cannot do App Attest is told so before any
-  // network lookup, and a first run certifies its key here.
-  const key = await ensureAttestedKey(deps.appAttest);
-  requireProductionCredential(key.credential);
-
+  deps: {fetchStatus?: typeof fetchAttestationStatus; now?: () => number; log: (m: string) => void},
+): Promise<{clientData: Uint8Array; attestedAt: number}> {
+  const log = deps.log;
   const status = await (deps.fetchStatus ?? fetchAttestationStatus)(req.attestationUid, log);
   if (status.schemaId.toLowerCase() !== COINBASE_KYC_SCHEMA_UID) {
     throw new AppAttestError(APP_ATTEST_ERROR_CODE.notFound, `Attestation ${status.uid} is schema ${status.schemaId}, not Coinbase Verified Account`);
@@ -190,6 +191,20 @@ export async function makeRevocationStatement(
     requestDigest: req.requestDigest,
     scope: req.scope,
   });
+  return {clientData, attestedAt};
+}
+
+export async function makeRevocationStatement(
+  req: RevocationStatementRequest,
+  deps: RevocationDeps,
+): Promise<AppAttestWitness> {
+  const log = deps.appAttest.log;
+  // The key first: a device that cannot do App Attest is told so before any
+  // network lookup, and a first run certifies its key here.
+  const key = await ensureAttestedKey(deps.appAttest);
+  requireProductionCredential(key.credential);
+
+  const {clientData, attestedAt} = await revocationClientData(req, {fetchStatus: deps.fetchStatus, now: deps.now, log});
   const signed = await assertClientData(deps.appAttest, clientData);
   // assertClientData may have replaced the key; check the one that signed.
   requireProductionCredential(signed.credential);

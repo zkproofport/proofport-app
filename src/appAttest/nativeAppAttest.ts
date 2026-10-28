@@ -2,9 +2,9 @@
  * The native App Attest calls (ios/ProofportApp/AppAttestModule.m), behind an
  * interface so the key lifecycle can be tested without a device.
  *
- * iOS only. Android's equivalent is Keystore key attestation, a different
- * certificate chain the circuit does not verify yet; asking for App Attest on
- * Android is refused here, by name, rather than quietly proving the old circuit.
+ * iOS only. Android's equivalent is Keystore key attestation
+ * (src/androidAttest/*), proved by the Android packages of the same circuit
+ * ids; asking for App Attest on Android is a bug and throws by name.
  */
 import {NativeModules, Platform} from 'react-native';
 import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
@@ -34,10 +34,9 @@ export function nativeCodeOf(error: unknown): string | undefined {
 
 export function getAppAttestNative(): AppAttestNative {
   if (Platform.OS !== 'ios') {
-    throw new AppAttestError(
-      APP_ATTEST_ERROR_CODE.platform,
-      `App Attest is iOS-only; this is ${Platform.OS}. Android key attestation is not built yet, so this proof cannot be made here.`,
-    );
+    // Not a person's error: on Android the statement goes to the Android
+    // signer (src/androidAttest/*); asking for App Attest there is a bug.
+    throw new Error(`App Attest is iOS-only; this is ${Platform.OS}. The Android signer is src/androidAttest/androidSigner.ts.`);
   }
   const mod = NativeModules.AppAttest as AppAttestNative | undefined;
   if (!mod) {

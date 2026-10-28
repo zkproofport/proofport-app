@@ -106,7 +106,7 @@ export const ErrorCodes = {
       'Signing in to your account did not complete, so no proof was generated.',
   },
 
-  // Apple App Attest (Coinbase KYC v2, iOS).
+  // Apple App Attest (Coinbase KYC v2 and the OIDC domain proof, iOS).
   // Each cause asks the person for something different, so each has a code:
   // src/appAttest/appAttestError.ts maps causes to these.
   E2009: {
@@ -114,12 +114,6 @@ export const ErrorCodes = {
     title: 'App Attest Not Available',
     description:
       'This device cannot use Apple App Attest, which this proof requires. The simulator never can. Use a recent iPhone.',
-  },
-  E2010: {
-    code: 'E2010',
-    title: 'Not Available on Android',
-    description:
-      'This proof is checked with Apple App Attest and is not available on Android yet. Nothing was generated.',
   },
   E2011: {
     code: 'E2011',
@@ -129,7 +123,8 @@ export const ErrorCodes = {
   },
   // The provider returned an ID token without the nonce this request asked
   // for (src/oidc/oidcNonce.ts). Such a token is not tied to this request, so
-  // it is never proved. E2009-E2011 and E2014 are App Attest.
+  // it is never proved. E2009, E2011 and E2014 are App Attest; E2015-E2016
+  // are Android key attestation.
   E2012: {
     code: 'E2012',
     title: 'Sign-In Not Tied to This Request',
@@ -141,6 +136,20 @@ export const ErrorCodes = {
     title: 'App Attest Check Failed',
     description:
       'The App Attest data from this device could not be used for the proof. Nothing was generated.',
+  },
+  // Android key attestation (Coinbase KYC v2 and the OIDC domain proof on
+  // Android): src/appAttest/appAttestError.ts ANDROID_ATTEST_ERROR_CODE.
+  E2015: {
+    code: 'E2015',
+    title: 'Device Attestation Not Available',
+    description:
+      'This phone cannot confirm, in its secure hardware, that the proof comes from the official ZKProofport app on an unmodified device. Nothing was generated.',
+  },
+  E2016: {
+    code: 'E2016',
+    title: 'Device Check Failed',
+    description:
+      'The attestation data from this phone could not be used for the proof. Nothing was generated.',
   },
 
   // Network errors

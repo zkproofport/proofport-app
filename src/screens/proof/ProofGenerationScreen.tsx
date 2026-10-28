@@ -47,8 +47,7 @@ import {showGlobalError} from '../../utils/errorBridge';
 import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
-import {prepareCoinbaseKycStatement} from '../../appAttest/coinbaseKycStatement';
-import type {AppAttestWitness} from '../../appAttest/revocationStatement';
+import {prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
 import {newStandaloneRequestId} from '../../oidc/oidcNonce';
 import {prepareOidcAppSigner, type ProviderKeySigner} from '../../oidc/oidcAppSigner';
 import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
@@ -946,12 +945,13 @@ export const ProofGenerationScreen: React.FC = () => {
         } satisfies Record<OidcSignInProvider, unknown>;
         const {providerName, authReady, promptSignIn} = SIGN_IN[signInWith];
 
-        // The circuit needs this phone's App Attest signature over the
-        // provider's key, so a phone that cannot make one is told so BEFORE
-        // the sign-in sheet: Android (E2010), no App Attest / simulator
-        // (E2009), a development key (E2014), Apple unreachable (E3006).
+        // The circuit needs this phone's hardware signature over the
+        // provider's key (App Attest on iPhone, Android key attestation on
+        // Android), so a phone that cannot make one is told so BEFORE the
+        // sign-in sheet: no App Attest / simulator (E2009), a development key
+        // (E2014), Apple unreachable (E3006), no Android module (E2015).
         // Thrown AppAttestErrors end the attempt with their code (catch below).
-        addLog('=== App Attest: preparing to sign the provider key ===');
+        addLog('=== Device signer: preparing to sign the provider key ===');
         const providerKeySigner: ProviderKeySigner = await prepareOidcAppSigner(addLog);
 
         addLog(`[OIDC] Starting ${providerName} Sign-In...`);
@@ -1133,12 +1133,14 @@ export const ProofGenerationScreen: React.FC = () => {
           (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action;
 
         // Coinbase KYC v2, for every request (in-app and dApp): right before
-        // proving, look the attestation up again and have App Attest sign
-        // that it is unrevoked. Refused here, with its own code, on Android
-        // (E2010), on a phone or simulator without App Attest (E2009), and
-        // for a revoked verification (E2011) -- before the wallet is asked.
-        addLog('=== App Attest: checking revocation and signing the statement ===');
-        const appAttestWitness: AppAttestWitness = await prepareCoinbaseKycStatement({
+        // proving, look the attestation up again and have this phone's
+        // hardware key sign that it is unrevoked (App Attest on iPhone,
+        // Android key attestation on Android). Refused here, with its own
+        // code, on a phone or simulator without App Attest (E2009), an
+        // Android phone or build the circuit does not accept (E2015 / E2016),
+        // and for a revoked verification (E2011) -- before the wallet is asked.
+        addLog('=== Device signer: checking revocation and signing the statement ===');
+        const appAttestWitness: CoinbaseStatementWitness = await prepareCoinbaseKycStatement({
           walletAddress,
           attestationUid: txResult.attestation.id,
           scopeString: scopeStr,
@@ -1165,8 +1167,9 @@ export const ProofGenerationScreen: React.FC = () => {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       addLog(`Error: ${msg}`);
-      // App Attest failures carry the code for their cause (unsupported
-      // device, Android, revoked, Apple unreachable, ...).
+      // Device-signer failures carry the code for their cause (unsupported
+      // device, an Android chain the circuit refuses, revoked, Apple
+      // unreachable, ...).
       failAttempt({code: error instanceof AppAttestError ? error.code : 'E2001', error: msg});
     } finally {
       setIsSearching(false);

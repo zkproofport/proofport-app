@@ -127,6 +127,20 @@ export async function verifyProofOnChainWithCore(
   addLog('=== Starting On-Chain Verification ===');
 
   try {
+    // The Android package of a circuit id has its own vk, so its own verifier
+    // contract; the address the app holds for the id is the iPhone
+    // circuit's, which rejects every Android proof. No Android verifier is
+    // configured, so the check is refused by name rather than run against
+    // the wrong contract and reported "invalid".
+    const artifact = circuitArtifactSource(circuit);
+    if (artifact?.variant === 'android') {
+      addLog(
+        `[OnChain] ${circuit} on Android is proved by ${artifact.remoteFileName}; no verifier contract is configured ` +
+          'for it in this app, so it is not checked on-chain (off-chain verification uses its own vk).',
+      );
+      setStatus('Verification unavailable');
+      return false;
+    }
     addLog('[OnChain] Loading network configuration...');
     const verifierAddress = await getVerifierAddress(circuit);
 

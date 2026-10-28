@@ -1,0 +1,321 @@
+{
+  "source": {
+    "circuitsCommit": "7d3647f040978bb84c7d913acf84ae2ba961c048",
+    "circuitsWorkingTreeChanged": true,
+    "chainJsSha256": "2b22c8dc793fd4b1793fa096d461f2bc525ebc836f94422108fcbe795b127feb"
+  },
+  "oidc_domain_attestation": {
+    "package": "oidc_domain_attestation_android",
+    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
+    "jsonSha256": "8cf45d5802eac7443aa7f9c5b7db67ca95cef7a80bc80f39991c97161653c9af",
+    "parameters": [
+      {
+        "name": "pubkey_modulus_limbs",
+        "visibility": "public",
+        "size": 18
+      },
+      {
+        "name": "domain",
+        "visibility": "public",
+        "size": 65
+      },
+      {
+        "name": "scope",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "nullifier",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "provider",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "aud_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "nonce_mode",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "nonce_binding",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "now",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "partial_data",
+        "visibility": "private",
+        "size": 2049
+      },
+      {
+        "name": "partial_hash",
+        "visibility": "private",
+        "size": 8
+      },
+      {
+        "name": "full_data_length",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "base64_decode_offset",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "redc_params_limbs",
+        "visibility": "private",
+        "size": 18
+      },
+      {
+        "name": "signature_limbs",
+        "visibility": "private",
+        "size": 18
+      },
+      {
+        "name": "statement_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "ca2_tbs",
+        "visibility": "private",
+        "size": 600
+      },
+      {
+        "name": "ca2_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "ca2_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "ca3_tbs",
+        "visibility": "private",
+        "size": 768
+      },
+      {
+        "name": "ca3_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "ca3_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "att_tbs",
+        "visibility": "private",
+        "size": 512
+      },
+      {
+        "name": "att_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "att_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "leaf_tbs",
+        "visibility": "private",
+        "size": 1024
+      },
+      {
+        "name": "leaf_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "leaf_sig",
+        "visibility": "private",
+        "size": 64
+      }
+    ]
+  },
+  "coinbase_attestation": {
+    "package": "coinbase_attestation_v2_android",
+    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
+    "jsonSha256": "1e7bc5b98765c2009771d2c63e59fc710637a06e1b0354db976421af7717e5e1",
+    "parameters": [
+      {
+        "name": "signal_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "domain_separator",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "action_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "signer_list_merkle_root",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "scope",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "nullifier",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "attested_at",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "user_address",
+        "visibility": "private",
+        "size": 20
+      },
+      {
+        "name": "user_signature",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "user_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "user_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "raw_transaction",
+        "visibility": "private",
+        "size": 300
+      },
+      {
+        "name": "tx_length",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "coinbase_attester_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_attester_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_signer_merkle_proof",
+        "visibility": "private",
+        "size": 256
+      },
+      {
+        "name": "coinbase_signer_leaf_index",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "merkle_proof_depth",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "client_data",
+        "visibility": "private",
+        "size": 225
+      },
+      {
+        "name": "statement_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "ca2_tbs",
+        "visibility": "private",
+        "size": 600
+      },
+      {
+        "name": "ca2_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "ca2_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "ca3_tbs",
+        "visibility": "private",
+        "size": 768
+      },
+      {
+        "name": "ca3_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "ca3_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "att_tbs",
+        "visibility": "private",
+        "size": 512
+      },
+      {
+        "name": "att_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "att_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "leaf_tbs",
+        "visibility": "private",
+        "size": 1024
+      },
+      {
+        "name": "leaf_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "leaf_sig",
+        "visibility": "private",
+        "size": 64
+      }
+    ]
+  }
+}

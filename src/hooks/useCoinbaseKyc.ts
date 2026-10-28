@@ -30,10 +30,17 @@ import {signedDigestOf} from '../utils/signedAction';
 import {computeScope} from '../utils/circuitHelpers';
 import {coinbaseSignalHash} from '../utils/coinbaseSignal';
 import {
+  flattenCoinbaseAndroidInputs,
   flattenCoinbaseAppAttestInputs,
+  prepareCoinbaseAndroidInputs,
   prepareCoinbaseAppAttestInputs,
+  type CoinbaseStatementRequest,
 } from '../utils/coinbaseAppAttestInputs';
 import {checkStatementAge, type AppAttestWitness} from '../appAttest/revocationStatement';
+import type {CoinbaseStatementWitness} from '../appAttest/coinbaseKycStatement';
+import {isAndroidStatementWitness} from '../androidAttest/androidSignerInputs';
+import {currentSignerVariant, type StatementSignerVariant} from '../config/signerPlatform';
+import type {AttesterCircuitInputs} from '../utils/circuitHelpers';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -55,6 +62,28 @@ function circuitFor(requested: string): string {
   }
   throw new Error(`This hook proves ${CIRCUIT_NAME}; it was asked for '${requested}'.`);
 }
+
+/**
+ * The input vector for this phone's circuit: the iPhone package takes App
+ * Attest inputs, the Android package Android key attestation inputs, under
+ * the same id. The witness must be the variant's own; anything else is an
+ * error naming both.
+ */
+const BUILD_FLAT_INPUTS: Readonly<Record<
+  StatementSignerVariant,
+  (coinbase: AttesterCircuitInputs, request: CoinbaseStatementRequest, witness: CoinbaseStatementWitness) => string[]
+>> = Object.freeze({
+  app_attest: (coinbase, request, witness) => {
+    if (isAndroidStatementWitness(witness)) throw new Error('An Android statement cannot prove the iPhone circuit');
+    return flattenCoinbaseAppAttestInputs(
+      prepareCoinbaseAppAttestInputs(coinbase, {...request, pinnedCaKeyHash: APPLE_APP_ATTEST_CA1_KEY_HASH}, witness as AppAttestWitness),
+    );
+  },
+  android: (coinbase, request, witness) => {
+    if (!isAndroidStatementWitness(witness)) throw new Error('An App Attest statement cannot prove the Android circuit');
+    return flattenCoinbaseAndroidInputs(prepareCoinbaseAndroidInputs(coinbase, request, witness));
+  },
+});
 
 // Module-level proof cache — persists across hook instances (screen navigations)
 /**
@@ -83,12 +112,14 @@ export interface CoinbaseKycProofInputs {
   signerIndex: number;
   scopeString: string;  // dApp scope identifier (REQUIRED)
   /**
-   * Required: Coinbase KYC v2 proves that this app, attested by Apple, saw
-   * the Coinbase verification unrevoked. The screen makes the statement before
-   * the wallet is asked to sign (src/appAttest/revocationStatement.ts).
+   * Required: Coinbase KYC v2 proves that this app, on a device whose
+   * hardware vouches for it (App Attest on iPhone, Android key attestation
+   * on Android), saw the Coinbase verification unrevoked. The screen makes
+   * the statement before the wallet is asked to sign
+   * (src/appAttest/coinbaseKycStatement.ts).
    */
   appAttest: {
-    witness: AppAttestWitness;
+    witness: CoinbaseStatementWitness;
     /** The EIP-712 action, when one is bound (signal_hash then goes out as zeros). */
     action?: TypedAction;
   };
@@ -250,9 +281,11 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         _cachedCircuitName = circuitName;
         const statement = inputs.appAttest;
         if (!statement?.witness) {
-          throw new Error('Coinbase KYC v2 needs an App Attest statement; none was made for this request.');
+          throw new Error('Coinbase KYC v2 needs a device statement; none was made for this request.');
         }
-        addLog(`[AppAttest] Coinbase KYC v2 (circuits ${coinbaseKycArtifact().ref})`);
+        const signerVariant = currentSignerVariant();
+        const artifact = coinbaseKycArtifact(signerVariant);
+        addLog(`[Statement] Coinbase KYC v2, ${signerVariant} signer (circuits ${artifact.ref}, ${artifact.remoteFileName})`);
         checkStatementAge(statement.witness.attestedAt, Math.floor(Date.now() / 1000));
         // Always: downloadCircuitFiles owns the version check (the pinned
         // commit is part of the cache key) and fetches only what is stale.
@@ -348,7 +381,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           // mismatch never costs the person a signature.
           const bound = ethers.utils.hexlify(statement.witness.clientData.slice(161, 193));
           if (bound.toLowerCase() !== signedDigestOf(signed).toLowerCase()) {
-            throw new Error(`The App Attest statement binds request ${bound}, this request signs ${signedDigestOf(signed)}`);
+            throw new Error(`The device statement binds request ${bound}, this request signs ${signedDigestOf(signed)}`);
           }
         }
         const selectedAddr = await ethereum.getSelectedAddress?.();
@@ -451,19 +484,16 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           // named rather than assumed.
           circuitName,
         );
-        const flatInputs = flattenCoinbaseAppAttestInputs(
-              prepareCoinbaseAppAttestInputs(
-                circuitInputs,
-                {
-                  userAddress: inputs.userAddress,
-                  scope: computeScope(inputs.scopeString),
-                  signedDigest: signedDigestOf(signed),
-                  publicHashes: signed.publicHashes,
-                  pinnedCaKeyHash: APPLE_APP_ATTEST_CA1_KEY_HASH,
-                },
-                statement.witness,
-              ),
-            );
+        const flatInputs = BUILD_FLAT_INPUTS[signerVariant](
+          circuitInputs,
+          {
+            userAddress: inputs.userAddress,
+            scope: computeScope(inputs.scopeString),
+            signedDigest: signedDigestOf(signed),
+            publicHashes: signed.publicHashes,
+          },
+          statement.witness,
+        );
 
         addLog('[Inputs] Signal hash: ✓');
         addLog('[Inputs] User address: ✓');
@@ -531,9 +561,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
 
         const numPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
         addLog(`[Parse] Number of public inputs: ${numPublicInputs}`);
-        if (numPublicInputs !== coinbaseKycArtifact().publicInputCount) {
+        if (numPublicInputs !== artifact.publicInputCount) {
           throw new Error(
-            `${circuitName} has ${numPublicInputs} public inputs; this app reads ${coinbaseKycArtifact().publicInputCount}. The downloaded circuit is not the one the app was built for.`,
+            `${circuitName} has ${numPublicInputs} public inputs; this app reads ${artifact.publicInputCount}. The downloaded circuit is not the one the app was built for.`,
           );
         }
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(

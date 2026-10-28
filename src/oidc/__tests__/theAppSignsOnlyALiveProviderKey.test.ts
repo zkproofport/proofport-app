@@ -1,8 +1,9 @@
 /**
  * The app as the OIDC circuit's provider-key signer (App Attest, kind 1).
  *
- * Before sign-in (prepareOidcAppSigner): Android -> E2010, no App Attest /
- * simulator -> E2009, a development key -> E2014, each with no assertion and,
+ * Before sign-in (prepareOidcAppSigner): Android goes to the Android signer
+ * (no App Attest module touched; a build without its module -> E2015), no
+ * App Attest / simulator -> E2009, a development key -> E2014, each with no assertion and,
  * for the first two, no key made. When signing: a modulus not in the live
  * list -> refused with no assertion; the assertion is asked for over exactly
  * SHA256(statement) and verifies over SHA256(authData || that); a high-s DER
@@ -17,7 +18,7 @@ import * as crypto from 'node:crypto';
 import {ethers} from 'ethers';
 import {__resetAppAttestKeyForTests} from '../../appAttest/appAttestKey';
 import {AppAttestError} from '../../appAttest/appAttestError';
-import {appSignerInputs} from '../../appAttest/appSignerInputs';
+import {appSignerInputs, type AppSignerInputs} from '../../appAttest/appSignerInputs';
 import {N_P256} from '../../appAttest/constants';
 import {sha256, verifyP1363} from '../../appAttest/__tests__/syntheticAppAttest';
 import {prepareOidcAppSigner} from '../oidcAppSigner';
@@ -66,14 +67,33 @@ describe('before sign-in', () => {
     delete rn.NativeModules.AppAttest;
   });
 
-  it('refuses Android with E2010, touching no App Attest module', async () => {
+  it('uses the Android signer on Android, touching no App Attest module', async () => {
     rn.Platform.OS = 'android';
     const native = {isSupported: jest.fn(), generateKey: jest.fn(), attestKey: jest.fn(), generateAssertion: jest.fn()};
     rn.NativeModules.AppAttest = native;
+    const android = {attestAndSign: jest.fn()};
+    rn.NativeModules.AndroidKeyAttestation = android;
     __resetAppAttestKeyForTests();
-    expect(await codeOf(prepareOidcAppSigner(() => {}))).toBe('E2010');
+    const logs: string[] = [];
+    const sign = await prepareOidcAppSigner(m => logs.push(m));
+    expect(typeof sign).toBe('function');
+    expect(logs.join('\n')).toMatch(/AndroidAttest/);
     expect(native.isSupported).not.toHaveBeenCalled();
+    expect(native.generateKey).not.toHaveBeenCalled();
     expect(native.generateAssertion).not.toHaveBeenCalled();
+    // Nothing is signed before the sign-in: the key is made per statement.
+    expect(android.attestAndSign).not.toHaveBeenCalled();
+    delete rn.NativeModules.AndroidKeyAttestation;
+  });
+
+  it('refuses an Android build without the AndroidKeyAttestation module with E2015, before any sign-in', async () => {
+    rn.Platform.OS = 'android';
+    expect(await codeOf(prepareOidcAppSigner(() => {}))).toBe('E2015');
+  });
+
+  it('throws, naming it, for a platform with no signer', async () => {
+    rn.Platform.OS = 'web';
+    expect(await codeOf(prepareOidcAppSigner(() => {}))).toMatch(/not ours: Error: No statement signer for platform 'web'/);
   });
 
   it('refuses an iOS build without the native module with E2009', async () => {
@@ -114,7 +134,7 @@ describe('signing', () => {
     const sign = await prepare();
     const live = await liveList(1);
     const modulus = modulusBytes(N);
-    const out = await sign({provider: 1, now: NOW, modulus, live});
+    const out = (await sign({provider: 1, now: NOW, modulus, live})) as AppSignerInputs;
 
     const statement = providerKeyStatement(1, NOW, modulus);
     expect(fake.calls.assertionHashes).toEqual([Buffer.from(sha256(statement)).toString('base64')]);
@@ -130,7 +150,7 @@ describe('signing', () => {
   it('puts a high-s device signature in low form, as for Coinbase KYC v2', async () => {
     const {fake, prepare} = setup({highS: true});
     const sign = await prepare();
-    const out = await sign({provider: 0, now: NOW, modulus: modulusBytes(N), live: await liveList(0)});
+    const out = (await sign({provider: 0, now: NOW, modulus: modulusBytes(N), live: await liveList(0)})) as AppSignerInputs;
     const s = BigInt(ethers.utils.hexlify(out.statement_sig.slice(32)));
     expect(s <= N_P256 / 2n).toBe(true);
     const authData = out.assertion_auth_data.slice(0, out.assertion_auth_data_len);

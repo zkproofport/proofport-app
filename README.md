@@ -251,21 +251,43 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
      `src/utils/__tests__/fixtures/dojangPlayground.json` from the circuits repo's
      Prover.toml files and the GIWA RPC.
 
-### Coinbase KYC v2: App Attest revocation binding (iOS)
+### Coinbase KYC v2: a device-signed revocation statement
 
 `coinbase_attestation` in this build is v2 (circuits `coinbase-attestation-v2`;
 files read from the pre-release tag `v2.0.0-rc.1` pinned in
 `src/config/circuitArtifacts.ts`, stored under `coinbase_attestation`). For
 every Coinbase KYC proof, in-app or from a dApp, right before proving the app
 looks the EAS attestation up again by uid, refuses a revoked one (E2011),
-builds the circuit's 225-byte clientData and signs it with an Apple App Attest
-assertion (`src/appAttest/`, native module `ios/ProofportApp/AppAttestModule.m`).
+builds the circuit's 225-byte clientData and has the phone's hardware key sign
+it: an Apple App Attest assertion on iPhone (`src/appAttest/`, native module
+`ios/ProofportApp/AppAttestModule.m`), an attested Android Keystore key on
+Android (`src/androidAttest/`, native module `AndroidKeyAttestationModule.kt`).
 The proof binds an optional EIP-712 action (the Coinbase KYC card opens the
 action screen; "Prove identity only" skips it) and uses the wallet +
-circuit-tag nullifier. Verifier: Base Sepolia
-`0x1885aa2283db21ad0fc63a2df98efe92f31908e6` for development and staging;
-none on Base mainnet yet. Android refuses with E2010; a simulator or an
-unsupported device with E2009.
+circuit-tag nullifier. Verifier (iPhone circuit): Base Sepolia
+`0x1885aa2283db21ad0fc63a2df98efe92f31908e6` for development and staging.
+A simulator or an iPhone without App Attest is refused with E2009.
+
+### Android signer (Coinbase KYC v2 and the OIDC domain proof)
+
+On Android both ids are proved by the circuits' Android packages
+(`coinbase_attestation_v2_android`, `oidc_domain_attestation_android`; the same
+public inputs, statements and nullifiers; 2^21). Per statement the native module
+makes a fresh P-256 key in the Android Keystore (StrongBox when present, else
+the TEE) with attestation challenge SHA-256(statement), signs the statement with
+SHA256withECDSA, returns the certificate chain and deletes the key. The app then
+checks the chain the way the circuit does -- Remote Key Provisioning under Key
+Attestation CA1, certificates valid at the statement's time, a TEE or StrongBox
+key generated in hardware, a locked and verified device, and the app's package
+signed with its store signing certificate -- and refuses anything else before
+proving (E2015; malformed data E2016). `src/utils/androidKeyAttestation.ts`
+mirrors circuits' `scripts/android-key-attestation/chain.js`; its test fixtures
+are written by `scripts/export-android-signer-fixtures.js`.
+
+Circuit files come from the circuits commit in `ANDROID_SIGNATURE_CIRCUITS_REF`
+(`src/config/circuitArtifacts.ts`). The 2^21 `.srs` is published in parts
+(`<package>.srs.part0` ...); the app checks each part and the joined file
+against `SHA256SUMS` and joins them in 4 MiB steps.
 
 ### Standalone action testing
 

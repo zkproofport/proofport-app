@@ -25,8 +25,10 @@
  * cut (1..64). The circuit refuses any other offset.
  *
  * Private inputs: the token (partial SHA, RSA signature), then the
- * provider-key statement's signer -- the app's App Attest assertion over
- * SHA256(statement) and its chain (src/oidc/oidcAppSigner.ts). The modulus it
+ * provider-key statement's signer -- on iPhone the app's App Attest assertion
+ * over SHA256(statement) and its chain, on Android the attested Keystore
+ * key's signature and its key attestation chain, proved by the Android
+ * package of this circuit id (src/oidc/oidcAppSigner.ts). The modulus it
  * vouches for must be in the provider's key list as fetched for THIS proof
  * (src/oidc/providerKeyStatement.ts); the public inputs do not change.
  *
@@ -38,7 +40,15 @@
  */
 
 import {ethers} from 'ethers';
-import type {ProviderKeySigner} from '../oidc/oidcAppSigner';
+import type {ProviderKeySigner, StatementSignerInputs} from '../oidc/oidcAppSigner';
+import {SIGNER_KIND_APP} from '../appAttest/appSignerInputs';
+import {
+  ANDROID_SIGNER_ABI_PARAMETERS,
+  ANDROID_SIGNER_FLAT_COUNT,
+  flattenAndroidSigner,
+  isAndroidSignerInputs,
+} from '../androidAttest/androidSignerInputs';
+import type {StatementSignerVariant} from '../config/signerPlatform';
 import {
   fetchLiveProviderKeys,
   liveKeyForKid,
@@ -77,12 +87,36 @@ export const OIDC_ABI_PARAMETERS = Object.freeze([
   'att_auth_data_len', 'att_client_data_hash', 'assertion_auth_data', 'assertion_auth_data_len',
 ] as const);
 
-/** The prover's flat input vector: 214 public, 2,095 token, 1,580 signer values. */
+/** The prover's flat input vector (iPhone): 214 public, 2,095 token, 1,580 signer values. */
 export const OIDC_FLAT_INPUT_COUNT = 3889;
 
-/** Refuses a circuit ABI that is not OIDC_ABI_PARAMETERS, naming the difference. */
-export function requireOidcAbi(parameterNames: readonly string[]): void {
-  const want = OIDC_ABI_PARAMETERS.join(', ');
+/**
+ * The Android package's `fn main` parameters (`oidc_domain_attestation_android`):
+ * the same public inputs and token inputs, then the Android signer.
+ */
+export const OIDC_ANDROID_ABI_PARAMETERS = Object.freeze([
+  ...OIDC_ABI_PARAMETERS.slice(0, OIDC_ABI_PARAMETERS.indexOf('signer_kind')),
+  ...ANDROID_SIGNER_ABI_PARAMETERS,
+]);
+
+/** The prover's flat input vector (Android): 214 public, 2,095 token, 3,292 signer values. */
+export const OIDC_ANDROID_FLAT_INPUT_COUNT = 214 + 2095 + ANDROID_SIGNER_FLAT_COUNT;
+
+const OIDC_ABI_BY_VARIANT: Readonly<Record<StatementSignerVariant, readonly string[]>> = Object.freeze({
+  app_attest: OIDC_ABI_PARAMETERS,
+  android: OIDC_ANDROID_ABI_PARAMETERS,
+});
+
+/**
+ * Refuses a circuit ABI that is not the one this phone's signer variant
+ * proves with, naming the difference. The variant is required: the iPhone
+ * and Android files of this id differ only after `signature_limbs`.
+ */
+export function requireOidcAbi(parameterNames: readonly string[], variant: StatementSignerVariant): void {
+  if (!Object.prototype.hasOwnProperty.call(OIDC_ABI_BY_VARIANT, variant)) {
+    throw new Error(`No OIDC circuit ABI for signer '${variant}'. Known: ${Object.keys(OIDC_ABI_BY_VARIANT).join(', ')}.`);
+  }
+  const want = OIDC_ABI_BY_VARIANT[variant].join(', ');
   const got = parameterNames.join(', ');
   if (got !== want) {
     throw new Error(
@@ -119,17 +153,10 @@ export interface OidcCircuitInputs {
   redc_params_limbs: string[]; // 18 × u128 decimal strings
   signature_limbs: string[]; // 18 × u128 decimal strings
 
-  // Private: who vouched for the modulus (statement-signer, app kind)
-  signer_kind: number; // 1 = App Attest
-  statement_sig: number[]; // 64, r || s, low s
-  credential_tbs: number[]; // 1000, zero padded
-  credential_tbs_len: number;
-  credential_sig: number[]; // 96
-  att_auth_data: number[]; // 256, zero padded
-  att_auth_data_len: number;
-  att_client_data_hash: number[]; // 32
-  assertion_auth_data: number[]; // 128, zero padded
-  assertion_auth_data_len: number;
+  // Private: who vouched for the modulus -- the iPhone's App Attest inputs
+  // (signer kind 1, AppSignerInputs) or the Android phone's key attestation
+  // (AndroidSignerInputs). Each goes to its own circuit's ABI.
+  signer: StatementSignerInputs;
 }
 
 export interface PrepareOidcParams {
@@ -543,16 +570,7 @@ export async function prepareOidcInputs(
     base64_decode_offset: base64DecodeOffset,
     redc_params_limbs: redcLimbs,
     signature_limbs: sigLimbs,
-    signer_kind: signer.signer_kind,
-    statement_sig: Array.from(signer.statement_sig),
-    credential_tbs: Array.from(signer.credential_tbs),
-    credential_tbs_len: signer.credential_tbs_len,
-    credential_sig: Array.from(signer.credential_sig),
-    att_auth_data: Array.from(signer.att_auth_data),
-    att_auth_data_len: signer.att_auth_data_len,
-    att_client_data_hash: Array.from(signer.att_client_data_hash),
-    assertion_auth_data: Array.from(signer.assertion_auth_data),
-    assertion_auth_data_len: signer.assertion_auth_data_len,
+    signer,
   };
 }
 
@@ -566,11 +584,14 @@ export async function prepareOidcInputs(
  *   aud_hash, nonce_mode, nonce_binding, now,
  *   partial_data, partial_hash, full_data_length, base64_decode_offset,
  *   redc_params_limbs, signature_limbs,
- *   signer_kind, statement_sig, credential_tbs, credential_tbs_len,
- *   credential_sig, att_auth_data, att_auth_data_len, att_client_data_hash,
- *   assertion_auth_data, assertion_auth_data_len
- * (OIDC_ABI_PARAMETERS). The first OIDC_PUBLIC_INPUT_COUNT values are the
- * public inputs; OIDC_FLAT_INPUT_COUNT in all.
+ *   then the signer: on iPhone signer_kind, statement_sig, credential_tbs,
+ *   credential_tbs_len, credential_sig, att_auth_data, att_auth_data_len,
+ *   att_client_data_hash, assertion_auth_data, assertion_auth_data_len
+ *   (OIDC_ABI_PARAMETERS, OIDC_FLAT_INPUT_COUNT values in all); on Android
+ *   statement_sig and the AndroidChain (OIDC_ANDROID_ABI_PARAMETERS,
+ *   OIDC_ANDROID_FLAT_INPUT_COUNT). The first OIDC_PUBLIC_INPUT_COUNT values
+ *   are the public inputs either way. Which one is decided by the signer
+ *   inputs' own kind; anything else is an error.
  *
  * Noir noir_js format:
  * - u128 limbs: decimal strings (no conversion needed)
@@ -649,23 +670,37 @@ export function flattenOidcInputs(inputs: OidcCircuitInputs): string[] {
     flat.push(limb);
   }
 
-  // The provider-key statement's signer, in ABI order.
-  const bytes = (b: number[]) => {
-    for (const x of b) flat.push(x.toString());
-  };
-  flat.push(inputs.signer_kind.toString());
-  bytes(inputs.statement_sig);
-  bytes(inputs.credential_tbs);
-  flat.push(inputs.credential_tbs_len.toString());
-  bytes(inputs.credential_sig);
-  bytes(inputs.att_auth_data);
-  flat.push(inputs.att_auth_data_len.toString());
-  bytes(inputs.att_client_data_hash);
-  bytes(inputs.assertion_auth_data);
-  flat.push(inputs.assertion_auth_data_len.toString());
+  // The provider-key statement's signer, in its circuit's ABI order.
+  const signer = inputs.signer;
+  let expected: number;
+  if (isAndroidSignerInputs(signer)) {
+    flat.push(...flattenAndroidSigner(signer, b => b.toString(), n => n.toString()));
+    expected = OIDC_ANDROID_FLAT_INPUT_COUNT;
+  } else if (signer?.signer_kind === SIGNER_KIND_APP) {
+    const bytes = (b: Uint8Array) => {
+      for (const x of b) flat.push(x.toString());
+    };
+    flat.push(signer.signer_kind.toString());
+    bytes(signer.statement_sig);
+    bytes(signer.credential_tbs);
+    flat.push(signer.credential_tbs_len.toString());
+    bytes(signer.credential_sig);
+    bytes(signer.att_auth_data);
+    flat.push(signer.att_auth_data_len.toString());
+    bytes(signer.att_client_data_hash);
+    bytes(signer.assertion_auth_data);
+    flat.push(signer.assertion_auth_data_len.toString());
+    expected = OIDC_FLAT_INPUT_COUNT;
+  } else {
+    throw new Error(
+      `The provider-key signer inputs are neither App Attest (signer_kind ${SIGNER_KIND_APP}) nor Android: ${JSON.stringify(
+        signer && {variant: (signer as {variant?: unknown}).variant, signer_kind: (signer as {signer_kind?: unknown}).signer_kind},
+      )}`,
+    );
+  }
 
-  if (flat.length !== OIDC_FLAT_INPUT_COUNT) {
-    throw new Error(`OIDC inputs flattened to ${flat.length} values; the circuit takes ${OIDC_FLAT_INPUT_COUNT}`);
+  if (flat.length !== expected) {
+    throw new Error(`OIDC inputs flattened to ${flat.length} values; the circuit takes ${expected}`);
   }
   return flat;
 }

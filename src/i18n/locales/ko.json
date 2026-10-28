@@ -760,10 +760,6 @@
         "title": "App Attest를 사용할 수 없습니다",
         "description": "이 증명에 필요한 Apple App Attest를 이 기기에서 사용할 수 없습니다. 시뮬레이터에서는 항상 사용할 수 없습니다. 최신 iPhone에서 시도해 주세요."
       },
-      "E2010": {
-        "title": "Android에서는 아직 지원하지 않습니다",
-        "description": "이 증명은 Apple App Attest로 확인하므로 아직 Android에서는 만들 수 없습니다. 증명을 생성하지 않았습니다."
-      },
       "E2011": {
         "title": "Coinbase 인증이 취소되었습니다",
         "description": "Coinbase가 이 지갑의 인증을 취소해 증명을 생성하지 않았습니다. Coinbase에서 다시 인증한 뒤 시도해 주세요."
@@ -775,6 +771,14 @@
       "E2014": {
         "title": "App Attest 확인에 실패했습니다",
         "description": "이 기기의 App Attest 데이터를 증명에 사용할 수 없었습니다. 증명을 생성하지 않았습니다."
+      },
+      "E2015": {
+        "title": "기기 인증을 사용할 수 없습니다",
+        "description": "이 휴대폰의 보안 하드웨어로 공식 ZKProofport 앱이 변경되지 않은 기기에서 증명을 만든다는 것을 확인할 수 없습니다. 증명을 생성하지 않았습니다."
+      },
+      "E2016": {
+        "title": "기기 확인에 실패했습니다",
+        "description": "이 휴대폰의 인증 데이터를 증명에 사용할 수 없었습니다. 증명을 생성하지 않았습니다."
       },
       "E3001": {
         "title": "네트워크 오류",

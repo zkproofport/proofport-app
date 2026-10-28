@@ -240,16 +240,15 @@ describe('the native module', () => {
     delete mockNativeModules.AppAttest;
   });
 
-  it('is refused on Android with E2010, by name', () => {
+  it('is never asked for on Android: doing so throws, naming the Android signer, with no modal code', () => {
     mockPlatform.OS = 'android';
     mockNativeModules.AppAttest = {};
-    let c = '';
+    expect(() => getAppAttestNative()).toThrow(/App Attest is iOS-only; this is android\. The Android signer is src\/androidAttest\/androidSigner\.ts/);
     try {
       getAppAttestNative();
     } catch (e) {
-      c = (e as AppAttestError).code;
+      expect(e).not.toBeInstanceOf(AppAttestError);
     }
-    expect(c).toBe('E2010');
   });
 
   it('missing from an iOS build is E2009, not a crash', () => {

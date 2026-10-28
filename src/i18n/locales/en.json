@@ -760,10 +760,6 @@
         "title": "App Attest Not Available",
         "description": "This device cannot use Apple App Attest, which this proof requires. The simulator never can. Use a recent iPhone."
       },
-      "E2010": {
-        "title": "Not Available on Android",
-        "description": "This proof is checked with Apple App Attest and is not available on Android yet. Nothing was generated."
-      },
       "E2011": {
         "title": "Coinbase Verification Revoked",
         "description": "Coinbase has revoked the verification for this wallet, so no proof was generated. Verify again with Coinbase, then try again."
@@ -775,6 +771,14 @@
       "E2014": {
         "title": "App Attest Check Failed",
         "description": "The App Attest data from this device could not be used for the proof. Nothing was generated."
+      },
+      "E2015": {
+        "title": "Device Attestation Not Available",
+        "description": "This phone cannot confirm, in its secure hardware, that the proof comes from the official ZKProofport app on an unmodified device. Nothing was generated."
+      },
+      "E2016": {
+        "title": "Device Check Failed",
+        "description": "The attestation data from this phone could not be used for the proof. Nothing was generated."
       },
       "E3001": {
         "title": "Network Error",

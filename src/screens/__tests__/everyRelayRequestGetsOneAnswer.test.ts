@@ -368,7 +368,8 @@ describe('every inline failure path answers once, with its code', () => {
   });
 
   it.each([
-    ['Android (no App Attest)', 'E2010'],
+    ['an Android phone or build the circuit does not accept', 'E2015'],
+    ['Android attestation data the circuit cannot take', 'E2016'],
     ['a phone or simulator without App Attest', 'E2009'],
     ['a development App Attest key', 'E2014'],
     ['Apple App Attest unreachable', 'E3006'],
@@ -550,7 +551,8 @@ describe('Coinbase KYC v2 App Attest statement on a relay request', () => {
   const {AppAttestError} = jest.requireActual('../../appAttest/appAttestError');
 
   it.each([
-    ['E2010', 'Android'],
+    ['E2015', 'an Android chain the circuit refuses'],
+    ['E2016', 'malformed Android attestation data'],
     ['E2009', 'no App Attest on this device'],
     ['E2011', 'revoked'],
     ['E3006', 'Apple unreachable'],
