@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- STAGING FLAVOR ONLY (staging builds go to Play's internal / alpha tracks,
+     never to production). scripts/capture-android-attestation.sh drives the
+     probe over adb to capture a real key attestation chain and Play Integrity
+     verdict from a Play-installed build. Only a caller holding
+     android.permission.DUMP can reach it: adb's shell has it; an installed
+     app cannot obtain it (signature|privileged|development), so no other app
+     on the phone can make this one sign a statement. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".AttestationProbeReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>

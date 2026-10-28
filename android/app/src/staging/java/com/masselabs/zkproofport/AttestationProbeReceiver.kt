@@ -8,14 +8,20 @@ import android.util.Log
 import java.io.File
 
 /**
- * DEBUG BUILDS ONLY (src/debug): captures what AndroidKeyAttestationCore
- * produces on a real phone, for scripts/capture-android-attestation.sh.
+ * STAGING FLAVOR ONLY (src/staging; internal / alpha tracks, never
+ * production; reachable only with android.permission.DUMP, i.e. adb):
+ * captures what AndroidKeyAttestationCore produces on a real phone, for
+ * scripts/capture-android-attestation.sh -- including from a Play-installed
+ * build, whose signing certificate and Play recognition are the real ones.
  *
  *   am broadcast -n com.masselabs.zkproofport/.AttestationProbeReceiver \
  *     --es action attest --es statement <base64>
- *       -> files/attestation-probe/attest.json {chain: [base64 DER], signature: base64 DER, strongBox}
+ *       -> <external files>/attestation-probe/attest.json {chain: [base64 DER], signature: base64 DER, strongBox}
  *   am broadcast ... --es action integrity --es nonce <unpadded base64url>
- *       -> files/attestation-probe/integrity.json {token}   (the encrypted JWE)
+ *       -> <external files>/attestation-probe/integrity.json {token}   (the encrypted JWE)
+ *
+ * <external files> = /sdcard/Android/data/com.masselabs.zkproofport/files,
+ * which adb can read from a release build (run-as needs a debuggable one).
  *
  * Each run first deletes its output file and writes `<name>.error` on a
  * refusal, so a stale file is never read as a result. Nothing is logged but
@@ -23,7 +29,8 @@ import java.io.File
  */
 class AttestationProbeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val dir = File(context.filesDir, "attestation-probe").apply { mkdirs() }
+        val base = context.getExternalFilesDir(null) ?: context.filesDir
+        val dir = File(base, "attestation-probe").apply { mkdirs() }
         val pending = goAsync()
         when (val action = intent.getStringExtra("action")) {
             "attest" -> {

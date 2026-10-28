@@ -5,10 +5,10 @@
 #
 #   scripts/capture-android-attestation.sh <adb serial> <statement file> <out dir>
 #
-# Needs a DEBUG build of the app installed (src/debug holds the receiver; a
-# debug build is signed with the debug key, so its key description names the
-# debug certificate, and Play recognizes it as UNRECOGNIZED_VERSION -- the
-# circuits refuse it for both reasons). Writes to <out dir>:
+# Needs a STAGING-flavor build installed (src/staging holds the receiver,
+# guarded by android.permission.DUMP so only adb reaches it). A Play-installed
+# staging build carries the Play signing certificate and PLAY_RECOGNIZED; a
+# locally built debug one does not (the circuits refuse it). Writes to <out dir>:
 #   attest.json     {chain: [base64 DER, leaf first], signature: base64 DER, strongBox}
 #   integrity.json  {token}: the encrypted JWE
 #   verdict.json    {protectedHeader, payload, signature, verdict}: decrypted
@@ -27,15 +27,16 @@ RECEIVER="$PKG/.AttestationProbeReceiver"
 unset NODE_OPTIONS
 mkdir -p "$OUT"
 
-pull() { # name -> waits for files/attestation-probe/<name>.json or .error
+PROBE_DIR="/sdcard/Android/data/$PKG/files/attestation-probe"
+pull() { # name -> waits for <PROBE_DIR>/<name>.json or .error
   local name="$1" i
   for i in $(seq 1 120); do
-    if adb -s "$SERIAL" shell "run-as $PKG test -f files/attestation-probe/$name.json" 2>/dev/null; then
-      adb -s "$SERIAL" shell "run-as $PKG cat files/attestation-probe/$name.json" > "$OUT/$name.json"
+    if adb -s "$SERIAL" shell "test -f $PROBE_DIR/$name.json" 2>/dev/null; then
+      adb -s "$SERIAL" shell "cat $PROBE_DIR/$name.json" > "$OUT/$name.json"
       return 0
     fi
-    if adb -s "$SERIAL" shell "run-as $PKG test -f files/attestation-probe/$name.error" 2>/dev/null; then
-      echo "$name failed on the phone: $(adb -s "$SERIAL" shell "run-as $PKG cat files/attestation-probe/$name.error")" >&2
+    if adb -s "$SERIAL" shell "test -f $PROBE_DIR/$name.error" 2>/dev/null; then
+      echo "$name failed on the phone: $(adb -s "$SERIAL" shell "cat $PROBE_DIR/$name.error")" >&2
       return 1
     fi
     sleep 1

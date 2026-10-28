@@ -10,6 +10,23 @@ on:
           - development
           - production
         default: development
+      # The fastlane lane's own defaults (alpha / draft) apply when these are
+      # left as they are; a draft on alpha cannot be installed by anyone, so a
+      # build meant for testers names `internal` and `completed`.
+      track:
+        description: 'Play track to upload to'
+        type: choice
+        options:
+          - alpha
+          - internal
+        default: alpha
+      release_status:
+        description: 'Play release status (draft needs a console publish; completed is live for the track)'
+        type: choice
+        options:
+          - draft
+          - completed
+        default: draft
 
 permissions:
   contents: read
@@ -120,7 +137,7 @@ jobs:
           ORG_GRADLE_PROJECT_APP_ENV_OVERRIDE: ${{ inputs.app_env }}
         run: |
           cd proofport-app/android
-          bundle exec fastlane beta flavor:staging
+          bundle exec fastlane beta flavor:staging track:${{ inputs.track }} release_status:${{ inputs.release_status }}
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
