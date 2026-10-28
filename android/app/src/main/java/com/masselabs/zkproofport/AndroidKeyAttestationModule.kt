@@ -1,29 +1,11 @@
 package com.masselabs.zkproofport
 
-import android.content.pm.PackageManager
-import android.os.Build
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import android.security.keystore.StrongBoxUnavailableException
 import android.util.Base64
-import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.google.android.play.core.integrity.IntegrityManagerFactory
-import com.google.android.play.core.integrity.IntegrityServiceException
-import com.google.android.play.core.integrity.IntegrityTokenRequest
-import com.google.android.play.core.integrity.model.IntegrityErrorCode
-import java.security.KeyPairGenerator
-import java.security.KeyStore
-import java.security.MessageDigest
-import java.security.PrivateKey
-import java.security.Signature
-import java.security.cert.X509Certificate
-import java.security.spec.ECGenParameterSpec
-import java.util.UUID
 import java.util.concurrent.Executors
 
 /**
@@ -65,51 +47,6 @@ class AndroidKeyAttestationModule(reactContext: ReactApplicationContext) :
 
     override fun getName(): String = "AndroidKeyAttestation"
 
-    private fun isStrongBoxAvailable(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-            reactApplicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
-
-    /**
-     * Whether this phone can attest a hardware key at all. Key attestation
-     * exists from API 24 (below the app's minSdk, but stated); from API 31
-     * the platform also says whether a hardware keystore is present. On 28-30
-     * the chain itself tells (a software chain is refused in JS).
-     */
-    private fun unsupportedReason(): String? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            return "Key attestation needs Android 7.0 (API 24); this is API ${Build.VERSION.SDK_INT}"
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            !reactApplicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_HARDWARE_KEYSTORE)
-        ) {
-            return "This phone reports no hardware keystore (FEATURE_HARDWARE_KEYSTORE)"
-        }
-        return null
-    }
-
-    private fun generateKey(alias: String, challenge: ByteArray, strongBox: Boolean) {
-        val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
-            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
-            .setDigests(KeyProperties.DIGEST_SHA256)
-            .setAttestationChallenge(challenge)
-            .setUserAuthenticationRequired(false)
-            .apply { if (strongBox) setIsStrongBoxBacked(true) }
-            .build()
-        val generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, KEYSTORE)
-        generator.initialize(spec)
-        generator.generateKeyPair()
-    }
-
-    private fun deleteKey(keyStore: KeyStore, alias: String) {
-        try {
-            if (keyStore.containsAlias(alias)) keyStore.deleteEntry(alias)
-        } catch (e: Exception) {
-            // The key is unusable without the statement it was made for; a
-            // leftover entry costs storage only. Logged so it is seen.
-            Log.w(TAG, "Could not delete key $alias: ${e.javaClass.name}: ${e.message}", e)
-        }
-    }
-
     @ReactMethod
     fun attestAndSign(statementBase64: String?, promise: Promise) {
         val statement: ByteArray = try {
@@ -119,141 +56,35 @@ class AndroidKeyAttestationModule(reactContext: ReactApplicationContext) :
             promise.reject(CODE_INVALID_INPUT, "attestAndSign needs the statement as non-empty base64: ${e.message}")
             return
         }
-        if (statement.isEmpty()) {
-            promise.reject(CODE_INVALID_INPUT, "attestAndSign needs a non-empty statement")
-            return
-        }
-        unsupportedReason()?.let {
-            Log.w(TAG, it)
-            promise.reject(CODE_UNSUPPORTED, it)
-            return
-        }
-
         executor.execute {
-            val alias = "zkproofport-statement-${UUID.randomUUID()}"
-            val keyStore = try {
-                KeyStore.getInstance(KEYSTORE).apply { load(null) }
-            } catch (e: Exception) {
-                Log.e(TAG, "AndroidKeyStore unavailable: ${e.javaClass.name}: ${e.message}", e)
-                promise.reject(CODE_UNSUPPORTED, "AndroidKeyStore unavailable: ${e.javaClass.name}: ${e.message}", e)
-                return@execute
-            }
             try {
-                val challenge = MessageDigest.getInstance("SHA-256").digest(statement)
-
-                // StrongBox first, then the TEE (zkPassport's order). A
-                // StrongBoxUnavailableException is the documented "no
-                // StrongBox for this key"; any other StrongBox failure also
-                // falls back, as zkPassport does, and is logged with its class.
-                var strongBox = false
-                var strongBoxFailure: Exception? = null
-                if (isStrongBoxAvailable()) {
-                    try {
-                        generateKey(alias, challenge, true)
-                        strongBox = true
-                    } catch (e: StrongBoxUnavailableException) {
-                        strongBoxFailure = e
-                    } catch (e: Exception) {
-                        strongBoxFailure = e
-                    }
-                    strongBoxFailure?.let {
-                        Log.w(TAG, "StrongBox key generation failed, using the TEE: ${it.javaClass.name}: ${it.message}", it)
-                        deleteKey(keyStore, alias)
-                    }
-                }
-                if (!strongBox) {
-                    try {
-                        generateKey(alias, challenge, false)
-                    } catch (e: Exception) {
-                        val detail = "Key generation failed: ${e.javaClass.name}: ${e.message} " +
-                            "[${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}, SDK ${Build.VERSION.SDK_INT}]" +
-                            (strongBoxFailure?.let { "; StrongBox before it: ${it.javaClass.name}: ${it.message}" } ?: "")
-                        Log.e(TAG, detail, e)
-                        promise.reject(CODE_KEYGEN_FAILED, detail, e)
-                        return@execute
-                    }
-                }
-
-                val chain = keyStore.getCertificateChain(alias)
-                if (chain == null || chain.isEmpty()) {
-                    val detail = "The keystore returned no attestation chain for $alias"
-                    Log.e(TAG, detail)
-                    promise.reject(CODE_EMPTY_CHAIN, detail)
-                    return@execute
-                }
-
-                val signatureBytes = try {
-                    val key = keyStore.getKey(alias, null) as? PrivateKey
-                        ?: throw IllegalStateException("$alias holds no private key")
-                    Signature.getInstance("SHA256withECDSA").run {
-                        initSign(key)
-                        update(statement)
-                        sign()
-                    }
-                } catch (e: Exception) {
-                    val detail = "Signing the statement failed: ${e.javaClass.name}: ${e.message}"
-                    Log.e(TAG, detail, e)
-                    promise.reject(CODE_SIGN_FAILED, detail, e)
-                    return@execute
-                }
-
+                val r = AndroidKeyAttestationCore.attestAndSign(reactApplicationContext, statement)
                 val certs = Arguments.createArray()
-                chain.forEachIndexed { i, cert ->
-                    val subject = (cert as? X509Certificate)?.subjectX500Principal?.name ?: cert.type
-                    Log.i(TAG, "Chain[$i]: ${cert.encoded.size} bytes, subject $subject")
-                    certs.pushString(Base64.encodeToString(cert.encoded, Base64.NO_WRAP))
-                }
-                Log.i(
-                    TAG,
-                    "Attested key $alias in ${if (strongBox) "StrongBox" else "the TEE"} (SDK ${Build.VERSION.SDK_INT}): " +
-                        "${chain.size} certificates, ${statement.size}-byte statement signed",
-                )
+                r.chain.forEach { certs.pushString(Base64.encodeToString(it, Base64.NO_WRAP)) }
                 val result = Arguments.createMap()
                 result.putArray("chain", certs)
-                result.putString("signature", Base64.encodeToString(signatureBytes, Base64.NO_WRAP))
-                result.putBoolean("strongBox", strongBox)
-                result.putInt("sdkInt", Build.VERSION.SDK_INT)
+                result.putString("signature", Base64.encodeToString(r.signature, Base64.NO_WRAP))
+                result.putBoolean("strongBox", r.strongBox)
+                result.putInt("sdkInt", android.os.Build.VERSION.SDK_INT)
                 promise.resolve(result)
-            } catch (e: Exception) {
-                val detail = "Android key attestation failed: ${e.javaClass.name}: ${e.message}"
-                Log.e(TAG, detail, e)
-                promise.reject(CODE_KEYGEN_FAILED, detail, e)
-            } finally {
-                deleteKey(keyStore, alias)
+            } catch (e: AttestationException) {
+                promise.reject(e.code, e.message, e)
             }
         }
     }
 
     @ReactMethod
     fun requestIntegrityToken(nonceBase64Url: String?, promise: Promise) {
-        if (nonceBase64Url.isNullOrEmpty() || !NONCE_FORM.matches(nonceBase64Url)) {
+        if (nonceBase64Url.isNullOrEmpty()) {
             promise.reject(CODE_INVALID_INPUT, "requestIntegrityToken needs an unpadded base64url nonce of 16-500 characters")
             return
         }
-        val request = IntegrityTokenRequest.builder().setNonce(nonceBase64Url).build()
-        IntegrityManagerFactory.create(reactApplicationContext).requestIntegrityToken(request)
-            .addOnSuccessListener { response ->
-                val token = response.token()
-                Log.i(TAG, "Play Integrity token received (${token.length} characters)")
-                promise.resolve(token)
-            }
-            .addOnFailureListener { e ->
-                val errorCode = (e as? IntegrityServiceException)?.errorCode
-                val code = when (errorCode) {
-                    IntegrityErrorCode.NETWORK_ERROR,
-                    IntegrityErrorCode.TOO_MANY_REQUESTS,
-                    IntegrityErrorCode.GOOGLE_SERVER_UNAVAILABLE,
-                    IntegrityErrorCode.CLIENT_TRANSIENT_ERROR,
-                    IntegrityErrorCode.INTERNAL_ERROR -> CODE_INTEGRITY_TRANSIENT
-                    IntegrityErrorCode.NONCE_TOO_SHORT,
-                    IntegrityErrorCode.NONCE_TOO_LONG,
-                    IntegrityErrorCode.NONCE_IS_NOT_BASE64 -> CODE_INVALID_INPUT
-                    else -> CODE_INTEGRITY_UNAVAILABLE
-                }
-                val detail = "Play Integrity failed (errorCode ${errorCode ?: "none"}): ${e.javaClass.name}: ${e.message}"
-                Log.e(TAG, detail, e)
-                promise.reject(code, detail, e)
-            }
+        AndroidKeyAttestationCore.requestIntegrityToken(
+            reactApplicationContext,
+            nonceBase64Url,
+            { token -> promise.resolve(token) },
+            { e -> promise.reject(e.code, e.message, e) },
+        )
     }
 
     override fun invalidate() {
@@ -262,15 +93,12 @@ class AndroidKeyAttestationModule(reactContext: ReactApplicationContext) :
     }
 
     companion object {
-        private const val TAG = "AndroidKeyAttestation"
-        private const val KEYSTORE = "AndroidKeyStore"
-        const val CODE_UNSUPPORTED = "ANDROIDATTEST_UNSUPPORTED"
-        const val CODE_INVALID_INPUT = "ANDROIDATTEST_INVALID_INPUT"
-        const val CODE_KEYGEN_FAILED = "ANDROIDATTEST_KEYGEN_FAILED"
-        const val CODE_EMPTY_CHAIN = "ANDROIDATTEST_EMPTY_CHAIN"
-        const val CODE_SIGN_FAILED = "ANDROIDATTEST_SIGN_FAILED"
-        const val CODE_INTEGRITY_TRANSIENT = "ANDROIDATTEST_INTEGRITY_TRANSIENT"
-        const val CODE_INTEGRITY_UNAVAILABLE = "ANDROIDATTEST_INTEGRITY_UNAVAILABLE"
-        private val NONCE_FORM = Regex("^[A-Za-z0-9_-]{16,500}$")
+        const val CODE_UNSUPPORTED = AndroidKeyAttestationCore.CODE_UNSUPPORTED
+        const val CODE_INVALID_INPUT = AndroidKeyAttestationCore.CODE_INVALID_INPUT
+        const val CODE_KEYGEN_FAILED = AndroidKeyAttestationCore.CODE_KEYGEN_FAILED
+        const val CODE_EMPTY_CHAIN = AndroidKeyAttestationCore.CODE_EMPTY_CHAIN
+        const val CODE_SIGN_FAILED = AndroidKeyAttestationCore.CODE_SIGN_FAILED
+        const val CODE_INTEGRITY_TRANSIENT = AndroidKeyAttestationCore.CODE_INTEGRITY_TRANSIENT
+        const val CODE_INTEGRITY_UNAVAILABLE = AndroidKeyAttestationCore.CODE_INTEGRITY_UNAVAILABLE
     }
 }
