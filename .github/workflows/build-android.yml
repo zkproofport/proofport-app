@@ -109,6 +109,19 @@ jobs:
       - name: Decode keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/zkproofport-release.keystore
 
+      # This workflow exists to put a beta on the internal track. The lane
+      # only WARNS when it has no Play credential (a local build may want
+      # that), so a missing secret here went green for two months and
+      # uploaded nothing (found 2026-10-28). Fail before spending 20 minutes.
+      - name: Require the Play upload credential
+        env:
+          SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$SUPPLY_JSON_KEY_DATA" ]; then
+            echo "::error::PLAY_SERVICE_ACCOUNT_JSON is empty; the beta would be built and not uploaded."
+            exit 1
+          fi
+
       - name: Build AAB
         env:
           ANDROID_KEYSTORE_FILE: /tmp/zkproofport-release.keystore
