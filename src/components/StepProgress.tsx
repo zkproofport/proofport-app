@@ -1,5 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet, ActivityIndicator} from 'react-native';
+import type {ErrorCode} from '../constants/errorCodes';
 
 export type StepStatus = 'pending' | 'in_progress' | 'completed' | 'error';
 
@@ -8,6 +9,11 @@ export interface Step {
   label: string;
   status: StepStatus;
   detail?: string;
+  /**
+   * The ErrorModal code for this step's failure, when the cause carries one
+   * (App Attest, the provider key list). Otherwise the screen maps the step id.
+   */
+  code?: ErrorCode;
 }
 
 interface StepProgressProps {

@@ -31,18 +31,9 @@
  */
 import {ethers} from 'ethers';
 import type {AppAttestWitness} from '../appAttest/revocationStatement';
-import {
-  ASSERT_AUTH_DATA_MAX_LEN,
-  ATT_AUTH_DATA_MAX_LEN,
-  CREDENTIAL_TBS_MAX_LEN,
-} from '../appAttest/constants';
+import {appSignerInputs} from '../appAttest/appSignerInputs';
 import {CLIENT_DATA_LEN} from '../appAttest/clientData';
-import {bytesToNoirInput, nullifierForCircuit, padArray, type AttesterCircuitInputs} from './circuitHelpers';
-import {AppAttestError, APP_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
-
-/** main.nr `KIND_APP`: the statement is signed by an App Attest key. */
-const SIGNER_KIND_APP = '1';
-const N_P256_HALF = BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551') >> 1n;
+import {bytesToNoirInput, nullifierForCircuit, type AttesterCircuitInputs} from './circuitHelpers';
 
 const ZERO32 = new Array(32).fill(0);
 
@@ -85,10 +76,7 @@ function fixed(bytes: Uint8Array, length: number, what: string): string[] {
   return bytesToNoirInput(Array.from(bytes));
 }
 
-function padded(bytes: Uint8Array, max: number, what: string): string[] {
-  if (bytes.length > max) throw new Error(`${what} is ${bytes.length} bytes; the circuit holds ${max}`);
-  return bytesToNoirInput(padArray(Array.from(bytes), max));
-}
+const hexOfBytes = (b: Uint8Array): string[] => bytesToNoirInput(Array.from(b));
 
 /**
  * Build the v2 vector from the Coinbase half (as `prepareCircuitInputs`
@@ -122,19 +110,9 @@ export function prepareCoinbaseAppAttestInputs(
   },
   witness: AppAttestWitness,
 ): CoinbaseAppAttestInputs {
-  const {credential, assertion} = witness;
-  const refuse = (why: string): never => {
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.malformed, why);
-  };
-  if (credential.caKeyHash.toLowerCase() !== request.pinnedCaKeyHash.toLowerCase()) {
-    refuse(`intermediate CA key hash ${credential.caKeyHash} is not the one the circuit pins (${request.pinnedCaKeyHash})`);
-  }
-  if (!credential.production) {
-    refuse('development (sandbox) App Attest key; the circuit accepts production keys only');
-  }
-  if (assertion.signature.length === 64 && BigInt(ethers.utils.hexlify(assertion.signature.slice(32))) > N_P256_HALF) {
-    refuse('assertion signature s is not in low form; the circuit refuses a high s');
-  }
+  // The App Attest half, shared with the OIDC circuit: refuses (E2014) a
+  // non-pinned intermediate, a development key and a high s.
+  const signer = appSignerInputs(witness.credential, witness.assertion, request.pinnedCaKeyHash);
   const cd = witness.clientData;
   if (cd.length !== CLIENT_DATA_LEN) throw new Error(`clientData is ${cd.length} bytes, not ${CLIENT_DATA_LEN}`);
   const hexOf = (from: number, len: number) => ethers.utils.hexlify(cd.slice(from, from + len)).toLowerCase();
@@ -184,16 +162,16 @@ export function prepareCoinbaseAppAttestInputs(
     merkle_proof_depth: coinbase.merkle_proof_depth,
 
     client_data: fixed(cd, CLIENT_DATA_LEN, 'client_data'),
-    signer_kind: SIGNER_KIND_APP,
-    statement_sig: fixed(assertion.signature, 64, 'statement_sig'),
-    credential_tbs: padded(credential.credentialTbs, CREDENTIAL_TBS_MAX_LEN, 'credential_tbs'),
-    credential_tbs_len: String(credential.credentialTbs.length),
-    credential_sig: fixed(credential.credentialSig, 96, 'credential_sig'),
-    att_auth_data: padded(credential.attAuthData, ATT_AUTH_DATA_MAX_LEN, 'att_auth_data'),
-    att_auth_data_len: String(credential.attAuthData.length),
-    att_client_data_hash: fixed(credential.attClientDataHash, 32, 'att_client_data_hash'),
-    assertion_auth_data: padded(assertion.authenticatorData, ASSERT_AUTH_DATA_MAX_LEN, 'assertion_auth_data'),
-    assertion_auth_data_len: String(assertion.authenticatorData.length),
+    signer_kind: String(signer.signer_kind),
+    statement_sig: hexOfBytes(signer.statement_sig),
+    credential_tbs: hexOfBytes(signer.credential_tbs),
+    credential_tbs_len: String(signer.credential_tbs_len),
+    credential_sig: hexOfBytes(signer.credential_sig),
+    att_auth_data: hexOfBytes(signer.att_auth_data),
+    att_auth_data_len: String(signer.att_auth_data_len),
+    att_client_data_hash: hexOfBytes(signer.att_client_data_hash),
+    assertion_auth_data: hexOfBytes(signer.assertion_auth_data),
+    assertion_auth_data_len: String(signer.assertion_auth_data_len),
   };
 }
 

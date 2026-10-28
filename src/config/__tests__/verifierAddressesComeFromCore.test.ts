@@ -18,9 +18,11 @@ import type {Environment} from '../contracts';
 import {OIDC_PUBLIC_INPUT_COUNT} from '../../utils/oidcDomain';
 import {circuitArtifactSource} from '../circuitArtifacts';
 
-// Coinbase KYC v2 is read from a pinned circuits commit on this branch and is
-// not in core 0.3.0's table (core still pins the v1 Coinbase verifier). Its
-// rows are held below to the v2 deploy instead; drop this when core pins v2.
+// Coinbase KYC v2 and OIDC with the provider-key statement are read from
+// pinned circuits commits on this branch and are not in core 0.3.0's table
+// (core still pins the v1 Coinbase verifier and the OIDC verifier from before
+// the statement). Their rows are held below to their own deploys instead;
+// drop this when core pins them.
 const IN_CORE = ALL_CIRCUIT_IDS.filter(c => !circuitArtifactSource(c));
 const NOT_IN_CORE = ALL_CIRCUIT_IDS.filter(c => circuitArtifactSource(c));
 
@@ -69,8 +71,8 @@ describe('every environment resolves every circuit through core', () => {
 });
 
 describe('circuits read from a pinned commit, not yet in core', () => {
-  it('is exactly Coinbase KYC v2, so the exemption above cannot grow silently', () => {
-    expect(NOT_IN_CORE).toEqual(['coinbase_attestation']);
+  it('is exactly Coinbase KYC v2 and OIDC, so the exemption above cannot grow silently', () => {
+    expect(NOT_IN_CORE).toEqual(['coinbase_attestation', 'oidc_domain_attestation']);
   });
 
   it('never names the v1 contract core still pins, on any chain it pins', () => {
@@ -91,13 +93,18 @@ describe('OIDC v2: the app and core agree on the circuit', () => {
     expect(CORE_OIDC_PUBLIC_INPUT_COUNT).toBe(OIDC_PUBLIC_INPUT_COUNT);
   });
 
-  it('development and staging name the Base Sepolia v2 verifier, never the v1 contract', () => {
+  it('development and staging name the provider-key-statement verifier, never an older OIDC contract', () => {
     for (const env of ['development', 'staging'] as const) {
       expect(CIRCUIT_NETWORKS[env].oidc_domain_attestation.chainId).toBe(84532);
-      expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation).toBe('0x003334A7C2ff15ee9ee845Ab88e152A2A3694167');
-      expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation.toLowerCase()).not.toBe(
-        '0x5d9ece4f0276d12693f79659760a68011efef485',
-      );
+      // circuits 7e5c72d, broadcast/DeployOidcDomainAttestation.s.sol/84532.
+      expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation).toBe('0xeA5933ABc598401c89F63B3f13AE56A7E78984e8');
+      for (const old of ['0x003334a7c2ff15ee9ee845ab88e152a2a3694167', '0x5d9ece4f0276d12693f79659760a68011efef485']) {
+        expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation.toLowerCase()).not.toBe(old);
+      }
     }
+  });
+
+  it('production names no OIDC verifier until the statement circuit is on mainnet', () => {
+    expect(FALLBACK_VERIFIERS.production.oidc_domain_attestation).toBe('');
   });
 });

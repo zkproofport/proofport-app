@@ -23,8 +23,28 @@
  *
  * Remove the row when v2 is in the release this app pins; the core list and
  * CIRCUIT_VK_PATHS then describe it like every other circuit.
+ *
+ * OIDC domain (`oidc_domain_attestation`) with the provider-key statement
+ * (circuits fix list item 12): same directory and Nargo name as before, but
+ * ten private inputs follow `signature_limbs` (the statement signer), so the
+ * files come from the circuits commit carrying the CI-built artifacts:
+ * 5081cfd on branch `oidc-signature` (not in any tag or main yet), checked
+ * against its target/SHA256SUMS and target/vk/SHA256SUMS. A commit, not the
+ * branch: a branch moves under an installed app. useOidcDomain also refuses a
+ * file set whose ABI is not this circuit's (requireOidcAbi), which the
+ * public-input count (214 either way) cannot tell apart. Verifier: Base
+ * Sepolia 0xeA5933AB...84e8 (circuits 7e5c72d). Remove the row when that
+ * circuit is in the release this app pins and in core's table.
  */
 import type {CircuitName} from './circuitIds';
+
+/**
+ * zkproofport/circuits 5081cfd (branch oidc-signature, 2026-10-28): CI-built
+ * oidc_domain_attestation with the provider-key statement -- nargo
+ * 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2, 2^20 (.srs 67,109,076 bytes), 214
+ * public inputs.
+ */
+export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f10670';
 
 export interface CircuitArtifactSource {
   /** zkproofport/circuits tag or commit holding the files. */
@@ -52,6 +72,17 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, Circ
     remoteFileName: 'coinbase_attestation_v2',
     dataVersion: 2,
     publicInputCount: 193,
+  }),
+  // dataVersion 6 = CIRCUIT_DATA_VERSIONS.oidc_domain_attestation: the files
+  // from v5 (circuits main, no signer) are deleted and fetched again.
+  oidc_domain_attestation: Object.freeze({
+    ref: OIDC_SIGNATURE_CIRCUITS_REF,
+    basePath: 'oidc-domain-attestation/target',
+    vkPath: 'oidc-domain-attestation/target/vk',
+    vkFileName: 'vk',
+    remoteFileName: 'oidc_domain_attestation',
+    dataVersion: 6,
+    publicInputCount: 214,
   }),
 });
 

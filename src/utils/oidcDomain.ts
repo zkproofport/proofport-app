@@ -2,10 +2,11 @@
  * OIDC Domain Attestation v2 — input builder for on-device proof generation.
  *
  * Must produce what the circuits repo's reference builder produces for the
- * same token (`circuits/oidc-domain-attestation/scripts/oidc-inputs.ts`, v2,
- * circuits a874776); `oidcDomainMatchesTheCircuitsBuilder.test.ts` holds the
- * two to identical vectors. All computation happens on the device; the only
- * network call is the provider's JWKS.
+ * same token (`circuits/oidc-domain-attestation/scripts/oidc-inputs.ts`, v2
+ * with the provider-key statement, circuits branch oidc-signature c970a4c);
+ * `oidcDomainMatchesTheCircuitsBuilder.test.ts` holds the two to identical
+ * vectors. All computation happens on the device; the network calls are the
+ * provider's key list and, through App Attest, Apple.
  *
  * Public inputs, in order (214 field elements):
  *   0-17     pubkey_modulus_limbs   18 x u128 (120-bit limbs)
@@ -23,13 +24,29 @@
  * rest, so it carries the whole payload, and base64_decode_offset = dot + 1 -
  * cut (1..64). The circuit refuses any other offset.
  *
+ * Private inputs: the token (partial SHA, RSA signature), then the
+ * provider-key statement's signer -- the app's App Attest assertion over
+ * SHA256(statement) and its chain (src/oidc/oidcAppSigner.ts). The modulus it
+ * vouches for must be in the provider's key list as fetched for THIS proof
+ * (src/oidc/providerKeyStatement.ts); the public inputs do not change.
+ *
  * This builder is the careful one: it refuses, with a message, every token
  * the circuit would refuse for a claim reason (aud, iss, iat/exp, nonce,
  * email verification, lengths), so a person sees why instead of a witness
- * failure after a minute of proving.
+ * failure after a minute of proving. The statement is signed last, once
+ * every other check has passed.
  */
 
 import {ethers} from 'ethers';
+import type {ProviderKeySigner} from '../oidc/oidcAppSigner';
+import {
+  fetchLiveProviderKeys,
+  liveKeyForKid,
+  modulusBytes,
+  OIDC_PROVIDER_ID,
+  OidcProviderKeyError,
+  PROVIDER_KEY_ERROR_CODE,
+} from '../oidc/providerKeyStatement';
 
 // ─── Circuit constants (must match main.nr) ─────────────────────────────
 
@@ -46,6 +63,34 @@ export const OIDC_NONCE_MODE_BOUND = 1;
  * is a true lower bound; a clock further behind is reported, not corrected.
  */
 export const OIDC_MAX_CLOCK_BEHIND_SECONDS = 300;
+
+/**
+ * The circuit's `fn main` parameters, in ABI order. A downloaded circuit whose
+ * ABI is not exactly this is refused before anything is signed or proved: the
+ * public-input count alone (214) cannot tell this circuit from the one before
+ * the provider-key statement.
+ */
+export const OIDC_ABI_PARAMETERS = Object.freeze([
+  'pubkey_modulus_limbs', 'domain', 'scope', 'nullifier', 'provider', 'aud_hash', 'nonce_mode', 'nonce_binding', 'now',
+  'partial_data', 'partial_hash', 'full_data_length', 'base64_decode_offset', 'redc_params_limbs', 'signature_limbs',
+  'signer_kind', 'statement_sig', 'credential_tbs', 'credential_tbs_len', 'credential_sig', 'att_auth_data',
+  'att_auth_data_len', 'att_client_data_hash', 'assertion_auth_data', 'assertion_auth_data_len',
+] as const);
+
+/** The prover's flat input vector: 214 public, 2,095 token, 1,580 signer values. */
+export const OIDC_FLAT_INPUT_COUNT = 3889;
+
+/** Refuses a circuit ABI that is not OIDC_ABI_PARAMETERS, naming the difference. */
+export function requireOidcAbi(parameterNames: readonly string[]): void {
+  const want = OIDC_ABI_PARAMETERS.join(', ');
+  const got = parameterNames.join(', ');
+  if (got !== want) {
+    throw new Error(
+      `The downloaded oidc_domain_attestation circuit takes (${got}); this app builds (${want}). ` +
+        'Delete the circuit files and download them again.',
+    );
+  }
+}
 
 const GOOGLE_ISSUERS = new Set(['https://accounts.google.com', 'accounts.google.com']);
 const MICROSOFT_V2_ISSUER =
@@ -73,6 +118,18 @@ export interface OidcCircuitInputs {
   base64_decode_offset: number;
   redc_params_limbs: string[]; // 18 × u128 decimal strings
   signature_limbs: string[]; // 18 × u128 decimal strings
+
+  // Private: who vouched for the modulus (statement-signer, app kind)
+  signer_kind: number; // 1 = App Attest
+  statement_sig: number[]; // 64, r || s, low s
+  credential_tbs: number[]; // 1000, zero padded
+  credential_tbs_len: number;
+  credential_sig: number[]; // 96
+  att_auth_data: number[]; // 256, zero padded
+  att_auth_data_len: number;
+  att_client_data_hash: number[]; // 32
+  assertion_auth_data: number[]; // 128, zero padded
+  assertion_auth_data_len: number;
 }
 
 export interface PrepareOidcParams {
@@ -82,7 +139,7 @@ export interface PrepareOidcParams {
   scope: string;
   /** Domain to prove. If omitted, auto-extracted from email claim. */
   domain?: string;
-  /** Override JWKS URL instead of using OIDC Discovery */
+  /** Override JWKS URL instead of using OIDC Discovery (tests). */
   jwksUrl?: string;
   /** OIDC provider: 'google' | 'microsoft'. Determines email verification claim check. */
   provider?: 'google' | 'microsoft';
@@ -94,6 +151,11 @@ export interface PrepareOidcParams {
   nonce: string;
   /** The phone's clock, unix seconds. `now` is chosen from it (proofTimeFor). */
   clockSeconds: number;
+  /**
+   * Signs the provider-key statement once every check has passed
+   * (prepareOidcAppSigner). Required: the circuit refuses a proof without it.
+   */
+  signProviderKey: ProviderKeySigner;
 }
 
 /**
@@ -267,53 +329,6 @@ function generatePartialSHA256(
   return {partialHash: H, remainingData: data.slice(blockIndex * blockSize)};
 }
 
-// ─── JWKS fetching ──────────────────────────────────────────────────────
-
-interface JWK {
-  kid: string;
-  kty: string;
-  n: string;
-  e: string;
-  [key: string]: unknown;
-}
-
-async function fetchJwksUrl(issuer: string): Promise<string> {
-  const discoveryUrl = issuer.endsWith('/')
-    ? `${issuer}.well-known/openid-configuration`
-    : `${issuer}/.well-known/openid-configuration`;
-  const resp = await fetch(discoveryUrl);
-  if (!resp.ok) {
-    throw new Error(
-      `OIDC Discovery failed for ${discoveryUrl}: ${resp.status}`,
-    );
-  }
-  const config = (await resp.json()) as {jwks_uri: string};
-  if (!config.jwks_uri) {
-    throw new Error(
-      `No jwks_uri in OIDC Discovery response from ${discoveryUrl}`,
-    );
-  }
-  return config.jwks_uri;
-}
-
-async function fetchMatchingKey(jwksUrl: string, kid: string): Promise<JWK> {
-  const resp = await fetch(jwksUrl);
-  if (!resp.ok) {
-    throw new Error(`JWKS fetch failed: ${resp.status}`);
-  }
-  const jwks = (await resp.json()) as {keys: JWK[]};
-  const key = jwks.keys.find(k => k.kid === kid);
-  if (!key) {
-    throw new Error(
-      `No JWKS key matching kid="${kid}". Available: ${jwks.keys.map(k => k.kid).join(', ')}`,
-    );
-  }
-  if (key.kty !== 'RSA') {
-    throw new Error(`Expected RSA key, got ${key.kty}`);
-  }
-  return key;
-}
-
 // ─── Keccak-256 helper (ethers v5) ──────────────────────────────────────
 
 function keccak256Bytes(data: Uint8Array): Uint8Array {
@@ -324,7 +339,8 @@ function keccak256Bytes(data: Uint8Array): Uint8Array {
 
 /**
  * Prepare all circuit inputs for oidc_domain_attestation from a raw JWT.
- * All computation happens locally on device — no server calls except JWKS fetch.
+ * All computation happens locally on device; the network calls are the
+ * provider's key list and App Attest (through `signProviderKey`).
  */
 export async function prepareOidcInputs(
   params: PrepareOidcParams,
@@ -424,16 +440,28 @@ export async function prepareOidcInputs(
     throw new Error(`Email domain "${emailDomain}" is not the requested domain "${domain}"`);
   }
 
-  // 2. Fetch JWKS and find matching key
-  const jwksUrl = params.jwksUrl || (await fetchJwksUrl(iss));
-  const jwk = await fetchMatchingKey(jwksUrl, header.kid);
+  // 2. The provider's key list, fetched now (no cached copy), and the
+  // token's key in it. The same list is what the signer checks the modulus
+  // against before signing.
+  // `provider` was checked above to be google, microsoft or absent; absent is
+  // "any email", which signs in with Google (oidcSignIn.ts).
+  const providerId = OIDC_PROVIDER_ID[params.provider ?? 'google'];
+  const live = await fetchLiveProviderKeys(providerId, iss, {jwksUrl: params.jwksUrl});
+  const jwk = liveKeyForKid(live, header.kid);
+  // The circuit's RSA check is for e = 65537.
+  if (jwk.e !== 'AQAB') {
+    throw new OidcProviderKeyError(
+      PROVIDER_KEY_ERROR_CODE.notPublished,
+      `Key "${header.kid}" has exponent ${JSON.stringify(jwk.e)}; the circuit verifies e = 65537 (AQAB) only.`,
+    );
+  }
+  const modulus = modulusBytes(jwk.n);
 
   // 3. Compute RSA limbs
   const signedData = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
   const signatureBytes = base64urlToBytes(signatureB64url);
   const signatureBigInt = bytesToBigInt(signatureBytes);
-  const modulusBytes = base64urlToBytes(jwk.n);
-  const modulusBigInt = bytesToBigInt(modulusBytes);
+  const modulusBigInt = bytesToBigInt(modulus);
   const redcParam = (1n << (2n * 2048n + 4n)) / modulusBigInt;
 
   const pubkeyLimbs = splitBigIntToChunks(modulusBigInt, 120, 18).map(v =>
@@ -492,12 +520,16 @@ export async function prepareOidcInputs(
   // 8. aud_hash = keccak256(aud)
   const audHash = keccak256Bytes(new TextEncoder().encode(aud));
 
+  // 9. Last, once nothing else can refuse the token: the provider-key
+  // statement for exactly the public provider, now and modulus.
+  const signer = await params.signProviderKey({provider: providerId, now, modulus, live});
+
   return {
     pubkey_modulus_limbs: pubkeyLimbs,
     domain: {storage: Array.from(domainStorage), len: domainBytes.length},
     scope: Array.from(scopeBytes),
     nullifier: Array.from(nullifierBytes),
-    provider: params.provider === 'microsoft' ? 1 : 0,
+    provider: providerId,
     aud_hash: Array.from(audHash),
     nonce_mode: OIDC_NONCE_MODE_BOUND,
     nonce_binding: Array.from(nonceBinding),
@@ -511,6 +543,16 @@ export async function prepareOidcInputs(
     base64_decode_offset: base64DecodeOffset,
     redc_params_limbs: redcLimbs,
     signature_limbs: sigLimbs,
+    signer_kind: signer.signer_kind,
+    statement_sig: Array.from(signer.statement_sig),
+    credential_tbs: Array.from(signer.credential_tbs),
+    credential_tbs_len: signer.credential_tbs_len,
+    credential_sig: Array.from(signer.credential_sig),
+    att_auth_data: Array.from(signer.att_auth_data),
+    att_auth_data_len: signer.att_auth_data_len,
+    att_client_data_hash: Array.from(signer.att_client_data_hash),
+    assertion_auth_data: Array.from(signer.assertion_auth_data),
+    assertion_auth_data_len: signer.assertion_auth_data_len,
   };
 }
 
@@ -523,8 +565,12 @@ export async function prepareOidcInputs(
  *   pubkey_modulus_limbs, domain, scope, nullifier, provider,
  *   aud_hash, nonce_mode, nonce_binding, now,
  *   partial_data, partial_hash, full_data_length, base64_decode_offset,
- *   redc_params_limbs, signature_limbs
- * The first OIDC_PUBLIC_INPUT_COUNT values are the public inputs.
+ *   redc_params_limbs, signature_limbs,
+ *   signer_kind, statement_sig, credential_tbs, credential_tbs_len,
+ *   credential_sig, att_auth_data, att_auth_data_len, att_client_data_hash,
+ *   assertion_auth_data, assertion_auth_data_len
+ * (OIDC_ABI_PARAMETERS). The first OIDC_PUBLIC_INPUT_COUNT values are the
+ * public inputs; OIDC_FLAT_INPUT_COUNT in all.
  *
  * Noir noir_js format:
  * - u128 limbs: decimal strings (no conversion needed)
@@ -603,5 +649,23 @@ export function flattenOidcInputs(inputs: OidcCircuitInputs): string[] {
     flat.push(limb);
   }
 
+  // The provider-key statement's signer, in ABI order.
+  const bytes = (b: number[]) => {
+    for (const x of b) flat.push(x.toString());
+  };
+  flat.push(inputs.signer_kind.toString());
+  bytes(inputs.statement_sig);
+  bytes(inputs.credential_tbs);
+  flat.push(inputs.credential_tbs_len.toString());
+  bytes(inputs.credential_sig);
+  bytes(inputs.att_auth_data);
+  flat.push(inputs.att_auth_data_len.toString());
+  bytes(inputs.att_client_data_hash);
+  bytes(inputs.assertion_auth_data);
+  flat.push(inputs.assertion_auth_data_len.toString());
+
+  if (flat.length !== OIDC_FLAT_INPUT_COUNT) {
+    throw new Error(`OIDC inputs flattened to ${flat.length} values; the circuit takes ${OIDC_FLAT_INPUT_COUNT}`);
+  }
   return flat;
 }

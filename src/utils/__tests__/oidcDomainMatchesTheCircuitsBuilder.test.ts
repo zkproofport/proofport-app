@@ -14,12 +14,24 @@
  * aio, Korean and emoji in a display name, and headers sized so the
  * header/payload '.' lands at 60, 63, 64 and 102 -- cut 0 / 0 / 64 / 64,
  * offsets 61 / 64 / 1 / 39.
+ *
+ * The provider-key statement's signer (circuits c970a4c): the app signs
+ * through its real App Attest path (prepareOidcAppSigner) against a synthetic
+ * device; the reference's `appSigner` is given that device's OWN bytes
+ * (certificate TBS, DER signatures converted here), not the app's parse of
+ * them. Both vectors, all 3,889 values, must be identical, and the hash the
+ * app asked App Attest to sign must be SHA256 of the reference's
+ * `providerKeyStatement` for the public provider, now and modulus.
  */
+jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
+jest.mock('@react-native-async-storage/async-storage', () => ({__esModule: true, default: {}}));
+
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {ethers} from 'ethers';
 import {
+  OIDC_FLAT_INPUT_COUNT,
   OIDC_MAX_PARTIAL_DATA_LENGTH,
   OIDC_PUBLIC_INPUT_COUNT,
   flattenOidcInputs,
@@ -27,13 +39,34 @@ import {
   type PrepareOidcParams,
 } from '../oidcDomain';
 import {deriveOidcNonce} from '../../oidc/oidcNonce';
+import {__resetAppAttestKeyForTests} from '../../appAttest/appAttestKey';
+import {sha256} from '../../appAttest/__tests__/syntheticAppAttest';
+import {prepareOidcAppSigner} from '../../oidc/oidcAppSigner';
+import {modulusBytes, PROVIDER_KEY_STATEMENT_LEN} from '../../oidc/providerKeyStatement';
+import {fakeAppAttest} from '../../oidc/__tests__/syntheticOidcSigner';
 
 const REF_DIR = path.join(__dirname, '..', '..', '..', 'test-reference', 'circuits');
 
+type RefSigner = {
+  signer_kind: number;
+  statement_sig: Uint8Array;
+  credential_tbs: Uint8Array;
+  credential_tbs_len: number;
+  credential_sig: Uint8Array;
+  att_auth_data: Uint8Array;
+  att_auth_data_len: number;
+  att_client_data_hash: Uint8Array;
+  assertion_auth_data: Uint8Array;
+  assertion_auth_data_len: number;
+};
 type RefModule = {
   MAX_PARTIAL_DATA_LENGTH: number;
   PUBLIC_INPUT_COUNT: number;
+  STATEMENT_LEN: number;
   buildInputs: (jwt: string, n: string, opts: Record<string, unknown>) => RefInputs;
+  providerKeyStatement: (provider: number, now: bigint, n: string) => Uint8Array;
+  modulusBytes: (n: string) => Uint8Array;
+  appSigner: (a: Record<string, Uint8Array>) => RefSigner;
   publicInputs: (i: RefInputs) => bigint[];
   deriveNonceBinding: (scope: string, requestId: string) => Uint8Array;
   signJwt: (payloadJson: string, key: crypto.KeyObject, kid?: string) => string;
@@ -54,7 +87,7 @@ type RefInputs = {
   base64_decode_offset: number;
   redc_params_limbs: bigint[];
   signature_limbs: bigint[];
-};
+} & RefSigner;
 
 // The reference imports ethers v6's top-level `keccak256`; this app has
 // ethers v5, whose keccak256 (same function) lives under `utils`.
@@ -160,22 +193,41 @@ function refFlat(i: RefInputs): string[] {
     String(i.base64_decode_offset),
     ...i.redc_params_limbs.map(String),
     ...i.signature_limbs.map(String),
+    String(i.signer_kind),
+    ...dec(i.statement_sig),
+    ...dec(i.credential_tbs), String(i.credential_tbs_len),
+    ...dec(i.credential_sig),
+    ...dec(i.att_auth_data), String(i.att_auth_data_len),
+    ...dec(i.att_client_data_hash),
+    ...dec(i.assertion_auth_data), String(i.assertion_auth_data_len),
   ];
+}
+
+const PROVIDER_ID = {google: 0, microsoft: 1} as const;
+
+/** The app's real App Attest signer over a synthetic device, and a spy on it. */
+async function appSigner() {
+  __resetAppAttestKeyForTests();
+  const fake = fakeAppAttest();
+  const signer = await prepareOidcAppSigner(() => {}, {native: fake.native, keyDeps: fake.keyDeps});
+  return {fake, sign: jest.fn(signer)};
 }
 
 async function both(jwt: string, provider: 'google' | 'microsoft', kid: string, extra: Partial<PrepareOidcParams> = {}) {
   jwksServes(kid);
+  const {fake, sign} = await appSigner();
   const app = await prepareOidcInputs({
-    jwt, scope: SCOPE, provider, nonce: NONCE, clockSeconds: CLOCK, jwksUrl: JWKS_URL, ...extra,
+    jwt, scope: SCOPE, provider, nonce: NONCE, clockSeconds: CLOCK, jwksUrl: JWKS_URL, signProviderKey: sign, ...extra,
   });
   const reference = ref.buildInputs(jwt, N, {
-    provider: provider === 'microsoft' ? 1 : 0,
+    provider: PROVIDER_ID[provider],
     scope: SCOPE,
     nonceMode: 1,
     nonceBinding: ref.deriveNonceBinding(SCOPE, REQUEST_ID),
     now: BigInt(CLOCK),
+    signer: ref.appSigner(fake.rawSignerParts()),
   });
-  return {app, reference};
+  return {app, reference, fake, sign};
 }
 
 describe('the vendored reference builder', () => {
@@ -187,6 +239,7 @@ describe('the vendored reference builder', () => {
   });
 
   it('agrees with the app on the circuit constants', () => {
+    expect(ref.STATEMENT_LEN).toBe(PROVIDER_KEY_STATEMENT_LEN);
     expect(ref.MAX_PARTIAL_DATA_LENGTH).toBe(OIDC_MAX_PARTIAL_DATA_LENGTH);
     expect(ref.PUBLIC_INPUT_COUNT).toBe(OIDC_PUBLIC_INPUT_COUNT);
     expect(OIDC_PUBLIC_INPUT_COUNT).toBe(214);
@@ -209,10 +262,19 @@ describe('identical input vectors for the same token', () => {
   ] as const)('%s', async (_label, dot, provider, payload, cut, offset) => {
     const kid = kidForDot(dot);
     const jwt = ref.signJwt(payload, privateKey, kid);
-    const {app, reference} = await both(jwt, provider, kid);
+    const {app, reference, fake, sign} = await both(jwt, provider, kid);
 
     const flat = flattenOidcInputs(app);
+    expect(flat).toHaveLength(OIDC_FLAT_INPUT_COUNT);
     expect(flat).toEqual(refFlat(reference));
+    // Exactly one statement, signed over SHA256 of the reference's bytes for
+    // the PUBLIC provider and now: byte 48 = flat[147], bytes 49..57 = flat[213].
+    const statement = ref.providerKeyStatement(PROVIDER_ID[provider], BigInt(CLOCK), N);
+    expect(sign).toHaveBeenCalledTimes(1);
+    expect(fake.calls.assertionHashes).toEqual([Buffer.from(sha256(statement)).toString('base64')]);
+    expect(String(statement[48])).toBe(flat[147]);
+    expect(BigInt('0x' + Buffer.from(statement.slice(49, 57)).toString('hex')).toString()).toBe(flat[213]);
+    expect(flat[214 + 2095]).toBe('1'); // signer_kind: app
     expect(flat.slice(0, OIDC_PUBLIC_INPUT_COUNT)).toEqual(ref.publicInputs(reference).map(String));
     expect(app.base64_decode_offset).toBe(offset);
     expect(app.full_data_length - app.partial_data.len).toBe(cut);
@@ -225,7 +287,7 @@ describe('identical input vectors for the same token', () => {
     const kid = kidForDot(102);
     const {app} = await both(ref.signJwt(googlePayload(), privateKey, kid), 'google', kid);
     const flat = flattenOidcInputs(app);
-    expect(flat).toHaveLength(214 + (2048 + 1) + 8 + 1 + 1 + 18 + 18);
+    expect(flat).toHaveLength(214 + (2048 + 1) + 8 + 1 + 1 + 18 + 18 + (1 + 64 + 1000 + 1 + 96 + 256 + 1 + 32 + 128 + 1));
     // provider, then aud_hash, nonce_mode, nonce_binding, now
     expect(flat[147]).toBe('0');
     expect(flat.slice(148, 180)).toEqual(dec(ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.toUtf8Bytes('491923400813-5bb3upweb.apps.googleusercontent.com')))));
@@ -266,9 +328,34 @@ describe('the partial-data cap', () => {
     const {jwt, kid} = found!;
     expect(jwt.lastIndexOf('.') - 64).toBe(2049);
     jwksServes(kid);
-    await expect(prepareOidcInputs({jwt, scope: SCOPE, provider: 'google', nonce: NONCE, clockSeconds: CLOCK, jwksUrl: JWKS_URL}))
+    const {fake, sign} = await appSigner();
+    await expect(prepareOidcInputs({jwt, scope: SCOPE, provider: 'google', nonce: NONCE, clockSeconds: CLOCK, jwksUrl: JWKS_URL, signProviderKey: sign}))
       .rejects.toThrow(/ID token too large: \d+ bytes after the SHA precompute; the circuit holds 2048/);
-    expect(() => ref.buildInputs(jwt, N, {provider: 0, scope: SCOPE, nonceMode: 1, nonceBinding: ref.deriveNonceBinding(SCOPE, REQUEST_ID), now: BigInt(CLOCK)}))
+    // Refused before the statement: nothing was signed for a token that cannot be proved.
+    expect(sign).not.toHaveBeenCalled();
+    expect(fake.calls.assertionHashes).toHaveLength(0);
+    expect(() => ref.buildInputs(jwt, N, {provider: 0, scope: SCOPE, nonceMode: 1, nonceBinding: ref.deriveNonceBinding(SCOPE, REQUEST_ID), now: BigInt(CLOCK), signer: {}}))
       .toThrow(/too large/);
+  });
+});
+
+describe('the provider key the statement names', () => {
+  it('is read from the JWKS n exactly as the reference reads it, leading zero byte included', () => {
+    const withZero = Buffer.from([0, ...Buffer.from(N, 'base64url')]).toString('base64url');
+    expect(Array.from(modulusBytes(N))).toEqual(Array.from(ref.modulusBytes(N)));
+    expect(Array.from(modulusBytes(withZero))).toEqual(Array.from(ref.modulusBytes(withZero)));
+  });
+
+  it('is refused when it is not 2048 bits, by both builders, before anything is signed', async () => {
+    const small = (crypto.generateKeyPairSync('rsa', {modulusLength: 1024}).publicKey.export({format: 'jwk'}) as {n: string}).n;
+    expect(() => ref.modulusBytes(small)).toThrow(/2048-bit/);
+    const kid = kidForDot(102);
+    (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({ok: true, json: async () => ({keys: [{kid, kty: 'RSA', n: small, e: 'AQAB'}]})}));
+    const {fake, sign} = await appSigner();
+    await expect(prepareOidcInputs({
+      jwt: ref.signJwt(googlePayload(), privateKey, kid), scope: SCOPE, provider: 'google', nonce: NONCE, clockSeconds: CLOCK, jwksUrl: JWKS_URL, signProviderKey: sign,
+    })).rejects.toThrow(/not a 2048-bit RSA modulus/);
+    expect(sign).not.toHaveBeenCalled();
+    expect(fake.calls.assertionHashes).toHaveLength(0);
   });
 });

@@ -202,8 +202,12 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
   coinbase_attestation: null,
   coinbase_country_attestation: (chainId) =>
     `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
-  oidc_domain_attestation: (chainId) =>
-    `DeployOidcDomainAttestation.s.sol/${chainId}/run-latest.json`,
+  // OIDC with the provider-key statement: null for the same reason. Its record
+  // (circuits 7e5c72d) is only on branch oidc-signature; circuits main and
+  // CIRCUITS_RELEASE_TAG still name the verifier from before the statement,
+  // which rejects every proof of the pinned circuit (circuitArtifacts.ts).
+  // Restore the row when the record is on the ref this app reads.
+  oidc_domain_attestation: null,
   // Was `null` with a note that GIWA addresses come from the built-in
   // fallbacks only. They do not have to: `forge script` writes this broadcast
   // on every deploy exactly like the others, so a redeployed GIWA verifier now
@@ -295,7 +299,10 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // v5: OIDC v2 (circuits a874776) -- aud_hash, nonce_mode, nonce_binding, now
   // appended (148 -> 214 public inputs), MAX_PARTIAL_DATA_LENGTH 2048. A v4
   // file set would be handed v2 inputs and fail to execute.
-  oidc_domain_attestation: 5,
+  // v6: provider-key statement (circuits oidc-signature): ten private signer
+  // inputs after signature_limbs; public inputs unchanged. Read from the
+  // pinned ref in circuitArtifacts.ts, whose row carries the same version.
+  oidc_domain_attestation: 6,
   // v2: the circuit signs an EIP-712 action when one is supplied, dropped
   // signal_hash from the nullifier, and grew from 128 to 192 public inputs.
   giwa_attestation: 3,
@@ -418,9 +425,13 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // (circuits 33344e2), which rejects every final-v2 proof (other vk).
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
-    // OIDC v2 (214 public inputs), pinned by core 0.3.0. The v1 contract
-    // 0x5D9E...F485 rejects every v2 proof.
-    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',
+    // OIDC with the provider-key statement (circuits 5081cfd), Base Sepolia,
+    // deployed 2026-10-28 (circuits 7e5c72d,
+    // broadcast/DeployOidcDomainAttestation.s.sol/84532). Not in core 0.3.0's
+    // table: core still pins 0x003334A7...4167, the OIDC v2 verifier from
+    // before the statement, which rejects every proof of this circuit (other
+    // vk), as does v1's 0x5D9E...F485.
+    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
     // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
     // Every testnet verifier was redeployed 2026-10-22 for the nargo
     // 1.0.0-beta.19 / bb 4.2.0 toolchain (circuits/deployments/). The previous
@@ -439,7 +450,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   staging: {
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
-    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',
+    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
     mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
@@ -452,7 +463,9 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // proof. Empty reads as "verification unavailable", not as a check.
     coinbase_attestation: '',
     coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
-    oidc_domain_attestation: '0x9677Ba46Ad226Ce8B3C4517d9c0143e4D458BeAe',
+    // Empty: the OIDC circuit with the provider-key statement has no mainnet
+    // verifier; 0x9677Ba46...BeAe (beta.8, 148 inputs) rejects its proofs.
+    oidc_domain_attestation: '',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
     // Korea mDL not yet deployed to a mainnet. Pinning to the Base

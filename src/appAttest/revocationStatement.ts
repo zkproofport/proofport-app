@@ -143,11 +143,11 @@ export interface RevocationDeps {
  * environment does not match", after the wallet signed. Refused here instead,
  * with the App Attest code (E2014), before anything is signed.
  */
-export function requireProductionCredential(credential: CircuitCredential): void {
+export function requireProductionCredential(credential: CircuitCredential, proof = 'Coinbase KYC v2'): void {
   if (!credential.production) {
     throw new AppAttestError(
       APP_ATTEST_ERROR_CODE.malformed,
-      'This build\'s App Attest key is a development (sandbox) key; Coinbase KYC v2 accepts production keys only ' +
+      `This build's App Attest key is a development (sandbox) key; ${proof} accepts production keys only ` +
         '(TestFlight and App Store builds use production).',
     );
   }

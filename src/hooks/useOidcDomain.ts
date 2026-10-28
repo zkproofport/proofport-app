@@ -13,10 +13,14 @@ import {
   ensureStorageAvailable,
   loadVkFromAssets,
   downloadCircuitFiles,
-  allCircuitFilesExist,
+  circuitAbiParameterNames,
 } from '../utils';
 import {getEnvironment, type CircuitName} from '../config';
-import {prepareOidcInputs, flattenOidcInputs, OIDC_PUBLIC_INPUT_COUNT} from '../utils/oidcDomain';
+import {prepareOidcInputs, flattenOidcInputs, OIDC_PUBLIC_INPUT_COUNT, requireOidcAbi} from '../utils/oidcDomain';
+import {AppAttestError} from '../appAttest/appAttestError';
+import {OidcProviderKeyError} from '../oidc/providerKeyStatement';
+import type {ProviderKeySigner} from '../oidc/oidcAppSigner';
+import type {ErrorCode} from '../constants/errorCodes';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -42,6 +46,12 @@ export interface OidcDomainProofInputs {
    * The circuit binds the token to it (nonce_mode 1, nonce_binding).
    */
   nonce: string;
+  /**
+   * Signs the provider-key statement with App Attest (prepareOidcAppSigner,
+   * made before the sign-in sheet so a phone that cannot sign is refused
+   * first). The circuit refuses a proof without the statement.
+   */
+  providerKeySigner: ProviderKeySigner;
 }
 
 export interface ParsedProofData {
@@ -83,7 +93,7 @@ const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'download', label: 'Download circuit files', status: 'pending'},
   {id: 'vk', label: 'Load Verification Key', status: 'pending'},
   {id: 'validate', label: 'Validate JWT token', status: 'pending'},
-  {id: 'jwks', label: 'Fetch OIDC provider public key', status: 'pending'},
+  {id: 'jwks', label: 'Check the provider key and sign it (App Attest)', status: 'pending'},
   {id: 'inputs', label: 'Prepare circuit inputs', status: 'pending'},
   {id: 'storage', label: 'Check storage availability', status: 'pending'},
   {id: 'proof', label: 'Generate ZK proof', status: 'pending'},
@@ -160,6 +170,11 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         return;
       }
 
+      if (typeof inputs.providerKeySigner !== 'function') {
+        addLog('The provider-key signer is required');
+        return;
+      }
+
       setIsLoading(true);
       setStatus('Generating proof...');
       resetSteps();
@@ -170,18 +185,29 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
       let currentProof: ArrayBuffer | null = null;
 
       try {
-        // Step 1: Download circuit files if needed
+        // Step 1: Circuit files. Always through downloadCircuitFiles: it owns
+        // the cache check (the pinned circuits ref and the data version are
+        // the key) and fetches only what is stale, so files from an older
+        // circuit on this phone are replaced rather than proved with.
         updateStep('download', {status: 'in_progress'});
-        const filesExist = await allCircuitFilesExist(CIRCUIT_NAME);
-        if (!filesExist) {
-          addLog('Step 1: Downloading circuit files...');
-          const env = getEnvironment();
-          await downloadCircuitFiles(CIRCUIT_NAME, env, undefined, addLog);
-          addLog('[Download] Circuit files downloaded');
-        } else {
-          addLog('Step 1: Circuit files already cached');
+        addLog('Step 1: Checking circuit files...');
+        await downloadCircuitFiles(CIRCUIT_NAME, getEnvironment(), undefined, addLog);
+
+        // These inputs are for one circuit: 214 public inputs and the
+        // provider-key signer after them. An older file set (148 inputs, or
+        // 214 without the signer) would fail inside the prover with a witness
+        // error that names nothing -- and only after App Attest had signed.
+        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
+        const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
+        const circuitPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
+        if (circuitPublicInputs !== OIDC_PUBLIC_INPUT_COUNT) {
+          throw new Error(
+            `The downloaded ${CIRCUIT_NAME} circuit has ${circuitPublicInputs} public inputs; ` +
+              `this app builds inputs for ${OIDC_PUBLIC_INPUT_COUNT} (OIDC v2). Delete the circuit files and download them again.`,
+          );
         }
-        updateStep('download', {status: 'completed', detail: filesExist ? 'Cached' : 'Downloaded'});
+        requireOidcAbi(await circuitAbiParameterNames(CIRCUIT_NAME));
+        updateStep('download', {status: 'completed', detail: `${circuitPublicInputs} public inputs`});
 
         // Step 2: Load VK
         updateStep('vk', {status: 'in_progress'});
@@ -279,11 +305,12 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         const providerLabel = inputs.provider === 'microsoft' ? 'Entra ID' : inputs.provider === 'google' ? 'Workspace' : null;
         updateStep('validate', {status: 'completed', detail: providerLabel ? `${providerLabel}: ${domain}` : `JWT valid (${domain})`});
 
-        // Step 3: Fetch JWKS and prepare circuit inputs
-        // prepareOidcInputs handles: JWKS fetch, RSA limb decomposition,
-        // partial SHA-256, domain extraction, scope/nullifier computation
+        // Step 3: Fetch the provider's key list, prepare circuit inputs and
+        // sign the provider-key statement. prepareOidcInputs handles: the live
+        // key list, RSA limbs, partial SHA-256, domain, scope/nullifier, and
+        // last the App Attest signature over (provider, now, modulus).
         updateStep('jwks', {status: 'in_progress'});
-        addLog('Step 3: Fetching OIDC provider public key via JWKS...');
+        addLog('Step 3: Fetching the provider key list and signing the provider key...');
 
         const inputsStartTime = Date.now();
         const circuitInputs = await prepareOidcInputs({
@@ -293,13 +320,14 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           provider: inputs.provider as 'google' | 'microsoft' | undefined,
           nonce: inputs.nonce,
           clockSeconds: Math.floor(Date.now() / 1000),
+          signProviderKey: inputs.providerKeySigner,
         });
         const inputsElapsed = Date.now() - inputsStartTime;
 
-        addLog(`[JWKS] Public key fetched and RSA limbs computed (${inputsElapsed}ms)`);
+        addLog(`[JWKS] Provider key found in the live list, statement signed (${inputsElapsed}ms)`);
         updateStep('jwks', {
           status: 'completed',
-          detail: `RSA key fetched (${inputsElapsed}ms)`,
+          detail: `Provider key signed (${inputsElapsed}ms)`,
         });
 
         // Step 4: Flatten inputs for mopro
@@ -324,6 +352,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog(`[Debug] full_data_length: ${circuitInputs.full_data_length}`);
         addLog(`[Debug] base64_decode_offset: ${circuitInputs.base64_decode_offset}`);
         addLog(`[Inputs] nonce_mode: ${circuitInputs.nonce_mode}, now: ${circuitInputs.now}`);
+        addLog(`[Inputs] signer_kind: ${circuitInputs.signer_kind}`);
         updateStep('inputs', {
           status: 'completed',
           detail: `${flatInputs.length} input values`,
@@ -348,20 +377,6 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog('Step 6: Generating ZK proof...');
         addLog(`[Proof] Loading circuit file: ${CIRCUIT_NAME}.json`);
         addLog(`[Proof] Loading SRS file: ${CIRCUIT_NAME}.srs`);
-
-        const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
-        const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
-
-        // These inputs are for the v2 circuit. A v1 file set (148 public
-        // inputs) left on disk would fail inside the prover with a witness
-        // error that names nothing; say what it is instead.
-        const circuitPublicInputs = getNumPublicInputsFromCircuit(circuitPath);
-        if (circuitPublicInputs !== OIDC_PUBLIC_INPUT_COUNT) {
-          throw new Error(
-            `The downloaded ${CIRCUIT_NAME} circuit has ${circuitPublicInputs} public inputs; ` +
-              `this app builds inputs for ${OIDC_PUBLIC_INPUT_COUNT} (OIDC v2). Delete the circuit files and download them again.`,
-          );
-        }
 
         addLog('[Proof] Starting Noir proof generation (low memory mode)...');
         addLog('[Proof] This may take 30-60 seconds...');
@@ -443,9 +458,14 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         addLog(`[Debug] Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error as object), 2)}`);
         setStatus('Error generating proof');
 
+        // App Attest and provider-key failures carry their own modal code
+        // (E2009 / E2010 / E2014 / E3006 / E3002 / E2008); the screen uses it
+        // instead of the step's generic one.
+        const code: ErrorCode | undefined =
+          error instanceof AppAttestError || error instanceof OidcProviderKeyError ? error.code : undefined;
         setProofSteps(prev =>
           prev.map(step =>
-            step.status === 'in_progress' ? {...step, status: 'error', detail: errorMessage} : step,
+            step.status === 'in_progress' ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {})} : step,
           ),
         );
       } finally {

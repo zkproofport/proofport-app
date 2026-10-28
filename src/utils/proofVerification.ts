@@ -163,9 +163,11 @@ export async function verifyProofOnChainWithCore(
     // instead of a "valid" from a contract nobody else checks.
     //
     // Exception: a circuit read from a pinned circuits commit
-    // (circuitArtifacts.ts -- Coinbase KYC v2 on this branch) is not in core's
-    // table yet; core 0.3.0 still pins the v1 Coinbase verifier, which rejects
-    // every v2 proof. Its contract is the one this app configures for it, named
+    // (circuitArtifacts.ts -- Coinbase KYC v2, and OIDC with the provider-key
+    // statement) is not in core's table yet; core 0.3.0 still pins the v1
+    // Coinbase verifier, which rejects every v2 proof, and the OIDC verifier
+    // of the circuit before the statement, which rejects every proof of the
+    // new one. Its contract is the one this app configures for it, named
     // explicitly. Remove with the artifact row once core pins v2.
     const target = circuitArtifactSource(circuit)
       ? {address: verifierAddress, chainId: network.chainId, abi: VERIFIER_ABI}

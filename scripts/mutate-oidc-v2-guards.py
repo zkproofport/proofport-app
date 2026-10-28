@@ -12,6 +12,12 @@ WHY THIS EXISTS. Two things changed together on branch `oidc-v2`:
     to the circuits reference builder and refuses what the circuit refuses.
 Each mutation removes one guard and asserts the named test case goes red.
 
+Branch `oidc-signature` (circuits fix list item 12) adds the provider-key
+statement: the live key list (src/oidc/providerKeyStatement.ts), the App
+Attest signer (src/oidc/oidcAppSigner.ts, src/appAttest/appSignerInputs.ts),
+the hook's ABI check and the pinned circuits commit; their mutations follow
+the OIDC v2 ones.
+
 At every step it checks that (1) the substitution matched exactly once,
 (2) the named case is reported FAILED (a `\u2715` line), not merely present in
 the output, and (3) the file is restored byte-identical (sha256).
@@ -57,6 +63,12 @@ REF_TEST = "src/utils/__tests__/oidcDomainMatchesTheCircuitsBuilder.test.ts"
 REFUSE_TEST = "src/utils/__tests__/oidcDomainRefusesWhatTheCircuitRefuses.test.ts"
 HOOK_TEST = "src/hooks/__tests__/theOidcHookProvesV2Inputs.test.ts"
 RELAY_TEST = "src/screens/__tests__/everyRelayRequestGetsOneAnswer.test.ts"
+PKEY = "src/oidc/providerKeyStatement.ts"
+SIGNER = "src/oidc/oidcAppSigner.ts"
+APP_SIGNER = "src/appAttest/appSignerInputs.ts"
+ARTIFACTS = "src/config/circuitArtifacts.ts"
+PKEY_TEST = "src/oidc/__tests__/theProviderKeyStatementIsTheCircuits.test.ts"
+SIGNER_TEST = "src/oidc/__tests__/theAppSignsOnlyALiveProviderKey.test.ts"
 
 
 @dataclass(frozen=True)
@@ -78,15 +90,17 @@ MUTATIONS: list[Mutation] = [
     Mutation("verifier-record-from-main", DEPLOY,
              "  return `${GITHUB_RAW(circuitsRef(circuit, env))}/broadcast/${pathFn(chainId)}`;",
              "  return `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast/${pathFn(chainId)}`;",
-             SOURCE_TEST, "production reads the coinbase_attestation verifier record from the same tag"),
+             SOURCE_TEST, "production reads the coinbase_country_attestation verifier record from the same tag"),
     Mutation("missing-tag-is-quiet", DEPLOY,
              "  if (response.status === 404 && isReleaseRef(env, ref)) {",
              "  if (response.status === -1 && isReleaseRef(env, ref)) {",
              SOURCE_TEST, "a 404 at the tag is an error naming the tag and the file"),
-    Mutation("sync-swallows-missing-tag", DEPLOY,
-             "  if (missing.length > 0) {",
-             "  if (missing.length < 0) {",
-             SOURCE_TEST, "a sync tries every circuit, caches the ones that answer"),
+    # "sync-swallows-missing-tag" (`missing.length > 0` -> `< 0`) was removed
+    # on branch oidc-signature: with Coinbase KYC v2 and OIDC read from pinned
+    # commits, Coinbase Country is the only record read at the tag, so a sync
+    # has at most one missing file and the generic rethrow below that block
+    # throws the same CircuitsReleaseMissingError -- an equivalent mutant.
+    # Restore it when a second circuit's record is read at the tag.
     Mutation("cache-key-without-ref", DEPLOY,
              "  return `${CACHE_PREFIX}/${env}/${circuit}@${circuitsRef(circuit, env)}`;",
              "  return `${CACHE_PREFIX}/${env}/${circuit}`;",
@@ -100,25 +114,23 @@ MUTATIONS: list[Mutation] = [
              "",
              LAUNCH_TEST, "shows E3007 with the tag when the pinned release is missing"),
     Mutation("download-404-does-not-name-tag", DOWNLOAD,
-             "      result.statusCode === 404 && pinned",
-             "      result.statusCode === -1 && pinned",
+             "    } else if (result.statusCode === 404 && pinned) {",
+             "    } else if (result.statusCode === -1 && pinned) {",
              LAUNCH_TEST, "a 404 in production names the tag, and the error body is deleted"),
     Mutation("download-keeps-error-body", DOWNLOAD,
              "    await RNFS.unlink(destPath).catch(() => {});\n    // A 404 at a pinned",
              "    // A 404 at a pinned",
              LAUNCH_TEST, "a 404 in production names the tag, and the error body is deleted"),
-    Mutation("oidc-cache-version-not-bumped", CONTRACTS,
-             "  oidc_domain_attestation: 5,",
-             "  oidc_domain_attestation: 4,",
-             SOURCE_TEST, "OIDC is at v5, the v2 circuit (214 public inputs)"),
     Mutation("v1-oidc-verifier-back", CONTRACTS,
+             "    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',\n    giwa_attestation",
              "    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',\n    giwa_attestation",
-             "    oidc_domain_attestation: '0x5D9ECe4F0276D12693F79659760a68011EFeF485',\n    giwa_attestation",
-             CORE_TEST, "development and staging name the Base Sepolia v2 verifier, never the v1 contract"),
-    Mutation("oidc-row-drifts-from-core", CONTRACTS,
-             "    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',\n    giwa_attestation",
-             "    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694168',\n    giwa_attestation",
-             CORE_TEST, "staging: each address is core's pinned verifier on the circuit's own chain"),
+             CORE_TEST, "development and staging name the provider-key-statement verifier, never an older OIDC contract"),
+    # OIDC is no longer held to core's table (not in core 0.3.0); held to its
+    # own deploy instead (circuits 7e5c72d).
+    Mutation("oidc-row-drifts-from-its-deploy", CONTRACTS,
+             "    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',\n    giwa_attestation",
+             "    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e9',\n    giwa_attestation",
+             CORE_TEST, "development and staging name the provider-key-statement verifier"),
     Mutation("app-oidc-layout-not-core", OIDC,
              "export const OIDC_PUBLIC_INPUT_COUNT = 214;",
              "export const OIDC_PUBLIC_INPUT_COUNT = 148;",
@@ -213,9 +225,103 @@ MUTATIONS: list[Mutation] = [
              "        if (circuitPublicInputs === -1) {",
              HOOK_TEST, "refuses a v1 circuit file set (148 public inputs)"),
     Mutation("screen-drops-nonce", SCREEN,
-             "provider: providerStr, nonce: binding.nonce},",
-             "provider: providerStr, nonce: ''},",
+             "provider: providerStr, nonce: binding.nonce, providerKeySigner},",
+             "provider: providerStr, nonce: '', providerKeySigner},",
              RELAY_TEST, "OIDC asks the provider for the nonce of THIS request and proves its token"),
+
+    # --- provider-key statement ---
+    Mutation("statement-time-little-endian", PKEY,
+             "  for (let i = 0; i < 8; i++) s[49 + i] = Number((t >> BigInt(8 * (7 - i))) & 0xffn);",
+             "  for (let i = 0; i < 8; i++) s[49 + i] = Number((t >> BigInt(8 * i)) & 0xffn);",
+             PKEY_TEST, "match provider_key.nr the_statement_layout byte for byte"),
+    Mutation("statement-wrong-tag", PKEY,
+             "  s.set(ethers.utils.arrayify(OIDC_CIRCUIT_TAG), 16);",
+             "  s.set(ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.toUtf8Bytes('coinbase_attestation'))), 16);",
+             REF_TEST, "Google, 40-hex kid like a real token (dot 102)"),
+    Mutation("modulus-top-bit-unchecked", PKEY,
+             "  if (out.length !== RSA_MODULUS_BYTES || (out[0] & 0x80) === 0) {",
+             "  if (out.length !== RSA_MODULUS_BYTES) {",
+             PKEY_TEST, "refuses a 256 bytes with the top bit clear modulus (E2008)"),
+    Mutation("key-list-cached", PKEY,
+             "      cache: 'no-store',",
+             "      cache: 'default' as 'no-store',",
+             PKEY_TEST, "bypassing caches, every time it is asked for"),
+    Mutation("empty-key-list-accepted", PKEY,
+             "  if (!Array.isArray(keys) || keys.length === 0) {",
+             "  if (!Array.isArray(keys)) {",
+             PKEY_TEST, "fails closed with E3002 on an empty key list"),
+    Mutation("unlisted-modulus-vouched", PKEY,
+             "  if (!listed) refuse(",
+             "  if (listed === null) refuse(",
+             SIGNER_TEST, "refuses a modulus the live list does not hold with E2008, and makes no assertion"),
+    Mutation("any-list-accepted", PKEY,
+             "  if (!fetchedLists.has(live)) refuse(",
+             "  if (live === null) refuse(",
+             SIGNER_TEST, "refuses a list the app did not fetch with E2008, and makes no assertion"),
+    Mutation("other-providers-list-accepted", PKEY,
+             "  if (live.provider !== provider) refuse(",
+             "  if (live === null) refuse(",
+             SIGNER_TEST, "refuses a list fetched for the other provider with E2008"),
+    Mutation("stale-list-accepted", PKEY,
+             "  if (!(age >= 0 && age <= LIVE_KEYS_MAX_AGE_SECONDS)) {",
+             "  if (age < -1e12) {",
+             PKEY_TEST, "refuses a list older than the limit (E2008)"),
+    Mutation("signer-skips-live-check", SIGNER,
+             "    requireLiveModulus(live, provider, modulus, clock());\n",
+             "",
+             SIGNER_TEST, "refuses a modulus the live list does not hold with E2008, and makes no assertion"),
+    Mutation("signer-signs-other-bytes", SIGNER,
+             "    const signed = await assertClientData(deps, statement);",
+             "    const signed = await assertClientData(deps, statement.slice(1));",
+             SIGNER_TEST, "asks App Attest for exactly SHA256(statement)"),
+    Mutation("signer-accepts-development-key", SIGNER,
+             "  requireProductionCredential(key.credential, PROOF);\n",
+             "",
+             SIGNER_TEST, "refuses a development (sandbox) key with E2014, and signs nothing"),
+    Mutation("signer-accepts-high-s", APP_SIGNER,
+             "  if (assertion.signature.length === 64 && BigInt(ethers.utils.hexlify(assertion.signature.slice(32))) > N_P256_HALF) {",
+             "  if (assertion.signature.length === -1) {",
+             SIGNER_TEST, "refuse a raw high-s signature, a development key and another intermediate with E2014"),
+    Mutation("builder-any-exponent", OIDC,
+             "  if (jwk.e !== 'AQAB') {",
+             "  if (jwk.e === '__never__') {",
+             REFUSE_TEST, "is never signed for a key with another exponent than 65537 (E2008)"),
+    Mutation("builder-never-signs", OIDC,
+             "  const signer = await params.signProviderKey({provider: providerId, now, modulus, live});\n",
+             "",
+             REF_TEST, "Google, 40-hex kid like a real token (dot 102)"),
+    Mutation("signer-inputs-reordered", OIDC,
+             "  bytes(inputs.statement_sig);\n  bytes(inputs.credential_tbs);",
+             "  bytes(inputs.credential_tbs);\n  bytes(inputs.statement_sig);",
+             REF_TEST, "Google, 40-hex kid like a real token (dot 102)"),
+    Mutation("hook-proves-pre-signer-files", HOOK,
+             "        requireOidcAbi(await circuitAbiParameterNames(CIRCUIT_NAME));\n",
+             "",
+             HOOK_TEST, "refuses the 214-input circuit from before the provider-key statement by its ABI"),
+    Mutation("hook-drops-step-code", HOOK,
+             "          error instanceof AppAttestError || error instanceof OidcProviderKeyError ? error.code : undefined;",
+             "          undefined;",
+             HOOK_TEST, "passes a development key to the screen with its own code"),
+    Mutation("screen-ignores-step-code", SCREEN,
+             "    failAttempt({code: errStep.code ?? errorCodeForStep(flow, errStep.id), error: detail});",
+             "    failAttempt({code: errorCodeForStep(flow, errStep.id), error: detail});",
+             RELAY_TEST, "an OIDC step failing with its own code E2014 answers that code"),
+    Mutation("screen-signs-in-without-app-attest", SCREEN,
+             "        const providerKeySigner: ProviderKeySigner = await prepareOidcAppSigner(addLog);",
+             "        const providerKeySigner: ProviderKeySigner = await prepareOidcAppSigner(addLog).catch(() => (async () => { throw new Error('x'); }) as never);",
+             RELAY_TEST, "OIDC on Android (no App Attest) -> E2010 before any sign-in"),
+    Mutation("oidc-data-version-not-bumped", CONTRACTS,
+             "  oidc_domain_attestation: 6,",
+             "  oidc_domain_attestation: 5,",
+             SOURCE_TEST, "OIDC is at v6, the provider-key-statement circuit, in both tables"),
+    Mutation("oidc-files-from-a-branch", ARTIFACTS,
+             "export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f10670';",
+             "export const OIDC_SIGNATURE_CIRCUITS_REF = 'oidc-signature';",
+             SOURCE_TEST, "is a full commit SHA, not a branch"),
+    Mutation("oidc-verifier-from-broadcast", CONTRACTS,
+             "  oidc_domain_attestation: null,\n",
+             "  oidc_domain_attestation: (chainId) => `DeployOidcDomainAttestation.s.sol/${chainId}/run-latest.json`,\n",
+             SOURCE_TEST, "reads OIDC (provider-key statement) from its configured address"),
 ]
 
 

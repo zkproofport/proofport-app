@@ -24,6 +24,7 @@ export {
   DojangIssuanceError,
 } from './dojangPlayground';
 export * from './circuitDownload';
+export {circuitAbiParameterNames} from './circuitAbi';
 export { getCircuitIcon, getCircuitDisplayName } from './circuit';
 export { prepareOidcInputs, flattenOidcInputs } from './oidcDomain';
 export type { OidcCircuitInputs, PrepareOidcParams } from './oidcDomain';

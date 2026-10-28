@@ -4,20 +4,30 @@
 # checkout (CI checks out this repo alone).
 #
 #   scripts/sync-oidc-reference-builder.sh [circuits-ref]   (default: origin/main)
+#   CIRCUITS_DIR=<circuits checkout> scripts/sync-oidc-reference-builder.sh <ref>
 #
 # Writes test-reference/circuits/oidc-inputs.ts and SOURCE (the circuits
 # commit it came from, and the file's sha256). The test
 # src/utils/__tests__/oidcDomainMatchesTheCircuitsBuilder.test.ts refuses a
 # copy whose sha256 differs from SOURCE, so the reference is never edited here.
 #
-# Prerequisite: the circuits submodule checked out in the parent repository,
-# with the ref fetched (git -C circuits fetch origin).
+# Prerequisite: a circuits checkout with the ref fetched (git -C circuits
+# fetch origin) -- the parent repository's `circuits` submodule, or the one
+# CIRCUITS_DIR names when this app is checked out on its own (a git worktree
+# of the submodule has no superproject).
 set -euo pipefail
 
-REPO=$(git rev-parse --show-superproject-working-tree)
-REPO=${REPO:-$(git rev-parse --show-toplevel)}
-APP="$REPO/proofport-app"
-CIRCUITS="$REPO/circuits"
+# The app is this script's own repository, wherever it is checked out.
+APP=$(git rev-parse --show-toplevel)
+SUPER=$(git rev-parse --show-superproject-working-tree)
+if [ -n "${CIRCUITS_DIR:-}" ]; then
+  CIRCUITS=$CIRCUITS_DIR
+elif [ -n "$SUPER" ]; then
+  CIRCUITS="$SUPER/circuits"
+else
+  echo "error: no parent repository; set CIRCUITS_DIR to a circuits checkout" >&2
+  exit 1
+fi
 REF=${1:-origin/main}
 SRC_PATH=oidc-domain-attestation/scripts/oidc-inputs.ts
 OUT_DIR="$APP/test-reference/circuits"

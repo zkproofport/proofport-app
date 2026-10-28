@@ -39,7 +39,7 @@ import {act, create, type ReactTestRenderer} from 'react-test-renderer';
 import type {ProofStackParamList} from '../../navigation/types';
 import type {ProofRequest} from '../../utils/deeplink';
 
-type Step = {id: string; label: string; status: string; detail?: string};
+type Step = {id: string; label: string; status: string; detail?: string; code?: string};
 
 const mockGenerate = jest.fn();
 const mockSignIn = jest.fn();
@@ -54,6 +54,8 @@ const mockGetProvider = jest.fn();
 const mockFindAttestation = jest.fn();
 const mockFindDojang = jest.fn();
 const mockStatement = jest.fn();
+const mockPrepareOidcSigner = jest.fn();
+const mockOidcSigner = jest.fn();
 const mockNavigate = {navigate: jest.fn()};
 const mockT = (key: string, opts?: {defaultValue?: string}) => opts?.defaultValue ?? key;
 const ACCOUNT = '0x1111111111111111111111111111111111111111';
@@ -133,6 +135,10 @@ jest.mock('../../utils/circuit', () => ({getCircuitDisplayName: () => 'Circuit'}
 jest.mock('../../appAttest/coinbaseKycStatement', () => ({
   prepareCoinbaseKycStatement: (...args: unknown[]) => mockStatement(...args),
 }));
+// The OIDC provider-key signer (App Attest), prepared before the sign-in sheet.
+jest.mock('../../oidc/oidcAppSigner', () => ({
+  prepareOidcAppSigner: (...args: unknown[]) => mockPrepareOidcSigner(...args),
+}));
 
 import {ProofGenerationScreen, STEP_ERROR_CODE} from '../proof/ProofGenerationScreen';
 import {WALLET_REJECTED_PREFIX} from '../../utils/walletRejection';
@@ -175,6 +181,7 @@ beforeEach(() => {
   mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
   mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
   mockStatement.mockResolvedValue({clientData: new Uint8Array(225), attestedAt: 1});
+  mockPrepareOidcSigner.mockResolvedValue(mockOidcSigner);
   mockGenerate.mockResolvedValue(undefined);
   mockSignIn.mockImplementation(tokenFor);
   mockMsSignIn.mockImplementation(tokenFor);
@@ -351,6 +358,35 @@ describe('every inline failure path answers once, with its code', () => {
       expect.objectContaining({jwtToken: jwt({nonce: deriveOidcNonce('s', OIDC_RID), email: 'a@corp.com'}), scopeString: 's', nonce: deriveOidcNonce('s', OIDC_RID)}),
       expect.any(Function),
     );
+  });
+
+  it('OIDC hands the hook the App Attest signer prepared before sign-in', async () => {
+    await mount('oidc_domain_attestation', oidcRequest());
+    expect(mockPrepareOidcSigner).toHaveBeenCalledTimes(1);
+    expect(mockPrepareOidcSigner.mock.invocationCallOrder[0]).toBeLessThan(mockSignIn.mock.invocationCallOrder[0]);
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({providerKeySigner: mockOidcSigner}), expect.any(Function));
+  });
+
+  it.each([
+    ['Android (no App Attest)', 'E2010'],
+    ['a phone or simulator without App Attest', 'E2009'],
+    ['a development App Attest key', 'E2014'],
+    ['Apple App Attest unreachable', 'E3006'],
+  ])('OIDC on %s -> %s before any sign-in, and nothing is proved', async (_label, code) => {
+    const {AppAttestError} = jest.requireActual('../../appAttest/appAttestError');
+    mockPrepareOidcSigner.mockRejectedValue(new AppAttestError(code, 'refused'));
+    await mount('oidc_domain_attestation', oidcRequest());
+    expectOneError(code);
+    expect(mockSignIn).not.toHaveBeenCalled();
+    expect(mockMsSignIn).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it.each([['E2014'], ['E3002'], ['E2008']])('an OIDC step failing with its own code %s answers that code', async code => {
+    await mount('oidc_domain_attestation', oidcRequest());
+    mockSteps = [{id: 'jwks', label: 'jwks', status: 'error', detail: 'refused', code}];
+    await rerender();
+    expectOneError(code);
   });
 
   it('OIDC microsoft signs in with Microsoft, with the same nonce rule', async () => {

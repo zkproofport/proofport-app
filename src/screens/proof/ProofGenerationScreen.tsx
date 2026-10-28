@@ -50,6 +50,7 @@ import {AppAttestError} from '../../appAttest/appAttestError';
 import {prepareCoinbaseKycStatement} from '../../appAttest/coinbaseKycStatement';
 import type {AppAttestWitness} from '../../appAttest/revocationStatement';
 import {newStandaloneRequestId} from '../../oidc/oidcNonce';
+import {prepareOidcAppSigner, type ProviderKeySigner} from '../../oidc/oidcAppSigner';
 import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
 import {proofLogEnabled, proofLogText} from '../../utils/proofLog';
 import {describeIdTokenClaims} from '../../utils/idTokenClaims';
@@ -576,7 +577,9 @@ export const ProofGenerationScreen: React.FC = () => {
       cancelAttempt(detail);
       return;
     }
-    failAttempt({code: errorCodeForStep(flow, errStep.id), error: detail});
+    // A cause with its own code (App Attest, the provider key list) wins
+    // over the step's generic one.
+    failAttempt({code: errStep.code ?? errorCodeForStep(flow, errStep.id), error: detail});
   }, [hook.proofSteps, flow, failAttempt, cancelAttempt]);
 
   // Leaving the screen before the request was answered — back button, a
@@ -942,6 +945,15 @@ export const ProofGenerationScreen: React.FC = () => {
           microsoft: {providerName: 'Microsoft', authReady: microsoftReady, promptSignIn: promptMicrosoftSignIn},
         } satisfies Record<OidcSignInProvider, unknown>;
         const {providerName, authReady, promptSignIn} = SIGN_IN[signInWith];
+
+        // The circuit needs this phone's App Attest signature over the
+        // provider's key, so a phone that cannot make one is told so BEFORE
+        // the sign-in sheet: Android (E2010), no App Attest / simulator
+        // (E2009), a development key (E2014), Apple unreachable (E3006).
+        // Thrown AppAttestErrors end the attempt with their code (catch below).
+        addLog('=== App Attest: preparing to sign the provider key ===');
+        const providerKeySigner: ProviderKeySigner = await prepareOidcAppSigner(addLog);
+
         addLog(`[OIDC] Starting ${providerName} Sign-In...`);
 
         if (!authReady) {
@@ -976,7 +988,7 @@ export const ProofGenerationScreen: React.FC = () => {
         addLog(`[OIDC] ${providerName} Sign-In successful — JWT carries this request's nonce`);
 
         await generateOidcProof(
-          {jwtToken, scopeString: binding.scope, domain: domainStr, provider: providerStr, nonce: binding.nonce},
+          {jwtToken, scopeString: binding.scope, domain: domainStr, provider: providerStr, nonce: binding.nonce, providerKeySigner},
           addLog,
         );
         // Hook errors are caught internally — detected via useEffect on proofSteps

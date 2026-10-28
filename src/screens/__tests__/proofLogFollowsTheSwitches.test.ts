@@ -59,6 +59,11 @@ jest.mock('@react-navigation/native', () => ({useNavigation: () => mockNavigate,
 const mockT = (key: string, o?: {defaultValue?: string}) => o?.defaultValue ?? key;
 jest.mock('react-i18next', () => ({useTranslation: () => ({t: mockT})}));
 jest.mock('../../context', () => ({useThemeColors: () => ({colors: jest.requireActual('../../theme').darkColors})}));
+// The OIDC provider-key signer (App Attest; no native module here). Its own
+// refusals are in everyRelayRequestGetsOneAnswer and oidc/__tests__.
+jest.mock('../../oidc/oidcAppSigner', () => ({
+  prepareOidcAppSigner: async () => async () => ({}),
+}));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
   useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),

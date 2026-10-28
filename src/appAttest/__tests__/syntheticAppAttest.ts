@@ -93,11 +93,12 @@ function intermediateTbs(ca: EcKey) {
 }
 
 /** Sign and wrap: Certificate ::= SEQUENCE {tbs, alg, BIT STRING (DER sig)}. */
-function certificate(tbs: Uint8Array, alg: Uint8Array, signer: EcKey, hash: 'sha256' | 'sha384', highS = false, n?: bigint) {
+function signedCertificate(tbs: Uint8Array, alg: Uint8Array, signer: EcKey, hash: 'sha256' | 'sha384', highS = false, n?: bigint) {
   let sig: Uint8Array = new Uint8Array(crypto.sign(hash, tbs, {key: signer.privateKey, dsaEncoding: 'der'}));
   if (highS && n) sig = forceHighS(sig, n);
-  return seq(tbs, alg, tlv(0x03, new Uint8Array([0]), sig));
+  return {der: seq(tbs, alg, tlv(0x03, new Uint8Array([0]), sig)), sigDer: sig};
 }
+const certificate = (...a: Parameters<typeof signedCertificate>) => signedCertificate(...a).der;
 
 /** DER ECDSA signature with s moved to the upper half (same signature). */
 export function forceHighS(der: Uint8Array, n: bigint): Uint8Array {
@@ -159,6 +160,8 @@ export interface SyntheticDevice {
   attestation(clientDataHash: Uint8Array, o?: {appId?: string; aaguid?: Uint8Array; certAppId?: string; counter?: number; highS?: boolean}): Uint8Array;
   /** Build an assertion over `clientData` with `counter`. */
   assertion(clientData: Uint8Array, o?: {counter?: number; appId?: string; highS?: boolean}): Uint8Array;
+  /** What the last attestation() was built from, before any parsing. */
+  lastAttestation?: {credentialTbs: Uint8Array; credentialSigDer: Uint8Array; authData: Uint8Array; clientDataHash: Uint8Array};
 }
 
 export function syntheticDevice(appId: string, sharedCa?: EcKey): SyntheticDevice {
@@ -181,7 +184,9 @@ export function syntheticDevice(appId: string, sharedCa?: EcKey): SyntheticDevic
         ...(o.aaguid ?? AAGUID.production), 0, 32, ...keyIdBytes, ...cose,
       ]);
       const nonce = sha256(authData, cdh);
-      const credDer = certificate(credentialTbs(cred, keyIdBytes, nonce, o.certAppId ?? appId), ALG_SHA256, ca, 'sha256', o.highS, N_P384);
+      const tbs = credentialTbs(cred, keyIdBytes, nonce, o.certAppId ?? appId);
+      const {der: credDer, sigDer} = signedCertificate(tbs, ALG_SHA256, ca, 'sha256', o.highS, N_P384);
+      this.lastAttestation = {credentialTbs: tbs, credentialSigDer: sigDer, authData, clientDataHash: Uint8Array.from(cdh)};
       return cbor(new Map<string, unknown>([
         ['fmt', 'apple-appattest'],
         ['attStmt', new Map<string, unknown>([['x5c', [credDer, interDer]], ['receipt', new Uint8Array([1, 2, 3])]])],
@@ -198,6 +203,29 @@ export function syntheticDevice(appId: string, sharedCa?: EcKey): SyntheticDevic
       return cbor(new Map<string, unknown>([['signature', sig], ['authenticatorData', authData]]));
     },
   };
+}
+
+/**
+ * DER ECDSA -> r || s with s in low form, written here (not the app's der.ts)
+ * so a reference vector does not depend on the parser it checks. Mirrors
+ * circuits scripts/statement-signer/signers.js derToP1363 + toLowS.
+ */
+export function derToLowSP1363(der: Uint8Array, size: number, n: bigint): Uint8Array {
+  const b = Buffer.from(der);
+  if (b[0] !== 0x30) throw new Error('not a DER signature');
+  let p = 2;
+  const read = () => {
+    if (b[p] !== 0x02) throw new Error('not a DER INTEGER');
+    const len = b[p + 1];
+    let v = b.subarray(p + 2, p + 2 + len);
+    p += 2 + len;
+    while (v.length > size && v[0] === 0) v = v.subarray(1);
+    return Buffer.concat([Buffer.alloc(size - v.length), v]);
+  };
+  const r = read();
+  let s = BigInt('0x' + read().toString('hex'));
+  if (s > n / 2n) s = n - s;
+  return new Uint8Array(Buffer.concat([r, Buffer.from(s.toString(16).padStart(size * 2, '0'), 'hex')]));
 }
 
 /** Verify r || s the way the circuit does: ECDSA-SHA256 over the message. */

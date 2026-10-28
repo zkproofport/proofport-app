@@ -11,6 +11,10 @@
  * in four shapes, token nonce missing / different), email_verified and
  * xms_edov as anything but literal true, email over 128 bytes, a domain that
  * is not the email's.
+ *
+ * The provider-key statement is signed last: every refusal here happens with
+ * no call to the signer (checked after each test), and an accepted token is
+ * signed once for its own provider and `now`.
  */
 import * as crypto from 'node:crypto';
 import {ethers} from 'ethers';
@@ -51,11 +55,33 @@ const GOOGLE = {
 const MS_ISS = 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0';
 const MICROSOFT = {...GOOGLE, iss: MS_ISS, email_verified: undefined, xms_edov: true};
 
+const ZERO_SIGNER = {
+  signer_kind: 1,
+  statement_sig: new Uint8Array(64),
+  credential_tbs: new Uint8Array(1000),
+  credential_tbs_len: 0,
+  credential_sig: new Uint8Array(96),
+  att_auth_data: new Uint8Array(256),
+  att_auth_data_len: 0,
+  att_client_data_hash: new Uint8Array(32),
+  assertion_auth_data: new Uint8Array(128),
+  assertion_auth_data_len: 0,
+};
+const signer = jest.fn(async (_req: Parameters<PrepareOidcParams['signProviderKey']>[0]) => ZERO_SIGNER);
+const settled: Array<'ok' | 'refused'> = [];
+
 beforeEach(() => {
+  signer.mockClear();
+  settled.length = 0;
   (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({
     ok: true,
     json: async () => ({keys: [{kid: KID, kty: 'RSA', n: N, e: 'AQAB'}]}),
   }));
+});
+
+afterEach(() => {
+  // One signature per accepted token, none for a refused one.
+  expect(signer).toHaveBeenCalledTimes(settled.filter(r => r === 'ok').length);
 });
 
 function build(payload: Record<string, unknown> | string, extra: Partial<PrepareOidcParams> = {}) {
@@ -67,8 +93,18 @@ function build(payload: Record<string, unknown> | string, extra: Partial<Prepare
     nonce: NONCE,
     clockSeconds: IAT + 60,
     jwksUrl: JWKS_URL,
+    signProviderKey: signer,
     ...extra,
-  });
+  }).then(
+    r => {
+      settled.push('ok');
+      return r;
+    },
+    e => {
+      settled.push('refused');
+      throw e;
+    },
+  );
 }
 
 describe('aud', () => {
@@ -222,5 +258,47 @@ describe('email', () => {
   it('refuses a domain over 64 bytes', async () => {
     const domain = `${'d'.repeat(61)}.com`;
     await expect(build({...GOOGLE, email: `a@${domain}`})).rejects.toThrow(/exceeds max length 64/);
+  });
+});
+
+describe('the provider-key statement', () => {
+  it.each([
+    ['google', GOOGLE, 0],
+    ['microsoft', MICROSOFT, 1],
+  ] as const)('is signed once, for %s, with the public provider, now and the listed modulus', async (provider, payload, id) => {
+    const out = await build(payload, {provider});
+    expect(signer).toHaveBeenCalledTimes(1);
+    const req = signer.mock.calls[0][0];
+    expect(req.provider).toBe(id);
+    expect(out.provider).toBe(id);
+    expect(String(req.now)).toBe(out.now);
+    expect(Buffer.from(req.modulus).toString('base64url')).toBe(N);
+    expect(req.live.keys.map(k => k.kid)).toEqual([KID]);
+  });
+
+  it('is never signed for a token whose key the provider does not list (E2008)', async () => {
+    (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({keys: [{kid: 'another-key', kty: 'RSA', n: N, e: 'AQAB'}]}),
+    }));
+    await expect(build(GOOGLE)).rejects.toMatchObject({code: 'E2008'});
+  });
+
+  it('is never signed when the key list cannot be fetched (E3002)', async () => {
+    (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({ok: false, status: 503, json: async () => ({})}));
+    await expect(build(GOOGLE)).rejects.toMatchObject({code: 'E3002'});
+  });
+
+  it('is never signed for a key with another exponent than 65537 (E2008)', async () => {
+    (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({keys: [{kid: KID, kty: 'RSA', n: N, e: 'Aw'}]}),
+    }));
+    await expect(build(GOOGLE)).rejects.toMatchObject({code: 'E2008'});
+  });
+
+  it('is never signed for a Microsoft token under provider google, or the reverse', async () => {
+    await expect(build({...MICROSOFT, email_verified: true}, {provider: 'google'})).rejects.toThrow(/is not Google/);
+    await expect(build({...GOOGLE, xms_edov: true}, {provider: 'microsoft'})).rejects.toThrow(/not a Microsoft v2.0 tenant issuer/);
   });
 });

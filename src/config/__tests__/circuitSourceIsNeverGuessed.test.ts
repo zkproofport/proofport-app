@@ -43,10 +43,11 @@ jest.mock('react-native-fs', () => ({
 
 const TAG = 'v2.0.0';
 const RAW = 'https://raw.githubusercontent.com/zkproofport/circuits';
-// The official circuits read from the tag. coinbase_attestation (v2) is read
-// from a pinned circuits commit on this branch (circuitArtifacts.ts); its own
+// The official circuits read from the tag. coinbase_attestation (v2) and
+// oidc_domain_attestation (with the provider-key statement) are read from
+// pinned circuits commits on this branch (circuitArtifacts.ts); their own
 // cases are at the end of this file and in coinbaseKycIsV2Everywhere.test.ts.
-const OFFICIAL = ['coinbase_country_attestation', 'oidc_domain_attestation'] as const;
+const OFFICIAL = ['coinbase_country_attestation'] as const;
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 const {
@@ -172,15 +173,17 @@ describe('the pinned tag is missing', () => {
   });
 
   it('a sync tries every circuit, caches the ones that answer, then names every missing file', async () => {
-    const one = '0x1111111111111111111111111111111111111111';
-    github({[`/${TAG}/broadcast/DeployCoinbaseCountryAttestation.s.sol/8453/run-latest.json`]: one});
+    // Coinbase Country is now the only official circuit whose record is read
+    // at the tag; Coinbase KYC v2 and OIDC (provider-key statement) have
+    // none to miss, and GIWA reads main.
+    const giwa = '0xf6edb9d6114b2546b6e559997fdde08caeea83b3';
+    github({'/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': giwa});
     const err = await syncDeployments('production').catch((e: Error) => e);
     expect(isCircuitsReleaseMissingError(err)).toBe(true);
-    expect((err as Error).message).toContain('DeployOidcDomainAttestation');
-    expect((err as Error).message).not.toContain('DeployCoinbaseCountryAttestation.s.sol');
-    // Coinbase KYC v2 has no broadcast record to miss.
+    expect((err as Error).message).toContain('DeployCoinbaseCountryAttestation.s.sol');
+    expect((err as Error).message).not.toContain('DeployOidcDomainAttestation');
     expect((err as Error).message).not.toContain('DeployCoinbaseAttestation.s.sol');
-    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe(one);
+    expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBe(giwa);
   });
 
   it('offline is not a missing tag: no error, built-in addresses answer', async () => {
@@ -257,6 +260,15 @@ describe('a verifier follows the circuit bytes', () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployCoinbaseAttestation'))).toBe(false);
   });
 
+  it('reads OIDC (provider-key statement) from its configured address, never a broadcast or an old cache', async () => {
+    const fetchMock = broadcasts();
+    mockDisk.set('@proofport/deployment/staging/oidc_domain_attestation', JSON.stringify({address: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167'}));
+    expect(await fetchDeploymentAddress('oidc_domain_attestation', 'staging')).toBeNull();
+    expect(await getVerifierAddress('oidc_domain_attestation', 'staging')).toBe('0xeA5933ABc598401c89F63B3f13AE56A7E78984e8');
+    expect(await getVerifierAddress('oidc_domain_attestation', 'production')).toBe('');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployOidcDomainAttestation'))).toBe(false);
+  });
+
   it('ignores the old unversioned giwa cache and has an offline verifier', async () => {
     mockDisk.set('@proofport/deployment/production/giwa_attestation', JSON.stringify({address: oldGiwa}));
     const fetchMock = github({}, {offline: true});
@@ -294,8 +306,11 @@ describe('a circuit cache version is never guessed', () => {
     }
   });
 
-  it('OIDC is at v5, the v2 circuit (214 public inputs)', () => {
-    expect(CIRCUIT_DATA_VERSIONS.oidc_domain_attestation).toBe(5);
+  it('OIDC is at v6, the provider-key-statement circuit, in both tables', () => {
+    const {circuitArtifactSource} = require('../circuitArtifacts');
+    expect(CIRCUIT_DATA_VERSIONS.oidc_domain_attestation).toBe(6);
+    expect(circuitArtifactSource('oidc_domain_attestation')?.dataVersion).toBe(6);
+    expect(circuitDataVersion('oidc_domain_attestation')).toBe(6);
   });
 
   it('throws on an unknown circuit instead of answering 0', () => {
@@ -352,5 +367,45 @@ describe('no code path asks for the latest release', () => {
     };
     walk(root);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('OIDC files come from the pinned circuits commit', () => {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const {cacheNeedsInvalidation} = require('../../utils/cacheInvalidation');
+  const {OIDC_SIGNATURE_CIRCUITS_REF} = require('../circuitArtifacts');
+  const {circuitDataVersion} = require('../../utils/circuitDownload');
+  /* eslint-enable @typescript-eslint/no-var-requires */
+
+  it('is a full commit SHA, not a branch that moves under an installed app', () => {
+    expect(OIDC_SIGNATURE_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
+  });
+
+  it.each(['development', 'staging', 'production'] as const)('%s reads it, and asks GitHub nothing', async env => {
+    const fetchMock = github({});
+    expect(await circuitBaseUrl('oidc_domain_attestation', env)).toBe(`${RAW}/${OIDC_SIGNATURE_CIRCUITS_REF}`);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['main, v5 (the circuit before the statement)', `${RAW}/main`, 5],
+    ['the release tag, v5', `${RAW}/${TAG}`, 5],
+    ['the pinned commit but v5', `${RAW}/5081cfda1ed00cfe9ec0aa20180338dc45f10670`, 5],
+  ])('replaces OIDC files cached from %s', async (_l, baseUrl, dataVersion) => {
+    expect(cacheNeedsInvalidation({
+      stored: {baseUrl, downloadedAt: 0, dataVersion},
+      expectedVersion: circuitDataVersion('oidc_domain_attestation'),
+      currentBaseUrl: await circuitBaseUrl('oidc_domain_attestation', 'staging'),
+      hasCachedFiles: true,
+    })).toBe(true);
+  });
+
+  it('keeps OIDC files from the pinned commit at v6', async () => {
+    expect(cacheNeedsInvalidation({
+      stored: {baseUrl: `${RAW}/${OIDC_SIGNATURE_CIRCUITS_REF}`, downloadedAt: 0, dataVersion: 6},
+      expectedVersion: circuitDataVersion('oidc_domain_attestation'),
+      currentBaseUrl: await circuitBaseUrl('oidc_domain_attestation', 'production'),
+      hasCachedFiles: true,
+    })).toBe(false);
   });
 });
