@@ -241,6 +241,10 @@ dependencies {
     implementation("androidx.credentials:credentials:1.6.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
+    // Classic Play Integrity tokens for factory-provisioned phones' statements
+    // (AndroidKeyAttestationModule.requestIntegrityToken; the version
+    // developer.android.com/google/play/integrity/setup names, read 2026-10-28).
+    implementation("com.google.android.play:integrity:1.6.0")
 
     // JVM unit tests for the OpenStoa push crypto/payload logic (:app:test*UnitTest).
     testImplementation("junit:junit:4.13.2")

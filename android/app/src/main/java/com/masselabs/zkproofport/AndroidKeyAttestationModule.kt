@@ -12,6 +12,10 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.google.android.play.core.integrity.IntegrityManagerFactory
+import com.google.android.play.core.integrity.IntegrityServiceException
+import com.google.android.play.core.integrity.IntegrityTokenRequest
+import com.google.android.play.core.integrity.model.IntegrityErrorCode
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.MessageDigest
@@ -31,6 +35,15 @@ import java.util.concurrent.Executors
  * `{chain: [base64 DER, leaf first], signature: base64 DER, strongBox, sdkInt}`
  * or rejects with ANDROIDATTEST_UNSUPPORTED / INVALID_INPUT / KEYGEN_FAILED /
  * EMPTY_CHAIN / SIGN_FAILED.
+ *
+ * `requestIntegrityToken(nonceBase64Url)` (factory-provisioned phones only)
+ * resolves the classic Play Integrity token for that nonce -- the encrypted
+ * JWE, which the relay decrypts -- or rejects with
+ * ANDROIDATTEST_INTEGRITY_TRANSIENT (network, rate limit, Google's server:
+ * worth retrying), ANDROIDATTEST_INVALID_INPUT (a nonce Play refuses) or
+ * ANDROIDATTEST_INTEGRITY_UNAVAILABLE (no Play Store / services, outdated,
+ * not installed from Play, ...). The app is distributed on Play, so no Cloud
+ * project number is set (developer.android.com/google/play/integrity/classic).
  *
  * One FRESH key per statement, deleted afterwards: an EC P-256 key in
  * AndroidKeyStore (PURPOSE_SIGN, SHA-256), StrongBox first when the phone has
@@ -211,6 +224,38 @@ class AndroidKeyAttestationModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    @ReactMethod
+    fun requestIntegrityToken(nonceBase64Url: String?, promise: Promise) {
+        if (nonceBase64Url.isNullOrEmpty() || !NONCE_FORM.matches(nonceBase64Url)) {
+            promise.reject(CODE_INVALID_INPUT, "requestIntegrityToken needs an unpadded base64url nonce of 16-500 characters")
+            return
+        }
+        val request = IntegrityTokenRequest.builder().setNonce(nonceBase64Url).build()
+        IntegrityManagerFactory.create(reactApplicationContext).requestIntegrityToken(request)
+            .addOnSuccessListener { response ->
+                val token = response.token()
+                Log.i(TAG, "Play Integrity token received (${token.length} characters)")
+                promise.resolve(token)
+            }
+            .addOnFailureListener { e ->
+                val errorCode = (e as? IntegrityServiceException)?.errorCode
+                val code = when (errorCode) {
+                    IntegrityErrorCode.NETWORK_ERROR,
+                    IntegrityErrorCode.TOO_MANY_REQUESTS,
+                    IntegrityErrorCode.GOOGLE_SERVER_UNAVAILABLE,
+                    IntegrityErrorCode.CLIENT_TRANSIENT_ERROR,
+                    IntegrityErrorCode.INTERNAL_ERROR -> CODE_INTEGRITY_TRANSIENT
+                    IntegrityErrorCode.NONCE_TOO_SHORT,
+                    IntegrityErrorCode.NONCE_TOO_LONG,
+                    IntegrityErrorCode.NONCE_IS_NOT_BASE64 -> CODE_INVALID_INPUT
+                    else -> CODE_INTEGRITY_UNAVAILABLE
+                }
+                val detail = "Play Integrity failed (errorCode ${errorCode ?: "none"}): ${e.javaClass.name}: ${e.message}"
+                Log.e(TAG, detail, e)
+                promise.reject(code, detail, e)
+            }
+    }
+
     override fun invalidate() {
         executor.shutdown()
         super.invalidate()
@@ -224,5 +269,8 @@ class AndroidKeyAttestationModule(reactContext: ReactApplicationContext) :
         const val CODE_KEYGEN_FAILED = "ANDROIDATTEST_KEYGEN_FAILED"
         const val CODE_EMPTY_CHAIN = "ANDROIDATTEST_EMPTY_CHAIN"
         const val CODE_SIGN_FAILED = "ANDROIDATTEST_SIGN_FAILED"
+        const val CODE_INTEGRITY_TRANSIENT = "ANDROIDATTEST_INTEGRITY_TRANSIENT"
+        const val CODE_INTEGRITY_UNAVAILABLE = "ANDROIDATTEST_INTEGRITY_UNAVAILABLE"
+        private val NONCE_FORM = Regex("^[A-Za-z0-9_-]{16,500}$")
     }
 }
