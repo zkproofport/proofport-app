@@ -43,6 +43,10 @@ class GoogleIdTokenModule(reactContext: ReactApplicationContext) :
 
     override fun getName(): String = "GoogleIdToken"
 
+    private companion object {
+        const val REAUTH_FAILED_MESSAGE = "[16] Account reauth failed"
+    }
+
     private fun stringOption(options: ReadableMap, key: String): String? =
         if (options.hasKey(key) && options.getType(key) == ReadableType.String) options.getString(key) else null
 
@@ -100,9 +104,16 @@ class GoogleIdTokenModule(reactContext: ReactApplicationContext) :
 
                 override fun onError(e: GetCredentialException) {
                     inFlight.set(false)
-                    val code = when (e) {
-                        is GetCredentialCancellationException -> "CANCELLED"
-                        is NoCredentialException -> "NO_CREDENTIAL"
+                    val code = when {
+                        // "[16] Account reauth failed" arrives as a cancellation but
+                        // is not one: seen 2026-10-28 when the person ADDED an
+                        // account inside the picker (sign-in + 2-step) -- the new
+                        // account's sign-in ended the sheet, and the same request
+                        // succeeded at once on the next try.
+                        e is GetCredentialCancellationException &&
+                            e.message?.contains(REAUTH_FAILED_MESSAGE) == true -> "REAUTH_FAILED"
+                        e is GetCredentialCancellationException -> "CANCELLED"
+                        e is NoCredentialException -> "NO_CREDENTIAL"
                         else -> "SIGN_IN_FAILED"
                     }
                     promise.reject(code, "${e.type}: ${e.message}", e)

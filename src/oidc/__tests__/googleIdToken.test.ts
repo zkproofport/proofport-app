@@ -42,6 +42,40 @@ it.each(NATIVE_ERROR_CODES)('maps native rejection %s to that code', async code 
   expect(r).toEqual({error: `native ${code} (code=${code})`, code, cancelled: code === 'CANCELLED'});
 });
 
+describe('REAUTH_FAILED: an account added inside the picker (2026-10-28)', () => {
+  const reauth = () => Object.assign(new Error('TYPE_USER_CANCELED: [16] Account reauth failed.'), {code: 'REAUTH_FAILED'});
+
+  it('is retried once, and the retry\'s token is the answer', async () => {
+    mockNative.GoogleIdToken!.signIn.mockRejectedValueOnce(reauth()).mockResolvedValueOnce({idToken: 'h.p.s'});
+    await expect(signInWithGoogleNonce(NONCE)).resolves.toEqual({idToken: 'h.p.s'});
+    expect(mockNative.GoogleIdToken!.signIn).toHaveBeenCalledTimes(2);
+    expect(mockNative.GoogleIdToken!.signIn.mock.calls[1][0]).toEqual(mockNative.GoogleIdToken!.signIn.mock.calls[0][0]);
+  });
+
+  it('is retried only once, and a second failure is a failure, not a cancel', async () => {
+    mockNative.GoogleIdToken!.signIn.mockRejectedValue(reauth());
+    await expect(signInWithGoogleNonce(NONCE)).resolves.toEqual(
+      expect.objectContaining({code: 'REAUTH_FAILED', cancelled: false}),
+    );
+    expect(mockNative.GoogleIdToken!.signIn).toHaveBeenCalledTimes(2);
+  });
+
+  it('a real cancel is not retried', async () => {
+    mockNative.GoogleIdToken!.signIn.mockRejectedValue(Object.assign(new Error('closed'), {code: 'CANCELLED'}));
+    await signInWithGoogleNonce(NONCE);
+    expect(mockNative.GoogleIdToken!.signIn).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('the Android module reports reauth failure as its own code', () => {
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, '../../../android/app/src/main/java/com/masselabs/zkproofport/GoogleIdTokenModule.kt'),
+    'utf8',
+  ) as string;
+  expect(src).toContain('const val REAUTH_FAILED_MESSAGE = "[16] Account reauth failed"');
+  expect(src).toMatch(/contains\(REAUTH_FAILED_MESSAGE\) == true -> "REAUTH_FAILED"/);
+});
+
 it('an unknown native code is UNKNOWN, never a cancel', async () => {
   mockNative.GoogleIdToken!.signIn.mockRejectedValue(Object.assign(new Error('boom'), {code: 'cancelled'}));
   await expect(signInWithGoogleNonce(NONCE)).resolves.toEqual(

@@ -35,6 +35,7 @@ export const NATIVE_ERROR_CODES = [
   'NO_CREDENTIAL',
   'NO_ID_TOKEN',
   'KEYCHAIN',
+  'REAUTH_FAILED',
   'SIGN_IN_FAILED',
 ] as const;
 export type GoogleNativeErrorCode = (typeof NATIVE_ERROR_CODES)[number];
@@ -50,7 +51,21 @@ type NativeGoogleIdToken = {
 const isKnownCode = (c: unknown): c is GoogleNativeErrorCode =>
   typeof c === 'string' && (NATIVE_ERROR_CODES as readonly string[]).includes(c);
 
+/**
+ * Android only: "[16] Account reauth failed" (code REAUTH_FAILED) is what
+ * Credential Manager answers when the person adds the account INSIDE the
+ * picker (sign-in, 2-step verification) -- the sheet closes with no token even
+ * though the account is now on the phone. Seen 2026-10-28: the same account
+ * signed in at once on the next attempt. So it is retried exactly once, and
+ * if that fails too it is reported as a failure, never as "cancelled".
+ */
 export async function signInWithGoogleNonce(nonce: string): Promise<GoogleIdTokenResult> {
+  const first = await signInOnce(nonce);
+  if ('error' in first && first.code === 'REAUTH_FAILED') return signInOnce(nonce);
+  return first;
+}
+
+async function signInOnce(nonce: string): Promise<GoogleIdTokenResult> {
   if (!isOidcNonce(nonce)) {
     // A programming error, not something a person can fix: refuse before any sheet opens.
     throw new Error(`Google sign-in needs a 64-hex nonce, got ${JSON.stringify(nonce)}.`);
