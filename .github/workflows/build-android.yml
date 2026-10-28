@@ -116,6 +116,11 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
+          # The Play upload credential, as release-app.yml passes it. Without
+          # it the lane builds and signs the AAB and uploads nothing (it says
+          # so in the log); this workflow went without it until 2026-10-28,
+          # so no beta it built ever reached the internal track.
+          SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
           ORG_GRADLE_PROJECT_APP_ENV_OVERRIDE: ${{ inputs.app_env }}
         run: |
