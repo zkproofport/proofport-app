@@ -8,7 +8,7 @@
  * from core's table would make every dApp refuse the app's proofs, while the
  * phone itself reported "verified".
  */
-jest.mock('react-native', () => ({NativeModules: {}}));
+jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 
 import {ethers} from 'ethers';
 import {getPinnedVerifier, OIDC_PUBLIC_INPUT_COUNT as CORE_OIDC_PUBLIC_INPUT_COUNT} from '@zkproofport-app/core';
@@ -16,15 +16,15 @@ import {ALL_CIRCUIT_IDS} from '../circuitIds';
 import {CIRCUIT_NETWORKS, FALLBACK_VERIFIERS} from '../contracts';
 import type {Environment} from '../contracts';
 import {OIDC_PUBLIC_INPUT_COUNT} from '../../utils/oidcDomain';
-import {circuitArtifactSource} from '../circuitArtifacts';
+import {hasPinnedArtifactSource} from '../circuitArtifacts';
 
 // Coinbase KYC v2 and OIDC with the provider-key statement are read from
 // pinned circuits commits on this branch and are not in core 0.3.0's table
 // (core still pins the v1 Coinbase verifier and the OIDC verifier from before
 // the statement). Their rows are held below to their own deploys instead;
 // drop this when core pins them.
-const IN_CORE = ALL_CIRCUIT_IDS.filter(c => !circuitArtifactSource(c));
-const NOT_IN_CORE = ALL_CIRCUIT_IDS.filter(c => circuitArtifactSource(c));
+const IN_CORE = ALL_CIRCUIT_IDS.filter(c => !hasPinnedArtifactSource(c));
+const NOT_IN_CORE = ALL_CIRCUIT_IDS.filter(c => hasPinnedArtifactSource(c));
 
 const ENVS: Environment[] = ['development', 'staging', 'production'];
 

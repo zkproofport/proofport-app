@@ -35,8 +35,25 @@
  * public-input count (214 either way) cannot tell apart. Verifier: Base
  * Sepolia 0xeA5933AB...84e8 (circuits 7e5c72d). Remove the row when that
  * circuit is in the release this app pins and in core's table.
+ *
+ * PER PLATFORM. Both ids are proved by a different circuit on Android: the
+ * statement is vouched for by Android key attestation instead of App Attest,
+ * in the packages `oidc_domain_attestation_android` and
+ * `coinbase_attestation_v2_android` (circuits branch android-signature;
+ * designed 2026-10-28, circuits-dev.md "Android signer"). Same circuit id,
+ * public inputs, statement and nullifier; other private inputs, other vk and
+ * verifier, and 2^21 instead of 2^20. So each row holds one source per
+ * statement-signer variant (src/config/signerPlatform.ts), and a variant the
+ * row does not hold is an error, never the other platform's files.
+ *
+ * A 2^21 .srs is 134,217,940 bytes, over GitHub's 100 MiB file limit, so the
+ * circuits repository publishes it in parts (`<package>.srs.part0`, ...,
+ * each at most 64 MiB) with SHA256SUMS listing every part and the joined
+ * `<package>.srs`. `srsParts` says how many; circuitDownload.ts fetches,
+ * checks and joins them.
  */
 import type {CircuitName} from './circuitIds';
+import {currentSignerVariant, type StatementSignerVariant} from './signerPlatform';
 
 /**
  * zkproofport/circuits 5081cfd (branch oidc-signature, 2026-10-28): CI-built
@@ -46,10 +63,29 @@ import type {CircuitName} from './circuitIds';
  */
 export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f10670';
 
+/**
+ * The zkproofport/circuits commit carrying the CI-built Android packages
+ * (`oidc_domain_attestation_android`, `coinbase_attestation_v2_android`):
+ * their json, the split .srs with SHA256SUMS, and vk. A full 40-hex commit,
+ * never a branch. Empty until CI has built them: every download of an Android
+ * row then fails with an error naming this constant (requireArtifactRef),
+ * instead of reading files from anywhere else.
+ */
+export const ANDROID_SIGNATURE_CIRCUITS_REF = '';
+
+/** The .srs size of a 2^21 circuit (bb 4.2.0-aztecnr-rc.2), split for GitHub. */
+export const SRS_2_21_BYTES = 134_217_940;
+/** Upper bound on one published .srs part. */
+export const SRS_PART_MAX_BYTES = 64 * 1024 * 1024;
+
 export interface CircuitArtifactSource {
+  /** Which statement signer this circuit takes (src/config/signerPlatform.ts). */
+  variant: StatementSignerVariant;
   /** zkproofport/circuits tag or commit holding the files. */
   ref: string;
-  /** Directory holding `<remoteFileName>.json` and `.srs`. */
+  /** The constant `ref` comes from, named in the error when it is empty. */
+  refName: string;
+  /** Directory holding `<remoteFileName>.json` and `.srs` (or its parts). */
   basePath: string;
   vkPath: string;
   vkFileName: string;
@@ -59,43 +95,134 @@ export interface CircuitArtifactSource {
   dataVersion: number;
   /** Field elements in the proof's public-input vector. */
   publicInputCount: number;
+  /**
+   * null: the .srs is one file, `<remoteFileName>.srs`. A number: it is
+   * published as that many parts, `<remoteFileName>.srs.part0` ...
+   * `.part<n-1>`, each listed in SHA256SUMS beside the joined
+   * `<remoteFileName>.srs`.
+   */
+  srsParts: number | null;
 }
 
-export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, CircuitArtifactSource>>> = Object.freeze({
-  // v2.0.0-rc.1 = circuits b0ca9fe: nargo 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2,
-  // 2^20 (.srs 67,109,076 bytes), 193 public inputs.
+type PerVariant = Readonly<Record<StatementSignerVariant, CircuitArtifactSource>>;
+
+export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerVariant>>> = Object.freeze({
   coinbase_attestation: Object.freeze({
-    ref: 'v2.0.0-rc.1',
-    basePath: 'coinbase-attestation-v2/target',
-    vkPath: 'coinbase-attestation-v2/target/vk',
-    vkFileName: 'vk',
-    remoteFileName: 'coinbase_attestation_v2',
-    dataVersion: 2,
-    publicInputCount: 193,
+    // v2.0.0-rc.1 = circuits b0ca9fe: nargo 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2,
+    // 2^20 (.srs 67,109,076 bytes), 193 public inputs.
+    app_attest: Object.freeze({
+      variant: 'app_attest',
+      ref: 'v2.0.0-rc.1',
+      refName: "coinbase_attestation's app_attest row",
+      basePath: 'coinbase-attestation-v2/target',
+      vkPath: 'coinbase-attestation-v2/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'coinbase_attestation_v2',
+      dataVersion: 2,
+      publicInputCount: 193,
+      srsParts: null,
+    }),
+    // 2^21, 193 public inputs (the same as the iPhone circuit's). dataVersion
+    // 3 is distinct from the iPhone files' 2 even though a phone only ever
+    // holds one platform's files: the version names the file set.
+    android: Object.freeze({
+      variant: 'android',
+      ref: ANDROID_SIGNATURE_CIRCUITS_REF,
+      refName: 'ANDROID_SIGNATURE_CIRCUITS_REF',
+      basePath: 'coinbase-attestation-v2-android/target',
+      vkPath: 'coinbase-attestation-v2-android/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'coinbase_attestation_v2_android',
+      dataVersion: 3,
+      publicInputCount: 193,
+      srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    }),
   }),
-  // dataVersion 6 = CIRCUIT_DATA_VERSIONS.oidc_domain_attestation: the files
-  // from v5 (circuits main, no signer) are deleted and fetched again.
   oidc_domain_attestation: Object.freeze({
-    ref: OIDC_SIGNATURE_CIRCUITS_REF,
-    basePath: 'oidc-domain-attestation/target',
-    vkPath: 'oidc-domain-attestation/target/vk',
-    vkFileName: 'vk',
-    remoteFileName: 'oidc_domain_attestation',
-    dataVersion: 6,
-    publicInputCount: 214,
+    // dataVersion 6 = CIRCUIT_DATA_VERSIONS.oidc_domain_attestation: the files
+    // from v5 (circuits main, no signer) are deleted and fetched again.
+    app_attest: Object.freeze({
+      variant: 'app_attest',
+      ref: OIDC_SIGNATURE_CIRCUITS_REF,
+      refName: 'OIDC_SIGNATURE_CIRCUITS_REF',
+      basePath: 'oidc-domain-attestation/target',
+      vkPath: 'oidc-domain-attestation/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'oidc_domain_attestation',
+      dataVersion: 6,
+      publicInputCount: 214,
+      srsParts: null,
+    }),
+    // 2^21, 214 public inputs (the same as the iPhone circuit's).
+    android: Object.freeze({
+      variant: 'android',
+      ref: ANDROID_SIGNATURE_CIRCUITS_REF,
+      refName: 'ANDROID_SIGNATURE_CIRCUITS_REF',
+      basePath: 'oidc-domain-attestation-android/target',
+      vkPath: 'oidc-domain-attestation-android/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'oidc_domain_attestation_android',
+      dataVersion: 7,
+      publicInputCount: 214,
+      srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    }),
   }),
 });
 
-/** The pinned source for `circuit`, if it has one. Own keys only. */
-export function circuitArtifactSource(circuit: string): CircuitArtifactSource | undefined {
+function ownRow(circuit: string): PerVariant | undefined {
   return Object.prototype.hasOwnProperty.call(CIRCUIT_ARTIFACT_SOURCES, circuit)
     ? CIRCUIT_ARTIFACT_SOURCES[circuit as CircuitName]
     : undefined;
 }
 
-/** Coinbase KYC v2's source. Required: the app proves only v2 for this id. */
-export function coinbaseKycArtifact(): CircuitArtifactSource {
-  const source = circuitArtifactSource('coinbase_attestation');
+/** Whether `circuit` is read from a pinned per-platform source at all. */
+export function hasPinnedArtifactSource(circuit: string): boolean {
+  return ownRow(circuit) !== undefined;
+}
+
+/**
+ * The pinned source for `circuit` on `variant`; undefined for a circuit with
+ * no row (it is read from main or the release tag). A row without that
+ * variant throws, naming it: the other platform's files would load, and fail
+ * in the prover with nothing pointing here.
+ */
+export function artifactSourceFor(circuit: string, variant: string): CircuitArtifactSource | undefined {
+  const row = ownRow(circuit);
+  if (!row) return undefined;
+  if (!Object.prototype.hasOwnProperty.call(row, variant)) {
+    throw new Error(
+      `${circuit} has no circuit files for statement signer '${variant}'. Known: ${Object.keys(row).join(', ')}.`,
+    );
+  }
+  return row[variant as StatementSignerVariant];
+}
+
+/** The pinned source for `circuit` on this phone's platform. Own keys only. */
+export function circuitArtifactSource(circuit: string): CircuitArtifactSource | undefined {
+  // The platform is read only for a circuit that has a row, so every other
+  // circuit's download never depends on it.
+  return hasPinnedArtifactSource(circuit) ? artifactSourceFor(circuit, currentSignerVariant()) : undefined;
+}
+
+/**
+ * The ref a source's files are read from. An Android row must name a full
+ * commit; until ANDROID_SIGNATURE_CIRCUITS_REF is filled in, this is the
+ * error every Android download of these circuits ends at.
+ */
+export function requireArtifactRef(source: CircuitArtifactSource): string {
+  if (source.variant === 'android' && !/^[0-9a-f]{40}$/.test(source.ref)) {
+    throw new Error(
+      `${source.refName} is ${source.ref === '' ? 'empty' : `'${source.ref}'`}: set it to the 40-hex zkproofport/circuits ` +
+        `commit carrying the CI-built ${source.remoteFileName} files (src/config/circuitArtifacts.ts).`,
+    );
+  }
+  if (source.ref === '') throw new Error(`${source.refName} is empty (src/config/circuitArtifacts.ts).`);
+  return source.ref;
+}
+
+/** Coinbase KYC v2's source on this phone. Required: the app proves only v2 for this id. */
+export function coinbaseKycArtifact(variant: StatementSignerVariant = currentSignerVariant()): CircuitArtifactSource {
+  const source = artifactSourceFor('coinbase_attestation', variant);
   if (!source) throw new Error('coinbase_attestation has no pinned v2 artifact source in circuitArtifacts.ts.');
   return source;
 }

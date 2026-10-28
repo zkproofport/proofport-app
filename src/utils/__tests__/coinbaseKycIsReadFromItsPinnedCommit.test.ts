@@ -5,6 +5,8 @@
  * from main or a release tag, where the v1 files of the same id live. An id
  * with no paths anywhere is an error rather than a guessed URL.
  */
+// Coinbase KYC v2 and OIDC read per-platform circuit files; this test is the iPhone's.
+jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 const mockDisk = new Map<string, string>();
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,

@@ -15,6 +15,8 @@
  * which paired a circuit from main with a release's verifier address; the
  * "never main" cases below keep that closed.
  */
+// Coinbase KYC v2 and OIDC read per-platform circuit files; this test is the iPhone's.
+jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 
 const mockDisk = new Map<string, string>();
 jest.mock('@react-native-async-storage/async-storage', () => ({

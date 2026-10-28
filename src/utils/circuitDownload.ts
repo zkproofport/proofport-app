@@ -1,5 +1,6 @@
 import RNFS from 'react-native-fs';
 import {
+  isSha256Hex,
   manifestLocation,
   parseSha256Manifest,
   verifyCircuitFile,
@@ -9,7 +10,7 @@ import {environmentCircuitsRef, resolveCircuitBaseUrl} from '../config/deploymen
 import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, CIRCUITS_BRANCH, STATIC_CONFIGS} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
 import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
-import {circuitArtifactSource} from '../config/circuitArtifacts';
+import {circuitArtifactSource, requireArtifactRef, SRS_PART_MAX_BYTES, type CircuitArtifactSource} from '../config/circuitArtifacts';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 
 const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
@@ -201,7 +202,8 @@ export async function circuitBaseUrl(
 ): Promise<string> {
   const pinned = circuitArtifactSource(circuitName);
   if (pinned) {
-    return GITHUB_RAW(pinned.ref);
+    // Throws, naming the constant, for an Android row whose commit is not set.
+    return GITHUB_RAW(requireArtifactRef(pinned));
   }
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
     return GITHUB_RAW(CIRCUITS_BRANCH);
@@ -251,27 +253,20 @@ async function getCircuitFileUrl(
   );
 }
 
-async function downloadCircuitFileFromGitHub(
+const DOWNLOAD_TIMEOUT_MS = 120000;
+
+/**
+ * One HTTP download to `destPath`. Resolves the status and the
+ * `Content-Length` the server declared (0 when it declared none); never
+ * deletes, checks or interprets the file -- the callers do that.
+ */
+async function fetchToFile(
+  url: string,
+  destPath: string,
   circuitName: string,
-  extension: string,
-  env: Environment,
+  fileName: string,
   onProgress?: (progress: DownloadProgress) => void,
-  addLog?: (msg: string) => void,
-): Promise<string> {
-  const log = addLog || console.log;
-  const fileName = `${circuitName}.${extension}`;
-  const url = await getCircuitFileUrl(circuitName, extension, env);
-  const destPath = getCircuitFilePath(circuitName, extension);
-
-  const circuitDir = getCircuitDirectory();
-  if (!(await RNFS.exists(circuitDir))) {
-    await RNFS.mkdir(circuitDir);
-  }
-
-  log(`Downloading ${fileName}...`);
-
-  const DOWNLOAD_TIMEOUT_MS = 120000;
-
+): Promise<{statusCode: number; declaredLength: number}> {
   /*
    * `Content-Length`, captured from the progress callback because that is the
    * only place RNFS exposes it — `DownloadResult` carries `statusCode` and
@@ -321,22 +316,54 @@ async function downloadCircuitFileFromGitHub(
   } finally {
     clearTimeout(timeoutId);
   }
+  return {statusCode: result.statusCode, declaredLength};
+}
 
-  if (result.statusCode !== 200) {
+/** The reason line for a download that did not answer 200. */
+function httpFailureReason(circuitName: string, fileName: string, url: string, statusCode: number, env: Environment): string {
+  // A 404 at a pinned release tag is a missing or incomplete release, not a
+  // network problem: say which tag, so it is not retried as one.
+  // A circuit read from a pinned commit (circuitArtifacts.ts) never reads
+  // the release tag, so its 404 names the commit instead.
+  const artifact = circuitArtifactSource(circuitName);
+  const pinned = !artifact && !MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName) && isPinnedRelease(env);
+  let reason = `Failed to download ${fileName}: HTTP ${statusCode} from ${url}`;
+  if (statusCode === 404 && artifact) {
+    reason += ` -- circuits ref ${artifact.ref} (src/config/circuitArtifacts.ts) does not contain this file`;
+  } else if (statusCode === 404 && pinned) {
+    reason += ` -- circuits release ${environmentCircuitsRef(env)} (CIRCUITS_RELEASE_TAG) is missing or does not contain this file`;
+  }
+  return reason;
+}
+
+async function ensureCircuitDirectory(): Promise<void> {
+  const circuitDir = getCircuitDirectory();
+  if (!(await RNFS.exists(circuitDir))) {
+    await RNFS.mkdir(circuitDir);
+  }
+}
+
+async function downloadCircuitFileFromGitHub(
+  circuitName: string,
+  extension: string,
+  env: Environment,
+  onProgress?: (progress: DownloadProgress) => void,
+  addLog?: (msg: string) => void,
+): Promise<string> {
+  const log = addLog || console.log;
+  const fileName = `${circuitName}.${extension}`;
+  const url = await getCircuitFileUrl(circuitName, extension, env);
+  const destPath = getCircuitFilePath(circuitName, extension);
+
+  await ensureCircuitDirectory();
+
+  log(`Downloading ${fileName}...`);
+
+  const {statusCode, declaredLength} = await fetchToFile(url, destPath, circuitName, fileName, onProgress);
+
+  if (statusCode !== 200) {
     await RNFS.unlink(destPath).catch(() => {});
-    // A 404 at a pinned release tag is a missing or incomplete release, not a
-    // network problem: say which tag, so it is not retried as one.
-    // A circuit read from a pinned commit (circuitArtifacts.ts) never reads
-    // the release tag, so its 404 names the commit instead.
-    const artifact = circuitArtifactSource(circuitName);
-    const pinned = !artifact && !MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName) && isPinnedRelease(env);
-    let reason = `Failed to download ${fileName}: HTTP ${result.statusCode} from ${url}`;
-    if (result.statusCode === 404 && artifact) {
-      reason += ` -- circuits ref ${artifact.ref} (src/config/circuitArtifacts.ts) does not contain this file`;
-    } else if (result.statusCode === 404 && pinned) {
-      reason += ` -- circuits release ${environmentCircuitsRef(env)} (CIRCUITS_RELEASE_TAG) is missing or does not contain this file`;
-    }
-    throw new Error(reason);
+    throw new Error(httpFailureReason(circuitName, fileName, url, statusCode, env));
   }
 
   const stat = await RNFS.stat(destPath);
@@ -376,6 +403,119 @@ async function downloadCircuitFileFromGitHub(
 }
 
 /**
+ * Bytes read from a part and appended to the joined file per step. RNFS
+ * moves file contents through the bridge as base64, so one step holds about
+ * 5.6 MB of string in JS; the whole 128 MiB file never is.
+ */
+export const SRS_JOIN_CHUNK_BYTES = 4 * 1024 * 1024;
+
+/**
+ * A .srs published in parts (CircuitArtifactSource.srsParts): download each
+ * part, check it against SHA256SUMS, append it to `<id>.srs.joining` in
+ * SRS_JOIN_CHUNK_BYTES steps, check the joined file against the
+ * `<package>.srs` line, and only then move it to `<id>.srs`.
+ *
+ * Stricter than a single file on purpose: the manifest is REQUIRED (a part
+ * has no other meaningful check -- its Content-Length says nothing about
+ * whether it is the right part), every digest must actually be computed and
+ * match, and anything that fails deletes every part, the half-joined file and
+ * the destination, so a later launch never finds a file to trust.
+ */
+async function downloadSplitSrs(
+  circuitName: string,
+  source: CircuitArtifactSource & {srsParts: number},
+  env: Environment,
+  onProgress: ((progress: DownloadProgress) => void) | undefined,
+  log: (msg: string) => void,
+): Promise<string> {
+  const joinedUrl = await getCircuitFileUrl(circuitName, 'srs', env);
+  const {manifestUrl, key: joinedName} = manifestLocation(joinedUrl);
+  const destPath = getCircuitFilePath(circuitName, 'srs');
+  const joinPath = `${destPath}.joining`;
+  const partPath = (i: number) => `${destPath}.part${i}`;
+  const partCount = source.srsParts;
+  if (!Number.isInteger(partCount) || partCount < 1) {
+    throw new Error(`${circuitName}: srsParts is ${partCount}; it must be a positive integer (src/config/circuitArtifacts.ts).`);
+  }
+
+  await ensureCircuitDirectory();
+  const removeAll = async () => {
+    for (let i = 0; i < partCount; i++) await RNFS.unlink(partPath(i)).catch(() => {});
+    await RNFS.unlink(joinPath).catch(() => {});
+    await RNFS.unlink(destPath).catch(() => {});
+  };
+
+  try {
+    const manifest = await manifestFor(manifestUrl, log);
+    if (!manifest) {
+      throw new Error(`No SHA256SUMS at ${manifestUrl}: a .srs published in parts is never joined unchecked`);
+    }
+    const digestOf = (name: string): string => {
+      const d = manifest[name];
+      if (!isSha256Hex(d)) throw new Error(`SHA256SUMS at ${manifestUrl} has no sha256 for ${name}`);
+      return d;
+    };
+    const joinedDigest = digestOf(joinedName);
+
+    log(`Downloading ${circuitName}.srs in ${partCount} parts...`);
+    for (let i = 0; i < partCount; i++) {
+      const partName = `${joinedName}.part${i}`;
+      const expectedDigest = digestOf(partName);
+      const url = `${joinedUrl}.part${i}`;
+      const {statusCode, declaredLength} = await fetchToFile(url, partPath(i), circuitName, partName, onProgress);
+      if (statusCode !== 200) {
+        throw new Error(httpFailureReason(circuitName, partName, url, statusCode, env));
+      }
+      const {size} = await RNFS.stat(partPath(i));
+      if (size > SRS_PART_MAX_BYTES) {
+        throw new Error(`${partName} is ${size} bytes; a part is at most ${SRS_PART_MAX_BYTES}`);
+      }
+      const verdict = verifyCircuitFile({
+        size,
+        declaredLength,
+        digest: await digestOrNull(partPath(i), log),
+        expectedDigest,
+      });
+      if (!verdict.ok) throw new Error(`Downloaded ${partName} failed verification (${verdict.reason}): ${verdict.detail}`);
+      if (verdict.level !== 'sha256') throw new Error(`${partName} could not be hashed; a part is joined only after its sha256 matched`);
+      log(`Downloaded ${partName}: ${size} bytes (verified: sha256)`);
+    }
+
+    await RNFS.unlink(joinPath).catch(() => {});
+    await RNFS.writeFile(joinPath, '', 'base64');
+    let joined = 0;
+    for (let i = 0; i < partCount; i++) {
+      const {size} = await RNFS.stat(partPath(i));
+      for (let pos = 0; pos < size; pos += SRS_JOIN_CHUNK_BYTES) {
+        const length = Math.min(SRS_JOIN_CHUNK_BYTES, size - pos);
+        const chunk = await RNFS.read(partPath(i), length, pos, 'base64');
+        await RNFS.appendFile(joinPath, chunk, 'base64');
+      }
+      joined += size;
+      // Freed as soon as it is in the joined file: the parts and the whole
+      // never sit on the phone twice over.
+      await RNFS.unlink(partPath(i));
+    }
+
+    const {size: joinedSize} = await RNFS.stat(joinPath);
+    if (joinedSize !== joined) {
+      throw new Error(`Joined ${circuitName}.srs is ${joinedSize} bytes; its parts held ${joined}`);
+    }
+    const verdict = verifyCircuitFile({size: joinedSize, digest: await digestOrNull(joinPath, log), expectedDigest: joinedDigest});
+    if (!verdict.ok) throw new Error(`Joined ${circuitName}.srs failed verification (${verdict.reason}): ${verdict.detail}`);
+    if (verdict.level !== 'sha256') throw new Error(`Joined ${circuitName}.srs could not be hashed; it is kept only after its sha256 matched`);
+
+    await RNFS.unlink(destPath).catch(() => {});
+    await RNFS.moveFile(joinPath, destPath);
+    log(`Joined ${circuitName}.srs from ${partCount} parts: ${joinedSize} bytes (verified: sha256)`);
+    return destPath;
+  } catch (e) {
+    await removeAll();
+    throw e;
+  }
+}
+
+/**
  * The file's sha256, or null when it could not be computed.
  *
  * Hashing a 100MB srs can fail on a device that is short of memory, and that is
@@ -410,6 +550,28 @@ export function __resetCircuitManifestCache(): void {
   manifestCache.clear();
 }
 
+/**
+ * The parsed SHA256SUMS at `manifestUrl`, or null when there is none (a
+ * remembered absence). Throws only when fetching or reading fails.
+ */
+async function manifestFor(manifestUrl: string, log: (m: string) => void): Promise<Record<string, string> | null> {
+  if (!manifestCache.has(manifestUrl)) {
+    const res = await fetch(manifestUrl);
+    if (!res.ok) {
+      /*
+       * Not an error. Tags cut before the manifest existed must stay
+       * installable — and the verdict still says `length` rather than
+       * pretending a digest was checked.
+       */
+      log(`No SHA256SUMS at ${manifestUrl} (HTTP ${res.status}); falling back to length`);
+      manifestCache.set(manifestUrl, null);
+    } else {
+      manifestCache.set(manifestUrl, parseSha256Manifest(await res.text()));
+    }
+  }
+  return manifestCache.get(manifestUrl) ?? null;
+}
+
 async function expectedDigestFor(
   circuitName: string,
   extension: string,
@@ -419,23 +581,7 @@ async function expectedDigestFor(
   try {
     const fileUrl = await getCircuitFileUrl(circuitName, extension, env);
     const { manifestUrl, key: publishedName } = manifestLocation(fileUrl);
-
-    if (!manifestCache.has(manifestUrl)) {
-      const res = await fetch(manifestUrl);
-      if (!res.ok) {
-        /*
-         * Not an error. Tags cut before the manifest existed must stay
-         * installable — and the verdict still says `length` rather than
-         * pretending a digest was checked.
-         */
-        log(`No SHA256SUMS at ${manifestUrl} (HTTP ${res.status}); falling back to length`);
-        manifestCache.set(manifestUrl, null);
-      } else {
-        manifestCache.set(manifestUrl, parseSha256Manifest(await res.text()));
-      }
-    }
-
-    return manifestCache.get(manifestUrl)?.[publishedName] ?? null;
+    return (await manifestFor(manifestUrl, log))?.[publishedName] ?? null;
   } catch (e) {
     log(`Could not read the circuit manifest: ${String(e)}`);
     return null;
@@ -453,6 +599,11 @@ export async function downloadCircuitFile(
 
   if (BUNDLED_CIRCUITS.includes(circuitName)) {
     return copyBundledCircuitFile(circuitName, extension, env, onProgress, log);
+  }
+
+  const pinned = circuitArtifactSource(circuitName);
+  if (extension === 'srs' && pinned && pinned.srsParts !== null) {
+    return downloadSplitSrs(circuitName, {...pinned, srsParts: pinned.srsParts}, env, onProgress, log);
   }
 
   return downloadCircuitFileFromGitHub(circuitName, extension, env, onProgress, log);
