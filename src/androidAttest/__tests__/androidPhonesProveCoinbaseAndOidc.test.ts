@@ -5,7 +5,14 @@
  * changed: both still go to App Attest.
  */
 jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'android'}}));
-jest.mock('@react-native-async-storage/async-storage', () => ({__esModule: true, default: {}}));
+const mockDisk = new Map<string, string>();
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: async (k: string) => (mockDisk.has(k) ? mockDisk.get(k)! : null),
+    setItem: async (k: string, v: string) => void mockDisk.set(k, v),
+  },
+}));
 const rn = jest.requireMock('react-native') as {NativeModules: Record<string, unknown>; Platform: {OS: string}};
 
 import * as crypto from 'node:crypto';
@@ -20,12 +27,18 @@ import {fetchLiveProviderKeys, modulusBytes, providerKeyStatement} from '../../o
 import {GOOGLE_KEY_ATTESTATION_CA1} from '../../utils/androidKeyAttestation';
 import vectors from '../../utils/__tests__/fixtures/androidChainVectors.json';
 import {isAndroidSignerInputs, isAndroidStatementWitness} from '../androidSignerInputs';
+import {ANDROID_CIRCUIT_TRUST} from '../androidSigner';
+import {__setAndroidChainKindForTests, knownAndroidChainKind} from '../../config/signerPlatform';
 
 const TEGU = (vectors.cases as unknown as Record<string, {chain: string[]}>)['tegu-sdk36-sb-ec-2026-root'].chain;
 const TRUST = {
+  ...ANDROID_CIRCUIT_TRUST,
   app: {packageName: 'com.google.android.attestation', signingCertSha256: '103938ee4537e59e8ee792f654504fb8346fc6b346d0bbc4415fc339fcfc8ec1'},
   rootKey: GOOGLE_KEY_ATTESTATION_CA1,
 };
+const NO_INTEGRITY = {decrypt: async (): Promise<never> => {
+  throw new Error('an RKP chain asked for a Play Integrity verdict');
+}};
 const NOW = Date.UTC(2026, 2, 1) / 1000;
 const WALLET = ethers.Wallet.createRandom().address;
 const UID = '0x' + 'ab'.repeat(32);
@@ -40,6 +53,9 @@ function fakeAndroid() {
         const statement = Buffer.from(b64, 'base64');
         signed.push(Uint8Array.from(statement));
         return {chain: TEGU, signature: crypto.sign('sha256', statement, KEY.privateKey).toString('base64'), strongBox: true, sdkInt: 36};
+      }),
+      requestIntegrityToken: jest.fn(async () => {
+        throw new Error('an RKP chain asked for a Play Integrity token');
       }),
     },
   };
@@ -58,6 +74,8 @@ async function codeOf(p: Promise<unknown>): Promise<string> {
 }
 
 beforeEach(() => {
+  __setAndroidChainKindForTests(null);
+  mockDisk.clear();
   rn.Platform.OS = 'android';
   rn.NativeModules.AppAttest = appAttestSpy();
   delete rn.NativeModules.AndroidKeyAttestation;
@@ -69,7 +87,7 @@ describe('Coinbase KYC v2 on Android', () => {
     const android = fakeAndroid();
     const w = await prepareCoinbaseKycStatement(
       {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
-      {android: {native: android.native as never, trust: TRUST}, revocation: {fetchStatus, now: () => NOW}},
+      {android: {native: android.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus, now: () => NOW}},
     );
     expect(isAndroidStatementWitness(w)).toBe(true);
     if (!isAndroidStatementWitness(w)) return;
@@ -89,7 +107,7 @@ describe('Coinbase KYC v2 on Android', () => {
     fetchStatus.mockResolvedValueOnce({uid: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: true});
     expect(await codeOf(prepareCoinbaseKycStatement(
       {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
-      {android: {native: android.native as never, trust: TRUST}, revocation: {fetchStatus, now: () => NOW}},
+      {android: {native: android.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus, now: () => NOW}},
     ))).toBe('E2011');
     expect(android.signed).toEqual([]);
   });
@@ -128,23 +146,27 @@ describe('the OIDC provider-key statement on Android', () => {
 
   it('signs exactly the 313-byte statement for the public provider and now', async () => {
     const android = fakeAndroid();
-    const sign = await prepareOidcAppSigner(() => {}, {android: {native: android.native as never, trust: TRUST}, nowSeconds: () => NOW});
+    const sign = await prepareOidcAppSigner(() => {}, {android: {native: android.native as never, trust: TRUST, integrity: NO_INTEGRITY}, nowSeconds: () => NOW});
     const f = jest.fn(async () => ({ok: true, status: 200, json: async () => ({keys: [{kid: 'k', kty: 'RSA', n: N, e: 'AQAB'}]})}));
     const live = await fetchLiveProviderKeys(0, 'unused', {jwksUrl: 'https://keys.test/jwks', fetchImpl: f as never, nowSeconds: () => NOW});
+    // Before sign-in: one probe key, to learn which circuit's files to fetch.
+    expect(knownAndroidChainKind()).toBe('android');
+    expect(android.signed).toHaveLength(1);
     const out = await sign({provider: 0, now: NOW, modulus: modulusBytes(N), live});
     expect(isAndroidSignerInputs(out)).toBe(true);
-    expect(android.signed).toEqual([providerKeyStatement(0, NOW, modulusBytes(N))]);
-    expect(android.signed[0]).toHaveLength(313);
+    expect(android.signed.slice(1)).toEqual([providerKeyStatement(0, NOW, modulusBytes(N))]);
+    expect(android.signed[1]).toHaveLength(313);
   });
 
   it('refuses a modulus the live list does not hold, signing nothing', async () => {
     const android = fakeAndroid();
-    const sign = await prepareOidcAppSigner(() => {}, {android: {native: android.native as never, trust: TRUST}, nowSeconds: () => NOW});
+    const sign = await prepareOidcAppSigner(() => {}, {android: {native: android.native as never, trust: TRUST, integrity: NO_INTEGRITY}, nowSeconds: () => NOW});
     const f = jest.fn(async () => ({ok: true, status: 200, json: async () => ({keys: [{kid: 'k', kty: 'RSA', n: N, e: 'AQAB'}]})}));
     const live = await fetchLiveProviderKeys(0, 'unused', {jwksUrl: 'https://keys.test/jwks', fetchImpl: f as never, nowSeconds: () => NOW});
     const other = (crypto.generateKeyPairSync('rsa', {modulusLength: 2048}).publicKey.export({format: 'jwk'}) as {n: string}).n;
+    const probes = android.signed.length;
     await expect(sign({provider: 0, now: NOW, modulus: modulusBytes(other), live})).rejects.toThrow();
-    expect(android.signed).toEqual([]);
+    expect(android.signed).toHaveLength(probes);
   });
 });
 

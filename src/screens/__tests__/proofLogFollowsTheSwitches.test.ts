@@ -38,7 +38,7 @@ const mockNavigate = {navigate: jest.fn()};
 const ACCOUNT = '0x1111111111111111111111111111111111111111';
 const REQUEST_ID = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
 let mockSteps: Step[] = [];
-let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number} | null = null;
+let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number; signerVariant: string} | null = null;
 let mockScreenSettings: Record<string, unknown> | null = null;
 const mockRoute: {params: ProofStackParamList['ProofGeneration']} = {params: {circuitId: 'coinbase_attestation'}};
 
@@ -182,7 +182,7 @@ async function failStep(id: string, detail: string) {
   await rerender();
 }
 async function succeed() {
-  mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1};
+  mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'standard'};
   await rerender();
 }
 /** Every `log` value written to History. */

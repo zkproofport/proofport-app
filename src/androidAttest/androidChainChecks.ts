@@ -32,7 +32,7 @@
  */
 import {AppAttestError, ANDROID_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
 import {bytesEqual, children, DerError, OID, parseCertificate, parseTbs, readLength, readTlv, toHex, type Tlv} from '../appAttest/der';
-import {refuseRsa} from '../utils/androidKeyAttestation';
+import {ecKeyOf, refuseRsa, rsaModulusOf, splitStructural} from '../utils/androidKeyAttestation';
 import {
   ANDROID_APP_PACKAGE,
   ANDROID_PLAY_SIGNING_CERT_SHA256,
@@ -333,4 +333,66 @@ export function requireAcceptableAndroidChain(ders: readonly Uint8Array[], opts:
   }
 
   return checkKeyDescription(keyDescription as Uint8Array, opts.app);
+}
+
+// ─── Factory-provisioned chains ────────────────────────────────────────────
+
+const OID_SHA256_WITH_RSA = '2a864886f70d01010b';
+const OID_ECDSA_SHA256 = toHex(OID.ecdsaWithSha256);
+const OID_BASIC_CONSTRAINTS = '551d13';
+
+export interface FactoryChainCheckOptions {
+  app: AndroidAppIdentity;
+  /** The pinned RSA root modulus (hex): GOOGLE_RSA_ROOT_MODULUS_HEX in the app. Required. */
+  rootModulusHex: string;
+}
+
+/**
+ * A factory-provisioned chain [leaf, batch, intermediate(, root)], checked as
+ * android-key-attestation android_factory_signing_key checks it, before
+ * proving: the pinned RSA root, an intermediate holding a P-384 key, signed
+ * with sha256WithRSAEncryption and marked CA; a batch certificate holding a
+ * P-256 key, signed with ecdsa-with-SHA256 and carrying no key description;
+ * a leaf signed with ecdsa-with-SHA256 whose key description passes
+ * checkKeyDescription (TEE or StrongBox, our package and signing
+ * certificate, locked and verified, generated). The circuit reads no
+ * validity on this chain (the Play Integrity verdict stands in for
+ * revocation), so neither does this.
+ */
+export function requireAcceptableFactoryChain(ders: readonly Uint8Array[], opts: FactoryChainCheckOptions): KeyDescriptionSummary {
+  if (ders.length !== 3 && ders.length !== 4) {
+    unavailable(`A factory chain has 3 certificates below the root (leaf, batch, intermediate); got ${ders.length} in all`);
+  }
+  const [leaf, batch, ik, root] = ders;
+  if (root && rsaModulusOf(root, 'The root') !== opts.rootModulusHex.toLowerCase()) {
+    unavailable("The chain does not end at the pinned RSA root (Google's attestation root)");
+  }
+
+  const ikParts = splitStructural(ik, 'The intermediate');
+  if (ikParts.algorithm !== OID_SHA256_WITH_RSA) {
+    unavailable(`The intermediate is signed with ${ikParts.algorithm}; a factory chain signs it with sha256WithRSAEncryption`);
+  }
+  ecKeyOf(ik, 'P-384', 'The intermediate');
+  const ikFields = der('The intermediate', () => parseTbs(ikParts.tbs));
+  const bc = ikFields.extensions.get(OID_BASIC_CONSTRAINTS);
+  const isCa = !!bc && bc.length >= 5 && bc[0] === 0x30 && bc[2] === 0x01 && bc[3] === 0x01 && bc[4] !== 0;
+  if (!isCa) unavailable('The intermediate is not a CA certificate');
+
+  const batchParts = splitStructural(batch, 'The batch certificate');
+  if (batchParts.algorithm !== OID_ECDSA_SHA256) {
+    unavailable(`The batch certificate is signed with ${batchParts.algorithm}; a factory chain signs it with ecdsa-with-SHA256`);
+  }
+  ecKeyOf(batch, 'P-256', 'The batch certificate');
+  if (der('The batch certificate', () => parseTbs(batchParts.tbs)).extensions.has(OID_KEY_ATTESTATION)) {
+    unavailable('The batch certificate carries a key description; only the leaf may');
+  }
+
+  const leafParts = splitStructural(leaf, 'Leaf');
+  if (leafParts.algorithm !== OID_ECDSA_SHA256) {
+    unavailable(`Leaf is signed with ${leafParts.algorithm}; a factory chain signs it with ecdsa-with-SHA256`);
+  }
+  ecKeyOf(leaf, 'P-256', 'Leaf');
+  const keyDescription = der('Leaf', () => parseTbs(leafParts.tbs)).extensions.get(OID_KEY_ATTESTATION);
+  if (!keyDescription) return unavailable('The leaf certificate has no key description');
+  return checkKeyDescription(keyDescription, opts.app);
 }

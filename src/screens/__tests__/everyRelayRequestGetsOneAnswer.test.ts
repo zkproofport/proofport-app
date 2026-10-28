@@ -60,7 +60,7 @@ const mockNavigate = {navigate: jest.fn()};
 const mockT = (key: string, opts?: {defaultValue?: string}) => opts?.defaultValue ?? key;
 const ACCOUNT = '0x1111111111111111111111111111111111111111';
 let mockSteps: Step[] = [];
-let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number} | null = null;
+let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number; signerVariant: string} | null = null;
 let mockAuthReady = true;
 const CALLBACK = 'https://relay.zkproofport.app/api/v1/proof/callback';
 const mockRoute: {params: ProofStackParamList['ProofGeneration']} = {params: {circuitId: 'coinbase_attestation'}};
@@ -425,11 +425,25 @@ describe('every inline failure path answers once, with its code', () => {
 });
 
 describe('success, leaving, retrying', () => {
+  it('a factory-phone proof tells the relay which package made it', async () => {
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'android_factory'};
+    await rerender();
+    expect(answers()).toEqual([expect.objectContaining({status: 'completed', signerVariant: 'android_factory'})]);
+  });
+
+  it('a Coinbase KYC proof that does not say which package made it answers E2016, never completed', async () => {
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1} as never;
+    await rerender();
+    expectOneError('E2016');
+  });
+
   it('a proof answers completed once; leaving afterwards sends nothing', async () => {
     await mount('coinbase_attestation', request('coinbase_attestation'));
-    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1};
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'standard'};
     await rerender();
-    expect(answers()).toEqual([expect.objectContaining({status: 'completed', proof: '0xproof'})]);
+    expect(answers()).toEqual([expect.objectContaining({status: 'completed', proof: '0xproof', signerVariant: 'standard'})]);
     act(() => tree!.unmount());
     tree = null;
     await act(async () => {await jest.advanceTimersByTimeAsync(10);});

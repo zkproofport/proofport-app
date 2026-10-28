@@ -39,7 +39,12 @@ import {
 import {checkStatementAge, type AppAttestWitness} from '../appAttest/revocationStatement';
 import type {CoinbaseStatementWitness} from '../appAttest/coinbaseKycStatement';
 import {isAndroidStatementWitness} from '../androidAttest/androidSignerInputs';
-import {currentSignerVariant, type StatementSignerVariant} from '../config/signerPlatform';
+import {
+  currentSignerVariant,
+  wireSignerVariant,
+  type StatementSignerVariant,
+  type WireSignerVariant,
+} from '../config/signerPlatform';
 import type {AttesterCircuitInputs} from '../utils/circuitHelpers';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
@@ -80,7 +85,15 @@ const BUILD_FLAT_INPUTS: Readonly<Record<
     );
   },
   android: (coinbase, request, witness) => {
-    if (!isAndroidStatementWitness(witness)) throw new Error('An App Attest statement cannot prove the Android circuit');
+    if (!isAndroidStatementWitness(witness) || witness.variant !== 'android') {
+      throw new Error('Only an RKP Android statement proves the android circuit');
+    }
+    return flattenCoinbaseAndroidInputs(prepareCoinbaseAndroidInputs(coinbase, request, witness));
+  },
+  android_factory: (coinbase, request, witness) => {
+    if (!isAndroidStatementWitness(witness) || witness.variant !== 'android_factory') {
+      throw new Error('Only a factory Android statement proves the android_factory circuit');
+    }
     return flattenCoinbaseAndroidInputs(prepareCoinbaseAndroidInputs(coinbase, request, witness));
   },
 });
@@ -135,6 +148,8 @@ export interface ParsedProofData {
   proofHex: string;
   publicInputsHex: string[];
   numPublicInputs: number;
+  /** Which package of the circuit id made it (the callback's `signerVariant`). */
+  signerVariant: WireSignerVariant;
 }
 
 export interface UseCoinbaseKycReturn {
@@ -585,6 +600,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           proofHex: '0x' + proofHex,
           publicInputsHex,
           numPublicInputs,
+          signerVariant: wireSignerVariant(signerVariant),
         };
         setParsedProof(parsedData);
         _cachedParsedProof = parsedData;

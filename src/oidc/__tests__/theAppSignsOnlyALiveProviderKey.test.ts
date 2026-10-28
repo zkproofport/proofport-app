@@ -22,6 +22,7 @@ import {appSignerInputs, type AppSignerInputs} from '../../appAttest/appSignerIn
 import {N_P256} from '../../appAttest/constants';
 import {sha256, verifyP1363} from '../../appAttest/__tests__/syntheticAppAttest';
 import {prepareOidcAppSigner} from '../oidcAppSigner';
+import {__setAndroidChainKindForTests} from '../../config/signerPlatform';
 import {
   fetchLiveProviderKeys,
   modulusBytes,
@@ -71,9 +72,11 @@ describe('before sign-in', () => {
     rn.Platform.OS = 'android';
     const native = {isSupported: jest.fn(), generateKey: jest.fn(), attestKey: jest.fn(), generateAssertion: jest.fn()};
     rn.NativeModules.AppAttest = native;
-    const android = {attestAndSign: jest.fn()};
+    const android = {attestAndSign: jest.fn(), requestIntegrityToken: jest.fn()};
     rn.NativeModules.AndroidKeyAttestation = android;
     __resetAppAttestKeyForTests();
+    // The chain kind is already known (kept from an earlier proof): no probe key.
+    __setAndroidChainKindForTests('android');
     const logs: string[] = [];
     const sign = await prepareOidcAppSigner(m => logs.push(m));
     expect(typeof sign).toBe('function');
@@ -84,6 +87,7 @@ describe('before sign-in', () => {
     // Nothing is signed before the sign-in: the key is made per statement.
     expect(android.attestAndSign).not.toHaveBeenCalled();
     delete rn.NativeModules.AndroidKeyAttestation;
+    __setAndroidChainKindForTests(null);
   });
 
   it('refuses an Android build without the AndroidKeyAttestation module with E2015, before any sign-in', async () => {

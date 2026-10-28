@@ -145,6 +145,14 @@ export interface ProofResponse {
   // Verifier contract info (for SDK on-chain verification)
   verifierAddress?: string;
   chainId?: number;
+  /**
+   * Which package of the circuit id made the proof, as the relay and
+   * @zkproofport-app/core name it: `standard` (iPhone, server, and every
+   * circuit without a device signer), `android` (Remote Key Provisioning
+   * chain), `android_factory` (factory chain + Play Integrity verdict). The
+   * verifier is chosen by it.
+   */
+  signerVariant?: 'standard' | 'android' | 'android_factory';
 
   // Original inputs (for verification)
   inputs?: CircuitInputs;

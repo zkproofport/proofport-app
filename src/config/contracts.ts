@@ -43,6 +43,12 @@ export interface RelayConfig {
   trustedHosts: string[];
   /** If true, private IP ranges (10.x, 192.168.x, 172.16-31.x, localhost) are also trusted */
   allowPrivateIps: boolean;
+  /**
+   * The relay the app itself calls (not a dApp's callback): the Play
+   * Integrity decryption of a factory-provisioned Android phone's verdict
+   * (POST /api/v1/play-integrity/decrypt). https://host, no path.
+   */
+  apiBaseUrl: string;
 }
 
 export interface StaticConfig {
@@ -125,6 +131,9 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       // production until that env var is reconfigured).
       trustedHosts: ['localhost', 'stg-relay.zkproofport.app', 'relay.zkproofport.app'],
       allowPrivateIps: true,
+      // Development builds decrypt Play Integrity verdicts on the staging
+      // relay: a local relay holds no decryption key.
+      apiBaseUrl: 'https://stg-relay.zkproofport.app',
     },
     circuitsSource: {type: 'branch', branch: CIRCUITS_BRANCH},
   },
@@ -150,6 +159,7 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
       // self-relay login flow can complete during dev.
       trustedHosts: ['stg-relay.zkproofport.app', 'relay.zkproofport.app'],
       allowPrivateIps: false,
+      apiBaseUrl: 'https://stg-relay.zkproofport.app',
     },
     circuitsSource: {type: 'branch', branch: CIRCUITS_BRANCH},
   },
@@ -176,6 +186,7 @@ export const STATIC_CONFIGS: Record<Environment, StaticConfig> = {
     relay: {
       trustedHosts: ['relay.zkproofport.app'],
       allowPrivateIps: false,
+      apiBaseUrl: 'https://relay.zkproofport.app',
     },
     circuitsSource: {type: 'release', tag: CIRCUITS_RELEASE_TAG},
   },

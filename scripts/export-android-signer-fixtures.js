@@ -12,6 +12,14 @@
  *     scripts/android-key-attestation/chain.js returns for it: the AndroidChain
  *     inputs as hex, or the error it throws.
  *
+ *   src/utils/__tests__/fixtures/androidFactoryVectors.json
+ *     Factory-provisioned chains (Sony, and blueline with an UNLOCKED
+ *     bootloader; derived ones) through chain.js factoryChainInputs, and a
+ *     SYNTHETIC factory device (android.js factoryDevice under the synthetic
+ *     RSA root) with a statement, its signature, the Play Integrity nonce
+ *     (android.js playIntegrityNonce) and verdicts signed with the INSECURE
+ *     test Play key (anchors.js testPlayKey, android.js playToken).
+ *
  *   src/utils/__tests__/fixtures/androidCircuitAbis.json
  *     The `fn main` parameters (name, visibility, flattened size) of the two
  *     Android packages' compiled circuits.
@@ -48,7 +56,8 @@ const source = {
   circuitsCommit: git(CIRCUITS, 'rev-parse', 'HEAD'),
   circuitsWorkingTreeChanged: git(CIRCUITS, 'status', '--porcelain', '--',
     'scripts/android-key-attestation', 'android-key-attestation', 'statement-signer',
-    'oidc-domain-attestation-android', 'coinbase-attestation-v2-android') !== '',
+    'oidc-domain-attestation-android', 'coinbase-attestation-v2-android',
+    'oidc-domain-attestation-android-factory', 'coinbase-attestation-v2-android-factory', 'play-integrity') !== '',
   chainJsSha256: sha256(fs.readFileSync(CHAIN_JS)),
 };
 
@@ -162,12 +171,139 @@ const abis = {
   source,
   oidc_domain_attestation: abiOf('oidc-domain-attestation-android', 'oidc_domain_attestation_android'),
   coinbase_attestation: abiOf('coinbase-attestation-v2-android', 'coinbase_attestation_v2_android'),
+  oidc_domain_attestation_factory: abiOf('oidc-domain-attestation-android-factory', 'oidc_domain_attestation_android_factory'),
+  coinbase_attestation_factory: abiOf('coinbase-attestation-v2-android-factory', 'coinbase_attestation_v2_android_factory'),
+};
+
+// ── Factory-provisioned chains and the Play Integrity verdict ──────────────
+
+const ANDROID_JS = path.join(CIRCUITS, 'scripts/statement-signer/android.js');
+const ANCHORS_JS = path.join(CIRCUITS, 'scripts/statement-signer/anchors.js');
+const A = require(ANDROID_JS);
+const anchors = require(ANCHORS_JS);
+const factorySource = {
+  ...source,
+  androidJsSha256: sha256(fs.readFileSync(ANDROID_JS)),
+  anchorsJsSha256: sha256(fs.readFileSync(ANCHORS_JS)),
+};
+
+const limbsText = l => l.map(v => v.toString());
+function runFactory(ders, modulusHex) {
+  try {
+    const r = c.factoryChainInputs(ders, modulusHex);
+    const out = {};
+    for (const [k, v] of Object.entries(r)) out[k] = Buffer.isBuffer(v) ? hex(v) : Array.isArray(v) ? limbsText(v) : v;
+    return {ok: true, inputs: out};
+  } catch (e) {
+    return {ok: false, error: e.message};
+  }
+}
+
+const sony = pems['sony-xperia10iii-sdk33-factory'];
+const blueline = pems['blueline-sdk28-tee-ec-factory'];
+const akita = pems['akita-sdk34-tee-ec-rsa-root'];
+if (!sony || !blueline || !akita) throw new Error(`Expected the sony, blueline and akita vectors in ${VECTOR_DIR}`);
+const realFactory = {
+  'sony-xperia10iii-sdk33-factory': sony,
+  'blueline-sdk28-tee-ec-factory': blueline,
+  'sony-without-root': sony.slice(0, 3),
+  'sony-under-the-2022-root-certificate': [...sony.slice(0, 3), akita[4]],
+  'sony-five-certificates': [...sony, sony[3]],
+  'sony-two-certificates': sony.slice(0, 2),
+  'sony-under-ca1': [...sony.slice(0, 3), tee[4]],
+};
+
+/** A self-signed RSA root certificate for the synthetic root key (only its SPKI is read). */
+function rsaRootCertificate(root) {
+  const alg = tlv(0x30, Buffer.concat([tlv(0x06, Buffer.from('2a864886f70d01010b', 'hex')), Buffer.from([5, 0])]));
+  const name = tlv(0x30, tlv(0x31, tlv(0x30, Buffer.concat([tlv(0x06, Buffer.from('550405', 'hex')), tlv(0x13, Buffer.from('synthetic'))]))));
+  const validity = tlv(0x30, Buffer.concat([tlv(0x17, Buffer.from('200101000000Z')), tlv(0x17, Buffer.from('400101000000Z'))]));
+  const spki = root.publicKey.export({type: 'spki', format: 'der'});
+  const tbs = tlv(0x30, Buffer.concat([Buffer.from('a003020102', 'hex'), derInt(1n), alg, name, validity, name, spki]));
+  const sig = crypto.sign('sha256', tbs, root.privateKey);
+  return tlv(0x30, Buffer.concat([tbs, alg, tlv(0x03, Buffer.concat([Buffer.from([0]), sig]))]));
+}
+
+/** A JWS answer as the relay returns it, with the signature's s in its HIGH form (the app must lower it). */
+function relayAnswer(token) {
+  const payload = token.payload_b64.subarray(0, token.payload_b64_len).toString();
+  const s = BigInt('0x' + token.signature.subarray(32).toString('hex'));
+  const high = Buffer.concat([token.signature.subarray(0, 32), Buffer.from((c.N_P256 - s).toString(16).padStart(64, '0'), 'hex')]);
+  return {protectedHeader: 'eyJhbGciOiJFUzI1NiJ9', payload, signature: high.toString('base64url')};
+}
+
+const rsaRoot = anchors.syntheticAndroidRsaRoot();
+const playKey = anchors.testPlayKey();
+const device = A.factoryDevice({});
+const unlocked = A.factoryDevice({lockedByte: 0x00});
+const rootCert = rsaRootCertificate(rsaRoot);
+const statement = Buffer.from(Array.from({length: 225}, (_v, i) => (i * 13 + 7) & 0xff));
+const sigDer = crypto.sign('sha256', statement, device.leaf.privateKey);
+const statementSig = c.rawLowS(sigDer, 32, c.N_P256);
+const nonce = A.playIntegrityNonce(statement, statementSig);
+const nonceB64 = Buffer.from(nonce).toString('base64url');
+const tokens = {
+  good: A.playToken(nonce, playKey),
+  // Google echoes a padded nonce with the pad escaped as \u003d; a literal '='
+  // is a different payload, which the circuit refuses.
+  escapedPaddedNonce: (() => {
+    const good = A.playToken(nonce, playKey);
+    const raw = good.json.replace(`"nonce":"${nonceB64}"`, `"nonce":"${nonceB64}\\u003d"`);
+    if (raw === good.json) throw new Error('could not escape-pad the nonce');
+    return A.playToken(nonce, playKey, {raw});
+  })(),
+  literalPaddedNonce: A.playToken(nonce, playKey, {nonceText: nonceB64 + '='}),
+  basicIntegrityOnly: A.playToken(nonce, playKey, {verdicts: ['MEETS_BASIC_INTEGRITY']}),
+  strongIntegrity: A.playToken(nonce, playKey, {verdicts: ['MEETS_BASIC_INTEGRITY', 'MEETS_DEVICE_INTEGRITY', 'MEETS_STRONG_INTEGRITY']}),
+  unrecognizedApp: A.playToken(nonce, playKey, {recognition: 'UNRECOGNIZED_VERSION'}),
+  otherPackage: A.playToken(nonce, playKey, {package: 'com.example.other'}),
+  otherRequestPackage: A.playToken(nonce, playKey, {requestPackage: 'com.example.other'}),
+  otherNonce: A.playToken(Buffer.alloc(32, 7), playKey),
+};
+const params = c.rsa4096Params(rsaRoot.modulusHex);
+const googleParams = c.rsa4096Params(c.GOOGLE_RSA_ROOT_MODULUS_HEX);
+
+const factory = {
+  source: factorySource,
+  googleRsaRootModulusHex: c.GOOGLE_RSA_ROOT_MODULUS_HEX,
+  googleRsaRootParams: {modulus: limbsText(googleParams.modulus), redc: limbsText(googleParams.redc)},
+  limits: {ik: c.LIMITS.ik, batch: c.LIMITS.batch, leaf: c.LIMITS.leaf},
+  real: Object.fromEntries(Object.entries(realFactory).map(([name, ders]) => [
+    name,
+    {chain: ders.map(d => Buffer.from(d).toString('base64')), expected: runFactory(ders, c.GOOGLE_RSA_ROOT_MODULUS_HEX)},
+  ])),
+  synthetic: {
+    package: A.PACKAGE,
+    signingDigest: hex(A.SIGNING_DIGEST),
+    rsaRootModulusHex: rsaRoot.modulusHex,
+    rsaRootParams: {modulus: limbsText(params.modulus), redc: limbsText(params.redc)},
+    playKey: hex(Buffer.concat([playKey.x, playKey.y])),
+    chain: [...device.ders, rootCert].map(d => Buffer.from(d).toString('base64')),
+    unlockedChain: [...unlocked.ders, rootCert].map(d => Buffer.from(d).toString('base64')),
+    expectedChain: runFactory([...device.ders, rootCert], rsaRoot.modulusHex),
+    statement: hex(statement),
+    statementSigDer: hex(sigDer),
+    statementSigLow: hex(statementSig),
+    nonce: hex(nonce),
+    nonceBase64Url: nonceB64,
+    tokens: Object.fromEntries(Object.entries(tokens).map(([k, t]) => [k, {
+      relay: relayAnswer(t),
+      payloadB64Padded: hex(t.payload_b64),
+      payloadB64Len: t.payload_b64_len,
+      signatureLow: hex(t.signature),
+    }])),
+  },
 };
 
 const OUT = path.join(APP, 'src/utils/__tests__/fixtures');
 fs.writeFileSync(path.join(OUT, 'androidChainVectors.json'), JSON.stringify(vectors, null, 2) + '\n');
 fs.writeFileSync(path.join(OUT, 'androidCircuitAbis.json'), JSON.stringify(abis, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'androidFactoryVectors.json'), JSON.stringify(factory, null, 2) + '\n');
+for (const [name, v] of Object.entries(factory.real)) {
+  console.log(`factory ${name}: ${v.expected.ok ? 'accepted' : `refused (${v.expected.error})`}`);
+}
+console.log(`factory synthetic: ${factory.synthetic.expectedChain.ok ? 'accepted' : factory.synthetic.expectedChain.error}`);
 for (const [name, v] of Object.entries(vectors.cases)) {
   console.log(`${name}: ${v.expected.ok ? 'accepted' : `refused (${v.expected.error})`}`);
 }
-console.log(`Wrote ${path.relative(APP, OUT)}/androidChainVectors.json and androidCircuitAbis.json from circuits ${source.circuitsCommit}${source.circuitsWorkingTreeChanged ? ' (working tree changed)' : ''}`);
+console.log(`Wrote ${path.relative(APP, OUT)}/androidChainVectors.json, androidCircuitAbis.json and androidFactoryVectors.json from circuits ${source.circuitsCommit}${source.circuitsWorkingTreeChanged ? ' (working tree changed)' : ''}`);

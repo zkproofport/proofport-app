@@ -39,37 +39,79 @@ import {
   ANDROID_SIGNATURE_CIRCUITS_REF,
   artifactSourceFor,
   circuitArtifactSource,
+  circuitFilesDecidableNow,
   coinbaseKycArtifact,
   hasPinnedArtifactSource,
   requireArtifactRef,
   SRS_2_21_BYTES,
   SRS_PART_MAX_BYTES,
 } from '../circuitArtifacts';
-import {signerVariantFor} from '../signerPlatform';
+import {
+  __setAndroidChainKindForTests,
+  knownAndroidChainKind,
+  loadAndroidChainKind,
+  rememberAndroidChainKind,
+  signerPlatformFor,
+  signerVariantFor,
+  wireSignerVariant,
+} from '../signerPlatform';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {circuitBaseUrl, circuitDataVersion, downloadCircuitFiles} = require('../../utils/circuitDownload');
 
 beforeEach(() => {
   mockPlatform.OS = 'ios';
+  __setAndroidChainKindForTests(null);
   mockDownloads.length = 0;
   mockDisk.clear();
   (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({ok: false, status: 404, text: async () => ''}));
 });
 
-describe('the platform', () => {
-  it('maps ios and android, and nothing else', () => {
-    expect(signerVariantFor('ios')).toBe('app_attest');
-    expect(signerVariantFor('android')).toBe('android');
+describe('the platform and the Android chain kind', () => {
+  it('knows ios and android, and nothing else', () => {
+    expect(signerPlatformFor('ios')).toBe('ios');
+    expect(signerPlatformFor('android')).toBe('android');
     for (const os of ['web', 'windows', 'macos', '', '__proto__', 'constructor']) {
-      expect(() => signerVariantFor(os)).toThrow(`No statement signer for platform '${os}'. Known: ios, android.`);
+      expect(() => signerPlatformFor(os)).toThrow(`No statement signer for platform '${os}'. Known: ios, android.`);
     }
+  });
+
+  it('iPhone is app_attest; Android is its chain kind, and an unknown kind is an error, never a default', () => {
+    expect(signerVariantFor('ios', null)).toBe('app_attest');
+    expect(signerVariantFor('android', 'android')).toBe('android');
+    expect(signerVariantFor('android', 'android_factory')).toBe('android_factory');
+    expect(() => signerVariantFor('android', null)).toThrow(/attestation chain kind is not known yet/);
+    expect(() => signerVariantFor('android', 'windows' as never)).toThrow(/Not an Android chain kind: 'windows'/);
+  });
+
+  it('maps each variant to the wire name the relay and core take', () => {
+    expect(['app_attest', 'android', 'android_factory'].map(wireSignerVariant)).toEqual(['standard', 'android', 'android_factory']);
+    expect(() => wireSignerVariant('rkp')).toThrow("No wire signer variant for 'rkp'. Known: app_attest, android, android_factory.");
+    expect(() => wireSignerVariant('__proto__')).toThrow(/No wire signer variant/);
+  });
+
+  it('keeps the chain kind on the phone and reads it back; a damaged value stays unknown', async () => {
+    await rememberAndroidChainKind('android_factory');
+    __setAndroidChainKindForTests(null);
+    expect(await loadAndroidChainKind()).toBe('android_factory');
+    mockDisk.set('@zkproofport:androidChainKind:v1', 'android_rkp');
+    expect(await loadAndroidChainKind()).toBeNull();
+    expect(knownAndroidChainKind()).toBeNull();
+    await expect(rememberAndroidChainKind('factory' as never)).rejects.toThrow(/Not an Android chain kind: 'factory'/);
   });
 });
 
 describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s', id => {
-  it('has a row for each platform: the iPhone package, and the Android package with a split .srs', () => {
+  it('has a row for each signer: the iPhone package, and two Android packages with a split .srs', () => {
     const ios = artifactSourceFor(id, 'app_attest')!;
     const android = artifactSourceFor(id, 'android')!;
+    const factory = artifactSourceFor(id, 'android_factory')!;
+    expect(factory.variant).toBe('android_factory');
+    expect(factory.remoteFileName).toBe(`${ios.remoteFileName}_android_factory`);
+    expect(factory.basePath).toBe(ios.basePath.replace('/target', '-android-factory/target'));
+    expect(factory.publicInputCount).toBe(ios.publicInputCount);
+    expect(new Set([ios.dataVersion, android.dataVersion, factory.dataVersion]).size).toBe(3);
+    expect(factory.srsParts).toBe(3);
+    expect(factory.ref).toBe(ANDROID_SIGNATURE_CIRCUITS_REF);
     expect(ios.variant).toBe('app_attest');
     expect(android.variant).toBe('android');
     expect(ios.srsParts).toBeNull();
@@ -86,10 +128,17 @@ describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s'
     expect(android.refName).toBe('ANDROID_SIGNATURE_CIRCUITS_REF');
   });
 
-  it("this phone's platform picks the row", () => {
+  it("this phone's platform and chain kind pick the row", () => {
     mockPlatform.OS = 'ios';
     expect(circuitArtifactSource(id)?.variant).toBe('app_attest');
     mockPlatform.OS = 'android';
+    expect(() => circuitArtifactSource(id)).toThrow(/attestation chain kind is not known yet/);
+    expect(circuitFilesDecidableNow(id)).toBe(false);
+    __setAndroidChainKindForTests('android_factory');
+    expect(circuitFilesDecidableNow(id)).toBe(true);
+    expect(circuitArtifactSource(id)?.variant).toBe('android_factory');
+    expect(circuitDataVersion(id)).toBe(artifactSourceFor(id, 'android_factory')!.dataVersion);
+    __setAndroidChainKindForTests('android');
     expect(circuitArtifactSource(id)?.variant).toBe('android');
     expect(circuitDataVersion(id)).toBe(artifactSourceFor(id, 'android')!.dataVersion);
     mockPlatform.OS = 'ios';
@@ -99,7 +148,7 @@ describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s'
   it('an unknown platform or variant throws, naming it', () => {
     mockPlatform.OS = 'web';
     expect(() => circuitArtifactSource(id)).toThrow("No statement signer for platform 'web'");
-    expect(() => artifactSourceFor(id, 'windows')).toThrow(`${id} has no circuit files for statement signer 'windows'. Known: app_attest, android.`);
+    expect(() => artifactSourceFor(id, 'windows')).toThrow(`${id} has no circuit files for statement signer 'windows'. Known: app_attest, android, android_factory.`);
     expect(() => artifactSourceFor(id, '__proto__')).toThrow(/no circuit files for statement signer '__proto__'/);
   });
 });
@@ -109,8 +158,8 @@ describe('the Android circuits ref', () => {
     expect(ANDROID_SIGNATURE_CIRCUITS_REF === '' || /^[0-9a-f]{40}$/.test(ANDROID_SIGNATURE_CIRCUITS_REF)).toBe(true);
   });
 
-  it('refuses a branch name or a short sha on an Android row, naming the constant', () => {
-    const row = artifactSourceFor('coinbase_attestation', 'android')!;
+  it.each(['android', 'android_factory'])('refuses a branch name or a short sha on an %s row, naming the constant', variant => {
+    const row = artifactSourceFor('coinbase_attestation', variant)!;
     expect(() => requireArtifactRef({...row, ref: 'android-signature'})).toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is 'android-signature': set it to the 40-hex/);
     expect(() => requireArtifactRef({...row, ref: 'abcdef1'})).toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is 'abcdef1'/);
     expect(() => requireArtifactRef({...row, ref: ''})).toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is empty/);
@@ -119,7 +168,9 @@ describe('the Android circuits ref', () => {
 
   (ANDROID_SIGNATURE_CIRCUITS_REF === '' ? it : it.skip)('while empty, an Android download fails naming it and fetches nothing', async () => {
     mockPlatform.OS = 'android';
+    __setAndroidChainKindForTests('android');
     await expect(circuitBaseUrl('coinbase_attestation', 'production')).rejects.toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is empty/);
+    __setAndroidChainKindForTests('android_factory');
     await expect(downloadCircuitFiles('oidc_domain_attestation', 'staging', undefined, () => {})).rejects.toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is empty/);
     expect(mockDownloads).toEqual([]);
   });
@@ -131,6 +182,7 @@ describe('every other circuit', () => {
     for (const id of ['coinbase_country_attestation', 'giwa_attestation', 'no_such_circuit', '__proto__']) {
       expect(hasPinnedArtifactSource(id)).toBe(false);
       expect(circuitArtifactSource(id)).toBeUndefined();
+      expect(circuitFilesDecidableNow(id)).toBe(true);
     }
     await downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {});
     expect(mockDownloads[0]).toBe('https://raw.githubusercontent.com/zkproofport/circuits/main/giwa-attestation/target/giwa_attestation.json');
@@ -140,7 +192,9 @@ describe('every other circuit', () => {
 describe('coinbaseKycArtifact', () => {
   it("is this phone's row, or the variant asked for", () => {
     mockPlatform.OS = 'android';
+    __setAndroidChainKindForTests('android');
     expect(coinbaseKycArtifact().remoteFileName).toBe('coinbase_attestation_v2_android');
+    expect(coinbaseKycArtifact('android_factory').remoteFileName).toBe('coinbase_attestation_v2_android_factory');
     expect(coinbaseKycArtifact('app_attest').remoteFileName).toBe('coinbase_attestation_v2');
   });
 });

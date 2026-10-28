@@ -16,7 +16,7 @@ import {
   circuitAbiParameterNames,
 } from '../utils';
 import {getEnvironment, type CircuitName} from '../config';
-import {currentSignerVariant} from '../config/signerPlatform';
+import {currentSignerVariant, wireSignerVariant, type WireSignerVariant} from '../config/signerPlatform';
 import {prepareOidcInputs, flattenOidcInputs, OIDC_PUBLIC_INPUT_COUNT, requireOidcAbi} from '../utils/oidcDomain';
 import {AppAttestError} from '../appAttest/appAttestError';
 import {OidcProviderKeyError} from '../oidc/providerKeyStatement';
@@ -59,6 +59,8 @@ export interface ParsedProofData {
   proofHex: string;
   publicInputsHex: string[];
   numPublicInputs: number;
+  /** Which package of the circuit id made it (the callback's `signerVariant`). */
+  signerVariant: WireSignerVariant;
 }
 
 export interface UseOidcDomainReturn {
@@ -428,6 +430,7 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
           proofHex: '0x' + proofHex,
           publicInputsHex,
           numPublicInputs,
+          signerVariant: wireSignerVariant(signerVariant),
         };
         setParsedProof(parsedData);
         _cachedParsedProof = parsedData;

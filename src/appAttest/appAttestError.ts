@@ -50,4 +50,15 @@ export const ANDROID_ATTEST_ERROR_CODE = Object.freeze({
   unavailable: 'E2015',
   /** The chain or signature the phone returned is not what the circuit takes. */
   malformed: 'E2016',
+  /**
+   * Factory-provisioned phones only: the Play Integrity verdict says this app
+   * is not the store's build or this phone does not meet device integrity.
+   */
+  integrityNotMet: 'E2017',
+  /**
+   * The device check could not be made now: Play Integrity's service or the
+   * relay that decrypts its answer did not answer, rate-limited, or is not
+   * configured. Worth trying again later; nothing is wrong with the phone.
+   */
+  checkUnavailable: 'E3008',
 } satisfies Record<string, ErrorCode>);

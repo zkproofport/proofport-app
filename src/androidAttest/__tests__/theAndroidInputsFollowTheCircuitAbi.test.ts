@@ -240,3 +240,84 @@ describe('coinbase_attestation_v2_android', () => {
     expect(() => prepareCoinbaseAndroidInputs(coinbase, request, {...w, signer: {} as never})).toThrow(/no Android signer inputs/);
   });
 });
+
+describe('the factory packages', () => {
+  /* eslint-disable @typescript-eslint/no-var-requires */
+  const factory = require('../../utils/__tests__/fixtures/androidFactoryVectors.json');
+  const {OIDC_ANDROID_FACTORY_ABI_PARAMETERS, OIDC_ANDROID_FACTORY_FLAT_INPUT_COUNT} = require('../../utils/oidcDomain');
+  const {COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT} = require('../../utils/coinbaseAppAttestInputs');
+  const {ANDROID_FACTORY_SIGNER_ABI_PARAMETERS, ANDROID_FACTORY_SIGNER_FLAT_COUNT} = require('../androidSignerInputs');
+  /* eslint-enable @typescript-eslint/no-var-requires */
+  const s = factory.synthetic;
+  const c = s.expectedChain.inputs;
+  const bytesOf = (h: string) => Uint8Array.from(Buffer.from(h, 'hex'));
+  const signer = {
+    variant: 'android_factory' as const,
+    statement_sig: bytesOf(s.statementSigLow),
+    ik_tbs: bytesOf(c.ik_tbs), ik_tbs_len: c.ik_tbs_len, ik_sig: c.ik_sig.map(BigInt),
+    batch_tbs: bytesOf(c.batch_tbs), batch_tbs_len: c.batch_tbs_len, batch_sig: bytesOf(c.batch_sig),
+    leaf_tbs: bytesOf(c.leaf_tbs), leaf_tbs_len: c.leaf_tbs_len, leaf_sig: bytesOf(c.leaf_sig),
+    integrity_payload_b64: bytesOf(s.tokens.good.payloadB64Padded),
+    integrity_payload_b64_len: s.tokens.good.payloadB64Len,
+    integrity_signature: bytesOf(s.tokens.good.signatureLow),
+    rsa_root_modulus: s.rsaRootParams.modulus.map(BigInt),
+    rsa_root_redc: s.rsaRootParams.redc.map(BigInt),
+    play_integrity_key: bytesOf(s.playKey),
+  };
+  const values: Record<string, string[]> = {
+    statement_sig: Array.from(signer.statement_sig, String),
+    ik_tbs: Array.from(signer.ik_tbs, String), ik_tbs_len: [String(signer.ik_tbs_len)], ik_sig: signer.ik_sig.map(String),
+    batch_tbs: Array.from(signer.batch_tbs, String), batch_tbs_len: [String(signer.batch_tbs_len)], batch_sig: Array.from(signer.batch_sig, String),
+    leaf_tbs: Array.from(signer.leaf_tbs, String), leaf_tbs_len: [String(signer.leaf_tbs_len)], leaf_sig: Array.from(signer.leaf_sig, String),
+    integrity_payload_b64: Array.from(signer.integrity_payload_b64, String),
+    integrity_payload_b64_len: [String(signer.integrity_payload_b64_len)],
+    integrity_signature: Array.from(signer.integrity_signature, String),
+    rsa_root_modulus: signer.rsa_root_modulus.map(String),
+    rsa_root_redc: signer.rsa_root_redc.map(String),
+    play_integrity_key: Array.from(signer.play_integrity_key, String),
+  };
+
+  it('oidc_domain_attestation_android_factory takes OIDC_ANDROID_FACTORY_ABI_PARAMETERS, 6,186 values', () => {
+    const abi = abis.oidc_domain_attestation_factory as Abi;
+    expect(abi.parameters.map(p => p.name)).toEqual([...OIDC_ANDROID_FACTORY_ABI_PARAMETERS]);
+    expect(total(abi)).toBe(OIDC_ANDROID_FACTORY_FLAT_INPUT_COUNT);
+    expect(publicCount(abi)).toBe(OIDC_PUBLIC_INPUT_COUNT);
+    expect(() => requireOidcAbi(abi.parameters.map(p => p.name), 'android_factory')).not.toThrow();
+    expect(() => requireOidcAbi(abi.parameters.map(p => p.name), 'android')).toThrow(/this app builds/);
+  });
+
+  it('coinbase_attestation_v2_android_factory takes the common inputs, then the factory signer, 5,066 values', () => {
+    const abi = abis.coinbase_attestation_factory as Abi;
+    const names = abi.parameters.map(p => p.name);
+    expect(names.slice(names.indexOf('client_data') + 1)).toEqual([...ANDROID_FACTORY_SIGNER_ABI_PARAMETERS]);
+    expect(total(abi)).toBe(COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT);
+    expect(publicCount(abi)).toBe(193);
+  });
+
+  it('the OIDC factory vector puts every signer value at its ABI offset (decimals)', () => {
+    const abi = abis.oidc_domain_attestation_factory as Abi;
+    const at = layout(abi);
+    const token = {
+      pubkey_modulus_limbs: Array.from({length: 18}, (_v, i) => String(1000 + i)),
+      domain: {storage: new Array(64).fill(0), len: 0},
+      scope: new Array(32).fill(1), nullifier: new Array(32).fill(2), provider: 0, aud_hash: new Array(32).fill(3),
+      nonce_mode: 1, nonce_binding: new Array(32).fill(4), now: '1793000000',
+      partial_data: {storage: new Array(2048).fill(5), len: 100}, partial_hash: [1, 2, 3, 4, 5, 6, 7, 8],
+      full_data_length: 164, base64_decode_offset: 1,
+      redc_params_limbs: new Array(18).fill('9'), signature_limbs: new Array(18).fill('8'),
+    };
+    const flat = flattenOidcInputs({...token, signer});
+    expect(flat).toHaveLength(total(abi));
+    expect(flat.length - at.statement_sig[0]).toBe(ANDROID_FACTORY_SIGNER_FLAT_COUNT);
+    for (const [name, v] of Object.entries(values)) {
+      const [start, size] = at[name];
+      expect([name, flat.slice(start, start + size)]).toEqual([name, v]);
+    }
+  });
+
+  it('refuses factory inputs with a wrong limb count or a limb outside 120 bits', () => {
+    const {flattenAndroidFactorySigner} = jest.requireActual('../androidSignerInputs');
+    expect(() => flattenAndroidFactorySigner({...signer, ik_sig: signer.ik_sig.slice(1)}, String, String, String)).toThrow(/ik_sig has 34 limbs/);
+    expect(() => flattenAndroidFactorySigner({...signer, rsa_root_redc: [1n << 120n, ...signer.rsa_root_redc.slice(1)]}, String, String, String)).toThrow(/outside 120 bits/);
+  });
+});

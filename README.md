@@ -271,7 +271,8 @@ A simulator or an iPhone without App Attest is refused with E2009.
 ### Android signer (Coinbase KYC v2 and the OIDC domain proof)
 
 On Android both ids are proved by the circuits' Android packages
-(`coinbase_attestation_v2_android`, `oidc_domain_attestation_android`; the same
+(`coinbase_attestation_v2_android`, `oidc_domain_attestation_android` for Remote
+Key Provisioning chains; the same
 public inputs, statements and nullifiers; 2^21). Per statement the native module
 makes a fresh P-256 key in the Android Keystore (StrongBox when present, else
 the TEE) with attestation challenge SHA-256(statement), signs the statement with
@@ -283,6 +284,19 @@ signed with its store signing certificate -- and refuses anything else before
 proving (E2015; malformed data E2016). `src/utils/androidKeyAttestation.ts`
 mirrors circuits' `scripts/android-key-attestation/chain.js`; its test fixtures
 are written by `scripts/export-android-signer-fixtures.js`.
+
+A phone launched with Android 12 or earlier attests with a factory-provisioned
+chain under Google's RSA root instead. Its proofs use the `*_android_factory`
+packages, and its statement also carries a Play Integrity verdict: after signing,
+the app requests a verdict for nonce = SHA-256(SHA-256(statement) || signature),
+the relay decrypts it (`POST /api/v1/play-integrity/decrypt`; the verdict's
+signature is checked in the circuit), and the app refuses before proving a
+verdict that does not show the store's build of the app on a device with device
+integrity (E2017). A check that cannot be made right now is E3008. Which chain a
+phone has is learned from one key before its first proof and kept.
+
+A completed proof's callback carries `signerVariant` -- `standard`, `android` or
+`android_factory` -- so the verifier for the package that made it is used.
 
 Circuit files come from the circuits commit in `ANDROID_SIGNATURE_CIRCUITS_REF`
 (`src/config/circuitArtifacts.ts`). The 2^21 `.srs` is published in parts

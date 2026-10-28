@@ -22,6 +22,8 @@ export interface SendProofOptions {
   verifierAddress?: string;
   chainId?: number;
   nullifier?: string;
+  /** Required: which package of the circuit made the proof (src/config/signerPlatform.ts WIRE_SIGNER_VARIANT). */
+  signerVariant: 'standard' | 'android' | 'android_factory';
 }
 
 interface UseDeepLinkUtilsResult {
@@ -51,6 +53,7 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
         nullifier: options.nullifier,
         verifierAddress: options.verifierAddress,
         chainId: options.chainId,
+        signerVariant: options.signerVariant,
         inputs: request.inputs,
       };
       const response: ProofResponse = {

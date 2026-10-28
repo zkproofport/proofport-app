@@ -62,6 +62,11 @@ PHONES_TEST = "src/androidAttest/__tests__/androidPhonesProveCoinbaseAndOidc.tes
 ABI_TEST = "src/androidAttest/__tests__/theAndroidInputsFollowTheCircuitAbi.test.ts"
 PLATFORM_TEST = "src/config/__tests__/eachPlatformReadsItsOwnCircuitFiles.test.ts"
 SPLIT_TEST = "src/utils/__tests__/aSplitSrsIsJoinedOnlyWhenEveryDigestMatches.test.ts"
+PLAY = "src/androidAttest/playIntegrity.ts"
+VARIANT = "src/utils/proofSignerVariant.ts"
+FACTORY_CHECK_TEST = "src/androidAttest/__tests__/aFactoryPhoneIsCheckedLikeTheCircuit.test.ts"
+FACTORY_SIGN_TEST = "src/androidAttest/__tests__/aFactoryPhoneSignsWithAVerdict.test.ts"
+FACTORY_CONVERTER_TEST = "src/utils/__tests__/androidFactoryChainMatchesTheCircuitsConverter.test.ts"
 
 
 @dataclass(frozen=True)
@@ -135,8 +140,8 @@ MUTATIONS: list[Mutation] = [
              CHECKS_TEST, "is refused for the right package signed with another certificate"),
     # --- the signer ---
     Mutation("signer-keeps-high-s", SIGNER,
-             "    statementSig = ecdsaDerToLowS(signature, 32, N_P256);",
-             "    statementSig = ecdsaDerToLowS(signature, 32, N_P256 * 4n);",
+             "    return ecdsaDerToLowS(signature, 32, N_P256);",
+             "    return ecdsaDerToLowS(signature, 32, N_P256 * 4n);",
              SIGNER_TEST, "returns the circuit inputs, statement_sig in low form (device s high: true)"),
     Mutation("signer-skips-chain-checks", SIGNER,
              "  const summary = requireAcceptableAndroidChain(chain, {now: opts.now, app, rootKey});",
@@ -160,9 +165,9 @@ MUTATIONS: list[Mutation] = [
              "  if (false) {",
              PLATFORM_TEST, "an unknown platform or variant throws, naming it"),
     Mutation("artifacts-any-android-ref", ARTIFACTS,
-             "  if (source.variant === 'android' && !/^[0-9a-f]{40}$/.test(source.ref)) {",
+             "  if (source.variant !== 'app_attest' && !/^[0-9a-f]{40}$/.test(source.ref)) {",
              "  if (false) {",
-             PLATFORM_TEST, "refuses a branch name or a short sha on an Android row, naming the constant"),
+             PLATFORM_TEST, "refuses a branch name or a short sha on an android row, naming the constant"),
     Mutation("split-unhashed-part-joined", DOWNLOAD,
              "      if (verdict.level !== 'sha256') throw new Error(`${partName} could not be hashed",
              "      if (false) throw new Error(`${partName} could not be hashed",
@@ -179,6 +184,55 @@ MUTATIONS: list[Mutation] = [
              "        const length = Math.min(SRS_JOIN_CHUNK_BYTES, size - pos);",
              "        const length = size - pos;",
              SPLIT_TEST, "is fetched part by part, joined in bounded chunks, and checked whole"),
+    # --- factory-provisioned phones: chain kind, Play Integrity, the callback ---
+    Mutation("classify-any-4-certificate-chain", CONVERTER,
+             "    if (rsaModulusOf(last, 'The root certificate') === roots.rsaRootModulusHex.toLowerCase()) return 'android_factory';",
+             "    return 'android_factory';",
+             FACTORY_CONVERTER_TEST, "refuses an RKP chain without its root (4 certificates) (E2015)"),
+    Mutation("factory-converter-any-root", CONVERTER,
+             "  if (root && rsaModulusOf(root, 'The root certificate') !== rootModulusHex.toLowerCase()) {",
+             "  if (root && false) {",
+             FACTORY_CONVERTER_TEST, "sony-under-ca1 (E2015)"),
+    Mutation("factory-skips-chain-checks", SIGNER,
+             "  const summary = requireAcceptableFactoryChain(chain, {app, rootModulusHex: rsaRootModulusHex});",
+             "  const summary = {securityLevel: 'TrustedEnvironment', attestationVersion: 0};",
+             FACTORY_SIGN_TEST, "refuses an unlocked phone before asking for a verdict"),
+    Mutation("kind-change-accepted", SIGNER,
+             "  if (known !== null && known !== kind) {",
+             "  if (false) {",
+             FACTORY_SIGN_TEST, "a change of kind since the files were chosen is refused"),
+    Mutation("nonce-other-order", PLAY,
+             "  return ethers.utils.arrayify(ethers.utils.sha256(Uint8Array.from([...h, ...statementSig])));",
+             "  return ethers.utils.arrayify(ethers.utils.sha256(Uint8Array.from([...statementSig, ...h])));",
+             FACTORY_CHECK_TEST, "is android.js playIntegrityNonce"),
+    Mutation("verdict-any-header", PLAY,
+             "  if (jws.protectedHeader !== JWS_HEADER_B64) {",
+             "  if (false) {",
+             FACTORY_CHECK_TEST, "refuses another protected header (E2016)"),
+    Mutation("verdict-keeps-high-s", PLAY,
+             "  if (s > N_P256 / 2n) s = N_P256 - s;\n",
+             "",
+             FACTORY_CHECK_TEST, "good: the circuit's inputs, s lowered"),
+    Mutation("verdict-skips-recognition", PLAY,
+             "  if (app.appRecognitionVerdict !== 'PLAY_RECOGNIZED') {",
+             "  if (false) {",
+             FACTORY_CHECK_TEST, "unrecognizedApp -> E2017"),
+    Mutation("verdict-skips-device-integrity", PLAY,
+             "  if (!verdicts.includes('MEETS_DEVICE_INTEGRITY') && !verdicts.includes('MEETS_STRONG_INTEGRITY')) {",
+             "  if (false) {",
+             FACTORY_CHECK_TEST, "basicIntegrityOnly -> E2017"),
+    Mutation("verdict-accepts-literal-pad", PLAY,
+             "  const escapedPad = request.nonce === `${want}=` && rawJson.includes(`\"${want}${ESCAPED_PAD}\"`);",
+             "  const escapedPad = request.nonce === `${want}=`;",
+             FACTORY_CHECK_TEST, "literalPaddedNonce -> E2016"),
+    Mutation("relay-not-configured-as-device-error", PLAY,
+             "    if (res.status === 429 || res.status >= 500 || reason === 'not_configured') {",
+             "    if (res.status === 429) {",
+             FACTORY_CHECK_TEST, "HTTP 503 not_configured -> E3008, naming it"),
+    Mutation("callback-variant-defaults-to-standard", VARIANT,
+             "  throw new Error(`The ${circuit} proof does not say which package made it",
+             "  return 'standard';\n  throw new Error(`The ${circuit} proof does not say which package made it",
+             FACTORY_SIGN_TEST, "a per-signer proof that does not say is an error"),
 ]
 
 

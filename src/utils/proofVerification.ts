@@ -133,7 +133,7 @@ export async function verifyProofOnChainWithCore(
     // configured, so the check is refused by name rather than run against
     // the wrong contract and reported "invalid".
     const artifact = circuitArtifactSource(circuit);
-    if (artifact?.variant === 'android') {
+    if (artifact && artifact.variant !== 'app_attest') {
       addLog(
         `[OnChain] ${circuit} on Android is proved by ${artifact.remoteFileName}; no verifier contract is configured ` +
           'for it in this app, so it is not checked on-chain (off-chain verification uses its own vk).',

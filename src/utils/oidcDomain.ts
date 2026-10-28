@@ -43,9 +43,12 @@ import {ethers} from 'ethers';
 import type {ProviderKeySigner, StatementSignerInputs} from '../oidc/oidcAppSigner';
 import {SIGNER_KIND_APP} from '../appAttest/appSignerInputs';
 import {
+  ANDROID_FACTORY_SIGNER_ABI_PARAMETERS,
+  ANDROID_FACTORY_SIGNER_FLAT_COUNT,
   ANDROID_SIGNER_ABI_PARAMETERS,
   ANDROID_SIGNER_FLAT_COUNT,
-  flattenAndroidSigner,
+  flattenAnyAndroidSigner,
+  isAndroidFactorySignerInputs,
   isAndroidSignerInputs,
 } from '../androidAttest/androidSignerInputs';
 import type {StatementSignerVariant} from '../config/signerPlatform';
@@ -102,9 +105,19 @@ export const OIDC_ANDROID_ABI_PARAMETERS = Object.freeze([
 /** The prover's flat input vector (Android): 214 public, 2,095 token, 3,292 signer values. */
 export const OIDC_ANDROID_FLAT_INPUT_COUNT = 214 + 2095 + ANDROID_SIGNER_FLAT_COUNT;
 
+/** The factory package (`oidc_domain_attestation_android_factory`): the token, then the factory signer. */
+export const OIDC_ANDROID_FACTORY_ABI_PARAMETERS = Object.freeze([
+  ...OIDC_ABI_PARAMETERS.slice(0, OIDC_ABI_PARAMETERS.indexOf('signer_kind')),
+  ...ANDROID_FACTORY_SIGNER_ABI_PARAMETERS,
+]);
+
+/** 214 public, 2,095 token, 3,877 factory signer values. */
+export const OIDC_ANDROID_FACTORY_FLAT_INPUT_COUNT = 214 + 2095 + ANDROID_FACTORY_SIGNER_FLAT_COUNT;
+
 const OIDC_ABI_BY_VARIANT: Readonly<Record<StatementSignerVariant, readonly string[]>> = Object.freeze({
   app_attest: OIDC_ABI_PARAMETERS,
   android: OIDC_ANDROID_ABI_PARAMETERS,
+  android_factory: OIDC_ANDROID_FACTORY_ABI_PARAMETERS,
 });
 
 /**
@@ -673,9 +686,9 @@ export function flattenOidcInputs(inputs: OidcCircuitInputs): string[] {
   // The provider-key statement's signer, in its circuit's ABI order.
   const signer = inputs.signer;
   let expected: number;
-  if (isAndroidSignerInputs(signer)) {
-    flat.push(...flattenAndroidSigner(signer, b => b.toString(), n => n.toString()));
-    expected = OIDC_ANDROID_FLAT_INPUT_COUNT;
+  if (isAndroidSignerInputs(signer) || isAndroidFactorySignerInputs(signer)) {
+    flat.push(...flattenAnyAndroidSigner(signer, b => b.toString(), n => n.toString(), v => v.toString()));
+    expected = isAndroidSignerInputs(signer) ? OIDC_ANDROID_FLAT_INPUT_COUNT : OIDC_ANDROID_FACTORY_FLAT_INPUT_COUNT;
   } else if (signer?.signer_kind === SIGNER_KIND_APP) {
     const bytes = (b: Uint8Array) => {
       for (const x of b) flat.push(x.toString());

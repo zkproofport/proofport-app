@@ -11,6 +11,14 @@
  * DER signature exercises the conversion.
  */
 jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'android'}}));
+const mockDisk = new Map<string, string>();
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: async (k: string) => (mockDisk.has(k) ? mockDisk.get(k)! : null),
+    setItem: async (k: string, v: string) => void mockDisk.set(k, v),
+  },
+}));
 const rn = jest.requireMock('react-native') as {NativeModules: Record<string, unknown>; Platform: {OS: string}};
 
 import * as crypto from 'node:crypto';
@@ -19,14 +27,24 @@ import {N_P256} from '../../appAttest/constants';
 import {GOOGLE_KEY_ATTESTATION_CA1, androidChainInputs} from '../../utils/androidKeyAttestation';
 import vectors from '../../utils/__tests__/fixtures/androidChainVectors.json';
 import {ANDROID_CIRCUIT_TRUST, signStatementOnAndroid} from '../androidSigner';
+import {__setAndroidChainKindForTests, knownAndroidChainKind} from '../../config/signerPlatform';
 import {ANDROID_NATIVE_CODE, androidNativeFailure, getAndroidKeyAttestationNative} from '../nativeAndroidKeyAttestation';
 
 const cases = vectors.cases as unknown as Record<string, {chain: string[]}>;
 const TEGU = cases['tegu-sdk36-tee-ec-2026-root'].chain;
 const TRUST = {
+  ...ANDROID_CIRCUIT_TRUST,
   app: {packageName: 'com.google.android.attestation', signingCertSha256: '103938ee4537e59e8ee792f654504fb8346fc6b346d0bbc4415fc339fcfc8ec1'},
   rootKey: GOOGLE_KEY_ATTESTATION_CA1,
 };
+/** RKP chains never ask for a verdict. */
+const NO_INTEGRITY = {decrypt: jest.fn(async () => {
+  throw new Error('an RKP chain asked for a Play Integrity verdict');
+})};
+beforeEach(() => {
+  __setAndroidChainKindForTests(null);
+  mockDisk.clear();
+});
 const NOW = Date.UTC(2026, 2, 1) / 1000;
 const STATEMENT = Uint8Array.from({length: 313}, (_v, i) => (i * 7) & 0xff);
 const KEY = crypto.generateKeyPairSync('ec', {namedCurve: 'P-256'});
@@ -51,6 +69,9 @@ function fakeNative(result: unknown | (() => Promise<unknown>)) {
         calls.push(b64);
         return typeof result === 'function' ? (result as () => Promise<unknown>)() : result;
       }),
+      requestIntegrityToken: jest.fn(async () => {
+        throw new Error('an RKP chain asked for a Play Integrity token');
+      }),
     } as never,
   };
 }
@@ -69,10 +90,11 @@ describe('a real chain', () => {
     const signature = derSignature(highS);
     const {native, calls} = fakeNative({chain: TEGU, signature, strongBox: false, sdkInt: 36});
     const logs: string[] = [];
-    const out = await signStatementOnAndroid(STATEMENT, {now: NOW, log: m => logs.push(m), native, trust: TRUST});
+    const out = await signStatementOnAndroid(STATEMENT, {now: NOW, log: m => logs.push(m), native, trust: TRUST, integrity: NO_INTEGRITY});
 
     expect(calls).toEqual([Buffer.from(STATEMENT).toString('base64')]);
     expect(out.variant).toBe('android');
+    if (out.variant !== 'android') return;
     const chain = androidChainInputs(TEGU.map(b => Uint8Array.from(Buffer.from(b, 'base64'))), GOOGLE_KEY_ATTESTATION_CA1);
     expect(Buffer.from(out.leaf_tbs).toString('hex')).toBe(Buffer.from(chain.leaf_tbs).toString('hex'));
     expect(out.ca2_tbs_len).toBe(chain.ca2_tbs_len);
@@ -85,17 +107,20 @@ describe('a real chain', () => {
     expect(crypto.verify('sha256', Buffer.from(STATEMENT), {key: KEY.publicKey, dsaEncoding: 'ieee-p1363'}, Buffer.from(out.statement_sig))).toBe(true);
 
     expect(logs.join('\n')).toMatch(/Key made in the TEE \(SDK 36\); chain of 5 certificates/);
+    expect(knownAndroidChainKind()).toBe('android');
+    expect(mockDisk.get('@zkproofport:androidChainKind:v1')).toBe('android');
+    expect(NO_INTEGRITY.decrypt).not.toHaveBeenCalled();
     expect(logs.join('\n')).not.toContain(Buffer.from(STATEMENT).toString('base64'));
   });
 
   it('refuses, before converting anything, a chain made for another app (the real trust anchors)', async () => {
     const {native} = fakeNative({chain: TEGU, signature: derSignature(false), strongBox: true, sdkInt: 36});
-    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: NOW, log: () => {}, native, trust: ANDROID_CIRCUIT_TRUST}))).toBe('E2015');
+    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: NOW, log: () => {}, native, trust: ANDROID_CIRCUIT_TRUST, integrity: NO_INTEGRITY}))).toBe('E2015');
   });
 
   it('refuses a chain whose attestation key has expired at the statement time', async () => {
     const {native} = fakeNative({chain: TEGU, signature: derSignature(false), strongBox: false, sdkInt: 36});
-    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: Date.UTC(2026, 5, 1) / 1000, log: () => {}, native, trust: TRUST}))).toBe('E2015');
+    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: Date.UTC(2026, 5, 1) / 1000, log: () => {}, native, trust: TRUST, integrity: NO_INTEGRITY}))).toBe('E2015');
   });
 });
 
@@ -111,7 +136,7 @@ describe('what the native module returns', () => {
     ['a P-384-sized signature', {chain: TEGU, signature: Buffer.from('3066023100' + 'ff'.repeat(48) + '023100' + '7f'.repeat(48), 'hex').toString('base64'), strongBox: false, sdkInt: 36}, 'E2016'],
   ])('%s -> %s', async (_l, result, code) => {
     const {native} = fakeNative(result);
-    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: NOW, log: () => {}, native, trust: TRUST}))).toBe(code);
+    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: NOW, log: () => {}, native, trust: TRUST, integrity: NO_INTEGRITY}))).toBe(code);
   });
 
   it.each([
@@ -126,7 +151,7 @@ describe('what the native module returns', () => {
     const {native} = fakeNative(async () => {
       throw Object.assign(new Error('boom'), {code: nativeCode});
     });
-    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: NOW, log: () => {}, native, trust: TRUST}))).toBe(code);
+    expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: NOW, log: () => {}, native, trust: TRUST, integrity: NO_INTEGRITY}))).toBe(code);
     expect(androidNativeFailure(Object.assign(new Error('boom'), {code: nativeCode})).message).toContain(String(nativeCode));
   });
 });

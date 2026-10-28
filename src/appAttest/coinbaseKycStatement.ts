@@ -18,11 +18,18 @@
  */
 import {ethers} from 'ethers';
 import type {TypedAction} from '../config/circuitIds';
-import {currentSignerVariant, type StatementSignerVariant} from '../config/signerPlatform';
+import {currentSignerPlatform, type SignerPlatform} from '../config/signerPlatform';
 import {computeScope} from '../utils/circuitHelpers';
 import {coinbaseSignalHash} from '../utils/coinbaseSignal';
 import {signedDigestOf, whatTheWalletSigns} from '../utils/signedAction';
-import {ANDROID_CIRCUIT_TRUST, signStatementOnAndroid, type AndroidSignOptions} from '../androidAttest/androidSigner';
+import {
+  ANDROID_CIRCUIT_TRUST,
+  relayIntegrityDecrypter,
+  signStatementOnAndroid,
+  type AndroidSignOptions,
+} from '../androidAttest/androidSigner';
+import {STATIC_CONFIGS} from '../config/contracts';
+import {getEnvironment} from '../config/environment';
 import {isAndroidStatementWitness, type AndroidStatementWitness} from '../androidAttest/androidSignerInputs';
 import {getAndroidKeyAttestationNative, type AndroidKeyAttestationNative} from '../androidAttest/nativeAndroidKeyAttestation';
 import {getAppAttestNative, type AppAttestNative} from './nativeAppAttest';
@@ -55,12 +62,16 @@ export function coinbaseRequestDigest(walletAddress: string, scopeString: string
 
 export interface CoinbaseKycStatementOverrides {
   /** Tests only: which platform's signer, instead of this phone's. */
-  variant?: StatementSignerVariant;
+  platform?: SignerPlatform;
   native?: AppAttestNative;
   /** Tests only: a synthetic CA pin and an in-memory key store. */
   keyDeps?: Pick<AppAttestDeps, 'storage' | 'pinnedCaKeyHash'>;
   /** Tests only: a fake Android module and the trust anchors its synthetic chain carries. */
-  android?: {native: AndroidKeyAttestationNative; trust: AndroidSignOptions['trust']};
+  android?: {
+    native: AndroidKeyAttestationNative;
+    trust: AndroidSignOptions['trust'];
+    integrity?: AndroidSignOptions['integrity'];
+  };
   revocation?: Omit<RevocationDeps, 'appAttest'>;
 }
 
@@ -82,19 +93,21 @@ async function androidStatement(
   // The module first, so a build without it is told so before any lookup (E2015).
   const native = overrides.android?.native ?? getAndroidKeyAttestationNative();
   const trust = overrides.android?.trust ?? ANDROID_CIRCUIT_TRUST;
+  const integrity =
+    overrides.android?.integrity ?? relayIntegrityDecrypter(() => STATIC_CONFIGS[getEnvironment()].relay.apiBaseUrl, req.log);
   const {clientData, attestedAt} = await revocationClientData(statement, {
     fetchStatus: overrides.revocation?.fetchStatus,
     now: overrides.revocation?.now,
     log: req.log,
   });
   // The chain must be valid at attested_at, the statement's own time.
-  const signer = await signStatementOnAndroid(clientData, {now: attestedAt, log: req.log, native, trust});
-  req.log('[AndroidAttest] Revocation statement signed');
-  return {variant: 'android', clientData, attestedAt, signer};
+  const signer = await signStatementOnAndroid(clientData, {now: attestedAt, log: req.log, native, trust, integrity});
+  req.log(`[AndroidAttest] Revocation statement signed (${signer.variant})`);
+  return {variant: signer.variant, clientData, attestedAt, signer};
 }
 
-const MAKE_STATEMENT: Readonly<Record<StatementSignerVariant, typeof appAttestStatement>> = Object.freeze({
-  app_attest: appAttestStatement,
+const MAKE_STATEMENT: Readonly<Record<SignerPlatform, typeof appAttestStatement>> = Object.freeze({
+  ios: appAttestStatement,
   android: androidStatement,
 });
 
@@ -102,11 +115,11 @@ export async function prepareCoinbaseKycStatement(
   req: CoinbaseKycStatementRequest,
   overrides: CoinbaseKycStatementOverrides = {},
 ): Promise<CoinbaseStatementWitness> {
-  const variant = overrides.variant ?? currentSignerVariant();
-  if (!Object.prototype.hasOwnProperty.call(MAKE_STATEMENT, variant)) {
-    throw new Error(`No Coinbase KYC statement signer for '${variant}'. Known: ${Object.keys(MAKE_STATEMENT).join(', ')}.`);
+  const platform = overrides.platform ?? currentSignerPlatform();
+  if (!Object.prototype.hasOwnProperty.call(MAKE_STATEMENT, platform)) {
+    throw new Error(`No Coinbase KYC statement signer for '${platform}'. Known: ${Object.keys(MAKE_STATEMENT).join(', ')}.`);
   }
-  return MAKE_STATEMENT[variant](
+  return MAKE_STATEMENT[platform](
     {
       wallet: req.walletAddress,
       attestationUid: req.attestationUid,

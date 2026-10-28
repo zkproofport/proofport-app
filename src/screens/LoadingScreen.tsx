@@ -1,3 +1,5 @@
+import {circuitFilesDecidableNow} from '../config/circuitArtifacts';
+import {currentSignerPlatform, loadAndroidChainKind} from '../config/signerPlatform';
 import {bootstrapCircuits} from '../utils/circuitBootstrap';
 import {showGlobalError} from '../utils/errorBridge';
 import {syncDeploymentsAtLaunch} from '../utils/launchDeploymentSync';
@@ -102,7 +104,16 @@ export function LoadingScreen({onReady}: LoadingScreenProps): React.ReactElement
       console.warn('Settings unreadable at launch; prefetching the Laboratory circuits too:', settingsError);
       laboratoryEnabled = true;
     }
-    const circuits = circuitsToPrefetch([...BASE_CIRCUITS, ...MAIN_BRANCH_CIRCUITS], laboratoryEnabled);
+    // On Android, Coinbase KYC and OIDC have one circuit per attestation chain
+    // kind. The kind kept from an earlier proof picks the files; with none
+    // kept yet, those two are downloaded by the proof once the kind is known.
+    try {
+      if (currentSignerPlatform() === 'android') await loadAndroidChainKind();
+    } catch (kindError) {
+      console.warn('Android chain kind unreadable at launch; its circuits wait for the proof:', kindError);
+    }
+    const circuits = circuitsToPrefetch([...BASE_CIRCUITS, ...MAIN_BRANCH_CIRCUITS], laboratoryEnabled)
+      .filter(c => circuitFilesDecidableNow(c));
 
     // Start all circuit downloads in parallel
     const downloadPromise = Promise.allSettled(

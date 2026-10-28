@@ -780,6 +780,10 @@
         "title": "Device Check Failed",
         "description": "The attestation data from this phone could not be used for the proof. Nothing was generated."
       },
+      "E2017": {
+        "title": "Device Integrity Not Met",
+        "description": "This phone did not pass the integrity check this proof requires: the official ZKProofport app on an unmodified device. Nothing was generated."
+      },
       "E3001": {
         "title": "Network Error",
         "description": "Unable to connect to the server. Please check your internet connection."
@@ -867,6 +871,10 @@
       "E3007": {
         "title": "Proof Files Not Published",
         "description": "The proof files this version of ZKProofport needs are not available yet, so proofs cannot be made. Please update the app or try again later."
+      },
+      "E3008": {
+        "title": "Device Check Unavailable",
+        "description": "The device check could not be completed right now. Check your connection and try again in a moment. Nothing was generated."
       },
       "E4004": {
         "title": "Disconnect Failed",

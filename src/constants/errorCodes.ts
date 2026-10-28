@@ -124,7 +124,7 @@ export const ErrorCodes = {
   // The provider returned an ID token without the nonce this request asked
   // for (src/oidc/oidcNonce.ts). Such a token is not tied to this request, so
   // it is never proved. E2009, E2011 and E2014 are App Attest; E2015-E2016
-  // are Android key attestation.
+  // are Android key attestation, E2017 its integrity verdict.
   E2012: {
     code: 'E2012',
     title: 'Sign-In Not Tied to This Request',
@@ -150,6 +150,12 @@ export const ErrorCodes = {
     title: 'Device Check Failed',
     description:
       'The attestation data from this phone could not be used for the proof. Nothing was generated.',
+  },
+  E2017: {
+    code: 'E2017',
+    title: 'Device Integrity Not Met',
+    description:
+      'This phone did not pass the integrity check this proof requires: the official ZKProofport app on an unmodified device. Nothing was generated.',
   },
 
   // Network errors
@@ -195,6 +201,14 @@ export const ErrorCodes = {
     title: 'Proof Files Not Published',
     description:
       'The proof files this version of ZKProofport needs are not available yet, so proofs cannot be made. Please update the app or try again later.',
+  },
+  // The device check of a factory-provisioned Android phone could not be made
+  // now (src/androidAttest/playIntegrity.ts): retry later.
+  E3008: {
+    code: 'E3008',
+    title: 'Device Check Unavailable',
+    description:
+      'The device check could not be completed right now. Check your connection and try again in a moment. Nothing was generated.',
   },
 
   // Wallet errors

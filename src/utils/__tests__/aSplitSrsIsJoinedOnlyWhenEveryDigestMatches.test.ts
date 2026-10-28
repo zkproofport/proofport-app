@@ -101,6 +101,8 @@ jest.mock('../../config/circuitArtifacts', () => {
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {downloadCircuitFiles, SRS_JOIN_CHUNK_BYTES, __resetCircuitManifestCache} = require('../circuitDownload');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const {__setAndroidChainKindForTests} = require('../../config/signerPlatform');
 
 const BASE = `https://raw.githubusercontent.com/zkproofport/circuits/${TEST_REF}/coinbase-attestation-v2-android/target`;
 const NAME = 'coinbase_attestation_v2_android';
@@ -131,6 +133,7 @@ function publish(sizes = [9 * MiB + 5, 4 * MiB, 212], tweak: {manifest?: (lines:
 const leftovers = () => [...mockFiles.keys()].filter(p => /\.srs\.(part\d+|joining)$/.test(p));
 
 beforeEach(() => {
+  __setAndroidChainKindForTests('android');
   mockFiles.clear();
   mockServed.clear();
   mockReads.length = 0;

@@ -41,9 +41,12 @@
 import {ethers} from 'ethers';
 import type {AppAttestWitness} from '../appAttest/revocationStatement';
 import {
-  flattenAndroidSigner,
+  ANDROID_FACTORY_SIGNER_FLAT_COUNT,
+  ANDROID_SIGNER_FLAT_COUNT,
+  flattenAnyAndroidSigner,
+  isAndroidFactorySignerInputs,
   isAndroidSignerInputs,
-  type AndroidSignerInputs,
+  type AnyAndroidSignerInputs,
   type AndroidStatementWitness,
 } from '../androidAttest/androidSignerInputs';
 import {appSignerInputs} from '../appAttest/appSignerInputs';
@@ -232,18 +235,25 @@ export function prepareCoinbaseAppAttestInputs(
  * first 193 are the public inputs, identical to the iPhone circuit's.
  */
 export interface CoinbaseAndroidInputs extends CoinbaseCommonInputs {
-  signer: AndroidSignerInputs;
+  signer: AnyAndroidSignerInputs;
 }
 
-export const COINBASE_ANDROID_FLAT_INPUT_COUNT = 4481;
+/** Everything up to client_data: 193 public and 996 private values, on every Coinbase KYC v2 circuit. */
+const COINBASE_COMMON_FLAT_COUNT = 1189;
+export const COINBASE_ANDROID_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_SIGNER_FLAT_COUNT;
+/** `coinbase_attestation_v2_android_factory`: the common inputs, then the factory signer. */
+export const COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_FACTORY_SIGNER_FLAT_COUNT;
 
 export function prepareCoinbaseAndroidInputs(
   coinbase: AttesterCircuitInputs,
   request: CoinbaseStatementRequest,
   witness: AndroidStatementWitness,
 ): CoinbaseAndroidInputs {
-  if (!isAndroidSignerInputs(witness.signer)) {
+  if (!isAndroidSignerInputs(witness.signer) && !isAndroidFactorySignerInputs(witness.signer)) {
     throw new Error('The Android statement carries no Android signer inputs');
+  }
+  if (witness.signer.variant !== witness.variant) {
+    throw new Error(`The Android statement is ${witness.variant} but its signer inputs are ${witness.signer.variant}`);
   }
   return {...coinbaseCommonInputs(coinbase, request, witness), signer: witness.signer};
 }
@@ -251,14 +261,16 @@ export function prepareCoinbaseAndroidInputs(
 export function flattenCoinbaseAndroidInputs(i: CoinbaseAndroidInputs): string[] {
   const flat = [
     ...flattenCommon(i),
-    ...flattenAndroidSigner(
+    ...flattenAnyAndroidSigner(
       i.signer,
       b => bytesToNoirInput([b])[0],
       n => String(n),
+      v => v.toString(),
     ),
   ];
-  if (flat.length !== COINBASE_ANDROID_FLAT_INPUT_COUNT) {
-    throw new Error(`Coinbase KYC v2 (Android) inputs flattened to ${flat.length} values; the circuit takes ${COINBASE_ANDROID_FLAT_INPUT_COUNT}`);
+  const expected = isAndroidSignerInputs(i.signer) ? COINBASE_ANDROID_FLAT_INPUT_COUNT : COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT;
+  if (flat.length !== expected) {
+    throw new Error(`Coinbase KYC v2 (${i.signer.variant}) inputs flattened to ${flat.length} values; the circuit takes ${expected}`);
   }
   return flat;
 }

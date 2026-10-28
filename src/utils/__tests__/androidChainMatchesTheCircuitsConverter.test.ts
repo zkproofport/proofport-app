@@ -49,7 +49,10 @@ function refusal(f: () => unknown): {code: string; message: string} {
 describe('the fixture', () => {
   it('names the root chain.js pins, and the same limits', () => {
     expect(hex(GOOGLE_KEY_ATTESTATION_CA1)).toBe(vectors.googleKeyAttestationCa1);
-    expect(ANDROID_TBS_LIMITS).toEqual(vectors.limits);
+    // chain.js's LIMITS also name the factory chain's (ik, batch); those are
+    // held by androidFactoryChainMatchesTheCircuitsConverter.test.ts.
+    const {ca2, ca3, att, leaf} = vectors.limits as Record<string, number>;
+    expect(ANDROID_TBS_LIMITS).toEqual({ca2, ca3, att, leaf});
   });
 
   it('came from the chain.js in the circuits checkout, when there is one beside this app', () => {
@@ -63,6 +66,7 @@ describe('the fixture', () => {
   it('holds the cases this test is about', () => {
     expect(Object.keys(cases).sort()).toEqual([
       'akita-sdk34-tee-ec-rsa-root',
+      'blueline-sdk28-tee-ec-factory',
       'leaf-tbs-over-1024',
       'root-is-ca2-not-ca1',
       'six-certificates',
@@ -151,6 +155,7 @@ describe('every chain chain.js refuses is refused, by name', () => {
     // chain.js refuses it by CA2's size, the app by name: the certificate in
     // CA3's place is signed by the RSA root.
     ['sony-xperia10iii-sdk33-factory', 'E2015', /Droid CA3 uses RSA: this is a factory-provisioned chain/],
+    ['blueline-sdk28-tee-ec-factory', 'E2015', /Droid CA3 uses RSA: this is a factory-provisioned chain/],
   ])('%s -> %s', (name, code, message) => {
     expect(cases[name].expected.ok).toBe(false);
     const r = refusal(() => androidChainInputs(ders(name), GOOGLE_KEY_ATTESTATION_CA1));

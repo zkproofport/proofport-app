@@ -13,7 +13,7 @@ const mockHistoryUpdate = jest.fn();
 const mockSettingsGet = jest.fn();
 const mockShowError = jest.fn();
 let mockAutoSave = false;
-let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number} | null = null;
+let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number; signerVariant: string} | null = null;
 const mockT = (key: string) => key;
 const mockNavigate = {navigate: jest.fn()};
 // The relay mints uuidv4 ids; an OIDC request's nonce is derived from one.
@@ -158,7 +158,7 @@ async function mountAndWait() {
 }
 
 async function publishProof() {
-  mockParsedProof = {proofHex: '0x1234', publicInputsHex: ['0x01'], numPublicInputs: 1};
+  mockParsedProof = {proofHex: '0x1234', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'standard'};
   await act(async () => {tree.update(React.createElement(ProofGenerationScreen));});
 }
 

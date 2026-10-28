@@ -36,7 +36,7 @@
  * Sepolia 0xeA5933AB...84e8 (circuits 7e5c72d). Remove the row when that
  * circuit is in the release this app pins and in core's table.
  *
- * PER PLATFORM. Both ids are proved by a different circuit on Android: the
+ * PER SIGNER. Both ids are proved by a different circuit on Android: the
  * statement is vouched for by Android key attestation instead of App Attest,
  * in the packages `oidc_domain_attestation_android` and
  * `coinbase_attestation_v2_android` (circuits branch android-signature;
@@ -44,7 +44,10 @@
  * public inputs, statement and nullifier; other private inputs, other vk and
  * verifier, and 2^21 instead of 2^20. So each row holds one source per
  * statement-signer variant (src/config/signerPlatform.ts), and a variant the
- * row does not hold is an error, never the other platform's files.
+ * row does not hold is an error, never the other platform's files. Android
+ * has two: Remote Key Provisioning chains (`*_android`) and factory-provisioned
+ * chains with a Play Integrity verdict (`*_android_factory`); the phone's own
+ * chain decides which, and only that package is downloaded.
  *
  * A 2^21 .srs is 134,217,940 bytes, over GitHub's 100 MiB file limit, so the
  * circuits repository publishes it in parts (`<package>.srs.part0`, ...,
@@ -53,7 +56,12 @@
  * checks and joins them.
  */
 import type {CircuitName} from './circuitIds';
-import {currentSignerVariant, type StatementSignerVariant} from './signerPlatform';
+import {
+  currentSignerPlatform,
+  currentSignerVariant,
+  knownAndroidChainKind,
+  type StatementSignerVariant,
+} from './signerPlatform';
 
 /**
  * zkproofport/circuits 5081cfd (branch oidc-signature, 2026-10-28): CI-built
@@ -137,6 +145,20 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
       publicInputCount: 193,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
+    // A factory-provisioned phone (Google's RSA root) with a Play Integrity
+    // verdict: 2^21, the same 193 public inputs.
+    android_factory: Object.freeze({
+      variant: 'android_factory',
+      ref: ANDROID_SIGNATURE_CIRCUITS_REF,
+      refName: 'ANDROID_SIGNATURE_CIRCUITS_REF',
+      basePath: 'coinbase-attestation-v2-android-factory/target',
+      vkPath: 'coinbase-attestation-v2-android-factory/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'coinbase_attestation_v2_android_factory',
+      dataVersion: 4,
+      publicInputCount: 193,
+      srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    }),
   }),
   oidc_domain_attestation: Object.freeze({
     // dataVersion 6 = CIRCUIT_DATA_VERSIONS.oidc_domain_attestation: the files
@@ -163,6 +185,18 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
       vkFileName: 'vk',
       remoteFileName: 'oidc_domain_attestation_android',
       dataVersion: 7,
+      publicInputCount: 214,
+      srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    }),
+    android_factory: Object.freeze({
+      variant: 'android_factory',
+      ref: ANDROID_SIGNATURE_CIRCUITS_REF,
+      refName: 'ANDROID_SIGNATURE_CIRCUITS_REF',
+      basePath: 'oidc-domain-attestation-android-factory/target',
+      vkPath: 'oidc-domain-attestation-android-factory/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'oidc_domain_attestation_android_factory',
+      dataVersion: 8,
       publicInputCount: 214,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
@@ -205,12 +239,22 @@ export function circuitArtifactSource(circuit: string): CircuitArtifactSource | 
 }
 
 /**
+ * Whether this phone can name `circuit`'s files now. False only for a
+ * per-signer circuit on an Android phone whose chain kind is not known yet:
+ * the launch prefetch leaves those to the proof, which learns the kind first.
+ */
+export function circuitFilesDecidableNow(circuit: string): boolean {
+  if (!hasPinnedArtifactSource(circuit)) return true;
+  return currentSignerPlatform() === 'ios' || knownAndroidChainKind() !== null;
+}
+
+/**
  * The ref a source's files are read from. An Android row must name a full
  * commit; until ANDROID_SIGNATURE_CIRCUITS_REF is filled in, this is the
  * error every Android download of these circuits ends at.
  */
 export function requireArtifactRef(source: CircuitArtifactSource): string {
-  if (source.variant === 'android' && !/^[0-9a-f]{40}$/.test(source.ref)) {
+  if (source.variant !== 'app_attest' && !/^[0-9a-f]{40}$/.test(source.ref)) {
     throw new Error(
       `${source.refName} is ${source.ref === '' ? 'empty' : `'${source.ref}'`}: set it to the 40-hex zkproofport/circuits ` +
         `commit carrying the CI-built ${source.remoteFileName} files (src/config/circuitArtifacts.ts).`,

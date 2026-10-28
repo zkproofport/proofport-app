@@ -6,15 +6,19 @@
  *
  *   iPhone   App Attest (signer kind 1 of `oidc_domain_attestation`), the
  *            same key and machinery as Coinbase KYC v2
- *   Android  Android key attestation (`oidc_domain_attestation_android`):
- *            a fresh attested Keystore key per statement
+ *   Android  Android key attestation: a fresh attested Keystore key per
+ *            statement; `oidc_domain_attestation_android` for a Remote Key
+ *            Provisioning chain, `oidc_domain_attestation_android_factory`
+ *            (plus a Play Integrity verdict) for a factory-provisioned one
  *
  * Two halves, called at two moments:
  *
  *   prepareOidcAppSigner(log)  -- BEFORE the sign-in sheet. On iPhone: a
  *       device or simulator without App Attest (E2009) or a development key
  *       (E2014) is refused, and the key is certified on first use. On
- *       Android: a build without the native module is refused (E2015). So
+ *       Android: a build without the native module is refused (E2015), and
+ *       the phone's chain kind is learned (one key) so the right circuit
+ *       files are chosen. So
  *       nobody signs in to Google or Microsoft for a proof this phone cannot
  *       make.
  *
@@ -30,10 +34,18 @@ import {appSignerInputs, type AppSignerInputs} from '../appAttest/appSignerInput
 import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../appAttest/constants';
 import {getAppAttestNative, type AppAttestNative} from '../appAttest/nativeAppAttest';
 import {requireProductionCredential} from '../appAttest/revocationStatement';
-import {ANDROID_CIRCUIT_TRUST, signStatementOnAndroid, type AndroidSignOptions} from '../androidAttest/androidSigner';
-import type {AndroidSignerInputs} from '../androidAttest/androidSignerInputs';
+import {
+  ANDROID_CIRCUIT_TRUST,
+  ensureAndroidChainKind,
+  relayIntegrityDecrypter,
+  signStatementOnAndroid,
+  type AndroidSignOptions,
+} from '../androidAttest/androidSigner';
+import type {AnyAndroidSignerInputs} from '../androidAttest/androidSignerInputs';
+import {STATIC_CONFIGS} from '../config/contracts';
+import {getEnvironment} from '../config/environment';
 import {getAndroidKeyAttestationNative, type AndroidKeyAttestationNative} from '../androidAttest/nativeAndroidKeyAttestation';
-import {currentSignerVariant, type StatementSignerVariant} from '../config/signerPlatform';
+import {currentSignerPlatform, type SignerPlatform} from '../config/signerPlatform';
 import {
   providerKeyStatement,
   requireLiveModulus,
@@ -54,18 +66,22 @@ export interface ProviderKeySignRequest {
 }
 
 /** Either device's signer inputs; the OIDC builder flattens each in its circuit's order. */
-export type StatementSignerInputs = AppSignerInputs | AndroidSignerInputs;
+export type StatementSignerInputs = AppSignerInputs | AnyAndroidSignerInputs;
 
 export type ProviderKeySigner = (request: ProviderKeySignRequest) => Promise<StatementSignerInputs>;
 
 export interface OidcSignerOverrides {
   /** Tests only: which platform's signer, instead of this phone's. */
-  variant?: StatementSignerVariant;
+  platform?: SignerPlatform;
   native?: AppAttestNative;
   /** Tests only: a synthetic CA pin and an in-memory key store. */
   keyDeps?: Pick<AppAttestDeps, 'storage' | 'pinnedCaKeyHash'>;
   /** Tests only: a fake Android module and the trust anchors its synthetic chain carries. */
-  android?: {native: AndroidKeyAttestationNative; trust: AndroidSignOptions['trust']};
+  android?: {
+    native: AndroidKeyAttestationNative;
+    trust: AndroidSignOptions['trust'];
+    integrity?: AndroidSignOptions['integrity'];
+  };
   /** Unix seconds; injectable for tests. */
   nowSeconds?: () => number;
 }
@@ -98,8 +114,12 @@ async function prepareAndroidSigner(log: (msg: string) => void, overrides: OidcS
   // Throws E2015 when the module is missing, before any sign-in.
   const native = overrides.android?.native ?? getAndroidKeyAttestationNative();
   const trust = overrides.android?.trust ?? ANDROID_CIRCUIT_TRUST;
+  const integrity =
+    overrides.android?.integrity ?? relayIntegrityDecrypter(() => STATIC_CONFIGS[getEnvironment()].relay.apiBaseUrl, log);
   const clock = overrides.nowSeconds ?? (() => Math.floor(Date.now() / 1000));
-  log('[AndroidAttest] Ready to sign the provider-key statement with a fresh attested key');
+  // The chain kind picks the circuit files the hook downloads before signing.
+  const kind = await ensureAndroidChainKind(native, log, trust);
+  log(`[AndroidAttest] Ready to sign the provider-key statement with a fresh attested key (${kind})`);
 
   return async ({provider, now, modulus, live}) => {
     requireLiveModulus(live, provider, modulus, clock());
@@ -107,14 +127,14 @@ async function prepareAndroidSigner(log: (msg: string) => void, overrides: OidcS
     // The key signs the statement itself (SHA256withECDSA): the digest the
     // circuit checks is SHA256(statement), recomputed from public inputs.
     // The chain must be valid at the statement's `now`.
-    const signer = await signStatementOnAndroid(statement, {now, log, native, trust});
+    const signer = await signStatementOnAndroid(statement, {now, log, native, trust, integrity});
     log('[AndroidAttest] Provider-key statement signed');
     return signer;
   };
 }
 
-const PREPARE: Readonly<Record<StatementSignerVariant, typeof prepareAppAttestSigner>> = Object.freeze({
-  app_attest: prepareAppAttestSigner,
+const PREPARE: Readonly<Record<SignerPlatform, typeof prepareAppAttestSigner>> = Object.freeze({
+  ios: prepareAppAttestSigner,
   android: prepareAndroidSigner,
 });
 
@@ -122,9 +142,9 @@ export async function prepareOidcAppSigner(
   log: (msg: string) => void,
   overrides: OidcSignerOverrides = {},
 ): Promise<ProviderKeySigner> {
-  const variant = overrides.variant ?? currentSignerVariant();
-  if (!Object.prototype.hasOwnProperty.call(PREPARE, variant)) {
-    throw new Error(`No OIDC provider-key signer for '${variant}'. Known: ${Object.keys(PREPARE).join(', ')}.`);
+  const platform = overrides.platform ?? currentSignerPlatform();
+  if (!Object.prototype.hasOwnProperty.call(PREPARE, platform)) {
+    throw new Error(`No OIDC provider-key signer for '${platform}'. Known: ${Object.keys(PREPARE).join(', ')}.`);
   }
-  return PREPARE[variant](log, overrides);
+  return PREPARE[platform](log, overrides);
 }

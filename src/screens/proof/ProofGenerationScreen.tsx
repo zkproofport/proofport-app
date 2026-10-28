@@ -48,6 +48,7 @@ import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
 import {prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
+import {proofSignerVariant} from '../../utils/proofSignerVariant';
 import {newStandaloneRequestId} from '../../oidc/oidcNonce';
 import {prepareOidcAppSigner, type ProviderKeySigner} from '../../oidc/oidcAppSigner';
 import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
@@ -624,6 +625,15 @@ export const ProofGenerationScreen: React.FC = () => {
     }
 
     if (proofRequest) {
+      let signerVariant: ReturnType<typeof proofSignerVariant>;
+      try {
+        signerVariant = proofSignerVariant(resolved, parsedProof);
+      } catch (variantError) {
+        const msg = variantError instanceof Error ? variantError.message : String(variantError);
+        addLog(`Error: ${msg}`);
+        failAttempt({code: 'E2016', error: msg});
+        return;
+      }
       let nullifierHex = '0x' + '00'.repeat(32);
       if (isOidc) {
         // OIDC: nullifier is embedded in public inputs (circuit computes it)
@@ -642,6 +652,7 @@ export const ProofGenerationScreen: React.FC = () => {
 
       const circuitNet = getNetworkConfigForCircuit(resolved);
       sendProof(proofRequest, {
+        signerVariant,
         proof: parsedProof.proofHex,
         publicInputs: parsedProof.publicInputsHex,
         numPublicInputs: parsedProof.numPublicInputs,
@@ -678,7 +689,7 @@ export const ProofGenerationScreen: React.FC = () => {
     // stale `hook.parsedProof` value can't navigate again.
     proofStartedAt.current = null;
     historyIdRef.current = null;
-  }, [parsedProof, signalHash, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc, attemptLog]);
+  }, [parsedProof, signalHash, navigation, circuitId, canonical, proofRequest, sendProof, account, isOidc, attemptLog, addLog, failAttempt]);
 
   // An unrecognised circuit id is refused on arrival, not on button press, so
   // nobody sits looking at a form for a proof the app will not generate.

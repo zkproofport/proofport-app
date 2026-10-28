@@ -27,6 +27,12 @@ export interface AndroidAttestationResult {
 
 export interface AndroidKeyAttestationNative {
   attestAndSign(statementBase64: string): Promise<AndroidAttestationResult>;
+  /**
+   * A classic Play Integrity token for `nonceBase64Url` (base64url, no
+   * padding): the encrypted JWE as Play returns it. Factory-provisioned
+   * phones only.
+   */
+  requestIntegrityToken(nonceBase64Url: string): Promise<string>;
 }
 
 /** The rejection codes AndroidKeyAttestationModule.kt uses. */
@@ -36,6 +42,10 @@ export const ANDROID_NATIVE_CODE = Object.freeze({
   keyGeneration: 'ANDROIDATTEST_KEYGEN_FAILED',
   emptyChain: 'ANDROIDATTEST_EMPTY_CHAIN',
   signing: 'ANDROIDATTEST_SIGN_FAILED',
+  /** Play Integrity answered with an error worth retrying (network, rate limit, server). */
+  integrityTransient: 'ANDROIDATTEST_INTEGRITY_TRANSIENT',
+  /** Play Integrity cannot answer on this phone (no Play Store / services, outdated, not installed from Play). */
+  integrityUnavailable: 'ANDROIDATTEST_INTEGRITY_UNAVAILABLE',
 });
 
 /** The modal code for each native rejection. One table; an unknown code is reported as such. */
@@ -45,6 +55,8 @@ const MODAL_CODE_BY_NATIVE: Readonly<Record<string, string>> = Object.freeze({
   [ANDROID_NATIVE_CODE.emptyChain]: ANDROID_ATTEST_ERROR_CODE.unavailable,
   [ANDROID_NATIVE_CODE.signing]: ANDROID_ATTEST_ERROR_CODE.malformed,
   [ANDROID_NATIVE_CODE.invalidInput]: ANDROID_ATTEST_ERROR_CODE.malformed,
+  [ANDROID_NATIVE_CODE.integrityTransient]: ANDROID_ATTEST_ERROR_CODE.checkUnavailable,
+  [ANDROID_NATIVE_CODE.integrityUnavailable]: ANDROID_ATTEST_ERROR_CODE.unavailable,
 });
 
 /**
