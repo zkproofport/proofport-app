@@ -89,7 +89,8 @@ describe('the verifier', () => {
   it('is the Base Sepolia v2 deploy for development and staging, and none for production', () => {
     expect(FALLBACK_VERIFIERS.development.coinbase_attestation).toBe('0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6');
     expect(FALLBACK_VERIFIERS.staging.coinbase_attestation).toBe('0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6');
-    expect(FALLBACK_VERIFIERS.production.coinbase_attestation).toBe('');
+    // circuits 1d41d85, broadcast/DeployCoinbaseAttestationV2.s.sol/8453; never v1's 0xF7dED73E...5382.
+    expect(FALLBACK_VERIFIERS.production.coinbase_attestation).toBe('0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F');
   });
 
   it('is not refreshed from a broadcast on main, which names the v1 contract', () => {

@@ -19,7 +19,12 @@
  *   0x17ed7935...367a, coinbase android 0x9432c878...b794, coinbase
  *   android_factory 0xeb101079...4100); the app does not use that chain for
  *   these circuits.
- *   Production: none.
+ *   Base mainnet (8453), production -- circuits da21683, deployed 2026-10-29,
+ *   the same runtime code as the Base Sepolia contracts
+ *   (circuits scripts/compare-verifier-code.py). Also on Ethereum mainnet
+ *   (oidc android 0x6f36db49...bca0, oidc android_factory 0xe60947dd...2880,
+ *   coinbase android 0x099bacd6...c117, coinbase android_factory
+ *   0x5798eee0...b72b); the app does not use that chain for these circuits.
  */
 import type {CircuitName} from './circuitIds';
 import {CIRCUIT_NETWORKS, type Environment} from './contracts';
@@ -32,6 +37,7 @@ export interface VariantVerifier {
 }
 
 const BASE_SEPOLIA = 84532;
+const BASE = 8453;
 
 const TESTNET_ROWS: Readonly<Record<AndroidVerifierVariant, Readonly<Partial<Record<CircuitName, VariantVerifier>>>>> = Object.freeze({
   android: Object.freeze({
@@ -48,7 +54,16 @@ export const ANDROID_VARIANT_VERIFIERS: Readonly<Record<Environment, Readonly<Re
   Object.freeze({
     development: TESTNET_ROWS,
     staging: TESTNET_ROWS,
-    production: Object.freeze({android: Object.freeze({}), android_factory: Object.freeze({})}),
+    production: Object.freeze({
+      android: Object.freeze({
+        oidc_domain_attestation: Object.freeze({address: '0x3D99a36B39231Bc35f6E840f18AC443bf5D229de', chainId: BASE}),
+        coinbase_attestation: Object.freeze({address: '0x836D8b0fd01Bed4e34220EBCeE6d63265951fbF9', chainId: BASE}),
+      }),
+      android_factory: Object.freeze({
+        oidc_domain_attestation: Object.freeze({address: '0x1b8E60dB8b51015CDB1983F64C1210AC40d8F532', chainId: BASE}),
+        coinbase_attestation: Object.freeze({address: '0x87d9a66CAcaC95b2Bc43bAc8E610c59ACB67c5E0', chainId: BASE}),
+      }),
+    }),
   });
 
 export class AndroidVerifierMissingError extends Error {

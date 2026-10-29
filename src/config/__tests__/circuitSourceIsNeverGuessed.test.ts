@@ -150,7 +150,7 @@ describe('one exact circuits tag per app version', () => {
     mockDisk.set('@proofport/deployment/production/coinbase_country_attestation', JSON.stringify({address: '0x1111111111111111111111111111111111111111'}));
     mockDisk.set('@proofport/deployment/production/coinbase_country_attestation@v1.3.0', JSON.stringify({address: '0x2222222222222222222222222222222222222222'}));
     github({}, {offline: true});
-    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe('0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C');
+    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe('0x8e89f11E65f219203f5bE9d6a69a4da084630C56');
   });
 
   it('a verifier read from this tag is cached under it and survives going offline', async () => {
@@ -191,7 +191,7 @@ describe('the pinned tag is missing', () => {
   it('offline is not a missing tag: no error, built-in addresses answer', async () => {
     github({}, {offline: true});
     await expect(syncDeployments('production')).resolves.toBe(false);
-    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe('0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C');
+    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe('0x8e89f11E65f219203f5bE9d6a69a4da084630C56');
   });
 
   it('a server error (500) is not a missing tag either', async () => {
@@ -258,7 +258,7 @@ describe('a verifier follows the circuit bytes', () => {
     mockDisk.set('@proofport/deployment/staging/coinbase_attestation', JSON.stringify({address: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c'}));
     expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBeNull();
     expect(await getVerifierAddress('coinbase_attestation', 'staging')).toBe('0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6');
-    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('');
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployCoinbaseAttestation'))).toBe(false);
   });
 
@@ -267,7 +267,7 @@ describe('a verifier follows the circuit bytes', () => {
     mockDisk.set('@proofport/deployment/staging/oidc_domain_attestation', JSON.stringify({address: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167'}));
     expect(await fetchDeploymentAddress('oidc_domain_attestation', 'staging')).toBeNull();
     expect(await getVerifierAddress('oidc_domain_attestation', 'staging')).toBe('0xeA5933ABc598401c89F63B3f13AE56A7E78984e8');
-    expect(await getVerifierAddress('oidc_domain_attestation', 'production')).toBe('');
+    expect(await getVerifierAddress('oidc_domain_attestation', 'production')).toBe('0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployOidcDomainAttestation'))).toBe(false);
   });
 

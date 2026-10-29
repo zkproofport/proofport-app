@@ -236,15 +236,20 @@ describe("the verifier an Android proof names", () => {
     expect(verifierForProof('oidc_domain_attestation', 'android', 'development')).toEqual({address: '0x64866bf6734ed43d34799C7949f5eCb35B7e7e44', chainId: 84532});
   });
 
-  it.each(['android', 'android_factory'] as const)('production has none for %s: E2018 before proving, never the standard address', variant => {
-    for (const circuit of ['coinbase_attestation', 'oidc_domain_attestation']) {
+  it('is its package\'s Base mainnet contract in production', () => {
+    expect(verifierForProof('coinbase_attestation', 'android_factory', 'production')).toEqual({address: '0x87d9a66CAcaC95b2Bc43bAc8E610c59ACB67c5E0', chainId: 8453});
+    expect(verifierForProof('oidc_domain_attestation', 'android', 'production')).toEqual({address: '0x3D99a36B39231Bc35f6E840f18AC443bf5D229de', chainId: 8453});
+  });
+
+  it.each(['android', 'android_factory'] as const)('a circuit with no %s package: E2018 before proving, never the standard address', variant => {
+    for (const env of ['staging', 'production'] as const) {
       let code = '';
       try {
-        requireVerifierForVariant(circuit, variant, 'production');
+        requireVerifierForVariant('coinbase_country_attestation', variant, env);
       } catch (e) {
         code = e instanceof AppAttestError ? e.code : String(e);
       }
-      expect([circuit, code]).toEqual([circuit, 'E2018']);
+      expect([env, code]).toEqual([env, 'E2018']);
     }
   });
 

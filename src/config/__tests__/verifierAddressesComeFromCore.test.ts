@@ -104,8 +104,11 @@ describe('OIDC v2: the app and core agree on the circuit', () => {
     }
   });
 
-  it('production names no OIDC verifier until the statement circuit is on mainnet', () => {
-    expect(FALLBACK_VERIFIERS.production.oidc_domain_attestation).toBe('');
+  it("production names the statement circuit's Base mainnet verifier, never the beta.8 one", () => {
+    expect(CIRCUIT_NETWORKS.production.oidc_domain_attestation.chainId).toBe(8453);
+    // circuits da21683, broadcast/DeployOidcDomainAttestation.s.sol/8453.
+    expect(FALLBACK_VERIFIERS.production.oidc_domain_attestation).toBe('0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35');
+    expect(FALLBACK_VERIFIERS.production.oidc_domain_attestation.toLowerCase()).not.toBe('0x9677ba46ad226ce8b3c4517d9c0143e4d458beae');
   });
 });
 
@@ -148,14 +151,24 @@ describe('Android package verifiers', () => {
     expect(new Set(VARIANTS.flatMap(v => CIRCUITS.map(c => androidVerifierFor(c, env, v).address))).size).toBe(4);
   });
 
-  it('production has no Android rows: every lookup is refused by name', () => {
-    expect(ANDROID_VARIANT_VERIFIERS.production).toEqual({android: {}, android_factory: {}});
+  const MAINNET: Record<string, Record<string, string>> = {
+    android: {oidc_domain_attestation: '0x3d99a36b39231bc35f6e840f18ac443bf5d229de', coinbase_attestation: '0x836d8b0fd01bed4e34220ebcee6d63265951fbf9'},
+    android_factory: {oidc_domain_attestation: '0x1b8e60db8b51015cdb1983f64c1210ac40d8f532', coinbase_attestation: '0x87d9a66cacac95b2bc43bac8e610c59acb67c5e0'},
+  };
+
+  it("production: each variant's Base mainnet contract, checksummed, never the standard or a testnet address", () => {
     for (const v of VARIANTS) {
       for (const c of CIRCUITS) {
-        expect(() => androidVerifierFor(c, 'production', v)).toThrow(AndroidVerifierMissingError);
-        expect(() => androidVerifierFor(c, 'production', v)).toThrow(`No ${v} verifier for ${c} in the production build`);
+        const row = androidVerifierFor(c, 'production', v);
+        expect(row.address.toLowerCase()).toBe(MAINNET[v][c]);
+        expect(row.address).toBe(ethers.utils.getAddress(row.address));
+        expect(row.chainId).toBe(8453);
+        expect(CIRCUIT_NETWORKS.production[c].chainId).toBe(8453);
+        expect(row.address.toLowerCase()).not.toBe(FALLBACK.production[c].toLowerCase());
+        expect(row.address.toLowerCase()).not.toBe(EXPECTED[v][c]);
       }
     }
+    expect(new Set(VARIANTS.flatMap(v => CIRCUITS.map(c => androidVerifierFor(c, 'production', v).address))).size).toBe(4);
   });
 
   it('an unknown variant, environment or circuit is an error, never a default', () => {
@@ -177,6 +190,8 @@ describe('Android package verifiers', () => {
       const oidcAt = block.indexOf('oidc_domain_attestation:', vAt);
       const row = /84532: Object\.freeze\(\{ address: '(0x[0-9a-f]{40})'/.exec(block.slice(oidcAt));
       expect([v, row?.[1]]).toEqual([v, EXPECTED[v].oidc_domain_attestation]);
+      const main = /8453: Object\.freeze\(\{ address: '(0x[0-9a-f]{40})'/.exec(block.slice(oidcAt));
+      expect([v, main?.[1]]).toEqual([v, MAINNET[v].oidc_domain_attestation]);
     }
   });
 
@@ -194,6 +209,10 @@ describe('Android package verifiers', () => {
           const created = run.transactions.filter((t: {transactionType: string}) => t.transactionType === 'CREATE');
           expect(created).toHaveLength(1);
           expect([v, c, created[0].contractAddress.toLowerCase()]).toEqual([v, c, EXPECTED[v][c]]);
+          const mainRun = JSON.parse(fs.readFileSync(path.join(broadcastDir, `${BROADCAST[v][c]}.s.sol`, '8453', 'run-latest.json'), 'utf8'));
+          const mainCreated = mainRun.transactions.filter((t: {transactionType: string}) => t.transactionType === 'CREATE');
+          expect(mainCreated).toHaveLength(1);
+          expect([v, c, mainCreated[0].contractAddress.toLowerCase()]).toEqual([v, c, MAINNET[v][c]]);
         }
       }
     },

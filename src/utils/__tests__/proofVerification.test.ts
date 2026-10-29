@@ -380,15 +380,16 @@ describe('an Android proof is checked on its own package\'s contract', () => {
     expect(mockGetVerifierAddress).not.toHaveBeenCalled();
   });
 
-  it('production has no Android verifier: refused by name, core never asked', async () => {
+  it('production: the variant\'s Base mainnet contract, named as the target', async () => {
     mockEnv = 'production';
     __setAndroidChainKindForTests('android_factory');
+    mockVerifyProofOnChain.mockResolvedValue({valid: true});
     const rep = reporter();
-    await expect(verifyProofOnChainWithCore('coinbase_attestation', parsed, rep.r)).resolves.toBe(false);
-    expect(mockVerifyProofOnChain).not.toHaveBeenCalled();
+    await expect(verifyProofOnChainWithCore('coinbase_attestation', parsed, rep.r)).resolves.toBe(true);
+    const [, , , target, claim] = mockVerifyProofOnChain.mock.calls[0];
+    expect(target).toMatchObject({address: '0x87d9a66CAcaC95b2Bc43bAc8E610c59ACB67c5E0', chainId: 8453});
+    expect(claim).toEqual({verifierAddress: '0x87d9a66CAcaC95b2Bc43bAc8E610c59ACB67c5E0', chainId: 8453});
     expect(mockGetVerifierAddress).not.toHaveBeenCalled();
-    expect(rep.logs.join('\n')).toMatch(/No android_factory verifier for coinbase_attestation in the production build/);
-    expect(rep.statuses.at(-1)).toBe('Verification unavailable');
   });
 });
 

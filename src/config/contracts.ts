@@ -469,21 +469,20 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   production: {
-    // Empty: Coinbase KYC v2 has no Base mainnet verifier yet, and the v1
-    // contract (0xF7dED73E7a7fc8fb030c35c5A88D40ABe6865382) rejects every v2
-    // proof. Empty reads as "verification unavailable", not as a check.
-    coinbase_attestation: '',
-    coinbase_country_attestation: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
-    // Empty: the OIDC circuit with the provider-key statement has no mainnet
-    // verifier; 0x9677Ba46...BeAe (beta.8, 148 inputs) rejects its proofs.
-    oidc_domain_attestation: '',
+    // Base mainnet, nargo 1.0.0-beta.19 / bb 4.2.0-aztecnr-rc.2 contracts.
+    // Coinbase KYC v2: circuits 1d41d85, broadcast/DeployCoinbaseAttestationV2.s.sol/8453
+    // (the v1 contract 0xF7dED73E...5382 rejects every v2 proof).
+    coinbase_attestation: '0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F',
+    // circuits 1d41d85, broadcast/DeployCoinbaseCountryAttestation.s.sol/8453
+    // (the beta.8 contract 0xF3D5A09d...9D0C rejects beta.19 proofs).
+    coinbase_country_attestation: '0x8e89f11E65f219203f5bE9d6a69a4da084630C56',
+    // OIDC with the provider-key statement (circuits 5081cfd), deployed
+    // 2026-10-29: circuits da21683, broadcast/DeployOidcDomainAttestation.s.sol/8453.
+    oidc_domain_attestation: '0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
-    // Korea mDL not yet deployed to a mainnet. Pinning to the Base
-    // Sepolia addresses until OmniOne Chain mainnet access is granted.
-    // The three Coinbase-family mainnet verifiers above are still the
-    // beta.8 contracts: they need a mainnet redeploy before this toolchain
-    // ships to production.
+    // Korea mDL is on Base Sepolia only; production builds use those
+    // addresses.
     mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
     mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',
     mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
