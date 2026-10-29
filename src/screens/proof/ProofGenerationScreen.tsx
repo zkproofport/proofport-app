@@ -40,7 +40,7 @@ import {getCircuitDisplayName} from '../../utils/circuit';
 import type {CoinbaseKycInputs, CoinbaseCountryInputs} from '../../utils/deeplink';
 import {ethers} from 'ethers';
 import {clearActiveProofRequest} from '../../stores/activeProofRequestStore';
-import {ErrorCodes, type ErrorCode} from '../../constants/errorCodes';
+import {DETAILS_STAY_IN_LOGS, ErrorCodes, type ErrorCode} from '../../constants/errorCodes';
 import {showGlobalError} from '../../utils/errorBridge';
 import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
@@ -548,7 +548,9 @@ export const ProofGenerationScreen: React.FC = () => {
       // What the person was shown, so the kept log ends with it.
       addLog(`[Failed] ${code}: ${details ?? error}`);
       endAttemptTiming('failed');
-      setErrorMessage(inline ?? error);
+      // A device-check code shows its own neutral text on this screen too; the
+      // precise reason stays in the log line above (DETAILS_STAY_IN_LOGS).
+      setErrorMessage(DETAILS_STAY_IN_LOGS.has(code) ? t(`host.errors.${code}.description`) : inline ?? error);
       showGlobalError(code, details ?? error);
       markHistoryFailed();
       if (proofRequest) {
@@ -556,7 +558,7 @@ export const ProofGenerationScreen: React.FC = () => {
         clearActiveProofRequest(proofRequest);
       }
     },
-    [proofRequest, sendError, markHistoryFailed, addLog, endAttemptTiming],
+    [proofRequest, sendError, markHistoryFailed, addLog, endAttemptTiming, t],
   );
 
   /** End this attempt because the person declined (sign-in sheet, wallet). */

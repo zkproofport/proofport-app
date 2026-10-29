@@ -687,8 +687,8 @@
         "description": "Signing in to your account did not complete, so no proof was generated."
       },
       "E2009": {
-        "title": "App Attest Not Available",
-        "description": "This device cannot use Apple App Attest, which this proof requires. The simulator never can. Use a recent iPhone."
+        "title": "Security Check Not Available",
+        "description": "This device cannot run the security check this proof requires. Try again on a supported device."
       },
       "E2011": {
         "title": "Coinbase Verification Revoked",
@@ -699,16 +699,16 @@
         "description": "The sign-in answer was not issued for this request, so no proof was generated. Try signing in again."
       },
       "E2014": {
-        "title": "App Attest Check Failed",
-        "description": "The App Attest data from this device could not be used for the proof. Nothing was generated."
+        "title": "This Device's Security Check Failed",
+        "description": "The result of this device's security check could not be used for the proof. Nothing was generated."
       },
       "E2015": {
-        "title": "Device Attestation Not Available",
-        "description": "This phone cannot confirm, in its secure hardware, that the proof comes from the official ZKProofport app on an unmodified device. Nothing was generated."
+        "title": "Security Check Not Available",
+        "description": "This phone cannot confirm that the proof comes from the official ZKProofport app on an unmodified device. Nothing was generated."
       },
       "E2016": {
-        "title": "Device Check Failed",
-        "description": "The attestation data from this phone could not be used for the proof. Nothing was generated."
+        "title": "This Device's Security Check Failed",
+        "description": "The result of this phone's security check could not be used for the proof. Nothing was generated."
       },
       "E2017": {
         "title": "Device Integrity Not Met",
@@ -799,8 +799,8 @@
         "description": "The proof files could not be downloaded. Reopen the app once you are back online."
       },
       "E3006": {
-        "title": "Apple Service Unreachable",
-        "description": "Apple's App Attest service could not be reached to certify this device. Check your connection and try again."
+        "title": "Security Check Unreachable",
+        "description": "The security check for this device could not be reached. Check your connection and try again."
       },
       "E3007": {
         "title": "Proof Files Not Published",

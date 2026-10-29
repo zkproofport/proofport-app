@@ -374,6 +374,27 @@ describe('every inline failure path answers once, with its code', () => {
     expect(mockGenerate).not.toHaveBeenCalled();
   });
 
+  it.each([['E2009'], ['E2014'], ['E2015'], ['E2016'], ['E2017'], ['E3006'], ['E3008']])(
+    'a device-check failure (%s) shows the code\'s own text on the screen, never the internal reason', async code => {
+      const {AppAttestError} = jest.requireActual('../../appAttest/appAttestError');
+      const reason = "This build's App Attest key is a development (sandbox) key; Coinbase KYC v2 accepts production keys only";
+      mockPrepareOidcSigner.mockRejectedValue(new AppAttestError(code, reason));
+      await mount('oidc_domain_attestation', oidcRequest());
+      const shown = tree!.root.findAllByType('Text' as never).map(n => [n.props.children].flat().join(''));
+      expect(shown).toContain(`host.errors.${code}.description`);
+      expect(shown.some(text => text.includes(reason))).toBe(false);
+      // The precise reason still reaches the log and the modal call (where
+      // createAppError keeps it off screen, tested in deviceCheckScreensNameNoService).
+      expect(mockShowError).toHaveBeenCalledWith(code, expect.stringContaining('sandbox'));
+    });
+
+  it('a non-device code still shows its own reason on the screen', async () => {
+    mockGenerate.mockRejectedValue(new Error('prover crashed'));
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    const shown = tree!.root.findAllByType('Text' as never).map(n => [n.props.children].flat().join(''));
+    expect(shown).toContain('prover crashed');
+  });
+
   it.each([['E2014'], ['E3002'], ['E2008']])('an OIDC step failing with its own code %s answers that code', async code => {
     await mount('oidc_domain_attestation', oidcRequest());
     mockSteps = [{id: 'jwks', label: 'jwks', status: 'error', detail: 'refused', code}];

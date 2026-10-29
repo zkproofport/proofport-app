@@ -114,14 +114,14 @@ export const ErrorCodes = {
       'Signing in to your account did not complete, so no proof was generated.',
   },
 
-  // Apple App Attest (Coinbase KYC v2 and the OIDC domain proof, iOS).
+  // The iPhone's device check (Coinbase KYC v2 and the OIDC domain proof).
   // Each cause asks the person for something different, so each has a code:
   // src/appAttest/appAttestError.ts maps causes to these.
   E2009: {
     code: 'E2009',
-    title: 'App Attest Not Available',
+    title: "Security Check Not Available",
     description:
-      'This device cannot use Apple App Attest, which this proof requires. The simulator never can. Use a recent iPhone.',
+      "This device cannot run the security check this proof requires. Try again on a supported device.",
   },
   E2011: {
     code: 'E2011',
@@ -143,23 +143,23 @@ export const ErrorCodes = {
   // assigned: a code a dApp may already have been sent is never reused.
   E2014: {
     code: 'E2014',
-    title: 'App Attest Check Failed',
+    title: "This Device's Security Check Failed",
     description:
-      'The App Attest data from this device could not be used for the proof. Nothing was generated.',
+      "The result of this device's security check could not be used for the proof. Nothing was generated.",
   },
-  // Android key attestation (Coinbase KYC v2 and the OIDC domain proof on
-  // Android): src/appAttest/appAttestError.ts ANDROID_ATTEST_ERROR_CODE.
+  // The Android phone's device check (Coinbase KYC v2 and the OIDC domain
+  // proof): src/appAttest/appAttestError.ts ANDROID_ATTEST_ERROR_CODE.
   E2015: {
     code: 'E2015',
-    title: 'Device Attestation Not Available',
+    title: "Security Check Not Available",
     description:
-      'This phone cannot confirm, in its secure hardware, that the proof comes from the official ZKProofport app on an unmodified device. Nothing was generated.',
+      "This phone cannot confirm that the proof comes from the official ZKProofport app on an unmodified device. Nothing was generated.",
   },
   E2016: {
     code: 'E2016',
-    title: 'Device Check Failed',
+    title: "This Device's Security Check Failed",
     description:
-      'The attestation data from this phone could not be used for the proof. Nothing was generated.',
+      "The result of this phone's security check could not be used for the proof. Nothing was generated.",
   },
   E2017: {
     code: 'E2017',
@@ -214,9 +214,9 @@ export const ErrorCodes = {
   },
   E3006: {
     code: 'E3006',
-    title: 'Apple Service Unreachable',
+    title: "Security Check Unreachable",
     description:
-      "Apple's App Attest service could not be reached to certify this device. Check your connection and try again.",
+      "The security check for this device could not be reached. Check your connection and try again.",
   },
   // A production build proves only with one circuits release
   // (CIRCUITS_RELEASE_TAG, src/config/contracts.ts). When that tag does not
@@ -348,6 +348,20 @@ export const ErrorCodes = {
 
 export type ErrorCode = keyof typeof ErrorCodes;
 
+/**
+ * The device-check codes, whose detail never reaches the screen.
+ *
+ * Their detail is the precise reason a device check refused (which signing
+ * key, which certificate, which verdict field, which build kind), and it
+ * names the platform services behind the check. A person can do nothing with
+ * it, and a screen does not say how the plumbing works (CLAUDE.md, "Disclose
+ * As Little As Possible"). The modal and the proof screen show only the
+ * code's own neutral text; the detail stays in the log and the attempt log.
+ */
+export const DETAILS_STAY_IN_LOGS: ReadonlySet<string> = new Set([
+  'E2009', 'E2014', 'E2015', 'E2016', 'E2017', 'E3006', 'E3008',
+]);
+
 export interface AppError {
   code: ErrorCode;
   title: string;
@@ -379,5 +393,5 @@ export function createAppError(code: string, details?: string): AppError {
       details: details ? `${code}: ${details}` : code,
     };
   }
-  return {...errorDef, details};
+  return {...errorDef, details: DETAILS_STAY_IN_LOGS.has(code) ? undefined : details};
 }

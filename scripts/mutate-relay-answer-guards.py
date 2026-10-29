@@ -153,6 +153,22 @@ MUTATIONS: list[Mutation] = [
         guard=APP_TEST,
         expect_case="a newer request replacing a waiting review",
     ),
+    Mutation(
+        name="device-check-reason-on-screen",
+        path=SCREEN,
+        old="      setErrorMessage(DETAILS_STAY_IN_LOGS.has(code) ? t(`host.errors.${code}.description`) : inline ?? error);",
+        new="      setErrorMessage(inline ?? error);",
+        guard=SCREEN_TEST,
+        expect_case="a device-check failure (E2014) shows the code's own text on the screen",
+    ),
+    Mutation(
+        name="device-check-reason-in-modal",
+        path="src/constants/errorCodes.ts",
+        old="  return {...errorDef, details: DETAILS_STAY_IN_LOGS.has(code) ? undefined : details};",
+        new="  return {...errorDef, details};",
+        guard="src/__tests__/deviceCheckScreensNameNoService.test.ts",
+        expect_case="E2014 opens with its own text and no detail",
+    ),
 ]
 
 
