@@ -225,8 +225,8 @@ MUTATIONS: list[Mutation] = [
         defect="the app's on-chain check called the address it resolved itself, "
         "not core's pinned verifier, so it could say valid where every dApp refuses",
         path="src/utils/proofVerification.ts",
-        old="      : {chainId: network.chainId};",
-        new="      : {address: verifierAddress, chainId: network.chainId, abi: VERIFIER_ABI};",
+        old="  return verifyProofOnChain(circuit, parsedProof, provider, {chainId: claimed.chainId}, claimed, {signerVariant});",
+        new="  return verifyProofOnChain(circuit, parsedProof, provider, {address: claimed.verifierAddress, chainId: claimed.chainId, abi: VERIFIER_ABI}, claimed, {signerVariant});",
         guard="src/utils/__tests__/proofVerification.test.ts",
         expect_case="differs from the pinned verifier is refused",
     ),

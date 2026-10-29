@@ -13,6 +13,7 @@ jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 import {ethers} from 'ethers';
 import {
   getPinnedVerifier,
+  COINBASE_ATTESTATION_PUBLIC_INPUT_COUNT as CORE_COINBASE_COUNT,
   OIDC_PUBLIC_INPUT_COUNT as CORE_OIDC_PUBLIC_INPUT_COUNT,
   PINNED_VARIANT_VERIFIERS,
 } from '@zkproofport-app/core';
@@ -22,13 +23,9 @@ import type {Environment} from '../contracts';
 import {OIDC_PUBLIC_INPUT_COUNT} from '../../utils/oidcDomain';
 import {hasPinnedArtifactSource} from '../circuitArtifacts';
 
-// Coinbase KYC v2 is the one circuit core does not pin: core's
-// coinbase_attestation rows are the v1 contracts, which reject every v2 proof.
-// Its rows are held below to their own deploys. Every other circuit -- OIDC
-// with the provider-key statement included, since core 0.4.0-beta.0 -- is
-// held to core's table.
-const NOT_IN_CORE: readonly CircuitName[] = ['coinbase_attestation'];
-const IN_CORE = ALL_CIRCUIT_IDS.filter(c => !NOT_IN_CORE.includes(c));
+// Every circuit is held to core's table -- Coinbase KYC v2 too, since core
+// 0.4.0-beta.1 pins its contracts (core 0.4.0-beta.0 still pinned v1's).
+const IN_CORE = ALL_CIRCUIT_IDS;
 
 const ENVS: Environment[] = ['development', 'staging', 'production'];
 
@@ -58,8 +55,6 @@ describe('every environment resolves every circuit through core', () => {
     for (const env of ENVS) {
       for (const circuit of ALL_CIRCUIT_IDS) {
         const a = FALLBACK_VERIFIERS[env][circuit];
-        // Empty = no deploy for that environment (Coinbase KYC v2 on mainnet).
-        if (a === '' && NOT_IN_CORE.includes(circuit)) continue;
         expect(a).toBe(ethers.utils.getAddress(a));
       }
     }
@@ -74,20 +69,26 @@ describe('every environment resolves every circuit through core', () => {
   });
 });
 
-describe('the circuit core does not pin', () => {
-  it('is only Coinbase KYC v2, and it is read from a pinned commit', () => {
-    expect(NOT_IN_CORE).toEqual(['coinbase_attestation']);
-    for (const c of NOT_IN_CORE) expect(hasPinnedArtifactSource(c)).toBe(true);
+describe('Coinbase KYC: v2 everywhere, never a v1 contract', () => {
+  // core 0.4.0-beta.0's coinbase_attestation rows (DeployCoinbaseAttestation.s.sol).
+  const V1 = [
+    '0xf3d5a09d2c85b28c52ef2905c1be3a852b609d0c', // 1
+    '0xf7ded73e7a7fc8fb030c35c5a88d40abe6865382', // 8453
+    '0x42d165a48256ae184e1de4e7e6372e870e2bc883', // 84532
+    '0x7fc2059a73cef2b572c8deee911c72963dcb4a8a', // 11155111
+  ];
+
+  it("core's rows count 193 public inputs and are none of v1's contracts", () => {
+    expect(CORE_COINBASE_COUNT).toBe(193);
+    for (const env of ENVS) {
+      const a = FALLBACK_VERIFIERS[env].coinbase_attestation.toLowerCase();
+      expect([env, V1.includes(a)]).toEqual([env, false]);
+      expect(a).toBe(getPinnedVerifier('coinbase_attestation', CIRCUIT_NETWORKS[env].coinbase_attestation.chainId).address);
+    }
   });
 
-  it('never names the v1 contract core still pins, on any chain it pins', () => {
-    for (const env of ENVS) {
-      for (const circuit of NOT_IN_CORE) {
-        const a = FALLBACK_VERIFIERS[env][circuit].toLowerCase();
-        const chainId = CIRCUIT_NETWORKS[env][circuit].chainId;
-        expect(a).not.toBe(getPinnedVerifier(circuit, chainId).address);
-      }
-    }
+  it('is read from a pinned circuits commit', () => {
+    expect(hasPinnedArtifactSource('coinbase_attestation')).toBe(true);
   });
 });
 
@@ -119,12 +120,12 @@ describe('OIDC v2: the app and core agree on the circuit', () => {
 
 /*
  * The Android packages' verifiers (src/config/variantVerifiers.ts). The
- * published core (0.4.0-beta.0) pins the OIDC ones in PINNED_VARIANT_VERIFIERS
- * and the rows are held to it. When core's source is checked out beside this
- * app (the parent repository's proofport-app-sdk submodule), they are held to
- * that too; the Coinbase rows, which core does not pin, are held to the
- * circuits repository's own deployment records. CI checks out this app alone:
- * there those two read nothing and the published-core case still runs.
+ * published core (0.4.0-beta.1) pins all four in PINNED_VARIANT_VERIFIERS and
+ * the rows are held to it. When core's source is checked out beside this app
+ * (the parent repository's proofport-app-sdk submodule), the OIDC rows are
+ * held to that too, and every row to the circuits repository's own deployment
+ * records when circuits is checked out. CI checks out this app alone: there
+ * those two read nothing and the published-core case still runs.
  */
 describe('Android package verifiers', () => {
   /* eslint-disable @typescript-eslint/no-var-requires */
@@ -182,13 +183,15 @@ describe('Android package verifiers', () => {
     expect(() => androidVerifierFor('__proto__', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
   });
 
-  it("the OIDC rows are the published core's PINNED_VARIANT_VERIFIERS, on Base Sepolia and Base mainnet", () => {
+  it("every row is the published core's PINNED_VARIANT_VERIFIERS, on Base Sepolia and Base mainnet", () => {
     for (const v of VARIANTS) {
-      const rows = PINNED_VARIANT_VERIFIERS[v].oidc_domain_attestation;
-      expect([v, rows?.[84532]?.address]).toEqual([v, EXPECTED[v].oidc_domain_attestation]);
-      expect([v, rows?.[8453]?.address]).toEqual([v, MAINNET[v].oidc_domain_attestation]);
-      expect(androidVerifierFor('oidc_domain_attestation', 'staging', v).address.toLowerCase()).toBe(rows?.[84532]?.address);
-      expect(androidVerifierFor('oidc_domain_attestation', 'production', v).address.toLowerCase()).toBe(rows?.[8453]?.address);
+      for (const c of CIRCUITS) {
+        const rows = PINNED_VARIANT_VERIFIERS[v][c];
+        expect([v, c, rows?.[84532]?.address]).toEqual([v, c, EXPECTED[v][c]]);
+        expect([v, c, rows?.[8453]?.address]).toEqual([v, c, MAINNET[v][c]]);
+        expect(androidVerifierFor(c, 'staging', v).address.toLowerCase()).toBe(rows?.[84532]?.address);
+        expect(androidVerifierFor(c, 'production', v).address.toLowerCase()).toBe(rows?.[8453]?.address);
+      }
     }
   });
 

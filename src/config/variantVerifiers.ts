@@ -11,8 +11,9 @@
  * with the standard address.
  *
  * Rows (circuits e02e674, deployed 2026-10-28; @zkproofport-app/core
- * 0.4.0-beta.0 pins the OIDC ones in PINNED_VARIANT_VERIFIERS, held to it by
- * verifierAddressesComeFromCore.test.ts):
+ * 0.4.0-beta.1 pins all of them in PINNED_VARIANT_VERIFIERS, held to it by
+ * verifierAddressesComeFromCore.test.ts; on-chain verification asks core for
+ * the contract by signerVariant and passes these only as the claim):
  *   Base Sepolia (84532), development and staging -- the chain these circuits
  *   already use in those builds. The same packages are also on Ethereum
  *   Sepolia (oidc android 0xbb430a01...e62f, oidc android_factory

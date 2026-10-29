@@ -99,9 +99,10 @@ describe('the verifier', () => {
 });
 
 describe('the action', () => {
-  it('is optional for coinbase_attestation in this app while core still says none', () => {
-    expect(CORE_BINDING.coinbase_attestation).toBe('none'); // remove the override when this fails
+  it("is optional for coinbase_attestation, and the app reads core's table unchanged", () => {
+    expect(CORE_BINDING.coinbase_attestation).toBe('optional');
     expect(circuitActionBinding('coinbase_attestation')).toBe('optional');
+    expect(CIRCUIT_ACTION_BINDING).toBe(CORE_BINDING);
     expect(CIRCUIT_ACTION_BINDING.coinbase_country_attestation).toBe('none');
   });
 

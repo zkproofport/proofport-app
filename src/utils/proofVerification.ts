@@ -18,9 +18,14 @@
 import {ethers} from 'ethers';
 import {verifyNoirProof} from 'mopro-ffi';
 import {
+  COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT,
+  COINBASE_ATTESTED_AT_MAX_AGE_SECONDS,
+  getPinnedVariantVerifier,
   getVerifierContract,
   OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT,
   OIDC_NOW_MAX_AGE_SECONDS,
+  SIGNER_ROOT_LAYOUTS,
+  signerRootCheck,
   verifyProofOnChain,
   VERIFIER_ABI,
   type ParsedProof,
@@ -32,7 +37,7 @@ import {
 } from '../config/environment';
 import type {CircuitName} from '../config/circuitIds';
 import {circuitArtifactSource} from '../config/circuitArtifacts';
-import {wireSignerVariant} from '../config/signerPlatform';
+import {wireSignerVariant, type WireSignerVariant} from '../config/signerPlatform';
 import {verifierForProof} from './proofSignerVariant';
 import type {ProofStatus} from '../types';
 import {getAssetPath} from './asset';
@@ -133,12 +138,64 @@ export function maskLongHex(text: string): string {
 }
 
 /**
- * Seconds since an OIDC proof's `now`, or null for any other circuit (or a
- * public input that does not read as a number).
+ * The time a proof names and how long a requesting service accepts it, per
+ * circuit. core's verifyProofOnChain refuses a proof past that window before
+ * it asks the contract -- right for a dApp judging a fresh answer, wrong for
+ * this phone checking a proof from its History, which then read "failed" for
+ * a proof the contract accepts.
+ *
+ *   index          the public input holding the time (unix seconds)
+ *   maxAgeSeconds  core's window for it
+ *   stillChecked   what core checks besides the time, run here too when the
+ *                  contract is asked directly (null: nothing core exposes
+ *                  separately)
+ *
+ * null: the circuit names no time, and core decides as it always does.
+ * Exhaustive over CircuitName, so a new circuit has to be decided here.
  */
-export function oidcProofAgeSeconds(circuit: string, publicInputsHex: readonly string[], nowSeconds: number): number | null {
-  if (circuit !== 'oidc_domain_attestation') return null;
-  const raw = publicInputsHex[OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT.NOW];
+interface RequestWindow {
+  input: string;
+  index: number;
+  maxAgeSeconds: number;
+  stillChecked: ((publicInputs: readonly string[]) => Promise<{ok: true} | {ok: false; error: string}>) | null;
+}
+
+export const REQUEST_WINDOWS: Readonly<Record<CircuitName, RequestWindow | null>> = Object.freeze({
+  // attested_at (input 192): when the statement's signer saw the attestation
+  // unrevoked. The signer-list root is still compared with Coinbase's.
+  coinbase_attestation: {
+    input: 'attested_at',
+    index: COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT.ATTESTED_AT,
+    maxAgeSeconds: COINBASE_ATTESTED_AT_MAX_AGE_SECONDS,
+    stillChecked: signerRootCheck(SIGNER_ROOT_LAYOUTS.coinbase_attestation),
+  },
+  coinbase_country_attestation: null,
+  oidc_domain_attestation: {
+    input: 'now',
+    index: OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT.NOW,
+    maxAgeSeconds: OIDC_NOW_MAX_AGE_SECONDS,
+    stillChecked: null,
+  },
+  giwa_attestation: null,
+  dojang_playground: null,
+});
+
+function requestWindow(circuit: string): RequestWindow | null {
+  if (!Object.prototype.hasOwnProperty.call(REQUEST_WINDOWS, circuit)) {
+    throw new Error(`Unknown circuit '${circuit}'. Known: ${Object.keys(REQUEST_WINDOWS).join(', ')}.`);
+  }
+  return REQUEST_WINDOWS[circuit as CircuitName];
+}
+
+/**
+ * Seconds since the time a proof names (OIDC `now`, Coinbase KYC
+ * `attested_at`), or null for a circuit that names none (or a public input
+ * that does not read as a number).
+ */
+export function proofAgeSeconds(circuit: string, publicInputsHex: readonly string[], nowSeconds: number): number | null {
+  const window = requestWindow(circuit);
+  if (!window) return null;
+  const raw = publicInputsHex[window.index];
   if (typeof raw !== 'string') return null;
   try {
     return nowSeconds - Number(BigInt(raw));
@@ -147,38 +204,49 @@ export function oidcProofAgeSeconds(circuit: string, publicInputsHex: readonly s
   }
 }
 
-type OnChainTarget = {address: string; chainId: number; abi: typeof VERIFIER_ABI} | {chainId: number};
-
 /**
- * core's verifyProofOnChain, except for an OIDC proof older than the window a
- * requesting service accepts (OIDC_NOW_MAX_AGE_SECONDS): core refuses those
- * before asking the contract -- correct for a dApp judging a fresh answer,
- * wrong for this phone checking a proof from its History, which then read
- * "failed" for a proof the contract accepts. That case asks the contract
- * directly and says how old the proof is.
+ * core's verifyProofOnChain against core's pinned contract for the circuit,
+ * the proof's package (`signerVariant`) and the chain -- except for a proof
+ * older than the window a requesting service accepts (REQUEST_WINDOWS): that
+ * one is asked of the same pinned contract directly, after whatever core
+ * would also have checked (stillChecked), and the log says how old it is.
  */
 async function askVerifier(
   circuit: CircuitName,
   parsedProof: ParsedProof,
   provider: ethers.providers.JsonRpcProvider,
-  target: OnChainTarget,
+  signerVariant: WireSignerVariant,
   claimed: {verifierAddress: string; chainId: number},
   log: (m: string) => void,
 ): Promise<{valid: boolean; error?: string}> {
-  const age = oidcProofAgeSeconds(circuit, parsedProof.publicInputsHex, Math.floor(Date.now() / 1000));
-  if (age !== null && age > OIDC_NOW_MAX_AGE_SECONDS && 'address' in target) {
+  const window = requestWindow(circuit);
+  const age = proofAgeSeconds(circuit, parsedProof.publicInputsHex, Math.floor(Date.now() / 1000));
+  if (window && age !== null && age > window.maxAgeSeconds) {
     log(
-      `[OnChain] Proof made ${age}s ago, past the ${OIDC_NOW_MAX_AGE_SECONDS}s a requesting service accepts; ` +
+      `[OnChain] Proof made ${age}s ago (${window.input}), past the ${window.maxAgeSeconds}s a requesting service accepts; ` +
         'asking the contract directly',
     );
     try {
-      const valid = (await getVerifierContract(provider, target).verify(parsedProof.proofHex, parsedProof.publicInputsHex)) === true;
-      return {valid};
+      const pinned = getPinnedVariantVerifier(circuit, signerVariant, claimed.chainId);
+      if (pinned.address.toLowerCase() !== claimed.verifierAddress.toLowerCase()) {
+        return {
+          valid: false,
+          error:
+            `This build names verifier ${claimed.verifierAddress}, but a ${signerVariant} ${circuit} proof verifies against ` +
+            `${pinned.address} on chain ${claimed.chainId}.`,
+        };
+      }
+      if (window.stillChecked) {
+        const checked = await window.stillChecked(parsedProof.publicInputsHex);
+        if (!checked.ok) return {valid: false, error: checked.error};
+      }
+      const contract = getVerifierContract(provider, {address: pinned.address, chainId: claimed.chainId, abi: VERIFIER_ABI});
+      return {valid: (await contract.verify(parsedProof.proofHex, parsedProof.publicInputsHex)) === true};
     } catch (e) {
       return {valid: false, error: e instanceof Error ? e.message : String(e)};
     }
   }
-  return verifyProofOnChain(circuit, parsedProof, provider, target, claimed);
+  return verifyProofOnChain(circuit, parsedProof, provider, {chainId: claimed.chainId}, claimed, {signerVariant});
 }
 
 export async function verifyProofOnChainWithCore(
@@ -223,12 +291,15 @@ export async function verifyProofOnChainWithCore(
       addLog(`[OnChain] Chain: ${net.name} (${net.chainId})`);
       const startedAt = Date.now();
       addLog(`[OnChain] Proof: ${parsedProof.proofHex.length} hex chars, ${parsedProof.publicInputsHex.length} public inputs`);
+      // core's pinned contract for this package, chosen by signerVariant: a
+      // contract named without it is read as the standard package's, and core
+      // refuses an Android-length proof there before asking anything.
       const r = await timed('onchain verify', () =>
         askVerifier(
           circuit,
           parsedProof,
           new ethers.providers.JsonRpcProvider(net.rpcUrl),
-          {address: variantVerifier!.address, chainId: variantVerifier!.chainId, abi: VERIFIER_ABI},
+          wireSignerVariant(artifact.variant),
           {verifierAddress: variantVerifier!.address, chainId: variantVerifier!.chainId},
           addLog,
         ),
@@ -274,24 +345,14 @@ export async function verifyProofOnChainWithCore(
     const startTime = Date.now();
 
     // The contract is core's pinned verifier for this circuit on this chain,
-    // the one every dApp on core 0.2.0+ calls. The address the app resolved
-    // (cache or fallback) goes in as what the app CLAIMS: when it differs,
-    // core refuses, and the phone learns the same answer the dApp will give
-    // instead of a "valid" from a contract nobody else checks.
-    //
-    // Exception: a circuit read from a pinned circuits commit
-    // (circuitArtifacts.ts -- Coinbase KYC v2, and OIDC with the provider-key
-    // statement) is checked against the contract this app configures for it,
-    // named explicitly. Core 0.4.0-beta.0 pins the v1 Coinbase verifier, which
-    // rejects every v2 proof; for OIDC core pins the same contract the app
-    // configures, and an Android proof needs its own package's contract
-    // (variantVerifiers.ts), which core's standard row is not. Remove with the
-    // artifact row once the pinned release carries both circuits.
-    const target = circuitArtifactSource(circuit)
-      ? {address: verifierAddress, chainId: network.chainId, abi: VERIFIER_ABI}
-      : {chainId: network.chainId};
+    // the one every dApp on core 0.2.0+ calls -- Coinbase KYC v2 included
+    // since core 0.4.0-beta.1. The address the app resolved (cache or
+    // fallback) goes in as what the app CLAIMS: when it differs, core
+    // refuses, and the phone learns the same answer the dApp will give
+    // instead of a "valid" from a contract nobody else checks. (An Android
+    // proof took the branch above: its package has its own contract.)
     const result = await timed('onchain verify', () =>
-      askVerifier(circuit, parsedProof, provider, target, {verifierAddress, chainId: network.chainId}, addLog),
+      askVerifier(circuit, parsedProof, provider, 'standard', {verifierAddress, chainId: network.chainId}, addLog),
     );
 
     const elapsed = Date.now() - startTime;
