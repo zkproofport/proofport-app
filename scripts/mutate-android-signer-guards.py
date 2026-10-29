@@ -68,6 +68,7 @@ VARIANT_VERIFIERS = "src/config/variantVerifiers.ts"
 SCREEN = "src/screens/proof/ProofGenerationScreen.tsx"
 RELAY_TEST = "src/screens/__tests__/everyRelayRequestGetsOneAnswer.test.ts"
 VERIFY_TEST = "src/utils/__tests__/proofVerification.test.ts"
+VERIFIERS_TEST = "src/config/__tests__/verifierAddressesComeFromCore.test.ts"
 FACTORY_CHECK_TEST = "src/androidAttest/__tests__/aFactoryPhoneIsCheckedLikeTheCircuit.test.ts"
 FACTORY_SIGN_TEST = "src/androidAttest/__tests__/aFactoryPhoneSignsWithAVerdict.test.ts"
 FACTORY_CONVERTER_TEST = "src/utils/__tests__/androidFactoryChainMatchesTheCircuitsConverter.test.ts"
@@ -173,17 +174,19 @@ MUTATIONS: list[Mutation] = [
              "  if (false) {",
              PLATFORM_TEST, "refuses a branch name or a short sha on an android row, naming the constant"),
     Mutation("split-unhashed-part-joined", DOWNLOAD,
-             "      if (verdict.level !== 'sha256') throw new Error(`${partName} could not be hashed",
-             "      if (false) throw new Error(`${partName} could not be hashed",
-             SPLIT_TEST, "a part the phone cannot hash is refused, and nothing is left behind"),
+             "          if (verdict.level !== 'sha256') throw new FinalDownloadError(`${partName} could not be hashed",
+             "          if (false) throw new FinalDownloadError(`${partName} could not be hashed",
+             SPLIT_TEST, "a part the phone cannot hash is refused, and nothing unverified is left behind"),
     Mutation("split-joined-digest-unchecked", DOWNLOAD,
              "    if (!verdict.ok) throw new Error(`Joined ${circuitName}.srs failed verification",
              "    if (false) throw new Error(`Joined ${circuitName}.srs failed verification",
-             SPLIT_TEST, "a joined file whose sha256 does not match is refused, and nothing is left behind"),
+             SPLIT_TEST, "a joined file whose sha256 does not match is refused, and nothing unverified is left behind"),
     Mutation("split-leaves-files-on-failure", DOWNLOAD,
-             "    await removeAll();\n    throw e;",
+             "    await removeUnverified();\n    throw e;",
              "    throw e;",
-             SPLIT_TEST, "a part whose sha256 does not match is refused, and nothing is left behind"),
+             # A failed part is already deleted by its own download's catch;
+             # what only this cleanup removes is the half-joined file.
+             SPLIT_TEST, "a joined file whose sha256 does not match is refused, and nothing unverified is left behind"),
     Mutation("split-reads-whole-parts", DOWNLOAD,
              "        const length = Math.min(SRS_JOIN_CHUNK_BYTES, size - pos);",
              "        const length = size - pos;",
@@ -198,8 +201,8 @@ MUTATIONS: list[Mutation] = [
              "  if (root && false) {",
              FACTORY_CONVERTER_TEST, "sony-under-ca1 (E2015)"),
     Mutation("factory-skips-chain-checks", SIGNER,
-             "  const summary = requireAcceptableFactoryChain(chain, {app, rootModulusHex: rsaRootModulusHex});",
-             "  const summary = {securityLevel: 'TrustedEnvironment', attestationVersion: 0};",
+             "    summary: requireAcceptableFactoryChain(chain, {app, rootModulusHex: rsaRootModulusHex}),",
+             "    summary: {securityLevel: 'TrustedEnvironment', attestationVersion: 0},",
              FACTORY_SIGN_TEST, "refuses an unlocked phone before asking for a verdict"),
     Mutation("kind-change-accepted", SIGNER,
              "  if (known !== null && known !== kind) {",
@@ -230,7 +233,7 @@ MUTATIONS: list[Mutation] = [
              "  const escapedPad = request.nonce === `${want}=`;",
              FACTORY_CHECK_TEST, "literalPaddedNonce -> E2016"),
     Mutation("relay-not-configured-as-device-error", PLAY,
-             "    if (res.status === 429 || res.status >= 500 || reason === 'not_configured') {",
+             "    if (res.status === 429 || res.status >= 500 || reason === 'not_configured' || (res.status === 404 && !reason)) {",
              "    if (res.status === 429) {",
              FACTORY_CHECK_TEST, "HTTP 503 not_configured -> E3008, naming it"),
     Mutation("callback-variant-defaults-to-standard", VARIANT,
@@ -245,7 +248,7 @@ MUTATIONS: list[Mutation] = [
     Mutation("missing-android-verifier-filled-in", VARIANT_VERIFIERS,
              "  if (!row || !row.address) throw new AndroidVerifierMissingError(circuit, env, variant);",
              "  if (!row || !row.address) return {address: '', chainId: BASE_SEPOLIA};",
-             VERIFY_TEST, "production has no Android verifier: refused by name, core never asked"),
+             VERIFIERS_TEST, "an unknown variant, environment or circuit is an error, never a default"),
 ]
 
 

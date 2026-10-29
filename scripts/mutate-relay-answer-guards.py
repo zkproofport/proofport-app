@@ -100,7 +100,7 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         name="hook-step-error-not-answered",
         path=SCREEN,
-        old="    failAttempt({code: errorCodeForStep(flow, errStep.id), error: detail});",
+        old="    failAttempt({code: errStep.code ?? errorCodeForStep(flow, errStep.id), error: detail});",
         new="    setErrorMessage(detail);",
         guard=SCREEN_TEST,
         expect_case="step proof -> E2001",
@@ -108,7 +108,7 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         name="outer-catch-not-answered",
         path=SCREEN,
-        old="      failAttempt({code: 'E2001', error: msg});\n    } finally {",
+        old="      failAttempt({code: error instanceof AppAttestError ? error.code : 'E2001', error: msg});\n    } finally {",
         new="      setErrorMessage(msg);\n    } finally {",
         guard=SCREEN_TEST,
         expect_case="a thrown error (outer catch) -> E2001",
@@ -116,8 +116,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         name="attempt-guard-removed",
         path=SCREEN,
-        old="      if (attemptEndedRef.current) return;\n      attemptEndedRef.current = true;\n      setErrorMessage(inline ?? error);",
-        new="      attemptEndedRef.current = true;\n      setErrorMessage(inline ?? error);",
+        old="      if (attemptEndedRef.current) return;\n      attemptEndedRef.current = true;\n      // What the person was shown, so the kept log ends with it.",
+        new="      attemptEndedRef.current = true;\n      // What the person was shown, so the kept log ends with it.",
         guard=SCREEN_TEST,
         expect_case="AND throwing in one attempt answers once",
     ),
