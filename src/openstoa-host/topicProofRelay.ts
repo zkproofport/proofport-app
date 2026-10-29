@@ -35,6 +35,27 @@ const SUPPORTED_CIRCUITS = new Set<string>([
   CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION,
 ]);
 
+/**
+ * The proof's package as the poll reports it (the relay result's
+ * `signerVariant`, which this app's callback set): absent = standard. It goes
+ * back to the mini-app unchanged so OpenStoa checks an Android proof on that
+ * package's verifier; without it the topic gate reads the proof as standard
+ * and refuses it. Anything but these names is refused, never dropped.
+ */
+const SIGNER_VARIANTS: readonly string[] = Object.freeze(['standard', 'android', 'android_factory']);
+
+function signerVariantOf(data: Record<string, unknown>): Pick<ProofResult, 'signerVariant'> {
+  if (!Object.prototype.hasOwnProperty.call(data, 'signerVariant') || data.signerVariant === undefined) return {};
+  const v = data.signerVariant;
+  if (typeof v !== 'string' || !SIGNER_VARIANTS.includes(v)) {
+    throw new TopicProofError(
+      'E1002',
+      `Unknown signerVariant ${JSON.stringify(v)} in the topic proof result. Known: ${SIGNER_VARIANTS.join(', ')}.`,
+    );
+  }
+  return {signerVariant: v};
+}
+
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TopicProofError('E1002', 'Malformed topic proof response');
@@ -133,7 +154,7 @@ export async function requestTopicProof(inputs: ProofInputs, deps: TopicProofDep
       const currentToken = await deps.getToken();
       ensureActive();
       if (currentToken !== token) throw new TopicProofError('E1002', 'Session changed during topic proof generation');
-      return {proof: data.proof, publicInputs: data.publicInputs};
+      return {proof: data.proof, publicInputs: data.publicInputs, ...signerVariantOf(data)};
     }
     throw new TopicProofError('E3004', 'Topic proof timed out');
   };

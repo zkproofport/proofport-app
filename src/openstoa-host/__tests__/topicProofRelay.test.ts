@@ -221,3 +221,67 @@ it('retries a transient poll failure inside the overall deadline', async () => {
   expect(await promise).toMatchObject({proof: '0xaabb'});
   expect(deps.showError).not.toHaveBeenCalled();
 });
+
+describe('signerVariant: which package made the proof reaches the mini-app unchanged', () => {
+  // An Android phone's proof is made by the `*-android` / `*-android-factory`
+  // package. OpenStoa's topic gate verifies on that package's contract only
+  // when the mini-app sends signerVariant with the proof; this transport is
+  // the one place the host hands the result over.
+  async function run(data: Record<string, unknown>, inputs: ProofInputs = input) {
+    const deps = harness(inputs);
+    deps.fetchImpl.mockResolvedValueOnce(response({requestId: 'id', deepLink: 'zkproofport://request', scope, circuitType: inputs.circuit}));
+    deps.fetchImpl.mockResolvedValueOnce(response(data));
+    const promise = requestTopicProof(inputs, deps).catch(error => error);
+    return {deps, outcome: await settle(promise)};
+  }
+
+  it.each(([
+    ['standard', input],
+    ['android', input],
+    ['android_factory', input],
+    ['android', {circuit: 'oidc_domain_attestation', scope, provider: 'google'} as ProofInputs],
+    ['android_factory', {circuit: 'oidc_domain_attestation', scope, provider: 'microsoft'} as ProofInputs],
+    ['android', {circuit: 'coinbase_country_attestation', scope, countryList: ['KR'], isIncluded: true} as ProofInputs],
+  ] as [string, ProofInputs][]).map(([v, i]) => [v, i.circuit, i] as const))('%s %s is returned with the proof', async (variant, _circuit, inputs) => {
+    const {deps, outcome} = await run({...result(inputs.circuit), signerVariant: variant}, inputs);
+    expect(outcome).toEqual({proof: '0xaabb', publicInputs: result(inputs.circuit).publicInputs, signerVariant: variant});
+    expect(deps.showError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['absent', {}],
+    ['undefined', {signerVariant: undefined}],
+  ])('%s stays absent (the standard package), never filled in', async (_label, extra) => {
+    const {outcome} = await run({...result(), ...extra});
+    expect(outcome).toEqual({proof: '0xaabb', publicInputs: result().publicInputs});
+    expect(Object.prototype.hasOwnProperty.call(outcome, 'signerVariant')).toBe(false);
+  });
+
+  it.each([
+    ['ios'],
+    [''],
+    [' android'],
+    ['ANDROID'],
+    ['app_attest'],
+    ['__proto__'],
+    ['android\n'],
+    ['안드로이드'],
+    [null],
+    [42],
+    [true],
+    [['android']],
+    [{variant: 'android'}],
+  ])('%j is refused (E1002) and no proof is handed to the mini-app', async variant => {
+    const {deps, outcome} = await run({...result(), signerVariant: variant});
+    expect(outcome).toBeInstanceOf(Error);
+    expect(outcome).toMatchObject({kind: 'HOST_TOPIC_PROOF_REPORTED', code: 'E1002'});
+    expect(String((outcome as Error).message)).toMatch(/Unknown signerVariant .* Known: standard, android, android_factory\./);
+    expect(deps.showError).toHaveBeenCalledWith('E1002');
+    expect(deps.returnToOpenStoa).toHaveBeenCalledTimes(1);
+  });
+
+  it('a very long value is refused like any other unknown one', async () => {
+    const {outcome} = await run({...result(), signerVariant: 'android'.repeat(10_000)});
+    expect(outcome).toMatchObject({code: 'E1002'});
+  });
+});
