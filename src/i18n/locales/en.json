@@ -758,6 +758,10 @@
         "title": "Laboratory Is Off",
         "description": "This request asks for a Laboratory proof. Turn on Laboratory in More, then start the request again from the app that asked for it."
       },
+      "E1009": {
+        "title": "Update Required",
+        "description": "This version of ZKProofport is no longer supported. Update the app, then start the request again."
+      },
       "E2001": {
         "title": "Proof Generation Failed",
         "description": "An error occurred while generating the proof."
@@ -801,6 +805,10 @@
       "E2012": {
         "title": "Sign-In Not Tied to This Request",
         "description": "The sign-in answer was not issued for this request, so no proof was generated. Try signing in again."
+      },
+      "E2013": {
+        "title": "Card Type Not Accepted",
+        "description": "This verification path did not accept the selected ID card type. Nothing was generated. Try again, or choose another card type."
       },
       "E2014": {
         "title": "App Attest Check Failed",
@@ -914,6 +922,10 @@
         "title": "Device Check Unavailable",
         "description": "The device check could not be completed right now. Check your connection and try again in a moment. Nothing was generated."
       },
+      "E3009": {
+        "title": "Couldn't Open the Store",
+        "description": "The app store could not be opened. Open the App Store or Google Play yourself and update ZKProofport."
+      },
       "E4004": {
         "title": "Disconnect Failed",
         "description": "The wallet did not let go of the session. Disconnecting from inside the wallet app usually clears it."
@@ -932,6 +944,12 @@
       "loadErrorDescription": "Check your connection and try again.",
       "shareError": "Could not share this page. Please try again.",
       "retry": "Try again"
+    },
+    "updateRequired": {
+      "title": "Update required",
+      "body": "This version of ZKProofport is no longer supported. Update to the latest version to keep using the app.",
+      "button": "Update",
+      "versions": "Installed {{current}} · Required {{minimum}} or later"
     }
   },
   "openstoa": {

@@ -195,11 +195,17 @@ jobs:
         id: cache-node-ios
         uses: actions/cache@v4
         with:
-          path: proofport-app/node_modules
+          # mopro_bindings/node_modules too: mopro-ffi is `file:./mopro_bindings`
+          # and its uniffi-bindgen-react-native lives there; a hit restoring
+          # only the app's tree skipped `npm ci` and broke the native build
+          # (build-android.yml run 40680985597, 2026-10-28).
+          path: |
+            proofport-app/node_modules
+            proofport-app/mopro_bindings/node_modules
           # Includes the OpenStoa pin: bumping .openstoa-commit must bust this
           # cache, or a stale node_modules could keep a broken/outdated
           # `openstoa-mobile` symlink alive across the change that fixed it.
-          key: node-${{ hashFiles('proofport-app/package-lock.json', 'proofport-app/.openstoa-commit') }}
+          key: node-${{ hashFiles('proofport-app/package-lock.json', 'proofport-app/.openstoa-commit', 'proofport-app/mopro_bindings/package.json') }}
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
@@ -381,11 +387,17 @@ jobs:
         id: cache-node-android
         uses: actions/cache@v4
         with:
-          path: proofport-app/node_modules
+          # mopro_bindings/node_modules too: mopro-ffi is `file:./mopro_bindings`
+          # and its uniffi-bindgen-react-native lives there; a hit restoring
+          # only the app's tree skipped `npm ci` and broke the native build
+          # (build-android.yml run 40680985597, 2026-10-28).
+          path: |
+            proofport-app/node_modules
+            proofport-app/mopro_bindings/node_modules
           # Includes the OpenStoa pin: bumping .openstoa-commit must bust this
           # cache, or a stale node_modules could keep a broken/outdated
           # `openstoa-mobile` symlink alive across the change that fixed it.
-          key: node-${{ hashFiles('proofport-app/package-lock.json', 'proofport-app/.openstoa-commit') }}
+          key: node-${{ hashFiles('proofport-app/package-lock.json', 'proofport-app/.openstoa-commit', 'proofport-app/mopro_bindings/package.json') }}
 
       - name: Decode keystore
         if: inputs.dry_run == false

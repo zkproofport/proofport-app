@@ -2,6 +2,7 @@ import {showReturnNotice, type ReturnNoticeKind} from './returnNoticeBridge';
 import {ALL_CIRCUIT_IDS, isCircuitId, type CircuitName} from '../config/circuitIds';
 import {checkAction, type TypedAction} from './typedAction';
 import {circuitActionBinding} from '../config/circuitIds';
+import {checkInputsHash} from './inputsHash';
 
 /**
  * The circuit a deep link may name. Alias of the SDK's canonical id union —
@@ -759,20 +760,6 @@ function isPrivateHost(hostname: string): boolean {
 }
 
 /**
- * Computes a SHA-256 hex digest of the given string.
- * Uses ethers.js which is always available in React Native.
- */
-async function computeSha256(data: string): Promise<string> {
-  // @noble/hashes v2 subpaths require the `.js` suffix and moved sha256 to
-  // `sha2`. The tree is on v2 (pulled by ts-mls's @noble/curves). See
-  // docs/research/phase0-findings.md — revert with the Phase 0 PoC if v2 is dropped.
-  const { sha256 } = require('@noble/hashes/sha2.js');
-  const { bytesToHex } = require('@noble/hashes/utils.js');
-  const encoder = new TextEncoder();
-  return bytesToHex(sha256(encoder.encode(data)));
-}
-
-/**
  * Is this callbackUrl a TRUSTED relay's callback endpoint?
  *
  * One answer for two callers: `validateRequestWithRelay` (before the review
@@ -832,8 +819,8 @@ export function checkRelayCallbackUrl(
  *
  * @param requestId - The request ID to validate
  * @param callbackUrl - The callback URL from the deep link (used to derive relay base URL)
- * @param parsedInputs - Optional parsed inputs from the deep link; when provided and relay returns
- *   an inputsHash, the local hash is compared to detect tampering
+ * @param parsedInputs - Optional parsed inputs from the deep link; when provided, they are
+ *   compared with the relay's inputsHashV2 (or, from an older relay, inputsHash) — see inputsHash.ts
  * @returns Promise resolving to { valid: boolean; error?: string }
  */
 export async function validateRequestWithRelay(
@@ -881,20 +868,18 @@ export async function validateRequestWithRelay(
     const data = await response.json();
     console.log('[DeepLink] Relay validation success: status=', data.status);
 
-    // Verify inputs hash integrity (if relay provides inputsHash and we have local inputs)
-    if (data.inputsHash && parsedInputs) {
-      const canonical = JSON.stringify(parsedInputs, Object.keys(parsedInputs).sort());
-      const localHash = await computeSha256(canonical);
-
-      if (localHash !== data.inputsHash) {
-        console.log('[DeepLink] Inputs hash mismatch! Local:', localHash, 'Relay:', data.inputsHash);
-        return {
-          valid: false,
-          error: 'Deep link integrity check failed — inputs have been tampered with',
-        };
-      }
-      console.log('[DeepLink] Inputs hash verified successfully');
+    // The deep link's inputs must be the ones the dApp gave the relay:
+    // inputsHashV2 (canonical, every depth) when the relay sends it, the
+    // legacy top-level hash only for a relay that sends nothing else.
+    const hashCheck = checkInputsHash(data, parsedInputs);
+    if (!hashCheck.ok) {
+      console.log(`[DeepLink] Inputs hash check (${hashCheck.checked}) failed: ${hashCheck.reason}`);
+      return {
+        valid: false,
+        error: 'Deep link integrity check failed — inputs have been tampered with',
+      };
     }
+    console.log(`[DeepLink] Inputs hash check: ${hashCheck.checked}`);
 
     return {valid: true};
   } catch (error: any) {

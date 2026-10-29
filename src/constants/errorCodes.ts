@@ -55,6 +55,14 @@ export const ErrorCodes = {
     description:
       'This request asks for a Laboratory proof. Turn on Laboratory in More, then start the request again from the app that asked for it.',
   },
+  // This version is below the published minimum (src/utils/forceUpdate.ts).
+  // The person sees the update screen; this is the dApp's answer.
+  E1009: {
+    code: 'E1009',
+    title: 'Update Required',
+    description:
+      'This version of ZKProofport is no longer supported. Update the app, then start the request again.',
+  },
 
   // Proof generation errors
   E2001: {
@@ -130,6 +138,15 @@ export const ErrorCodes = {
     title: 'Sign-In Not Tied to This Request',
     description:
       'The sign-in answer was not issued for this request, so no proof was generated. Try signing in again.',
+  },
+  // The raw-HTTP mobile ID path (Developer Mode) answered OACX_NO_PARAM_PROVIDER
+  // for the chosen card type -- see src/utils/oacxErrors.ts. E2009-E2011,
+  // E2014-E2019 and E3006 are device-check codes.
+  E2013: {
+    code: 'E2013',
+    title: 'Card Type Not Accepted',
+    description:
+      'This verification path did not accept the selected ID card type. Nothing was generated. Try again, or choose another card type.',
   },
   E2014: {
     code: 'E2014',
@@ -224,6 +241,15 @@ export const ErrorCodes = {
     title: 'Device Check Unavailable',
     description:
       'The device check could not be completed right now. Check your connection and try again in a moment. Nothing was generated.',
+  },
+
+  // The update screen's store button could not open the store. E3009, not
+  // E3008: E3008 is the Android device check's (sent to dApps as well).
+  E3009: {
+    code: 'E3009',
+    title: "Couldn't Open the Store",
+    description:
+      'The app store could not be opened. Open the App Store or Google Play yourself and update ZKProofport.',
   },
 
   // Wallet errors

@@ -13,8 +13,6 @@ import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
 import {circuitArtifactSource, requireArtifactRef, SRS_PART_MAX_BYTES, type CircuitArtifactSource} from '../config/circuitArtifacts';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 
-const GITHUB_MOPRO101 = 'https://raw.githubusercontent.com/hyuki0130/mopro-101/develop/ProofportApp/assets/circuits';
-
 const CIRCUIT_EXTENSIONS = ['json', 'srs', 'vk'] as const;
 
 const BUNDLED_CIRCUITS: string[] = [];

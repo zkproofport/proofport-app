@@ -79,6 +79,19 @@ jest.mock('../utils/interruptedProof', () => ({reportInterruptedProof: async () 
 jest.mock('../utils/errorBridge', () => ({showGlobalError: (...args: unknown[]) => mockError(...args)}));
 jest.mock('../utils/deepLinkBridge', () => ({registerDeepLinkHandler: (handler: typeof mockHandler) => {mockHandler = handler;}}));
 jest.mock('../hooks', () => ({useAppStateReset: ({onReset}: {onReset: () => void}) => {mockReset = onReset;}}));
+// The version check, driven per test: 'allowed' unless a case says otherwise.
+let mockUpdateState: {status: string; rule?: unknown} = {status: 'allowed'};
+let mockSetUpdateState: ((state: {status: string; rule?: unknown}) => void) | undefined;
+jest.mock('../hooks/useForceUpdate', () => ({
+  useForceUpdate: () => {
+    const R = require('react');
+    const [state, setState] = R.useState(mockUpdateState);
+    mockSetUpdateState = (next: {status: string; rule?: unknown}) => {mockUpdateState = next; setState(next);};
+    return state;
+  },
+  isUpdateRequired: () => mockUpdateState.status === 'blocked',
+}));
+jest.mock('../screens/UpdateRequiredScreen', () => ({UpdateRequiredScreen: () => 'update-required'}));
 // Fresh per test: requests left open by one test would otherwise be answered
 // at the next test's launch and consume its stubbed POSTs.
 const mockStorage = new Map<string, string>();
@@ -134,6 +147,7 @@ beforeEach(async () => {
   mockNavigationChanged = undefined;
   mockNavigationState = {index: 0, routes: [{name: 'ProofTab', state: {index: 0, routes: [{name: 'CircuitSelection'}]}}]};
   mockValidateRelay.mockResolvedValue({valid: true});
+  mockUpdateState = {status: 'allowed'};
   mockStorage.clear();
   // Most cases here use Laboratory circuits (GIWA, Korea Mobile ID), which a
   // fresh install refuses; the switch itself is covered at the end of the file.
@@ -765,5 +779,40 @@ describe('a Laboratory request while the switch is off', () => {
     expect(mockError).toHaveBeenCalledWith('E5002', expect.stringContaining('Could not read the Laboratory setting'));
     expect(mockModal.visible).toBe(false);
     expect(sent()).toEqual([expect.objectContaining({requestId: 'unreadable', errorCode: 'E5002'})]);
+  });
+});
+
+describe('below the minimum version', () => {
+  const RULE = {platform: 'ios', minimum: '9.0.0', storeUrl: 'https://apps.apple.com/app/id6803903114', message: {}};
+
+  it('answers an arriving request E1009 without checking the relay or opening the review', async () => {
+    await ready();
+    await act(async () => mockSetUpdateState?.({status: 'blocked', rule: RULE}));
+    const incoming = request('giwa_attestation', 'blocked-1');
+    await receive(incoming);
+    expect(mockValidateRelay).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({requestId: 'blocked-1', status: 'error', errorCode: 'E1009'}), incoming.callbackUrl);
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('update-required');
+    expect(rendered).not.toContain('AppKitProvider');
+  });
+
+  it('answers a request already waiting for review E1009 when the verdict turns to blocked', async () => {
+    await ready();
+    const waiting = request('giwa_attestation', 'waiting-1');
+    await receive(waiting);
+    expect(mockModal.visible).toBe(true);
+    await act(async () => mockSetUpdateState?.({status: 'blocked', rule: RULE}));
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({requestId: 'waiting-1', status: 'error', errorCode: 'E1009'}), waiting.callbackUrl);
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the loading screen up while the check is still running', async () => {
+    await act(async () => mockSetUpdateState?.({status: 'checking'}));
+    await ready();
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(JSON.stringify(tree.toJSON())).not.toContain('AppKitProvider');
   });
 });

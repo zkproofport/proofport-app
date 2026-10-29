@@ -23,6 +23,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AppKitProvider, AppKit} from '@reown/appkit-react-native';
 import {appKit} from './src/config';
 import {LoadingScreen} from './src/screens';
+import {UpdateRequiredScreen} from './src/screens/UpdateRequiredScreen';
 import {TabNavigator} from './src/navigation';
 import type {TabParamList} from './src/navigation/types';
 import {ProofRequestModal, ErrorModal, ReturnNoticeModal} from './src/components';
@@ -42,6 +43,7 @@ import {setActiveProofRequest, clearActiveProofRequest} from './src/stores/activ
 import {registerDeepLinkHandler} from './src/utils/deepLinkBridge';
 import {registerReturnNoticeHandler, type ReturnNoticeKind} from './src/utils/returnNoticeBridge';
 import {useAppStateReset} from './src/hooks';
+import {isUpdateRequired, useForceUpdate} from './src/hooks/useForceUpdate';
 import {answerRelayRequest, answerRequestsLeftOpen, rememberOpenRelayRequest} from './src/utils/relayAnswer';
 import {laboratoryRequestGate, type LaboratoryGate} from './src/utils/laboratory';
 import {reportInterruptedProof} from './src/utils/interruptedProof';
@@ -65,8 +67,16 @@ function hasGenerationScreen(state: NavigationState | undefined): boolean {
   return generating;
 }
 
+/** The dApp's answer when a request reaches a version below the minimum. */
+const UPDATE_REQUIRED_ANSWER = {
+  status: 'error',
+  errorCode: 'E1009',
+  error: 'This version of ZKProofport is no longer supported. The person has been asked to update the app.',
+} as const;
+
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const forceUpdate = useForceUpdate();
   const [pendingRequest, setPendingRequest] = useState<ProofRequest | null>(
     null,
   );
@@ -255,6 +265,14 @@ const App: React.FC = () => {
     }
 
     console.log('[App] Parsed requestId:', request.requestId, 'origin:', origin);
+
+    // Below the minimum version nothing is reviewed or proved; the update
+    // screen is what the person sees, and the dApp hears why.
+    if (isUpdateRequired()) {
+      console.log('[App] Update required; refusing request', request.requestId);
+      answerRelayRequest(request, UPDATE_REQUIRED_ANSWER).catch(logAnswerFailure);
+      return;
+    }
 
     // Only skip if we're currently processing this exact request
     if (activeRequestId.current === request.requestId) {
@@ -546,7 +564,37 @@ const App: React.FC = () => {
     await finishReturnAfterReview(returnIfCurrent);
   }, [pendingRequest, closeReview, finishReturnAfterReview]);
 
-  if (isLoading) {
+  // A request that arrived before the check finished is still waiting for
+  // review when the verdict turns out to be "blocked". It is answered here;
+  // the review card is never rendered under the update screen.
+  const blocked = forceUpdate.status === 'blocked';
+  useEffect(() => {
+    if (!blocked) return;
+    const waiting = pendingRequestRef.current;
+    if (!waiting) return;
+    pendingRequestRef.current = null;
+    activeRequestId.current = null;
+    setPendingRequest(null);
+    setShowRequestModal(false);
+    answerRelayRequest(waiting, UPDATE_REQUIRED_ANSWER).catch(logAnswerFailure);
+  }, [blocked]);
+
+  if (forceUpdate.status === 'blocked') {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <ErrorProvider>
+            <UpdateRequiredScreen rule={forceUpdate.rule} />
+            <ErrorModal />
+          </ErrorProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Held on the loading screen until the version check has answered (at most
+  // MIN_VERSION_FETCH_TIMEOUT_MS), so a retired version never flashes the app.
+  if (isLoading || forceUpdate.status === 'checking') {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
