@@ -54,9 +54,8 @@ import type {CircuitName} from '../../config';
  * Derived from the SDK's record of which circuits need a wallet signature,
  * because that is the same question: a circuit whose proof is built from a
  * wallet signature needs a wallet bound, and one whose is not would offer a
- * binding nothing ever reads. The Korea mDL flows and the OIDC domain proof
- * fall out on their own — they have wallet groups only so the gate can be a
- * no-op for them.
+ * binding nothing ever reads. The OIDC domain proof falls out on its own — it
+ * has a wallet group only so the gate can be a no-op for it.
  *
  * This was two names typed out, `coinbase_attestation` and `giwa_attestation`,
  * so the country proof had no row here at all and no wallet could be bound

@@ -9,9 +9,6 @@
     "back": "Back"
   },
   "shared": {
-    "webView": {
-      "mobileIdAuth": "Mobile ID Auth"
-    },
     "tagline": "Zero-Knowledge Proof Generation"
   },
   "host": {
@@ -38,13 +35,11 @@
       "defaultNetwork": "Default Network",
       "networkBase": "Base",
       "networkGiwa": "GIWA Testnet",
-      "networkOmniOne": "OmniOne Chain Testnet",
       "autoSaveProofs": "Keep a history of proofs",
       "confirmBeforeGenerate": "Confirm before generate",
       "laboratoryEnabled": "Laboratory",
-      "laboratoryEnabledHint": "Shows GIWA, Dojang and Korea Mobile ID proofs on the Proof tab.",
+      "laboratoryEnabledHint": "Shows the GIWA and Dojang proofs on the Proof tab.",
       "showLiveLogs": "Show live logs",
-      "useOmniOneCxUi": "Use OmniOne CX UI",
       "exportProofHistory": "Export Proof History",
       "clearLocalData": "Delete proof history",
       "exportTitle": "Export Proof History",
@@ -266,61 +261,7 @@
         "oidcDomain": {
           "title": "OIDC Domain",
           "description": "Prove your email domain affiliation"
-        },
-        "mdlKr": {
-          "title": "Korea Mobile ID",
-          "description": "Verify Korean mobile driver's license / resident card via OmniOne CX"
-        },
-        "mdlKrOwnership": {
-          "title": "Ownership",
-          "description": "Prove ownership of a Korea mobile ID (name + birth + phone commitment)"
-        },
-        "mdlKrAge": {
-          "title": "Age",
-          "description": "Prove you are an adult (age 19+) via Korea mobile ID — fully anonymous"
-        },
-        "mdlKrRegion": {
-          "title": "Region",
-          "description": "Prove your residence region via Korea mobile ID — fully anonymous"
         }
-      },
-      "mdlKrInput": {
-        "heroLabel": {
-          "ownership": "OWNERSHIP PROOF",
-          "age": "AGE PROOF",
-          "region": "REGION PROOF"
-        },
-        "heroTitle": {
-          "ownership": "Select attributes to prove",
-          "age": "Set the minimum age to prove",
-          "region": "Choose the province to prove residence"
-        },
-        "heroDescription": {
-          "ownership": "Only checked attributes are included in owner_commit. Checking nothing produces an anonymous proof.",
-          "age": "The circuit verifies (current year {{currentYear}} − birth year) ≥ the value you enter.",
-          "region": "The circuit verifies that the first token of your OmniOne CX address matches the selected province."
-        },
-        "docTypeLabel": "Mobile ID type",
-        "docDriver": "Mobile Driver's License",
-        "docResident": "Mobile Resident Card",
-        "docVeteran": "Mobile Veterans Card",
-        "docAlien": "Alien Registration Card",
-        "docCancel": "Cancel",
-        "ownershipFlagsLabel": "Attributes to prove (disclose_flags = 0x{{flags}})",
-        "ownershipFlagsHint": "Check each attribute and enter the value you expect your mDL to contain. The circuit verifies that the entered value matches the actual value in your mDL.",
-        "attrName": "Name",
-        "attrBirth": "Date of Birth",
-        "attrSex": "Sex",
-        "attrTelno": "Phone Number",
-        "placeholderName": "e.g. 홍길동",
-        "placeholderBirth": "YYYYMMDD",
-        "placeholderSex": "M / F",
-        "placeholderTelno": "01012345678",
-        "ageThresholdLabel": "Minimum age (age_threshold)",
-        "ageHint": "current_year = {{currentYear}}, age_threshold = {{threshold}}",
-        "ageInputHint": "Enter an integer between 0 and 150",
-        "regionLabel": "Province (si/do)",
-        "continueButton": "Continue"
       },
       "country": {
         "heroLabel": "COUNTRY VERIFICATION",
@@ -373,12 +314,6 @@
         "coinbaseKycTitle": "Coinbase KYC Verification",
         "giwaKycTitle": "GIWA KYC Verification",
         "giwaKycDescription": "Generate a zero-knowledge proof of a KYC attestation issued on GIWA Sepolia. Bring your own GIWA testnet wallet via the Wallet tab.",
-        "mdlKrOwnershipTitle": "Korea Mobile ID — Ownership",
-        "mdlKrOwnershipDescription": "Prove ownership of your Korea mobile driver's license via OmniOne CX. The proof binds your name, birthdate, sex, and phone as a single commitment — no individual field is exposed on-chain.",
-        "mdlKrAgeTitle": "Korea Mobile ID — Age",
-        "mdlKrAgeDescription": "Prove that you are an adult (age 19+) via your Korea mobile ID. Fully anonymous — no personal attributes are committed.",
-        "mdlKrRegionTitle": "Korea Mobile ID — Region",
-        "mdlKrRegionDescription": "Prove your residence region (e.g. 경기도) via your Korea mobile ID. Fully anonymous — no personal attributes are committed.",
         "oidcDescription": "Generate a zero-knowledge proof of your email domain using an OIDC identity token. Proof is generated locally on your device.",
         "coinbaseCountryDescription": "Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.",
         "coinbaseKycDescription": "Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.",
@@ -562,27 +497,11 @@
         "description": "These test features are separate from actual eligibility verification.",
         "turnedOff": "Laboratory is turned off. Turn it on in More to use these proofs.",
         "networks": "Network proofs",
-        "mobileId": "Korea Mobile ID",
         "giwa": {
           "title": "KYC test",
           "description": "Test identity attestation and action signing on GIWA testnet",
           "provider": "GIWA testnet · Mock attestation data",
           "sectionTitle": "GIWA"
-        },
-        "ownership": {
-          "title": "ID ownership",
-          "description": "Choose which mobile ID attributes to prove",
-          "provider": "Korea Mobile ID"
-        },
-        "age": {
-          "title": "Age requirement",
-          "description": "Prove you meet a minimum age that you set",
-          "provider": "Korea Mobile ID"
-        },
-        "region": {
-          "title": "Residence region",
-          "description": "Prove you live in a selected province or city",
-          "provider": "Korea Mobile ID"
         },
         "heroTitle": "Explore proofs for testing",
         "beta": "Beta",
@@ -650,10 +569,6 @@
           "provider": "Sign-in provider",
           "countries": "Requested countries (country codes)",
           "countryRule": "Country condition",
-          "disclosures": "Attributes checked by hash commitment",
-          "ageThreshold": "Minimum age (years, by birth year)",
-          "currentYear": "Year used for the age check",
-          "targetRegion": "Required region of residence",
           "userAddress": "Authentication wallet",
           "additional": "Additional request data: {{field}}"
         },
@@ -665,18 +580,11 @@
           "domainAccount": "An account at {{domain}}",
           "countryIncluded": "Attested country must be in the list",
           "countryExcluded": "Attested country must not be in the list",
-          "noAttributes": "No personal attributes selected",
           "unknownProvider": "Unsupported sign-in provider: {{provider}}"
         },
         "providers": {
           "google": "Google Workspace account",
           "microsoft": "Microsoft 365 account"
-        },
-        "attributes": {
-          "name": "Name match",
-          "birth": "Date of birth match",
-          "sex": "Sex match",
-          "telno": "Phone number match"
         },
         "oidc": {
           "title": "Prove your organization account",
@@ -699,22 +607,6 @@
           "requirement": "Ownership of a GIWA-attested wallet",
           "shared": "GIWA condition result · participation identifier · action and domain hashes when an action is requested",
           "private": "KYC personal information · original wallet signature"
-        },
-        "ownership": {
-          "title": "Prove mobile identity ownership",
-          "requirement": "Mobile identity ownership condition",
-          "shared": "Ownership condition result · participation identifier · selected attribute flags and hash commitment",
-          "private": "Original identity document · personal identity code (CI)"
-        },
-        "age": {
-          "title": "Prove the age condition",
-          "shared": "Age condition result · minimum age and reference year · participation identifier",
-          "private": "Date of birth · personal identity code (CI)"
-        },
-        "region": {
-          "title": "Prove your region of residence",
-          "shared": "Region condition result · requested region hash · participation identifier",
-          "private": "Street address · personal identity code (CI)"
         },
         "dojangPlayground": {
           "title": "Prove your Dojang Playground issuance",
@@ -805,10 +697,6 @@
       "E2012": {
         "title": "Sign-In Not Tied to This Request",
         "description": "The sign-in answer was not issued for this request, so no proof was generated. Try signing in again."
-      },
-      "E2013": {
-        "title": "Card Type Not Accepted",
-        "description": "This verification path did not accept the selected ID card type. Nothing was generated. Try again, or choose another card type."
       },
       "E2014": {
         "title": "App Attest Check Failed",
@@ -969,8 +857,7 @@
     },
     "signIn": {
       "method": {
-        "oidc": "Sign in with Google",
-        "mdl": "Sign in with Mobile ID"
+        "oidc": "Sign in with Google"
       }
     },
     "welcome": {

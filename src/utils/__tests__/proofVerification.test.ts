@@ -186,11 +186,11 @@ describe('on-chain verification goes through @zkproofport-app/core', () => {
   it('a circuit with no network written down is an error, never a default chain', async () => {
     mockGetVerifierAddress.mockResolvedValue('0x3333333333333333333333333333333333333333');
     const {r, statuses, logs} = reporter();
-    await expect(verifyProofOnChainWithCore('mdl_kr_age', parsed, r)).resolves.toBe(false);
-    expect(mockGetVerifierAddress).toHaveBeenCalledWith('mdl_kr_age');
+    await expect(verifyProofOnChainWithCore('dojang_playground', parsed, r)).resolves.toBe(false);
+    expect(mockGetVerifierAddress).toHaveBeenCalledWith('dojang_playground');
     expect(mockVerifyProofOnChain).not.toHaveBeenCalled();
     expect(statuses.at(-1)).toBe('Error: on-chain verification failed');
-    expect(logs.some(l => l.includes("No network is configured for circuit 'mdl_kr_age'"))).toBe(true);
+    expect(logs.some(l => l.includes("No network is configured for circuit 'dojang_playground'"))).toBe(true);
   });
 
   it('no proof yet: says so and touches nothing', async () => {
@@ -236,7 +236,7 @@ describe('with the real core: the pinned table decides, the app only claims', ()
 });
 
 describe('Coinbase KYC v2 (pinned circuits tag) is checked against the contract the app configures', () => {
-  it('names the v2 contract as the target, because core 0.3.0 pins only the v1 Coinbase verifier', async () => {
+  it('names the v2 contract as the target, because core pins only the v1 Coinbase verifier', async () => {
     const v2 = '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6';
     mockGetVerifierAddress.mockResolvedValue(v2);
     mockGetNetworkConfigForCircuit.mockReturnValue(NETWORKS.coinbase_country_attestation);
@@ -312,7 +312,6 @@ describe('every proof hook uses the shared checks and carries no copy', () => {
     'useCoinbaseKyc.ts',
     'useCoinbaseCountry.ts',
     'useGiwaKyc.ts',
-    'useMdlKr.ts',
     'useOidcDomain.ts',
     'useDojangPlayground.ts',
   ];

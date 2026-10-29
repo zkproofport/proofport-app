@@ -174,26 +174,22 @@ describe('the proof home', () => {
 });
 
 describe('the active laboratory', () => {
-  it('names the test sections and active mobile ID proofs without an unavailable state', () => {
+  it('names the GIWA section and its active proofs without an unavailable state', () => {
     mockLocale = 'ko';
     const {LaboratoryScreen} = require('../proof/LaboratoryScreen');
     act(() => {screen = create(React.createElement(LaboratoryScreen));});
     const text = screen.root.findAllByType('Text' as never)
       .map(item => item.children.filter(child => typeof child === 'string').join(''));
-    for (const label of ['GIWA', '한국 모바일 신분증', '신분증 보유', '나이 조건', '거주 지역']) {
-      expect(text).toContain(label);
-    }
-    expect(text.join(' ')).not.toMatch(/연동 준비|이용할 수 없|준비 중/);
-    press('proof-card-mdl_kr_ownership');
-    expect(mockNavigate).toHaveBeenCalledWith('MdlKrInput', {variant: 'ownership'});
+    expect(text).toContain('GIWA');
+    expect(text.join(' ')).not.toMatch(/연동 준비|이용할 수 없|준비 중|신분증/);
+    press('proof-card-dojang_playground');
+    expect(mockNavigate).toHaveBeenCalledWith('ActionInput', {circuit: 'dojang_playground'});
   });
-  it.each(['en', 'ko'] as const)('opens every experimental proof and all three mobile ID variants in %s', locale => {
+  it.each(['en', 'ko'] as const)('opens every experimental proof in %s', locale => {
     mockLocale = locale;
     const {LaboratoryScreen} = require('../proof/LaboratoryScreen');
     act(() => {screen = create(React.createElement(LaboratoryScreen));});
-    expect(visibleProofs()).toEqual([
-      'giwa_attestation', 'dojang_playground', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region',
-    ]);
+    expect(visibleProofs()).toEqual(['giwa_attestation', 'dojang_playground']);
     for (const id of visibleProofs()) {
       expect(node(`proof-card-${id}`).props.disabled).not.toBe(true);
       press(`proof-card-${id}`);
@@ -201,9 +197,6 @@ describe('the active laboratory', () => {
     expect(mockNavigate.mock.calls).toEqual([
       ['ActionInput', {circuit: 'giwa_attestation'}],
       ['ActionInput', {circuit: 'dojang_playground'}],
-      ['MdlKrInput', {variant: 'ownership'}],
-      ['MdlKrInput', {variant: 'age'}],
-      ['MdlKrInput', {variant: 'region'}],
     ]);
     expect(mockUpdateSettings).not.toHaveBeenCalled();
     expect(JSON.stringify(screen.toJSON())).not.toContain('host.proof.');
@@ -246,9 +239,9 @@ describe('the Laboratory switch on the Proof tab', () => {
   it('no search can surface a lab proof on the home list while off', () => {
     mockSettings = {laboratoryEnabled: false};
     renderHome();
-    for (const query of ['GIWA', '기와', 'Dojang', 'mobile', '신분증', 'age']) {
+    for (const query of ['GIWA', '기와', 'Dojang', 'Playground']) {
       search(query);
-      expect(visibleProofs().filter(id => /giwa|dojang|mdl/.test(id))).toEqual([]);
+      expect(visibleProofs().filter(id => /giwa|dojang/.test(id))).toEqual([]);
     }
   });
 

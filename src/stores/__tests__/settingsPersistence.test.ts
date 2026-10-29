@@ -76,7 +76,7 @@ describe('a saved default network the app no longer has', () => {
   beforeEach(() => jest.spyOn(console, 'log').mockImplementation(() => {}));
   afterEach(() => (console.log as jest.Mock).mockRestore());
 
-  it.each(['arc', '', 'ARC', 'base ', '<script>'])('shows the initial network instead of %p', async value => {
+  it.each(['arc', 'omnione', '', 'ARC', 'base ', '<script>'])('shows the initial network instead of %p', async value => {
     mockDisk.set(KEY, JSON.stringify({defaultNetwork: value, theme: 'light'}));
     const settings = await settingsStore.get();
     expect(settings.defaultNetwork).toBe('base');

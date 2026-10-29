@@ -255,29 +255,19 @@ describe('a request is reviewed before it is approved', () => {
     expect(renderedText(renderer)).not.toMatch(/verifiedRequester|inputsHashVerified/);
   });
 
-  it.each(['oidc_domain_attestation', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'] as const)(
+  it.each(['oidc_domain_attestation'] as const)(
     'reviews %s without asking for a wallet or inventing an action', circuit => {
-      render(request({circuit, inputs: {scope: 'app', domain: 'company.example', ageThreshold: 19, targetRegion: '서울'}}));
+      render(request({circuit, inputs: {scope: 'app', domain: 'company.example'}}));
       expect(button('request-accept').props.disabled).toBe(false);
       expect(renderedText(renderer)).not.toMatch(/willConnectWallet|walletAddress|review.actionTitle/);
       expect(renderer.root.findAllByProps({testID: 'request-action'})).toHaveLength(0);
     },
   );
 
-  it('shows the requested age without adding a fixed age from the circuit description', () => {
-    mockLanguage = 'en';
-    render(request({circuit: 'mdl_kr_age', inputs: {scope: 'app', ageThreshold: 21}}));
-    const text = renderedText(renderer);
-    expect(text).toContain('Minimum age');
-    expect(text).toContain('21');
-    expect(text).not.toContain('19');
-  });
-
   it.each([
     ['en', 'coinbase_attestation', 'kyc'], ['ko', 'coinbase_attestation', 'kyc'],
     ['en', 'giwa_attestation', 'giwa'], ['ko', 'giwa_attestation', 'giwa'],
     ['en', 'dojang_playground', 'dojangPlayground'], ['ko', 'dojang_playground', 'dojangPlayground'],
-    ['en', 'mdl_kr_ownership', 'ownership'], ['ko', 'mdl_kr_ownership', 'ownership'],
   ] as const)('(%s) names the condition section once and shows the %s requirement under it', (language, circuit, section) => {
     mockLanguage = language;
     const bundle = jest.requireActual(`../../i18n/locales/${language}.json`).host.proofRequest;
@@ -290,7 +280,7 @@ describe('a request is reviewed before it is approved', () => {
   // `arc_eligibility` was removed from the app on 2026-10-13. A dapp or an old
   // QR code that still names it must be refused like any unknown circuit,
   // never routed to another circuit's flow.
-  it.each(['unknown_circuit', '__proto__', 'constructor', 'arc_eligibility'])(
+  it.each(['unknown_circuit', '__proto__', 'constructor', 'arc_eligibility', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'])(
     'refuses unsupported circuit %s while allowing rejection', circuit => {
       const {onAccept, onReject} = render(request({circuit: circuit as ProofRequest['circuit']}));
       expect(renderedText(renderer)).toContain(circuit);

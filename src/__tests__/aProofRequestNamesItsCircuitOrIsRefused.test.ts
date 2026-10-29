@@ -8,9 +8,9 @@
  *   name nothing            -> the default fired -> a Coinbase KYC proof
  *   name something unknown  -> every check missed -> a Coinbase KYC proof
  *
- * The second one had already happened. Deep links send the canonical
- * `mdl_kr_age`, the screen only knew `mdl-kr-age`, and the request came back as
- * a Coinbase proof. It was patched by adding the underscore spellings as
+ * The second one had already happened. Deep links sent a canonical id, the
+ * screen only knew its hyphenated route id, and the request came back as a
+ * Coinbase proof. It was patched by adding the underscore spellings as
  * aliases — which fixes the ids somebody noticed and leaves the shape intact.
  *
  * These cases pin the shape, not the alias list. The three spelling tables the
@@ -79,7 +79,7 @@ describe('a proof request names its circuit, or it is refused', () => {
   it('resolves the id ONCE, through the shared alias table', () => {
     /*
      * The screen must not grow a private translation table again. Three of
-     * them lived here (display names, id translation, mDL variant), each
+     * them lived here (display names, id translation, proof variant), each
      * listing both spellings of every id, and they drifted apart — which is
      * how the title block came to know only the hyphenated ids.
      */
@@ -107,33 +107,15 @@ describe('a proof request names its circuit, or it is refused', () => {
   it('the title and description tables name a DIFFERENT key per circuit', () => {
     /*
      * THE DEFECT THIS PINS. The heading was a ladder of `circuitId === …`
-     * comparisons against the hyphenated ids with a catch-all `isMdl` arm that
-     * fell through to the OWNERSHIP wording, so `mdl_kr_age` — the spelling a
-     * deep link actually carries — proved the age predicate under the
-     * ownership heading. Sharing one i18n key between two circuits is the same
-     * fault written a different way.
+     * comparisons against the hyphenated ids with a catch-all arm that fell
+     * through to one proof's wording, so the canonical spelling a deep link
+     * actually carries proved one predicate under another's heading. Sharing
+     * one i18n key between two circuits is the same fault written a different
+     * way.
      */
     const body = literalBody('CIRCUIT_TEXT');
     const keys = body.match(/'host\.proof\.generation\.[A-Za-z]+'/g) ?? [];
     expect(keys.length).toBe(ALL_CIRCUIT_IDS.length * 2);
     expect(new Set(keys).size).toBe(keys.length);
-  });
-
-  it('the mDL variants agree with the flow table', () => {
-    // Every circuit mapped to the mdl flow must also have a variant, or the
-    // screen takes the mDL path with no idea which predicate to prove.
-    const flowBody = literalBody('FLOW_OF_CANONICAL');
-    const mdlCanonical = keysOf(flowBody).filter(c =>
-      flowBody.includes(`${c}: 'mdl'`),
-    );
-    expect(mdlCanonical.length).toBeGreaterThan(0);
-    const variantIds = new Set(keysOf(literalBody('MDL_VARIANT_OF')));
-    for (const canonical of mdlCanonical) {
-      expect([canonical, variantIds.has(canonical)]).toEqual([canonical, true]);
-    }
-    // And nothing else has one: a variant on a non-mDL circuit would send it
-    // down the mDL path the moment somebody keyed off the variant instead of
-    // the flow.
-    expect([...variantIds].sort()).toEqual(mdlCanonical.sort());
   });
 });

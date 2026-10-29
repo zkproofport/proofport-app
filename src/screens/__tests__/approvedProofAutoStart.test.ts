@@ -35,7 +35,6 @@ jest.mock('react-native', () => ({
 }));
 jest.mock('../../components/ProofProgressCard', () => ({ProofProgressCard: 'ProofProgressCard'}));
 jest.mock('react-native-linear-gradient', () => 'LinearGradient');
-jest.mock('../../components/MobileIdTypeSheet', () => ({MobileIdTypeSheet: 'MobileIdTypeSheet'}));
 jest.mock('../../components/ui', () => ({Button: 'Button', Card: 'Card', StepIndicator: 'StepIndicator', LiveLogsPanel: 'LiveLogsPanel'}));
 jest.mock('@react-navigation/native', () => ({useNavigation: () => mockNavigate, useRoute: () => mockRoute}));
 jest.mock('react-i18next', () => ({useTranslation: () => ({t: mockT})}));
@@ -55,7 +54,6 @@ jest.mock('../../hooks', () => ({
   useDeepLink: jest.requireActual('../../hooks/useDeepLink').useDeepLink,
   useSettings: () => ({settings: {confirmBeforeGenerate: false}}),
 }));
-jest.mock('../../hooks/useMdlKr', () => ({useMdlKr: () => mockProofHook()}));
 // Real hooks return fresh wrapper objects around memoized methods. Preserve
 // that shape so an accidental dependency on the wrapper cancels the timer.
 jest.mock('../../hooks/useCircuitWalletGate', () => ({useCircuitWalletGate: () => ({

@@ -53,7 +53,7 @@ function logAnswerFailure(error: unknown) {
   console.error('[App] Answering a relay request failed:', error);
 }
 
-/** A proof may keep running while the user visits another tab or its ID WebView. */
+/** A proof may keep running while the user visits another tab or a screen above it. */
 function hasGenerationScreen(state: NavigationState | undefined): boolean {
   const proofStack = state?.routes.find(route => route.name === 'ProofTab')?.state;
   if (!proofStack) return false;
@@ -61,7 +61,7 @@ function hasGenerationScreen(state: NavigationState | undefined): boolean {
   const currentIndex = proofStack.index ?? 0;
   for (let index = 0; index <= currentIndex; index++) {
     const screen = proofStack.routes[index]?.name;
-    if (screen === 'ProofGeneration' || screen === 'OacxWebView') generating = true;
+    if (screen === 'ProofGeneration') generating = true;
     if (screen === 'ProofComplete') generating = false;
   }
   return generating;
@@ -411,8 +411,9 @@ const App: React.FC = () => {
   // mirrors the ProofTab example above: the mini-app's ChatRoom lives at
   // OpenStoaTab → OpenStoaRoot → ChatTab → ChatRoom, so a flat navigate to the
   // root tab navigator would not reach it.
-  // Queued for the same reason as the mDL deep link: tapping a push wakes the
-  // app from cold, and this fires while LoadingScreen still owns the screen.
+  // Queued for the same reason as an imperative deep link (navigationQueue.ts):
+  // tapping a push wakes the app from cold, and this fires while LoadingScreen
+  // still owns the screen.
   const openOpenStoaChat = useCallback((topicId: string) => {
     if (!topicId) return;
     navigateOrQueue(

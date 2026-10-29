@@ -73,7 +73,7 @@ function isInsideOpenStoa(route: any): boolean {
 // that leave the tab bar painted with the navigator's default style on
 // dismiss). Add a route name here when you register a new modal that
 // should hide the tab bar.
-const MODAL_ROUTES = new Set(['OacxWebView', 'InAppBrowser']);
+const MODAL_ROUTES = new Set(['InAppBrowser']);
 
 function isFullScreenModalRoute(route: any): boolean {
   const focused = getFocusedRouteNameFromRoute(route);

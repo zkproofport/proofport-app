@@ -193,7 +193,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
       let signerIndex = 0;
 
       try {
-        // Always, as useMdlKr does: downloadCircuitFiles owns the version
+        // Always: downloadCircuitFiles owns the version
         // check and only fetches what is missing or stale. Gating it on the
         // files existing let a stale copy prove -- and since the startup
         // prefetch skips Laboratory circuits while the switch is off, this is

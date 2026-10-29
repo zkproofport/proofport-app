@@ -10,7 +10,7 @@ type CatalogNavigation = Pick<NativeStackNavigationProp<ProofStackParamList>, 'n
 type CatalogDetails = {
   surface: ProofSurface;
   purpose: Exclude<ProofPurpose, 'all'>;
-  icon: 'organization' | 'identity' | 'country' | 'document' | 'id-card' | 'age' | 'region';
+  icon: 'organization' | 'identity' | 'country' | 'document';
   titleKey: string;
   descriptionKey: string;
   providerKey: string;
@@ -21,7 +21,7 @@ type CatalogDetails = {
 export type ProofCatalogEntry = CatalogDetails & {id: CircuitName};
 
 // This is presentation metadata, independent of the SDK's download tiers.
-// Every laboratory entry is active, including the three Korea Mobile ID proofs.
+// Every laboratory entry is active.
 const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
   oidc_domain_attestation: {
     surface: 'home', purpose: 'organization', icon: 'organization',
@@ -63,33 +63,6 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     badgeKey: 'host.proof.laboratory.beta',
     groupKey: 'host.proof.laboratory.giwa.sectionTitle',
     open: navigation => navigation.navigate('ActionInput', {circuit: 'dojang_playground'}),
-  },
-  mdl_kr_ownership: {
-    surface: 'laboratory', purpose: 'identity', icon: 'id-card',
-    titleKey: 'host.proof.laboratory.ownership.title',
-    descriptionKey: 'host.proof.laboratory.ownership.description',
-    providerKey: 'host.proof.laboratory.ownership.provider',
-    badgeKey: 'host.proof.laboratory.beta',
-    groupKey: 'host.proof.laboratory.mobileId',
-    open: navigation => navigation.navigate('MdlKrInput', {variant: 'ownership'}),
-  },
-  mdl_kr_age: {
-    surface: 'laboratory', purpose: 'identity', icon: 'age',
-    titleKey: 'host.proof.laboratory.age.title',
-    descriptionKey: 'host.proof.laboratory.age.description',
-    providerKey: 'host.proof.laboratory.age.provider',
-    badgeKey: 'host.proof.laboratory.beta',
-    groupKey: 'host.proof.laboratory.mobileId',
-    open: navigation => navigation.navigate('MdlKrInput', {variant: 'age'}),
-  },
-  mdl_kr_region: {
-    surface: 'laboratory', purpose: 'country', icon: 'region',
-    titleKey: 'host.proof.laboratory.region.title',
-    descriptionKey: 'host.proof.laboratory.region.description',
-    providerKey: 'host.proof.laboratory.region.provider',
-    badgeKey: 'host.proof.laboratory.beta',
-    groupKey: 'host.proof.laboratory.mobileId',
-    open: navigation => navigation.navigate('MdlKrInput', {variant: 'region'}),
   },
 };
 

@@ -1,8 +1,6 @@
 import {captureHistoryReview} from '../../utils/historyReview';
 import {historyDisplay} from '../../utils/historyDisplay';
 import React, {useState, useCallback, useEffect, useRef} from 'react';
-import {MobileIdTypeSheet, type MdlProvider} from '../../components/MobileIdTypeSheet';
-import {errorCodeForOacxFailure} from '../../utils/oacxErrors';
 import {
   View,
   Text,
@@ -25,7 +23,6 @@ import {
   type StepData,
 } from '../../components/ui';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
-import {useMdlKr} from '../../hooks/useMdlKr';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, nullifierForCircuit} from '../../utils';
 import type {TypedAction} from '../../utils/typedAction';
@@ -34,8 +31,8 @@ import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore, settingsStore} from '../../stores';
 import {getCircuitWallet, walletGroupKey} from '../../stores/circuitWalletStore';
 // `getNetworkConfig` is deliberately absent: this screen always resolves the
-// network PER CIRCUIT (GIWA is on chain 91342, the mDL verifiers on Base
-// Sepolia), so the environment default would be the wrong answer. It was
+// network PER CIRCUIT (GIWA is on chain 91342, the Coinbase verifiers on
+// Base), so the environment default would be the wrong answer. It was
 // imported and unused before this change; lint has been reporting it.
 import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, type CircuitName} from '../../config';
 import {getCircuitDisplayName} from '../../utils/circuit';
@@ -78,18 +75,18 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGener
  * for one thing and the app proved another, with nothing on screen to say so.
  *
  * It had already bitten once: underscore ids were added as aliases because deep
- * links sent `mdl_kr_age` and the screen answered with a Coinbase proof.
+ * links sent a canonical id and the screen answered with a Coinbase proof.
  * Aliasing the ids that were noticed does not fix the shape — the next
  * unrecognised id lands in the same place. The fix is that there IS no default.
  *
  * The screen no longer keeps its own spelling tables. Three of them lived here
- * — display names, id translation, mDL variant — each carrying both spellings
- * of every id, and they disagreed: the title block below matched only the
- * hyphenated ids, so a deep link naming `mdl_kr_age` ran the AGE proof under
- * the OWNERSHIP heading. Everything is keyed by the canonical id now, and the
+ * — display names, id translation, proof variant — each carrying both
+ * spellings of every id, and they disagreed: the title block below matched
+ * only the hyphenated ids, so a deep link naming a canonical id ran one
+ * proof under another proof's heading. Everything is keyed by the canonical id now, and the
  * translation happens once, in `canonicalCircuitId`.
  */
-type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'dojang' | 'mdl';
+type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'dojang';
 
 const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
   coinbase_attestation: 'coinbase',
@@ -97,20 +94,6 @@ const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
   oidc_domain_attestation: 'oidc',
   giwa_attestation: 'giwa',
   dojang_playground: 'dojang',
-  mdl_kr_ownership: 'mdl',
-  mdl_kr_age: 'mdl',
-  mdl_kr_region: 'mdl',
-};
-
-/**
- * The mDL predicate each circuit proves. `MdlKrInputScreen` collects the
- * matching parameter (disclose_flags / age_threshold / target_region) before
- * navigating here.
- */
-const MDL_VARIANT_OF: Partial<Record<CircuitName, 'ownership' | 'age' | 'region'>> = {
-  mdl_kr_ownership: 'ownership',
-  mdl_kr_age: 'age',
-  mdl_kr_region: 'region',
 };
 
 /** Title / description i18n keys, keyed canonically so no id can miss them. */
@@ -135,18 +118,6 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
     title: 'host.proof.generation.dojangPlaygroundTitle',
     description: 'host.proof.generation.dojangPlaygroundDescription',
   },
-  mdl_kr_ownership: {
-    title: 'host.proof.generation.mdlKrOwnershipTitle',
-    description: 'host.proof.generation.mdlKrOwnershipDescription',
-  },
-  mdl_kr_age: {
-    title: 'host.proof.generation.mdlKrAgeTitle',
-    description: 'host.proof.generation.mdlKrAgeDescription',
-  },
-  mdl_kr_region: {
-    title: 'host.proof.generation.mdlKrRegionTitle',
-    description: 'host.proof.generation.mdlKrRegionDescription',
-  },
 };
 
 /**
@@ -158,7 +129,7 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
  * which reads every hook's step ids.
  */
 type HookStepId =
-  | 'vk' | 'download' | 'validate' | 'jwks' | 'oacx' | 'signal' | 'sign' | 'pubkey'
+  | 'vk' | 'download' | 'validate' | 'jwks' | 'signal' | 'sign' | 'pubkey'
   | 'scope' | 'country' | 'inputs' | 'storage' | 'proof' | 'parse' | 'cleanup';
 
 /**
@@ -184,7 +155,6 @@ export const STEP_ERROR_CODE: Record<HookStepId, ErrorCode> = {
   // The attestation transaction did not check out for this wallet.
   validate: 'E2005',
   jwks: 'E3002',
-  oacx: 'E2001',
   signal: 'E2001',
   sign: 'E4002',
   pubkey: 'E2001',
@@ -205,7 +175,6 @@ const FLOW_STEP_ERROR_CODE: Record<ProofFlow, Partial<Record<HookStepId, ErrorCo
   oidc: {validate: 'E2008'},
   giwa: {},
   dojang: {},
-  mdl: {},
 };
 
 export function errorCodeForStep(flow: ProofFlow, stepId: string): ErrorCode {
@@ -415,13 +384,6 @@ export const ProofGenerationScreen: React.FC = () => {
   const isOidc = flow === 'oidc';
   const isGiwa = flow === 'giwa';
   const isDojang = flow === 'dojang';
-  const mdlVariant = canonical ? MDL_VARIANT_OF[canonical] : undefined;
-  const isMdl = flow === 'mdl';
-  // Document-type bottom sheet for the mDL flow. The chosen provider is held
-  // in a ref so handleGenerateProof (a stable useCallback) reads the latest
-  // value without being recreated.
-  const [mdlSheetVisible, setMdlSheetVisible] = useState(false);
-  const chosenMdlProviderRef = useRef<MdlProvider | null>(null);
   const oidcProvider = (proofRequest?.inputs as {provider?: string} | undefined)?.provider || route.params?.domainInput?.provider;
 
   const kycHook = useCoinbaseKyc();
@@ -429,10 +391,6 @@ export const ProofGenerationScreen: React.FC = () => {
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
   const dojangHook = useDojangPlayground();
-  // useMdlKr requires a variant at hook init. When this screen is not
-  // serving an mDL circuit, the hook still mounts (rules of hooks) but
-  // is never driven; we keep 'ownership' as the inert default.
-  const mdlHook = useMdlKr(mdlVariant ?? 'ownership');
   const googleAuth = useGoogleAuth();
   const microsoftAuth = useMicrosoftAuth();
   const generateKycProof = kycHook.generateProofWithSteps;
@@ -440,7 +398,6 @@ export const ProofGenerationScreen: React.FC = () => {
   const generateOidcProof = oidcHook.generateProofWithSteps;
   const generateGiwaProof = giwaHook.generateProofWithSteps;
   const generateDojangProof = dojangHook.generateProofWithSteps;
-  const generateMdlProof = mdlHook.generateProofWithSteps;
   const googleReady = googleAuth.isReady;
   const microsoftReady = microsoftAuth.isReady;
   const promptGoogleSignIn = googleAuth.promptSignIn;
@@ -454,7 +411,6 @@ export const ProofGenerationScreen: React.FC = () => {
     oidc: oidcHook,
     giwa: giwaHook,
     dojang: dojangHook,
-    mdl: mdlHook,
   } satisfies Record<ProofFlow, unknown>;
   const hook = flow ? HOOK_OF_FLOW[flow] : kycHook;
 
@@ -469,7 +425,6 @@ export const ProofGenerationScreen: React.FC = () => {
     oidcHook.resetProofCache();
     giwaHook.resetProofCache();
     dojangHook.resetProofCache();
-    mdlHook.resetProofCache();
   }
 
   const {account, isReady: isWalletReady, connect: connectWallet, disconnect: disconnectWallet, getProvider} = useWallet(addLog);
@@ -494,9 +449,9 @@ export const ProofGenerationScreen: React.FC = () => {
   // and Country share a group, so binding one makes the other ready too.
   const [circuitReady, setCircuitReady] = useState(false);
   useEffect(() => {
-    if (isOidc || isMdl) {
-      // OIDC and Korea mDL are web2 flows — no wallet binding, so the
-      // circuit is always "ready" without a wallet gate.
+    if (isOidc) {
+      // OIDC is a web2 flow — no wallet binding, so the circuit is always
+      // "ready" without a wallet gate.
       setCircuitReady(true);
       return;
     }
@@ -517,7 +472,7 @@ export const ProofGenerationScreen: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [canonical, account, isOidc, isMdl]);
+  }, [canonical, account, isOidc]);
 
   const googleStepStatus = googleAuth.idToken ? 'complete' : 'pending';
   const googleStepLabel = 'Google Sign-In';
@@ -632,11 +587,9 @@ export const ProofGenerationScreen: React.FC = () => {
       cancelAttempt(detail);
       return;
     }
-    // A cause with its own code (App Attest, the provider key list, an OACX
-    // result code such as the raw-HTTP path refusing the card type) wins over
+    // A cause with its own code (App Attest, the provider key list) wins over
     // the step's generic one.
-    const oacxCode = flow === 'mdl' ? errorCodeForOacxFailure(detail) : null;
-    failAttempt({code: errStep.code ?? oacxCode ?? errorCodeForStep(flow, errStep.id), error: detail});
+    failAttempt({code: errStep.code ?? errorCodeForStep(flow, errStep.id), error: detail});
   }, [hook.proofSteps, flow, failAttempt, cancelAttempt]);
 
   // Leaving the screen before the request was answered — back button, a
@@ -795,19 +748,12 @@ export const ProofGenerationScreen: React.FC = () => {
         t('host.errors.E2006.description', {defaultValue: ErrorCodes.E2006.description}));
       return;
     }
-    // mDL: the document-type bottom sheet is the entry point and the
-    // confirmation step. Open it first; its onSelect sets the provider ref
-    // and re-invokes this function (ref non-null -> proceeds past this guard).
-    if (isMdl && chosenMdlProviderRef.current === null) {
-      setMdlSheetVisible(true);
-      return;
-    }
     // Wallet flow is fully driven by useCircuitWalletGate (single source of
     // truth implementing the documented K-map). Anything other than `address`
     // means the gate already opened a picker / dismissed; the auto-retry
     // effect below will re-invoke handleGenerateProof when account changes.
     let gatedAddress: string | null = null;
-    if (!isOidc && !isMdl) {
+    if (!isOidc) {
       const gateResult = await runWalletGate(
         canonical,
         getCircuitDisplayName(canonical),
@@ -886,7 +832,6 @@ export const ProofGenerationScreen: React.FC = () => {
       try {
         const reviewInputs: Record<string, unknown> = {
           ...route.params?.domainInput,
-          ...route.params?.mdlKrInputs,
           ...proofRequest?.inputs,
           ...route.params?.countryInputs,
           ...(route.params?.scope !== undefined ? {scope: route.params.scope} : {}),
@@ -961,83 +906,6 @@ export const ProofGenerationScreen: React.FC = () => {
     if (proofRequest) await markOpenRequestProving(proofRequest.requestId);
 
     try {
-      if (isMdl) {
-        // Korea Mobile ID (web2 OmniOne CX flow). Inputs come from either:
-        //   (a) the deep-link `proofRequest.inputs` (when a dApp drives it),
-        //   (b) the MdlKrInputScreen result on `route.params.mdlKrInputs`
-        //       (when the user taps a card and picks the predicate input),
-        // in that order. No silent defaults for region or age threshold —
-        // missing values throw rather than auto-passing the wrong proof.
-        const deep = proofRequest?.inputs as {
-          scope?: string;
-          targetRegion?: string;
-          ageThreshold?: number;
-          currentYear?: number;
-          discloseFlags?: number;
-        } | undefined;
-        const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
-        const mInputs = route.params?.mdlKrInputs;
-        // Only the document-type sheet chooses the provider (the guard above
-        // opens it first). No default: a card type the person did not pick
-        // is never substituted.
-        const provider = chosenMdlProviderRef.current;
-        if (provider === null) {
-          failAttempt({code: 'E2004', error: 'No mobile ID type was chosen — pick one in the document-type sheet'});
-          return;
-        }
-
-        if (mdlVariant === 'ownership') {
-          const discloseFlags =
-            deep?.discloseFlags ?? mInputs?.discloseFlags ?? 0;
-          await generateMdlProof(
-            {
-              variant: 'ownership',
-              provider,
-              scopeString: scopeStr,
-              discloseFlags,
-              expectedName:  mInputs?.expectedName,
-              expectedBirth: mInputs?.expectedBirth,
-              expectedSex:   mInputs?.expectedSex,
-              expectedTelno: mInputs?.expectedTelno,
-            },
-            addLog,
-          );
-        } else if (mdlVariant === 'age') {
-          const ageThreshold = deep?.ageThreshold ?? mInputs?.ageThreshold;
-          if (ageThreshold === undefined) {
-            failAttempt({code: 'E2004', error: 'age_threshold is required — open the Korea mDL input screen first'});
-            return;
-          }
-          const currentYear =
-            deep?.currentYear ?? mInputs?.currentYear ?? new Date().getFullYear();
-          await generateMdlProof(
-            {
-              variant: 'age',
-              provider,
-              scopeString: scopeStr,
-              ageThreshold,
-              currentYear,
-            },
-            addLog,
-          );
-        } else if (mdlVariant === 'region') {
-          const targetRegion = deep?.targetRegion ?? mInputs?.targetRegion;
-          if (!targetRegion) {
-            failAttempt({code: 'E2004', error: 'target_region is required — open the Korea mDL input screen first'});
-            return;
-          }
-          await generateMdlProof(
-            {
-              variant: 'region',
-              provider,
-              scopeString: scopeStr,
-              targetRegion,
-            },
-            addLog,
-          );
-        }
-        return;
-      }
       if (isOidc) {
         // OIDC: on-device proof generation — no attestation lookup needed.
         // Both are set above whenever isOidc; the attempt ended otherwise.
@@ -1287,10 +1155,10 @@ export const ProofGenerationScreen: React.FC = () => {
       setIsSearching(false);
     }
   }, [runWalletGate, recordLookupFailure, addLog, clearLogs, getProvider,
-    generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateDojangProof, generateMdlProof,
+    generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateDojangProof,
     googleReady, microsoftReady, promptGoogleSignIn, promptMicrosoftSignIn,
-    isCountry, isOidc, isGiwa, isDojang, isMdl, proofRequest, route.params,
-    circuitId, canonical, flow, mdlVariant, account, failAttempt, cancelAttempt, t]);
+    isCountry, isOidc, isGiwa, isDojang, proofRequest, route.params,
+    circuitId, canonical, flow, account, failAttempt, cancelAttempt, t]);
 
   // After the wallet gate opens a picker / reconnect prompt, it sets its
   // internal post-picker flag. When `account` then flips to a new wallet,
@@ -1326,27 +1194,6 @@ export const ProofGenerationScreen: React.FC = () => {
     }
     if (!walletGate.isPostPicker) previousAccountRef.current = account;
   }, [account, walletGate, canonical, addLog, handleGenerateProof]);
-
-  // mDL document-type sheet selection -> stash provider + start proof.
-  const handleMdlProviderSelect = useCallback(
-    (provider: MdlProvider) => {
-      chosenMdlProviderRef.current = provider;
-      setMdlSheetVisible(false);
-      handleGenerateProof();
-    },
-    [handleGenerateProof],
-  );
-
-  // mDL deep link / OpenStoa login: on arrival, kick off the flow. The guard
-  // in handleGenerateProof opens the document-type sheet; selection drives the
-  // proof. No wallet/account needed (mDL is on-device), unlike the effect below.
-  useEffect(() => {
-    if (isMdl && proofRequest && !hasAutoStarted.current) {
-      hasAutoStarted.current = true;
-      addLog(`[DeepLink] mDL from: ${proofRequest.dappName || 'Unknown'}`);
-      handleGenerateProof();
-    }
-  }, [isMdl, proofRequest, handleGenerateProof, addLog]);
 
   // Auto-start for deep link requests
   useEffect(() => {
@@ -1461,10 +1308,10 @@ export const ProofGenerationScreen: React.FC = () => {
             {/*
               * One lookup, keyed canonically. This was a ladder of equality
               * checks against the HYPHENATED ids only, with a Coinbase KYC
-              * heading as its final else — so `mdl_kr_age`, which is what a
-              * deep link actually carries, ran the age proof under the
-              * OWNERSHIP heading, and any id the ladder did not name was
-              * announced as Coinbase KYC while proving something else.
+              * heading as its final else — so a canonical id, which is what a
+              * deep link actually carries, ran one proof under another's
+              * heading, and any id the ladder did not name was announced as
+              * Coinbase KYC while proving something else.
               */}
             {canonical ? t(CIRCUIT_TEXT[canonical].title) : ''}
           </Text>
@@ -1511,11 +1358,6 @@ export const ProofGenerationScreen: React.FC = () => {
           <ActivityIndicator size="large" color={themeColors.info[500]} />
         </View>
       )}
-      <MobileIdTypeSheet
-        visible={mdlSheetVisible}
-        onSelect={handleMdlProviderSelect}
-        onCancel={() => setMdlSheetVisible(false)}
-      />
     </SafeAreaView>
   );
 };

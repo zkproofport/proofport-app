@@ -41,7 +41,6 @@ jest.mock('../../hooks', () => ({
   useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
   useLogs: () => ({logs: [], addLog: jest.fn()}),
 }));
-jest.mock('../../hooks/useMdlKr', () => ({useMdlKr: () => mockProofHook()}));
 jest.mock('../../stores', () => ({proofHistoryStore: {update: jest.fn()}}));
 jest.mock('../../config', () => ({...jest.requireActual('../../config/circuitIds')}));
 jest.mock('../../utils', () => ({getCircuitDisplayName: () => 'Organization'}));
@@ -49,10 +48,9 @@ jest.mock('../../utils', () => ({getCircuitDisplayName: () => 'Organization'}));
 // registered screen names, completion callbacks and installed router stay real.
 jest.mock('../proof', () => ({
   CircuitSelectionScreen: 'CircuitSelection', LaboratoryScreen: 'Laboratory',
-  CountryInputScreen: 'CountryInput', DomainInputScreen: 'DomainInput', MdlKrInputScreen: 'MdlKrInput',
+  CountryInputScreen: 'CountryInput', DomainInputScreen: 'DomainInput',
   ActionInputScreen: 'ActionInput', ProofGenerationScreen: 'ProofGeneration', ProofCompleteScreen: 'ProofComplete',
 }));
-jest.mock('../auth/OacxWebViewScreen', () => ({OacxWebViewScreen: 'OacxWebView'}));
 jest.mock('../shared/InAppBrowserScreen', () => ({InAppBrowserScreen: 'InAppBrowser'}));
 jest.mock('../../navigation/shared', () => ({useStackScreenOptions: () => ({})}));
 

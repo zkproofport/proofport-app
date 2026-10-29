@@ -149,7 +149,7 @@ beforeEach(async () => {
   mockValidateRelay.mockResolvedValue({valid: true});
   mockUpdateState = {status: 'allowed'};
   mockStorage.clear();
-  // Most cases here use Laboratory circuits (GIWA, Korea Mobile ID), which a
+  // Most cases here use Laboratory circuits (GIWA, Dojang Playground), which a
   // fresh install refuses; the switch itself is covered at the end of the file.
   mockStorage.set(SETTINGS_KEY, JSON.stringify({laboratoryEnabled: true}));
   resetRelayAnswersForTests();
@@ -279,7 +279,7 @@ async function receiveAwaitingRelay(value: ProofRequest) {
   };
 }
 
-it.each(['mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region', 'giwa_attestation', 'oidc_domain_attestation'])(
+it.each(['dojang_playground', 'giwa_attestation', 'oidc_domain_attestation'])(
   '%s waits for explicit review on cold start', async circuit => {
     const incoming = request(circuit);
     await receive(incoming);
@@ -460,13 +460,13 @@ it('invalidates pending relay responses on app reset', async () => {
   expect(mockDispatch).not.toHaveBeenCalled();
 });
 
-it.each(['ProofGeneration', 'OacxWebView'])('defers a new review while %s owns a proof, even on another tab', async current => {
+it.each(['ProofGeneration', 'InAppBrowser'])('defers a new review while %s is on top of a running proof, even on another tab', async current => {
   await ready();
   const first = request('giwa_attestation', 'first');
   await receive(first);
   await act(async () => {mockModal.onAccept(first);});
   const routes = [{name: 'CircuitSelection'}, {name: 'ProofGeneration', params: {proofRequest: first}}];
-  if (current === 'OacxWebView') routes.push({name: current});
+  if (current !== 'ProofGeneration') routes.push({name: current});
   await proofStackState(routes, 'WalletTab');
   const next = request('giwa_attestation', 'next');
   await receive(next);
@@ -663,7 +663,7 @@ describe('requests dropped before approval are answered', () => {
 // E1008. Removing the gate from App.tsx turns the first cases red.
 // ---------------------------------------------------------------------------
 describe('a Laboratory request while the switch is off', () => {
-  const LAB = ['giwa_attestation', 'dojang_playground', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'];
+  const LAB = ['giwa_attestation', 'dojang_playground'];
   function sent() {
     return mockSend.mock.calls.map(call => call[0] as Record<string, unknown>);
   }
@@ -696,7 +696,7 @@ describe('a Laboratory request while the switch is off', () => {
   it('refuses a fresh install, where the switch was never saved', async () => {
     mockStorage.delete(SETTINGS_KEY);
     await ready();
-    await receive(request('mdl_kr_age', 'fresh'));
+    await receive(request('dojang_playground', 'fresh'));
     expect(mockError).toHaveBeenCalledWith('E1008', expect.any(String));
     expect(mockModal.visible).toBe(false);
   });
@@ -728,6 +728,22 @@ describe('a Laboratory request while the switch is off', () => {
     expect(mockValidateRelay).not.toHaveBeenCalled();
   });
 
+  // The Korean mobile ID proofs are no circuit of this app: their ids, and the
+  // route ids once minted for them, are refused by name like any other
+  // unknown circuit, with the Laboratory on -- never resolved to another proof.
+  it.each(['mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region', 'mdl-kr-ownership', 'mdl-kr-age', 'mdl-kr-region'])(
+    '%s is refused by name (E1002) and opens no review',
+    async circuit => {
+      await ready();
+      await receive(request(circuit, `gone-${circuit}`));
+      expect(mockError).toHaveBeenCalledWith('E1002', expect.stringContaining(`Invalid circuit type: ${circuit}`));
+      expect(mockModal.visible).toBe(false);
+      expect(mockModal.request).toBeNull();
+      expect(mockDispatch).not.toHaveBeenCalled();
+      expect(mockValidateRelay).not.toHaveBeenCalled();
+    },
+  );
+
   it('an unregistered lab request is reported as unregistered (E1006), not as the switch', async () => {
     labOff();
     await ready();
@@ -743,7 +759,7 @@ describe('a Laboratory request while the switch is off', () => {
     await ready();
     const waiting = request('coinbase_attestation', 'waiting');
     await receive(waiting);
-    await receive(request('mdl_kr_region', 'refused'));
+    await receive(request('dojang_playground', 'refused'));
     expect(mockModal.visible).toBe(true);
     expect(mockModal.request).toBe(waiting);
     expect(sent()).toEqual([expect.objectContaining({requestId: 'refused', errorCode: 'E1008'})]);
@@ -763,10 +779,10 @@ describe('a Laboratory request while the switch is off', () => {
   it('turning the switch on lets the next request through without a restart', async () => {
     labOff();
     await ready();
-    await receive(request('mdl_kr_age', 'before'));
+    await receive(request('giwa_attestation', 'before'));
     expect(mockModal.visible).toBe(false);
     mockStorage.set(SETTINGS_KEY, JSON.stringify({laboratoryEnabled: true}));
-    const after = request('mdl_kr_age', 'after');
+    const after = request('giwa_attestation', 'after');
     await receive(after);
     expect(mockModal.visible).toBe(true);
     expect(mockModal.request).toBe(after);

@@ -130,7 +130,7 @@ describe('what a debugger needs is kept', () => {
     'token: undefined, signature: null, secret=(none)',
     'password: short',
     '[JWT] Token validated',
-    'OACX — token received, parsing VC (POST /trans/token)...',
+    '[OIDC] Sign-In successful — JWT carries this request\'s nonce',
     '/var/mobile/Containers/Data/Application/0A1B2C3D-1111-2222-3333-444455556666/Documents/circuits/oidc_domain_attestation.json',
     `[Parse] Public input #3: 0x${'f'.repeat(64)}`,
     `numbers ${'1234567890'.repeat(15)}`,

@@ -7,14 +7,13 @@
  * They did not agree, and the disagreements were not theoretical:
  *
  *   - the proof screen's heading matched only the HYPHENATED spellings, so a
- *     deep link carrying `mdl_kr_age` ran the age proof under the OWNERSHIP
- *     title;
- *   - `getCircuitDisplayName` had no `mdl_kr_*` rows at all and returned its
- *     argument, so the history list showed people the raw string `mdl-kr-age`;
+ *     deep link carrying a canonical id ran one proof under another's title;
+ *   - `getCircuitDisplayName` had no rows at all for three circuits and
+ *     returned its argument, so the history list showed people a raw route id;
  *   - `giwa_attestation` was "GIWA KYC (Experimental)" in two tables and
  *     "GIWA KYC" in a third;
- *   - `syncDeployments` carried a hand-written list of three, so the three
- *     Korea mDL verifier addresses never refreshed;
+ *   - `syncDeployments` carried a hand-written list of three, so the other
+ *     circuits' verifier addresses never refreshed;
  *   - `'oidc-domain'` was set as a route id that no table anywhere understood.
  *
  * `@zkproofport-app/core/circuits` is now the source of the IDENTIFIERS. The
@@ -84,14 +83,14 @@ function codeOf(file: string): string {
 }
 
 describe('the identifiers come from the published SDK', () => {
-  it('CONTRACT: the SDK is the list — eight canonical ids, none of them hyphenated', () => {
+  it('CONTRACT: the SDK is the list — five canonical ids, none of them hyphenated', () => {
     /*
      * Not an assertion about the SDK's content so much as a statement of what
      * every other case here is measured against. If this number changes, a
      * circuit was added or removed upstream and the cases below say which of
      * this app's tables have not caught up.
      */
-    expect(ALL_CIRCUIT_IDS.length).toBe(8);
+    expect(ALL_CIRCUIT_IDS.length).toBe(5);
     for (const id of ALL_CIRCUIT_IDS) {
       expect([id, /^[a-z][a-z0-9_]*$/.test(id)]).toEqual([id, true]);
     }
@@ -117,7 +116,8 @@ describe('the identifiers come from the published SDK', () => {
     // Pinned exactly. The id list decides which proof a deep link produces, so
     // it moves when somebody bumps it and reads this file, not when a caret
     // resolves a new minor overnight.
-    expect(pkg.dependencies['@zkproofport-app/core']).toMatch(/^\d+\.\d+\.\d+$/);
+    // An exact version, a pre-release one included -- never a range.
+    expect(pkg.dependencies['@zkproofport-app/core']).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/);
     // The customer SDK is not a dependency: everything the app takes from it
     // is in core, and the SDK would bring bb.js along.
     expect(pkg.dependencies['@zkproofport-app/sdk']).toBeUndefined();
@@ -172,9 +172,9 @@ describe('every app table covers every published circuit', () => {
 
   it('every circuit has a display name that is not just its id echoed back', () => {
     /*
-     * THE DEFECT. `CIRCUIT_DISPLAY_NAMES` had no `mdl_kr_*` rows, and the
-     * lookup ends in `|| circuitId`, so the history screens rendered
-     * `mdl-kr-age` as the name of the thing the person had proved. A missing
+     * THE DEFECT. `CIRCUIT_DISPLAY_NAMES` had no rows for three circuits, and
+     * the lookup ends in `|| circuitId`, so the history screens rendered a raw
+     * route id as the name of the thing the person had proved. A missing
      * row does not throw; it prints the internal string at the user.
      */
     for (const id of ALL_CIRCUIT_IDS) {
@@ -253,8 +253,21 @@ describe('one alias table, and route ids stop at it', () => {
 
   it('CONTRACT: resolves both spellings, and refuses everything else', () => {
     for (const id of ALL_CIRCUIT_IDS) expect(canonicalCircuitId(id)).toBe(id);
-    expect(canonicalCircuitId('mdl-kr-age')).toBe('mdl_kr_age');
+    expect(canonicalCircuitId('giwa-kyc')).toBe('giwa_attestation');
     expect(canonicalCircuitId('oidc-domain')).toBe('oidc_domain_attestation');
+  });
+
+  it('CONTRACT: the Korean mobile ID proofs are unknown, by either spelling', () => {
+    // No circuit of this app: a request naming one resolves to nothing, so
+    // every caller refuses it by name rather than proving something else.
+    for (const gone of [
+      'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region',
+      'mdl-kr-ownership', 'mdl-kr-age', 'mdl-kr-region',
+    ]) {
+      expect([gone, canonicalCircuitId(gone)]).toEqual([gone, undefined]);
+      expect([gone, isCircuitId(gone)]).toEqual([gone, false]);
+      expect([gone, Object.prototype.hasOwnProperty.call(ROUTE_CIRCUIT_IDS, gone)]).toEqual([gone, false]);
+    }
   });
 
   it('BOUNDARY / HOSTILE: nothing else resolves to a circuit', () => {
@@ -262,7 +275,7 @@ describe('one alias table, and route ids stop at it', () => {
      * There is no default. An empty id used to become a Coinbase KYC proof,
      * and a near-miss spelling is the same failure with a typo in it. Case
      * folding is deliberately absent: the SDK says the ids are case-sensitive,
-     * and accepting `MDL_KR_AGE` here would make the app disagree with the
+     * and accepting `GIWA_ATTESTATION` here would make the app disagree with the
      * relay about which nullifier scope a request belongs to.
      */
     for (const junk of [
@@ -299,10 +312,15 @@ describe('one alias table, and route ids stop at it', () => {
   });
 
   it('INTEGRITY: no module builds a circuit id by concatenation', () => {
-    // `mdl-kr-${variant}` was one of the twenty-four, and a template string is
-    // invisible to every check that looks for a literal.
+    // A route id assembled from a variant was one of the twenty-four, and a
+    // template string is invisible to every check that looks for a literal.
+    // The prefixes are every id's first word, canonical and route alike.
+    const prefixes = [...new Set([...ALL_CIRCUIT_IDS, ...Object.keys(ROUTE_CIRCUIT_IDS)].map(id => id.split(/[-_]/)[0]))];
+    expect(prefixes.length).toBeGreaterThan(0);
+    const built = new RegExp('`(' + prefixes.join('|') + ')[-_][A-Za-z_-]*\\$\\{');
+    expect(built.test('`coinbase-${variant}`')).toBe(true);
     const offenders = sourceFiles()
-      .filter(f => /`(mdl[-_]kr|coinbase)[-_]\$\{/.test(codeOf(f)))
+      .filter(f => built.test(codeOf(f)))
       .map(f => path.relative(SRC, f));
     expect(offenders).toEqual([]);
   });
@@ -312,16 +330,12 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
   it('THE REGRESSION: every circuit with a broadcast path is synced', () => {
     /*
      * `syncDeployments` held a literal list of three while six circuits had a
-     * non-null broadcast path, so the three `mdl_kr_*` verifier addresses
-     * never refreshed off the build-time fallback. Checked 2026-09-04: all
-     * three `DeployMdlKr*.s.sol/84532/run-latest.json` answer 200 on
-     * circuits@main.
+     * non-null broadcast path, so the other verifier addresses never
+     * refreshed off the build-time fallback.
      */
     const expected = ALL_CIRCUIT_IDS.filter(c => BROADCAST_PATHS[c] !== null);
+    expect(expected.length).toBeGreaterThan(0);
     expect([...CIRCUITS_WITH_BROADCAST].sort()).toEqual([...expected].sort());
-    for (const mdl of ['mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region']) {
-      expect([mdl, CIRCUITS_WITH_BROADCAST.includes(mdl as never)]).toEqual([mdl, true]);
-    }
     // And the deriving is what deployments.ts actually uses — a literal array
     // of circuit names reappearing there is the whole defect returning.
     const deployments = codeOf(path.join(SRC, 'config', 'deployments.ts'));
@@ -348,7 +362,7 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
     // forgets the fifth circuit.
     const download = codeOf(path.join(SRC, 'utils', 'circuitDownload.ts'));
     expect(download).toContain('MAIN_BRANCH_CIRCUIT_IDS.includes');
-    expect(download).not.toMatch(/circuitName === '(giwa|mdl)_/);
+    expect(download).not.toMatch(/circuitName === '(giwa|dojang)_/);
   });
 
   it('THE REGRESSION: a deep link is validated against the published list', () => {
@@ -381,14 +395,14 @@ describe('a circuit is called one thing', () => {
     ]) {
       const code = codeOf(path.join(SRC, screen));
       expect([screen, /'Coinbase KYC'/.test(code)]).toEqual([screen, false]);
-      expect([screen, /Korea Mobile ID/.test(code)]).toEqual([screen, false]);
+      expect([screen, /'GIWA KYC/.test(code)]).toEqual([screen, false]);
     }
   });
 
   it('ACCUMULATING: the same id asked ten times answers the same way', () => {
     // No memo, no latch, no lazily-built map that a first caller populates
     // differently from the second.
-    for (const id of ['mdl_kr_age', 'mdl-kr-age', 'giwa_attestation', 'nope']) {
+    for (const id of ['giwa-kyc', 'mdl_kr_age', 'giwa_attestation', 'nope']) {
       const names = Array.from({length: 10}, () => getCircuitDisplayName(id));
       const icons = Array.from({length: 10}, () => getCircuitIcon(id));
       expect(new Set(names).size).toBe(1);

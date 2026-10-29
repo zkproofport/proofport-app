@@ -3,10 +3,9 @@
  *
  * Both tables are `Record<CircuitName, …>`, so they are exhaustive over the
  * published circuit list: a circuit added to `@zkproofport-app/core` does not
- * compile until it has a name and an icon here. Before that, three of the
- * seven circuits were simply absent — `getCircuitDisplayName('mdl_kr_age')`
- * fell through to returning its argument, and the history screens showed
- * people the raw string `mdl-kr-age`.
+ * compile until it has a name and an icon here. Before that, three circuits
+ * were simply absent — the display-name lookup fell through to returning its
+ * argument, and the history screens showed people a raw route id.
  *
  * Keyed by the CANONICAL id only. A legacy route id is translated on the way
  * in, which is why there is no second row per circuit here — the duplicated
@@ -22,9 +21,6 @@ const CIRCUIT_ICONS: Readonly<Record<CircuitName, string>> = {
   oidc_domain_attestation: 'shield',
   giwa_attestation: 'user',
   dojang_playground: 'user',
-  mdl_kr_ownership: 'credit-card',
-  mdl_kr_age: 'credit-card',
-  mdl_kr_region: 'credit-card',
 };
 
 const CIRCUIT_DISPLAY_NAMES: Readonly<Record<CircuitName, string>> = {
@@ -33,9 +29,6 @@ const CIRCUIT_DISPLAY_NAMES: Readonly<Record<CircuitName, string>> = {
   oidc_domain_attestation: 'OIDC Domain',
   giwa_attestation: 'GIWA KYC (Experimental)',
   dojang_playground: 'Dojang Playground',
-  mdl_kr_ownership: 'Korea Mobile ID — Ownership',
-  mdl_kr_age: 'Korea Mobile ID — Age',
-  mdl_kr_region: 'Korea Mobile ID — Region',
 };
 
 /*

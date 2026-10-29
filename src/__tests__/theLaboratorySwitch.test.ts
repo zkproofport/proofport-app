@@ -24,26 +24,26 @@ jest.mock('../utils/circuitDownload', () => ({downloadCircuitFiles: jest.fn()}))
 
 import * as fs from 'fs';
 import * as path from 'path';
-import {ALL_CIRCUIT_IDS, MAIN_BRANCH_CIRCUIT_IDS, SUPPORTED_CIRCUIT_IDS} from '../config/circuitIds';
+import {ALL_CIRCUIT_IDS} from '../config/circuitIds';
 import {isLaboratoryCircuit} from '../screens/proof/proofCatalog';
 import {laboratoryRequestGate, LABORATORY_CIRCUIT_IDS} from '../utils/laboratory';
 
 const SRC = path.resolve(__dirname, '..');
 const SETTINGS_KEY = '@zkproofport:settings:app';
-const LAB = ['giwa_attestation', 'dojang_playground', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'];
+const LAB = ['giwa_attestation', 'dojang_playground'];
 const HOME = ['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation'];
 
 beforeEach(() => {mockDisk.clear(); mockReadFailure = false;});
 
 describe('which circuits the Laboratory switch covers', () => {
-  it('is the catalog surface: exactly the five lab proofs', () => {
+  it('is the catalog surface: exactly the GIWA and Dojang Playground proofs', () => {
     expect([...LABORATORY_CIRCUIT_IDS].sort()).toEqual([...LAB].sort());
     for (const id of LAB) expect(isLaboratoryCircuit(id)).toBe(true);
     for (const id of HOME) expect(isLaboratoryCircuit(id)).toBe(false);
     expect([...LAB, ...HOME].sort()).toEqual([...ALL_CIRCUIT_IDS].sort());
   });
 
-  it.each(['unknown_circuit', '', '__proto__', 'constructor', 'toString', 'giwa-kyc', 'mdl-kr-age', 'GIWA_ATTESTATION', ' giwa_attestation', '기와', '<script>'])(
+  it.each(['unknown_circuit', '', '__proto__', 'constructor', 'toString', 'giwa-kyc', 'mdl-kr-age', 'mdl_kr_age', 'mdl_kr_ownership', 'mdl_kr_region', 'GIWA_ATTESTATION', ' giwa_attestation', '기와', '<script>'])(
     'throws for %j instead of answering "not a lab proof"', id => {
       expect(() => isLaboratoryCircuit(id)).toThrow(`Unknown circuit '${id}' in the proof catalog.`);
     });
@@ -69,7 +69,7 @@ describe('the deep-link gate', () => {
   it.each(['true', 1, 'yes', {}, [], null])('treats a corrupt stored value %j as off', async value => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     mockDisk.set(SETTINGS_KEY, JSON.stringify({laboratoryEnabled: value}));
-    expect(await laboratoryRequestGate('mdl_kr_age')).toMatchObject({allowed: false, code: 'E1008'});
+    expect(await laboratoryRequestGate('dojang_playground')).toMatchObject({allowed: false, code: 'E1008'});
     (console.log as jest.Mock).mockRestore();
   });
 
@@ -85,8 +85,9 @@ describe('the deep-link gate', () => {
     });
   });
 
-  it('rejects an id that is not a circuit rather than allowing it', async () => {
-    await expect(laboratoryRequestGate('not_a_circuit' as never)).rejects.toThrow("Unknown circuit 'not_a_circuit'");
+  it.each(['not_a_circuit', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'])('rejects %s, which is not a circuit, rather than allowing it', async id => {
+    mockDisk.set(SETTINGS_KEY, JSON.stringify({laboratoryEnabled: true}));
+    await expect(laboratoryRequestGate(id as never)).rejects.toThrow(`Unknown circuit '${id}'`);
   });
 });
 
@@ -105,7 +106,7 @@ describe('a lab proof downloads its own circuit, stale or missing', () => {
   // Nothing prefetches, so the hook is the only thing that brings a cached
   // lab circuit up to date. A hook gated on "files exist" would prove with a
   // stale copy.
-  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts', 'useMdlKr.ts'])('%s fetches its circuit unconditionally', hook => {
+  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts'])('%s fetches its circuit unconditionally', hook => {
     const source = fs.readFileSync(path.join(SRC, 'hooks', hook), 'utf8');
     expect(source).toMatch(/\n\s*await circuitFilesForProof\(CIRCUIT_NAME,/);
     expect(source).not.toContain('allCircuitFilesExist');

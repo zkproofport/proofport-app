@@ -17,7 +17,6 @@ import {Icon, Badge, Button, Card} from '../../components/ui';
 import {useError, useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useLogs} from '../../hooks';
-import {useMdlKr} from '../../hooks/useMdlKr';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, isCircuitId, type CircuitName} from '../../config';
 import {findGiwaAttestationTransaction, findDojangPlaygroundIssuance, getCircuitDisplayName} from '../../utils';
@@ -34,13 +33,6 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofCompl
  * names now come from `getCircuitDisplayName` — one table, so there is nothing
  * left to disagree with.
  */
-
-/** The mDL predicate each Korea Mobile ID circuit proves; the hook takes it at mount. */
-const MDL_VARIANT_OF: Partial<Record<CircuitName, 'ownership' | 'age' | 'region'>> = {
-  mdl_kr_ownership: 'ownership',
-  mdl_kr_age: 'age',
-  mdl_kr_region: 'region',
-};
 
 export const ProofCompleteScreen: React.FC = () => {
   const { colors: themeColors } = useThemeColors();
@@ -87,26 +79,17 @@ export const ProofCompleteScreen: React.FC = () => {
   const isDojangCircuit = canonical === 'dojang_playground';
   // Both live on GIWA Sepolia, so their link goes to its explorer, not EAS Scan.
   const onGiwaExplorer = isGiwaCircuit || isDojangCircuit;
-  const mdlVariant = canonical ? MDL_VARIANT_OF[canonical] ?? null : null;
-  const isMdlCircuit = mdlVariant !== null;
   const kycHook = useCoinbaseKyc();
   const countryHook = useCoinbaseCountry();
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
   const dojangHook = useDojangPlayground();
-  // useMdlKr requires a variant at hook init. When this screen is not
-  // serving an mDL proof, the hook still mounts (rules of hooks) but
-  // is never driven.
-  const mdlHook = useMdlKr(mdlVariant ?? 'ownership');
   const HOOK_OF_CIRCUIT = {
     coinbase_attestation: kycHook,
     coinbase_country_attestation: countryHook,
     oidc_domain_attestation: oidcHook,
     giwa_attestation: giwaHook,
     dojang_playground: dojangHook,
-    mdl_kr_ownership: mdlHook,
-    mdl_kr_age: mdlHook,
-    mdl_kr_region: mdlHook,
   } satisfies Record<CircuitName, unknown>;
   // Without a known circuit there is no proof cache to verify; on-chain
   // verification refuses below, and the Coinbase hook only fills the slot.
@@ -365,10 +348,10 @@ export const ProofCompleteScreen: React.FC = () => {
         </Card>
 
         <View style={styles.buttonsContainer}>
-          {/* OIDC and Korea mDL proofs are wallet-less / EAS-less —
-              there is no attestation address or tx to show, so hide
-              the explorer button entirely. */}
-          {!isOidcCircuit && !isMdlCircuit && (
+          {/* OIDC proofs are wallet-less / EAS-less — there is no
+              attestation address or tx to show, so hide the explorer
+              button entirely. */}
+          {!isOidcCircuit && (
             <>
               <Button
                 title={t(

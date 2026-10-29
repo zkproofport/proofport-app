@@ -175,7 +175,7 @@ describe('what is sent', () => {
   });
 
   it('sends a Korean message intact', async () => {
-    const msg = 'OmniOne CX 인증 실패: 사용자 취소 🙅 — 다시 시도해 주세요.\n\t끝';
+    const msg = '로그인 실패: 사용자 취소 🙅 — 다시 시도해 주세요.\n\t끝';
     await answerRelayRequest(req(), {status: 'error', errorCode: 'E2001', error: msg});
     expect(bodies()[0].error).toBe(msg);
   });

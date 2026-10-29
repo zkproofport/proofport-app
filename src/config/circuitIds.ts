@@ -7,10 +7,10 @@
  * They are NOT declared here. `@zkproofport-app/core/circuits` is the published
  * source of truth for the canonical `Nargo.toml` names, and this app reads its
  * list from there. Before that package existed there were twenty-four separate
- * spellings of the same seven strings scattered across this repository, and
- * they drifted: a deep link carrying `mdl_kr_age` reached the right proof flow
- * and rendered the OWNERSHIP title, because one of those lists had only ever
- * learned the hyphenated spelling.
+ * spellings of the same strings scattered across this repository, and they
+ * drifted: a deep link carrying a canonical id reached the right proof flow
+ * and rendered another proof's title, because one of those lists had only
+ * ever learned the hyphenated spelling.
  *
  * The package is `@zkproofport-app/core`, not the customer SDK
  * (`@zkproofport-app/sdk`), which re-exports the same list but adds a relay
@@ -31,7 +31,7 @@
  *
  * ## Route ids
  *
- * The hyphenated spellings (`coinbase-kyc`, `mdl-kr-age`, …) are this app's
+ * The hyphenated spellings (`coinbase-kyc`, `giwa-kyc`, …) are this app's
  * own historical navigation ids. They are NOT circuit ids and never were. They
  * survive for exactly one reason: deep links issued before the canonical
  * spelling was adopted still carry them, and a link that has already been sent
@@ -97,9 +97,6 @@ export const ROUTE_CIRCUIT_IDS: Readonly<Record<string, CircuitName>> =
     // because it is one line here versus a value that reads valid at the call
     // site and resolves to nothing.
     'oidc-domain': CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION,
-    'mdl-kr-ownership': CIRCUIT_IDS.MDL_KR_OWNERSHIP,
-    'mdl-kr-age': CIRCUIT_IDS.MDL_KR_AGE,
-    'mdl-kr-region': CIRCUIT_IDS.MDL_KR_REGION,
   });
 
 /**
@@ -108,7 +105,7 @@ export const ROUTE_CIRCUIT_IDS: Readonly<Record<string, CircuitName>> =
  *
  * Returns `undefined` for a name this app does not serve. There is no default:
  * substituting a circuit for one the caller did not ask for is how a request
- * for a Korea Mobile ID proof came back as a Coinbase KYC proof.
+ * for one proof came back as a Coinbase KYC proof.
  */
 export function canonicalCircuitId(
   id: string | null | undefined,

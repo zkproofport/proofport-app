@@ -66,6 +66,12 @@ const PUSH_HANDLE_KEY = 'openstoa.push.handle.v1';
 // a build without the mini-app registers no OS listener at all.
 if (OPENSTOA_ENABLED) startPushTapBridge(Notifications);
 
+/** The sign-in methods this host serves, and the circuit each one proves. */
+const LOGIN_CIRCUIT_OF_METHOD = Object.freeze({
+  oidc: CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION,
+}) satisfies Readonly<Record<string, CircuitName>>;
+type LoginMethod = keyof typeof LOGIN_CIRCUIT_OF_METHOD;
+
 export interface CreateZkProofportHostApiOptions {
   /**
    * Reference to the root navigation container so exitToHost() can jump
@@ -355,20 +361,19 @@ export function createZkProofportHostApi(
     /** True only after the person has been warned and chose to continue. */
     takeover = false,
   ): Promise<AuthResult> {
-    // Map the high-level method to the circuit-type the relay accepts.
-    // Both branches converge in the same proof-request -> deeplink -> poll
-    // pipeline; only the circuit changes.
-    // For mDL login we use the ownership predicate in anonymous mode
-    // (disclose_flags = 0). The resulting nullifier is the user's
-    // sybil-resistant identity for the openstoa:login scope.
+    // Map the sign-in method to the circuit-type the relay accepts. The
+    // bridge contract still names 'mdl', which this app has no circuit for:
+    // it is refused by name, never turned into another sign-in.
     // The published constants, not string literals. This value is sent over
     // HTTP and never passes through a `CircuitType` annotation, so a typo here
     // would compile, ship, and come back from the relay as a rejected login
     // with nothing pointing at the spelling.
-    const circuitType: CircuitName =
-      method === 'mdl'
-        ? CIRCUIT_IDS.MDL_KR_OWNERSHIP
-        : CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION;
+    if (!Object.prototype.hasOwnProperty.call(LOGIN_CIRCUIT_OF_METHOD, method)) {
+      throw new Error(
+        `Unknown sign-in method '${method}'. Known: ${Object.keys(LOGIN_CIRCUIT_OF_METHOD).join(', ')}.`,
+      );
+    }
+    const circuitType: CircuitName = LOGIN_CIRCUIT_OF_METHOD[method as LoginMethod];
 
     // Match the web ProofGate behavior for login: only specify circuitType.
     // Do NOT send `provider`/`domain` — the web's `<ProofGate circuitType=

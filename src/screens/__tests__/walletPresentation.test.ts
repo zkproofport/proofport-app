@@ -129,7 +129,7 @@ describe('wallet presentation preserves the binding and live-session distinction
     expect(textOf(findNode('wallet-binding-dojang'))).toContain('Dojang Playground');
     const coinbase = textOf(findNode('wallet-binding-coinbase'));
     for (const name of ['Coinbase KYC', 'Coinbase Country']) expect(coinbase).toContain(name);
-    expect(textOf(screen!.root)).not.toMatch(/OIDC Domain|Korea Mobile ID/);
+    expect(textOf(screen!.root)).not.toMatch(/OIDC Domain/);
   });
 
   it.each([false, 'true', undefined])('hides the Laboratory-only GIWA and Dojang wallets while the Laboratory is %j, keeping Coinbase', async laboratory => {

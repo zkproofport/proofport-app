@@ -1,11 +1,10 @@
 /**
  * Checking a proof this phone generated, in one place for every proof hook.
  *
- * Six hooks (Coinbase KYC, Coinbase Country, GIWA, Korea mDL, OIDC domain,
- * Dojang playground) used to carry their own copy of both checks below. The
- * copies had already drifted in what they logged, and an on-chain check that
- * is written six times is a chain or contract lookup that can go wrong six
- * different ways.
+ * Every proof hook (Coinbase KYC, Coinbase Country, GIWA, OIDC domain, Dojang
+ * playground) used to carry its own copy of both checks below. The copies had
+ * already drifted in what they logged, and an on-chain check written once per
+ * hook is a chain or contract lookup that can go wrong once per hook.
  *
  * - Off-chain stays on mopro: it is the prover that produced the proof, with
  *   the same circuit, VK and hash, so it answers "did the phone make a proof
@@ -282,11 +281,12 @@ export async function verifyProofOnChainWithCore(
     //
     // Exception: a circuit read from a pinned circuits commit
     // (circuitArtifacts.ts -- Coinbase KYC v2, and OIDC with the provider-key
-    // statement) is not in core's table yet; core 0.3.0 still pins the v1
-    // Coinbase verifier, which rejects every v2 proof, and the OIDC verifier
-    // of the circuit before the statement, which rejects every proof of the
-    // new one. Its contract is the one this app configures for it, named
-    // explicitly. Remove with the artifact row once core pins v2.
+    // statement) is checked against the contract this app configures for it,
+    // named explicitly. Core 0.4.0-beta.0 pins the v1 Coinbase verifier, which
+    // rejects every v2 proof; for OIDC core pins the same contract the app
+    // configures, and an Android proof needs its own package's contract
+    // (variantVerifiers.ts), which core's standard row is not. Remove with the
+    // artifact row once the pinned release carries both circuits.
     const target = circuitArtifactSource(circuit)
       ? {address: verifierAddress, chainId: network.chainId, abi: VERIFIER_ABI}
       : {chainId: network.chainId};

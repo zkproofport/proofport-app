@@ -2,7 +2,7 @@ import {ALL_CIRCUIT_IDS, isCircuitId, type CircuitName} from '../config/circuitI
 import type {ProofRequest} from './deeplink';
 
 export type ProofRequestPresentationIcon =
-  | 'organization' | 'identity' | 'country' | 'document' | 'id-card' | 'age' | 'region';
+  | 'organization' | 'identity' | 'country' | 'document';
 export interface ProofRequestPresentation {
   icon: ProofRequestPresentationIcon;
   title: string;
@@ -12,8 +12,7 @@ export interface ProofRequestPresentation {
   private: string;
 }
 type Translate = (key: string, options?: Record<string, unknown>) => string;
-type ConditionField = 'domain' | 'provider' | 'countryList' | 'isIncluded'
-  | 'discloseFlags' | 'ageThreshold' | 'currentYear' | 'targetRegion';
+type ConditionField = 'domain' | 'provider' | 'countryList' | 'isIncluded';
 interface PresentationDefinition {
   icon: ProofRequestPresentationIcon;
   section: string;
@@ -29,20 +28,13 @@ const PRESENTATIONS = {
   coinbase_country_attestation: {icon: 'country', section: 'country', fields: ['countryList', 'isIncluded']},
   giwa_attestation: {icon: 'identity', section: 'giwa', fields: [], requirement: 'giwa.requirement'},
   dojang_playground: {icon: 'identity', section: 'dojangPlayground', fields: [], requirement: 'dojangPlayground.requirement'},
-  mdl_kr_ownership: {icon: 'id-card', section: 'ownership', fields: ['discloseFlags'], requirement: 'ownership.requirement'},
-  mdl_kr_age: {icon: 'age', section: 'age', fields: ['ageThreshold', 'currentYear']},
-  mdl_kr_region: {icon: 'region', section: 'region', fields: ['targetRegion']},
 } satisfies Record<CircuitName, PresentationDefinition>;
 
 const FIELD_LABELS: Record<ConditionField, string> = {
   domain: 'organization', provider: 'provider', countryList: 'countries', isIncluded: 'countryRule',
-  discloseFlags: 'disclosures', ageThreshold: 'ageThreshold', currentYear: 'currentYear', targetRegion: 'targetRegion',
 };
 // These remain available in the original-input/typed-action review cards.
 const TECHNICAL_FIELDS = new Set(['scope', 'scopeString', 'action', 'rawTransaction', 'signalHash', 'metadata']);
-// The circuit uses these exact NAME/BIRTH/SEX/TELNO bits; do not import mdlKr's
-// prover/crypto dependency graph into a presentation-only module.
-const DISCLOSURES = [[1, 'name'], [2, 'birth'], [4, 'sex'], [8, 'telno']] as const;
 const PROVIDERS: Readonly<Record<string, string>> = Object.freeze({google: 'google', microsoft: 'microsoft'});
 const PREFIX = 'host.proofRequest.presentation.';
 
@@ -69,13 +61,8 @@ function conditionValue(field: ConditionField, value: unknown, t: Translate): un
   if (field === 'isIncluded' && typeof value === 'boolean') {
     return t(PREFIX + (value ? 'values.countryIncluded' : 'values.countryExcluded'));
   }
-  if (field === 'discloseFlags' && typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 15) {
-    if (value === 0) return t(PREFIX + 'values.noAttributes');
-    return DISCLOSURES.filter(([bit]) => (value & bit) !== 0)
-      .map(([, attribute]) => t(PREFIX + 'attributes.' + attribute)).join(' · ');
-  }
-  // Display unexpected types and out-of-range flags verbatim. This module does
-  // not validate, coerce, mask flags, infer missing values, or change a request.
+  // Display unexpected types verbatim. This module does not validate, coerce,
+  // infer missing values, or change a request.
   return value;
 }
 

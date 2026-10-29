@@ -50,7 +50,7 @@ describe('one row per wallet, not per circuit', () => {
   });
 
   it('shows no row for a flow that never reads a wallet', () => {
-    for (const c of ['oidc_domain_attestation', 'mdl_kr_age'] as const) {
+    for (const c of ['oidc_domain_attestation'] as const) {
       expect(CIRCUIT_BINDS_A_WALLET[c]).toBe(false);
       expect(rows).not.toContain(c);
     }

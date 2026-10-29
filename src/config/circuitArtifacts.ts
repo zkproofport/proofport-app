@@ -33,8 +33,8 @@
  * branch: a branch moves under an installed app. useOidcDomain also refuses a
  * file set whose ABI is not this circuit's (requireOidcAbi), which the
  * public-input count (214 either way) cannot tell apart. Verifier: Base
- * Sepolia 0xeA5933AB...84e8 (circuits 7e5c72d). Remove the row when that
- * circuit is in the release this app pins and in core's table.
+ * Sepolia 0xeA5933AB...84e8 (circuits 7e5c72d), which core 0.4.0-beta.0
+ * pins. Remove the row when that circuit is in the release this app pins.
  *
  * PER SIGNER. Both ids are proved by a different circuit on Android: the
  * statement is vouched for by Android key attestation instead of App Attest,

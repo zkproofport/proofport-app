@@ -11,20 +11,24 @@
 jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 
 import {ethers} from 'ethers';
-import {getPinnedVerifier, OIDC_PUBLIC_INPUT_COUNT as CORE_OIDC_PUBLIC_INPUT_COUNT} from '@zkproofport-app/core';
-import {ALL_CIRCUIT_IDS} from '../circuitIds';
+import {
+  getPinnedVerifier,
+  OIDC_PUBLIC_INPUT_COUNT as CORE_OIDC_PUBLIC_INPUT_COUNT,
+  PINNED_VARIANT_VERIFIERS,
+} from '@zkproofport-app/core';
+import {ALL_CIRCUIT_IDS, type CircuitName} from '../circuitIds';
 import {CIRCUIT_NETWORKS, FALLBACK_VERIFIERS} from '../contracts';
 import type {Environment} from '../contracts';
 import {OIDC_PUBLIC_INPUT_COUNT} from '../../utils/oidcDomain';
 import {hasPinnedArtifactSource} from '../circuitArtifacts';
 
-// Coinbase KYC v2 and OIDC with the provider-key statement are read from
-// pinned circuits commits on this branch and are not in core 0.3.0's table
-// (core still pins the v1 Coinbase verifier and the OIDC verifier from before
-// the statement). Their rows are held below to their own deploys instead;
-// drop this when core pins them.
-const IN_CORE = ALL_CIRCUIT_IDS.filter(c => !hasPinnedArtifactSource(c));
-const NOT_IN_CORE = ALL_CIRCUIT_IDS.filter(c => hasPinnedArtifactSource(c));
+// Coinbase KYC v2 is the one circuit core does not pin: core's
+// coinbase_attestation rows are the v1 contracts, which reject every v2 proof.
+// Its rows are held below to their own deploys. Every other circuit -- OIDC
+// with the provider-key statement included, since core 0.4.0-beta.0 -- is
+// held to core's table.
+const NOT_IN_CORE: readonly CircuitName[] = ['coinbase_attestation'];
+const IN_CORE = ALL_CIRCUIT_IDS.filter(c => !NOT_IN_CORE.includes(c));
 
 const ENVS: Environment[] = ['development', 'staging', 'production'];
 
@@ -70,9 +74,10 @@ describe('every environment resolves every circuit through core', () => {
   });
 });
 
-describe('circuits read from a pinned commit, not yet in core', () => {
-  it('is exactly Coinbase KYC v2 and OIDC, so the exemption above cannot grow silently', () => {
-    expect(NOT_IN_CORE).toEqual(['coinbase_attestation', 'oidc_domain_attestation']);
+describe('the circuit core does not pin', () => {
+  it('is only Coinbase KYC v2, and it is read from a pinned commit', () => {
+    expect(NOT_IN_CORE).toEqual(['coinbase_attestation']);
+    for (const c of NOT_IN_CORE) expect(hasPinnedArtifactSource(c)).toBe(true);
   });
 
   it('never names the v1 contract core still pins, on any chain it pins', () => {
@@ -114,19 +119,18 @@ describe('OIDC v2: the app and core agree on the circuit', () => {
 
 /*
  * The Android packages' verifiers (src/config/variantVerifiers.ts). The
- * published core (0.3.0) has no per-variant table; core's android-signature
- * branch (abf5291) pins the OIDC ones in PINNED_VARIANT_VERIFIERS. When that
- * source is checked out beside this app (the parent repository's
- * proofport-app-sdk submodule), the rows are held to it; the Coinbase rows,
- * which core does not pin, are held to the circuits repository's own
- * deployment records. CI checks out this app alone: there these two read
- * nothing and the literal rows below stand.
+ * published core (0.4.0-beta.0) pins the OIDC ones in PINNED_VARIANT_VERIFIERS
+ * and the rows are held to it. When core's source is checked out beside this
+ * app (the parent repository's proofport-app-sdk submodule), they are held to
+ * that too; the Coinbase rows, which core does not pin, are held to the
+ * circuits repository's own deployment records. CI checks out this app alone:
+ * there those two read nothing and the published-core case still runs.
  */
 describe('Android package verifiers', () => {
   /* eslint-disable @typescript-eslint/no-var-requires */
   const fs = require('node:fs');
   const path = require('node:path');
-  const {ANDROID_VARIANT_VERIFIERS, androidVerifierFor, AndroidVerifierMissingError} = require('../variantVerifiers');
+  const {androidVerifierFor, AndroidVerifierMissingError} = require('../variantVerifiers');
   const {FALLBACK_VERIFIERS: FALLBACK} = require('../contracts');
   /* eslint-enable @typescript-eslint/no-var-requires */
   const PARENT = path.join(__dirname, '..', '..', '..', '..');
@@ -176,6 +180,16 @@ describe('Android package verifiers', () => {
     expect(() => androidVerifierFor('oidc_domain_attestation', 'mainnet', 'android')).toThrow(/Unknown environment 'mainnet'/);
     expect(() => androidVerifierFor('coinbase_country_attestation', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
     expect(() => androidVerifierFor('__proto__', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
+  });
+
+  it("the OIDC rows are the published core's PINNED_VARIANT_VERIFIERS, on Base Sepolia and Base mainnet", () => {
+    for (const v of VARIANTS) {
+      const rows = PINNED_VARIANT_VERIFIERS[v].oidc_domain_attestation;
+      expect([v, rows?.[84532]?.address]).toEqual([v, EXPECTED[v].oidc_domain_attestation]);
+      expect([v, rows?.[8453]?.address]).toEqual([v, MAINNET[v].oidc_domain_attestation]);
+      expect(androidVerifierFor('oidc_domain_attestation', 'staging', v).address.toLowerCase()).toBe(rows?.[84532]?.address);
+      expect(androidVerifierFor('oidc_domain_attestation', 'production', v).address.toLowerCase()).toBe(rows?.[8453]?.address);
+    }
   });
 
   const coreSource = path.join(PARENT, 'proofport-app-sdk', 'packages', 'core', 'src', 'pinnedVerifiers.generated.ts');

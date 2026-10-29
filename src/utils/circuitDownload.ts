@@ -179,7 +179,7 @@ function isPinnedRelease(env: Environment): boolean {
  * Which ref THIS circuit reads from. One answer, three readers.
  *
  * Circuits that are not officially supported -- the experimental and planned
- * ones (GIWA, the three Korea mDL predicates) -- exist only on main, never in
+ * ones (GIWA, the Dojang Playground) -- exist only on main, never in
  * a release tag, so they are always fetched from main regardless of
  * environment. Asking for the derived list rather than naming them is what
  * stops the next circuit from being forgotten here; one experimental circuit

@@ -61,7 +61,6 @@ jest.mock('../../hooks', () => ({
   useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
   useLogs: jest.requireActual('../../hooks/useLogs').useLogs,
 }));
-jest.mock('../../hooks/useMdlKr', () => ({useMdlKr: () => mockProofHook()}));
 jest.mock('../../stores', () => ({
   proofHistoryStore: {update: (...a: unknown[]) => mockUpdate(...a), getAll: (...a: unknown[]) => mockGetAll(...a), remove: jest.fn()},
   settingsStore: {get: () => mockSettingsGet()},

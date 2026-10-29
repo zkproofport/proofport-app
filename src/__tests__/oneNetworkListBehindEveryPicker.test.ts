@@ -26,7 +26,7 @@ describe('one network list behind every picker', () => {
   });
 
   it('offers every configured row, "Other" included', () => {
-    expect(NETWORK_CATEGORIES.map((n) => n.id)).toEqual(['base', 'giwa', 'omnione', OTHER_NETWORK]);
+    expect(NETWORK_CATEGORIES.map((n) => n.id)).toEqual(['base', 'giwa', OTHER_NETWORK]);
   });
 
   it('every row names circuits, and "Other" holds the chainless one', () => {
@@ -39,5 +39,6 @@ describe('one network list behind every picker', () => {
 
   it('refuses an unknown network instead of answering with an empty list', () => {
     expect(() => circuitsForCategory('solana')).toThrow(/Unknown network category 'solana'/);
+    expect(() => circuitsForCategory('omnione')).toThrow(/Unknown network category 'omnione'/);
   });
 });

@@ -10,7 +10,7 @@ React Native mobile app for generating zero-knowledge proofs on mobile devices u
 - **Microsoft 365 Support**: Authenticate with Microsoft 365 organizational accounts
 - **QR-based Deep Linking**: Scan QR codes to receive proof requests from external dApps
 - **Proof Home**: Search and filter organization account, Coinbase KYC, and country proofs, with a direct QR scanner entry
-- **Laboratory**: Active GIWA, Dojang Playground and Korean mobile ID ownership, age, and region proof flows
+- **Laboratory**: GIWA and Dojang Playground proof flows
 - **Request Review**: Review incoming proof conditions and read-only EIP-712 action keys and values before continuing to signing and generation
 - **Wallet Integration**: Connect external wallets over WalletConnect (Reown AppKit)
 - **Proof History**: Persistent storage and viewing of generated proofs
@@ -137,7 +137,7 @@ The app uses a bottom tab navigation with 5 main sections:
 
 1. **Proof** (ProofStackNavigator)
    - Proof Home: Search and filter organization account, Coinbase KYC, and country proofs; open the QR scanner
-   - Laboratory: GIWA, Dojang Playground and Korean mobile ID proofs, shown when Laboratory is turned on in More
+   - Laboratory: GIWA and Dojang Playground proofs, shown when Laboratory is turned on in More
    - Input Screens: Standalone proof parameters; manual action entry is limited to standalone testing
    - Proof Generation: Generate ZK proof
    - Proof Complete: Show success and proof data
@@ -163,7 +163,7 @@ The app uses a bottom tab navigation with 5 main sections:
 
 The app receives proof requests from external dApps via the `proofport://` URI scheme.
 
-Incoming requests, including Korean mobile ID, open a full-screen review before proof generation. The review shows circuit-specific conditions and disclosure summaries. When the dApp includes an EIP-712 action, a compact card displays its primary type; its chevron opens a separate message view with the original field names and values in rows. Nested objects, arrays, domain fields, type definitions, and request metadata can be expanded without displaying serialized JSON. Values are not converted into token amounts or interpreted as a particular business operation. The app passes the reviewed request to the existing signing flow; it does not ask the user to recreate the dApp's inputs.
+Incoming requests open a full-screen review before proof generation. The review shows circuit-specific conditions and disclosure summaries. When the dApp includes an EIP-712 action, a compact card displays its primary type; its chevron opens a separate message view with the original field names and values in rows. Nested objects, arrays, domain fields, type definitions, and request metadata can be expanded without displaying serialized JSON. Values are not converted into token amounts or interpreted as a particular business operation. The app passes the reviewed request to the existing signing flow; it does not ask the user to recreate the dApp's inputs.
 
 The callback address identifies where the proof will be delivered, not a verified website identity. Expired and unsupported requests cannot be accepted, and rejecting a request retains the existing cancellation callback and return-to-requester flow.
 
@@ -246,7 +246,7 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
    - A wallet with no such issuance gets error E2007; an explorer or RPC failure is
      E3002, never "no issuance".
    - Verification network: GIWA Sepolia (chain 91342), verifier
-     `0x2d01C2fE3445B7DDE60118f956BB14E84Fd64724`.
+     `0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816`.
    - Unit fixtures: `scripts/make-dojang-playground-fixtures.py` rewrites
      `src/utils/__tests__/fixtures/dojangPlayground.json` from the circuits repo's
      Prover.toml files and the GIWA RPC.

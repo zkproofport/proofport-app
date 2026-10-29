@@ -240,18 +240,11 @@ export async function syncDeployments(env: Environment): Promise<boolean> {
   /*
    * Derived from BROADCAST_PATHS, never typed out here.
    *
-   * `giwa_attestation` is still excluded, and deliberately: its path is `null`
-   * because the PoC verifier address is pinned in FALLBACK_VERIFIERS.
-   *
-   * The three `mdl_kr_*` circuits were excluded too, and that was NOT
-   * deliberate — nothing said so, and the comment that used to sit here
-   * explained only the GIWA case. All three have had a published broadcast
-   * JSON since the day they were deployed (checked 2026-09-04: every
-   * `DeployMdlKr*.s.sol/84532/run-latest.json` answers 200 on circuits@main,
-   * with HonkVerifier addresses equal to the pinned fallbacks), so the effect
-   * was that a redeploy of any mDL verifier would never have reached a device.
-   * A hand-written list is exactly the shape that goes stale when a circuit is
-   * added; this one cannot.
+   * A circuit whose path is `null` there is excluded deliberately, and the
+   * reason sits beside its row. A hand-written list used to sit here and left
+   * out circuits that had a published broadcast JSON all along, so a redeploy
+   * of their verifiers never reached a device. A hand-written list is exactly
+   * the shape that goes stale when a circuit is added; this one cannot.
    */
   const circuits: ReadonlyArray<CircuitName> = CIRCUITS_WITH_BROADCAST;
   let updated = false;

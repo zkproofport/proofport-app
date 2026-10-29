@@ -9,9 +9,6 @@
     "back": "뒤로"
   },
   "shared": {
-    "webView": {
-      "mobileIdAuth": "모바일 신분증 인증"
-    },
     "tagline": "영지식 증명 생성"
   },
   "host": {
@@ -38,13 +35,11 @@
       "defaultNetwork": "기본 네트워크",
       "networkBase": "Base",
       "networkGiwa": "기와 테스트넷",
-      "networkOmniOne": "OmniOne 체인 테스트넷",
       "autoSaveProofs": "증명 이력 남기기",
       "confirmBeforeGenerate": "생성 전 확인",
       "laboratoryEnabled": "실험실",
-      "laboratoryEnabledHint": "증명 탭에 GIWA, Dojang, 한국 모바일 신분증 증명을 보여 줍니다.",
+      "laboratoryEnabledHint": "증명 탭에 GIWA, Dojang 증명을 보여 줍니다.",
       "showLiveLogs": "라이브 로그 표시",
-      "useOmniOneCxUi": "OmniOne CX UI 사용",
       "exportProofHistory": "증명 기록 내보내기",
       "clearLocalData": "증명 기록 삭제",
       "exportTitle": "증명 기록 내보내기",
@@ -266,61 +261,7 @@
         "oidcDomain": {
           "title": "OIDC 도메인",
           "description": "이메일 도메인 소속을 증명해요"
-        },
-        "mdlKr": {
-          "title": "한국 모바일 신분증",
-          "description": "OmniOne CX로 모바일 운전면허/주민등록증을 검증해요"
-        },
-        "mdlKrOwnership": {
-          "title": "소유권",
-          "description": "이름·생년월일·전화번호 묶음 commitment로 본인 소유권을 증명해요"
-        },
-        "mdlKrAge": {
-          "title": "나이",
-          "description": "만 19세 이상임을 증명해요 (완전 익명)"
-        },
-        "mdlKrRegion": {
-          "title": "지역",
-          "description": "거주 지역을 증명해요 (완전 익명)"
         }
-      },
-      "mdlKrInput": {
-        "heroLabel": {
-          "ownership": "소유권 증명",
-          "age": "나이 증명",
-          "region": "거주지 증명"
-        },
-        "heroTitle": {
-          "ownership": "증명할 속성을 선택하세요",
-          "age": "증명할 최소 나이를 정하세요",
-          "region": "거주를 증명할 시/도를 고르세요"
-        },
-        "heroDescription": {
-          "ownership": "체크한 항목만 owner_commit에 포함됩니다. 아무것도 체크하지 않으면 익명 증명입니다.",
-          "age": "회로는 (현재 연도 {{currentYear}} - 출생 연도) >= 입력값 인지 검증합니다.",
-          "region": "회로는 OmniOne CX 주소의 첫 토큰이 선택한 시/도와 일치하는지 검증합니다."
-        },
-        "docTypeLabel": "모바일 신분증 종류",
-        "docDriver": "모바일 운전면허증",
-        "docResident": "모바일 주민등록증",
-        "docVeteran": "모바일 국가보훈등록증",
-        "docAlien": "외국인등록증",
-        "docCancel": "취소",
-        "ownershipFlagsLabel": "증명할 속성 (disclose_flags = 0x{{flags}})",
-        "ownershipFlagsHint": "체크한 항목에 직접 값을 입력하세요. 회로는 입력값과 mDL의 실제 값이 같은지 검증합니다.",
-        "attrName": "이름",
-        "attrBirth": "생년월일",
-        "attrSex": "성별",
-        "attrTelno": "전화번호",
-        "placeholderName": "예: 홍길동",
-        "placeholderBirth": "YYYYMMDD",
-        "placeholderSex": "M / F",
-        "placeholderTelno": "01012345678",
-        "ageThresholdLabel": "최소 나이 (age_threshold)",
-        "ageHint": "current_year = {{currentYear}}, age_threshold = {{threshold}}",
-        "ageInputHint": "0..150 사이 정수를 입력하세요",
-        "regionLabel": "시 / 도",
-        "continueButton": "계속"
       },
       "country": {
         "heroLabel": "국가 인증",
@@ -373,12 +314,6 @@
         "coinbaseKycTitle": "Coinbase KYC 인증",
         "giwaKycTitle": "기와 KYC 인증",
         "giwaKycDescription": "기와 Sepolia에 발급된 KYC attestation을 영지식 증명으로 생성합니다. 지갑 탭에서 기와 테스트넷 지갑 주소를 핀해 두세요.",
-        "mdlKrOwnershipTitle": "한국 모바일 신분증 — 소유권",
-        "mdlKrOwnershipDescription": "OmniOne CX로 한국 모바일 운전면허증의 본인 소유권을 증명해요. 이름·생년월일·성별·전화번호를 묶음 commitment 하나로 만들어, 개별 항목은 on-chain에 노출되지 않습니다.",
-        "mdlKrAgeTitle": "한국 모바일 신분증 — 나이",
-        "mdlKrAgeDescription": "한국 모바일 신분증으로 만 19세 이상임을 증명해요. 완전 익명 — 어떤 개인 정보도 commitment에 포함되지 않습니다.",
-        "mdlKrRegionTitle": "한국 모바일 신분증 — 지역",
-        "mdlKrRegionDescription": "한국 모바일 신분증으로 거주 지역(예: 경기도)을 증명해요. 완전 익명 — 어떤 개인 정보도 commitment에 포함되지 않습니다.",
         "oidcDescription": "OIDC 신원 토큰을 사용해 이메일 도메인의 영지식 증명을 생성해요. 증명은 기기에서 로컬로 생성됩니다.",
         "coinbaseCountryDescription": "개인 정보를 공개하지 않고 Coinbase를 통해 국가 인증의 영지식 증명을 생성해요.",
         "coinbaseKycDescription": "개인 정보를 전혀 공개하지 않고 Coinbase 신원 인증의 영지식 증명을 생성해요.",
@@ -562,27 +497,11 @@
         "description": "실제 자격 인증과 구분되는 테스트 기능입니다.",
         "turnedOff": "실험실이 꺼져 있습니다. 더보기에서 켜면 이 증명들을 쓸 수 있습니다.",
         "networks": "네트워크 증명",
-        "mobileId": "한국 모바일 신분증",
         "giwa": {
           "title": "KYC 테스트",
           "description": "GIWA 테스트넷의 신원 인증 증명과 동작 서명을 테스트해요",
           "provider": "GIWA 테스트넷 · 모의 인증 데이터",
           "sectionTitle": "GIWA"
-        },
-        "ownership": {
-          "title": "신분증 보유",
-          "description": "모바일 신분증에서 증명할 속성을 선택해요",
-          "provider": "한국 모바일 신분증"
-        },
-        "age": {
-          "title": "나이 조건",
-          "description": "설정한 최소 나이 조건을 충족하는지 증명해요",
-          "provider": "한국 모바일 신분증"
-        },
-        "region": {
-          "title": "거주 지역",
-          "description": "선택한 시·도에 거주하는지 증명해요",
-          "provider": "한국 모바일 신분증"
         },
         "heroTitle": "테스트용 증명을 살펴보세요",
         "beta": "베타",
@@ -650,10 +569,6 @@
           "provider": "인증 제공자",
           "countries": "대상 국가 (국가 코드)",
           "countryRule": "국가 조건",
-          "disclosures": "해시로 일치 여부를 확인할 항목",
-          "ageThreshold": "최소 연령 (세·출생연도 기준)",
-          "currentYear": "연령 계산 기준 연도",
-          "targetRegion": "거주 지역 조건",
           "userAddress": "인증 지갑",
           "additional": "추가 요청 데이터: {{field}}"
         },
@@ -665,18 +580,11 @@
           "domainAccount": "{{domain}} 계정 보유",
           "countryIncluded": "인증 국가가 목록에 포함됨",
           "countryExcluded": "인증 국가가 목록에 포함되지 않음",
-          "noAttributes": "개인정보 항목 선택 없음",
           "unknownProvider": "지원하지 않는 인증 제공자: {{provider}}"
         },
         "providers": {
           "google": "Google Workspace 계정",
           "microsoft": "Microsoft 365 계정"
-        },
-        "attributes": {
-          "name": "이름 일치",
-          "birth": "생년월일 일치",
-          "sex": "성별 일치",
-          "telno": "전화번호 일치"
         },
         "oidc": {
           "title": "조직 계정을 증명해주세요",
@@ -699,22 +607,6 @@
           "requirement": "GIWA 인증 지갑 보유",
           "shared": "GIWA 조건 충족 여부 · 참여용 식별값 · 작업 요청 시 작업과 도메인의 해시값",
           "private": "KYC 개인정보 · 지갑 서명 원문"
-        },
-        "ownership": {
-          "title": "모바일 신분증 보유를 증명해주세요",
-          "requirement": "모바일 신분증 보유 조건",
-          "shared": "보유 조건 충족 여부 · 참여용 식별값 · 선택 항목 표시와 해시값",
-          "private": "신분증 원문 · 개인 식별정보(CI)"
-        },
-        "age": {
-          "title": "연령 조건을 증명해주세요",
-          "shared": "연령 조건 충족 여부 · 최소 연령과 기준 연도 · 참여용 식별값",
-          "private": "생년월일 · 개인 식별정보(CI)"
-        },
-        "region": {
-          "title": "거주 지역 조건을 증명해주세요",
-          "shared": "지역 조건 충족 여부 · 요청 지역의 해시값 · 참여용 식별값",
-          "private": "상세 주소 · 개인 식별정보(CI)"
         },
         "dojangPlayground": {
           "title": "Dojang Playground 발급을 증명해주세요",
@@ -805,10 +697,6 @@
       "E2012": {
         "title": "이 요청의 로그인이 아닙니다",
         "description": "로그인 응답이 이 요청에 대해 발급되지 않아 증명을 생성하지 않았습니다. 다시 로그인해 주세요."
-      },
-      "E2013": {
-        "title": "신분증 종류를 받지 않음",
-        "description": "이 인증 경로에서 선택한 신분증 종류를 받지 않았습니다. 증명은 생성되지 않았습니다. 다시 시도하거나 다른 신분증 종류를 선택해 주세요."
       },
       "E2014": {
         "title": "App Attest 확인에 실패했습니다",
@@ -969,8 +857,7 @@
     },
     "signIn": {
       "method": {
-        "oidc": "Google로 로그인",
-        "mdl": "모바일 신분증으로 로그인"
+        "oidc": "Google로 로그인"
       }
     },
     "welcome": {

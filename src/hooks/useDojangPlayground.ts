@@ -127,7 +127,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
       addLog('=== Starting Dojang Playground Proof Generation ===');
 
       try {
-        // Always, as useMdlKr does -- see the same line in useGiwaKyc.
+        // Always -- see the same line in useGiwaKyc.
         await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         updateStep('vk', {status: 'in_progress'});

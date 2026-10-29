@@ -38,12 +38,6 @@ const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
   // necessarily the one the GIWA mock attester registered.
   dojang_playground: 'dojang',
   oidc_domain_attestation: 'oidc',
-  // Korea mDL is a web2 (OmniOne CX) flow with no wallet binding.
-  // All three predicate circuits share one group so the wallet gate is
-  // a no-op (no wallet is ever stored for them).
-  mdl_kr_ownership: 'mdl_kr',
-  mdl_kr_age: 'mdl_kr',
-  mdl_kr_region: 'mdl_kr',
 };
 
 /**
@@ -67,10 +61,6 @@ export const CIRCUIT_BINDS_A_WALLET = {
   dojang_playground: true,
   // The signature is inside the OIDC identity token. No wallet is read.
   oidc_domain_attestation: false,
-  // Web2 (OmniOne CX) flows with no wallet at all.
-  mdl_kr_ownership: false,
-  mdl_kr_age: false,
-  mdl_kr_region: false,
 } satisfies Record<CircuitName, boolean>;
 
 export function walletGroupKey(circuit: CircuitName): CircuitName {

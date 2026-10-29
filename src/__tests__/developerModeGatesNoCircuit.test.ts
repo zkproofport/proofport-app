@@ -1,8 +1,8 @@
 /**
  * Developer Mode is for developer tools — live logs, the kept proof log and
  * the OpenStoa switch —
- * and decides nothing about circuits. It used to hide the GIWA and Korea
- * Mobile ID networks, their wallet rows and their startup download while the
+ * and decides nothing about circuits. It used to hide the Laboratory
+ * networks, their wallet rows and their startup download while the
  * Laboratory offered the same proofs to everyone. Only the files below may read
  * the flag; a circuit screen that starts reading it again fails here.
  */

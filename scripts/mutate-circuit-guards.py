@@ -63,20 +63,20 @@ class Mutation:
 MUTATIONS: list[Mutation] = [
     Mutation(
         name="display-name-row-removed",
-        defect="getCircuitDisplayName had no mdl_kr_* rows, so history screens "
-        "showed the user the raw string 'mdl-kr-age'",
+        defect="getCircuitDisplayName had no rows for three circuits, so history "
+        "screens showed the user a raw route id",
         path="src/utils/circuit.ts",
-        old="  mdl_kr_age: 'Korea Mobile ID — Age',\n",
+        old="  dojang_playground: 'Dojang Playground',\n",
         new="",
         guard=SDK_GUARD,
         expect_case="display name that is not just its id echoed back",
     ),
     Mutation(
         name="icon-row-removed",
-        defect="CIRCUIT_ICONS had no mdl_kr_* rows, so the cards fell through "
-        "to the generic shield",
+        defect="CIRCUIT_ICONS had no rows for three circuits, so the cards fell "
+        "through to the generic shield",
         path="src/utils/circuit.ts",
-        old="  mdl_kr_region: 'credit-card',\n",
+        old="  dojang_playground: 'user',\n",
         new="",
         guard=SDK_GUARD,
         expect_case="every circuit has a real icon",
@@ -93,18 +93,18 @@ MUTATIONS: list[Mutation] = [
         expect_case="GIWA label exists exactly once",
     ),
     Mutation(
-        name="mdl-title-shares-ownership-key",
-        defect="THE HEADLINE DEFECT — mdl_kr_age rendered the OWNERSHIP title",
+        name="title-shares-another-circuits-key",
+        defect="THE HEADLINE DEFECT — one proof rendered under another proof's title",
         path="src/screens/proof/ProofGenerationScreen.tsx",
-        old="    title: 'host.proof.generation.mdlKrAgeTitle',",
-        new="    title: 'host.proof.generation.mdlKrOwnershipTitle',",
+        old="    title: 'host.proof.generation.dojangPlaygroundTitle',",
+        new="    title: 'host.proof.generation.giwaKycTitle',",
         guard=SCREEN_GUARD,
         expect_case="name a DIFFERENT key per circuit",
     ),
     Mutation(
         name="sync-deployments-hand-written-list",
         defect="syncDeployments listed three circuits while six had a "
-        "broadcast path, so mDL verifier addresses never refreshed",
+        "broadcast path, so the others' verifier addresses never refreshed",
         path="src/config/deployments.ts",
         old="  const circuits: ReadonlyArray<CircuitName> = CIRCUITS_WITH_BROADCAST;",
         new="  const circuits: ReadonlyArray<CircuitName> = ["
@@ -114,14 +114,16 @@ MUTATIONS: list[Mutation] = [
         expect_case="every circuit with a broadcast path is synced",
     ),
     Mutation(
-        name="startup-prefetch-hand-written-list",
-        defect="the startup prefetch omitted all three mdl_kr_* circuits",
+        name="startup-prefetch-restored",
+        defect="launch prefetched circuit files nobody had asked for -- a "
+        "134 MB .srs on an Android phone",
         path="src/screens/LoadingScreen.tsx",
-        old="const BASE_CIRCUITS: ReadonlyArray<string> = SUPPORTED_CIRCUIT_IDS;",
-        new="const BASE_CIRCUITS: ReadonlyArray<string> = "
-        "['coinbase_attestation', 'coinbase_country_attestation'];",
+        old="import {initDeployments} from '../config';",
+        new="import {initDeployments} from '../config';\n"
+        "import {downloadCircuitFiles} from '../utils/circuitDownload';\n"
+        "void downloadCircuitFiles;",
         guard=SDK_GUARD,
-        expect_case="startup prefetches every circuit",
+        expect_case="launch downloads no circuit at all",
     ),
     Mutation(
         name="route-id-written-down-again",
@@ -136,11 +138,12 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         name="id-built-by-concatenation",
-        defect="MdlKrInputScreen assembled `mdl-kr-${variant}` — invisible to "
-        "any check that looks for a literal",
-        path="src/screens/proof/MdlKrInputScreen.tsx",
-        old="    const circuitId = MDL_KR_CIRCUIT_NAMES[variant];",
-        new="    const circuitId = `mdl-kr-${variant}`;",
+        defect="an input screen assembled a route id from its variant — "
+        "invisible to any check that looks for a literal",
+        path="src/screens/proof/ProofCompleteScreen.tsx",
+        old="  const circuitName = getCircuitDisplayName(circuitId);",
+        new="  const variant = 'kyc';\n"
+        "  const circuitName = getCircuitDisplayName(`giwa-${variant}`);",
         guard=SDK_GUARD,
         expect_case="builds a circuit id by concatenation",
     ),
@@ -201,7 +204,7 @@ MUTATIONS: list[Mutation] = [
         defect="a circuit with no verifier address ships and fails on-chain "
         "verification with an empty address",
         path="src/config/contracts.ts",
-        old="    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',\n  },\n"
+        old="    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',\n  },\n"
         "  production: {",
         new="  },\n  production: {",
         guard=SDK_GUARD,
@@ -210,10 +213,10 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         name="fallback-verifier-drifts-from-core",
         defect="a verifier address the app sends with every proof is not core's "
-        "pinned one, so every dApp on core 0.2.0 refuses the app's proofs",
+        "pinned one, so every dApp on core 0.2.0+ refuses the app's proofs",
         path="src/config/contracts.ts",
-        old="    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',\n    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',\n  },\n  staging: {",
-        new="    mdl_kr_age:       '0x3333333333333333333333333333333333333333',\n    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',\n  },\n  staging: {",
+        old="    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',\n  },\n  staging: {",
+        new="    dojang_playground: '0x3333333333333333333333333333333333333333',\n  },\n  staging: {",
         guard="src/config/__tests__/verifierAddressesComeFromCore.test.ts",
         expect_case="development: each address is core's pinned verifier",
     ),
@@ -222,8 +225,8 @@ MUTATIONS: list[Mutation] = [
         defect="the app's on-chain check called the address it resolved itself, "
         "not core's pinned verifier, so it could say valid where every dApp refuses",
         path="src/utils/proofVerification.ts",
-        old="      {chainId: network.chainId},\n      {verifierAddress, chainId: network.chainId},\n",
-        new="      {address: verifierAddress, chainId: network.chainId, abi: []},\n",
+        old="      : {chainId: network.chainId};",
+        new="      : {address: verifierAddress, chainId: network.chainId, abi: VERIFIER_ABI};",
         guard="src/utils/__tests__/proofVerification.test.ts",
         expect_case="differs from the pinned verifier is refused",
     ),
@@ -232,8 +235,8 @@ MUTATIONS: list[Mutation] = [
         defect="a circuit on no network and not network-independent has a card "
         "that is never rendered",
         path="src/config/networks.ts",
-        old="    circuits: ['mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'],",
-        new="    circuits: ['mdl_kr_ownership', 'mdl_kr_age'],",
+        old="    circuits: ['giwa_attestation', 'dojang_playground'],",
+        new="    circuits: ['giwa_attestation'],",
         guard=SDK_GUARD,
         expect_case="reachable from the Verify tab",
     ),
@@ -242,8 +245,8 @@ MUTATIONS: list[Mutation] = [
         defect="a request naming a circuit the modal has no row for shows the "
         "raw id to the person deciding whether to hand over a proof",
         path="src/utils/proofRequestPresentation.ts",
-        old="  mdl_kr_age: {",
-        new="  mdl_kr_age_TYPO: {",
+        old="  dojang_playground: {icon:",
+        new="  dojang_playground_TYPO: {icon:",
         guard=SDK_GUARD,
         expect_case="wallet routing and request presentation both cover every circuit",
     ),
@@ -281,14 +284,25 @@ MUTATIONS: list[Mutation] = [
         expect_case="resolves the id ONCE",
     ),
     Mutation(
-        name="mdl-variant-on-a-non-mdl-circuit",
-        defect="a variant on a circuit with no mdl flow sends it down the mDL "
-        "path the moment anything keys off the variant",
-        path="src/screens/proof/ProofGenerationScreen.tsx",
-        old="  mdl_kr_region: 'region',\n};",
-        new="  mdl_kr_region: 'region',\n  coinbase_attestation: 'ownership',\n};",
-        guard=SCREEN_GUARD,
-        expect_case="mDL variants agree with the flow table",
+        name="removed-route-id-resolves-again",
+        defect="a route id of a proof this app no longer has resolves to another "
+        "circuit, so a link for one proof produces a different one",
+        path="src/config/circuitIds.ts",
+        old="    'oidc-domain': CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION,\n",
+        new="    'oidc-domain': CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION,\n"
+        "    'mdl-kr-age': CIRCUIT_IDS.GIWA_ATTESTATION,\n",
+        guard=SDK_GUARD,
+        expect_case="Korean mobile ID proofs are unknown",
+    ),
+    Mutation(
+        name="unknown-sign-in-method-not-refused",
+        defect="a sign-in method the host has no circuit for goes to the server "
+        "instead of being refused by name",
+        path="src/openstoa-host/zkProofportHostApi.ts",
+        old="    if (!Object.prototype.hasOwnProperty.call(LOGIN_CIRCUIT_OF_METHOD, method)) {",
+        new="    if (false) {",
+        guard="src/openstoa-host/__tests__/signInMethodIsRefusedByName.test.ts",
+        expect_case="is refused by name",
     ),
     Mutation(
         name="unrecognised-id-not-refused",

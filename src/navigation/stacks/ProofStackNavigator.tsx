@@ -8,12 +8,10 @@ import {
   LaboratoryScreen,
   CountryInputScreen,
   DomainInputScreen,
-  MdlKrInputScreen,
   ActionInputScreen,
   ProofGenerationScreen,
   ProofCompleteScreen,
 } from '../../screens/proof';
-import {OacxWebViewScreen} from '../../screens/auth/OacxWebViewScreen';
 import {InAppBrowserScreen} from '../../screens/shared/InAppBrowserScreen';
 import {useStackScreenOptions} from '../shared';
 import {useThemeColors} from '../../context';
@@ -52,11 +50,6 @@ const ProofStackNavigator: React.FC = () => {
         options={{title: t('host.proof.actionInput.stackTitle')}}
       />
       <Stack.Screen
-        name="MdlKrInput"
-        component={MdlKrInputScreen}
-        options={{ title: t('host.proof.circuitSelection.mdlKr.title') }}
-      />
-      <Stack.Screen
         name="ProofGeneration"
         component={ProofGenerationScreen}
         options={{ title: t('host.proof.generation.stackTitle') }}
@@ -75,15 +68,6 @@ const ProofStackNavigator: React.FC = () => {
             </TouchableOpacity>
           ),
         })}
-      />
-      <Stack.Screen
-        name="OacxWebView"
-        component={OacxWebViewScreen}
-        options={{
-          title: '모바일 신분증 인증',
-          headerShown: false, // OacxWebViewScreen has its own header
-          presentation: 'fullScreenModal', animation: 'slide_from_bottom', // slide up from bottom, above the tab bar
-        }}
       />
       <Stack.Screen
         name="InAppBrowser"

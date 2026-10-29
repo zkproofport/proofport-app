@@ -24,14 +24,11 @@ describe('readable circuit-specific proof request conditions', () => {
     expect(present('oidc_domain_attestation').icon).toBe('organization');
     expect(present('coinbase_attestation').icon).toBe('identity');
     expect(present('coinbase_country_attestation').icon).toBe('country');
-    expect(present('mdl_kr_ownership').icon).toBe('id-card');
-    expect(present('mdl_kr_age').icon).toBe('age');
-    expect(present('mdl_kr_region').icon).toBe('region');
   });
 
   it('gives a circuit\'s own requirement no label of its own, so it is not titled twice', () => {
     for (const [circuit, section] of [['coinbase_attestation', 'kyc'], ['giwa_attestation', 'giwa'],
-      ['dojang_playground', 'dojangPlayground'], ['mdl_kr_ownership', 'ownership']] as const) {
+      ['dojang_playground', 'dojangPlayground']] as const) {
       expect(present(circuit).conditions[0]).toEqual({value: `${section}.requirement`});
     }
     for (const circuit of ALL_CIRCUIT_IDS) {
@@ -70,38 +67,12 @@ describe('readable circuit-specific proof request conditions', () => {
     expect(countries).toEqual(['KR', 'US']);
   });
 
-  it('keeps zero age/year and precise large strings rather than applying defaults', () => {
+  it('shows fields no circuit here reads as additional conditions, verbatim', () => {
     const precise = '90071992547409931234';
-    expect(present('mdl_kr_age', {ageThreshold: 0, currentYear: 0}).conditions).toEqual([
-      {label: 'fields.ageThreshold', value: 0}, {label: 'fields.currentYear', value: 0},
-    ]);
-    expect(present('mdl_kr_age', {ageThreshold: precise}).conditions[0].value).toBe(precise);
-    expect(present('mdl_kr_age', {ageThreshold: null}).conditions[0].value).toBe('values.null');
-  });
-
-  it('distinguishes the region predicate from ownership and preserves its exact region', () => {
-    expect(present('mdl_kr_region', {targetRegion: '서울특별시'}).conditions).toEqual([
-      {label: 'fields.targetRegion', value: '서울특별시'},
-    ]);
-    expect(present('mdl_kr_region', {targetRegion: ''}).conditions[0].value).toBe('values.empty');
-  });
-
-  it('explains every selected mDL commitment flag and anonymous zero without masking unknown bits', () => {
-    const selected = present('mdl_kr_ownership', {discloseFlags: 15}).conditions;
-    expect(selected).toContainEqual({label: 'fields.disclosures', value: 'attributes.name · attributes.birth · attributes.sex · attributes.telno'});
-    expect(present('mdl_kr_ownership', {discloseFlags: 0}).conditions)
-      .toContainEqual({label: 'fields.disclosures', value: 'values.noAttributes'});
-    expect(present('mdl_kr_ownership', {discloseFlags: 16}).conditions)
-      .toContainEqual({label: 'fields.disclosures', value: 16});
-    expect(present('mdl_kr_ownership', {discloseFlags: '8'}).conditions)
-      .toContainEqual({label: 'fields.disclosures', value: '8'});
-  });
-
-  it('labels supplied comparison values as requested values without asserting they are proof outputs', () => {
-    const result = present('mdl_kr_ownership', {discloseFlags: 9, expectedName: '홍길동', expectedTelno: '01012345678'});
-    expect(result.conditions).toContainEqual({label: 'Additional condition: expectedName', value: '홍길동'});
-    expect(result.conditions).toContainEqual({label: 'Additional condition: expectedTelno', value: '01012345678'});
-    expect(result.shared).toBe('ownership.shared');
+    const result = present('coinbase_attestation', {discloseFlags: 15, ageThreshold: precise, targetRegion: '서울특별시'});
+    expect(result.conditions).toContainEqual({label: 'Additional condition: discloseFlags', value: 15});
+    expect(result.conditions).toContainEqual({label: 'Additional condition: ageThreshold', value: precise});
+    expect(result.conditions).toContainEqual({label: 'Additional condition: targetRegion', value: '서울특별시'});
   });
 
   it('keeps the authentication wallet distinct from a typed-action account and does not mutate inputs', () => {
@@ -123,7 +94,7 @@ describe('readable circuit-specific proof request conditions', () => {
     expect(result.conditions.find(row => row.label?.endsWith('unknownObject'))?.value).toBe(nested);
   });
 
-  it.each(['not-a-circuit', '__proto__', 'constructor'])('refuses unknown circuit %s', circuit => {
+  it.each(['not-a-circuit', '__proto__', 'constructor', 'mdl_kr_ownership', 'mdl_kr_age', 'mdl_kr_region'])('refuses unknown circuit %s', circuit => {
     expect(() => present(circuit as ProofRequest['circuit'])).toThrow(circuit);
   });
 });

@@ -46,8 +46,8 @@ export const ErrorCodes = {
     description:
       'This proof request has already been answered. Start a new request from the app that asked for the proof.',
   },
-  // A dApp asked for a Laboratory proof (GIWA, Dojang Playground, Korea Mobile
-  // ID) while More > Laboratory is off. The request is answered with this code
+  // A dApp asked for a Laboratory proof (GIWA, Dojang Playground) while
+  // More > Laboratory is off. The request is answered with this code
   // rather than opened or dropped -- see src/utils/laboratory.ts.
   E1008: {
     code: 'E1008',
@@ -139,15 +139,8 @@ export const ErrorCodes = {
     description:
       'The sign-in answer was not issued for this request, so no proof was generated. Try signing in again.',
   },
-  // The raw-HTTP mobile ID path (Developer Mode) answered OACX_NO_PARAM_PROVIDER
-  // for the chosen card type -- see src/utils/oacxErrors.ts. E2009-E2011,
-  // E2014-E2019 and E3006 are device-check codes.
-  E2013: {
-    code: 'E2013',
-    title: 'Card Type Not Accepted',
-    description:
-      'This verification path did not accept the selected ID card type. Nothing was generated. Try again, or choose another card type.',
-  },
+  // E2009-E2011, E2014-E2019 and E3006 are device-check codes. E2013 is not
+  // assigned: a code a dApp may already have been sent is never reused.
   E2014: {
     code: 'E2014',
     title: 'App Attest Check Failed',

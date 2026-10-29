@@ -2,7 +2,7 @@
  * The EIP-712 action a proof binds to, for any circuit that can carry one.
  *
  * Every circuit that needs something from the user has a screen for it: the
- * country list, the OIDC domain, the Korea mDL predicate. This is the one for
+ * country list, the OIDC domain. This is the one for
  * an action-binding circuit (today `giwa_attestation`, where the action is
  * optional).
  *

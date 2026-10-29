@@ -17,16 +17,8 @@ export interface AppSettings {
    * "fixing" the picker to write here would silently break the setting. */
   defaultNetwork: string;
   /**
-   * Developer-mode toggle for the Korea mDL flow. When true (default),
-   * OmniOne CX runs through the RAON standard widget (WebView) which
-   * owns app selection. When false, the app drives the raw 4-stage
-   * OACX HTTP API and deep-links into the mobile-ID app directly
-   * (oacxClient.ts::runAppAuthFlow). Only surfaced in Developer Mode.
-   */
-  useOmniOneCxUi: boolean;
-  /**
-   * The Laboratory: GIWA, the Dojang Playground and the Korea Mobile ID
-   * proofs (`surface: 'laboratory'` in src/screens/proof/proofCatalog.ts).
+   * The Laboratory: GIWA and the Dojang Playground
+   * (`surface: 'laboratory'` in src/screens/proof/proofCatalog.ts).
    * Off until the person turns it on in More. Off hides the Proof-tab entry
    * and the lab-only wallet rows, skips their startup download, and refuses a
    * dApp request for one of them with E1008. It is an ordinary setting, not a
@@ -43,7 +35,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   developerMode: false,
   theme: 'dark',
   defaultNetwork: 'base',
-  useOmniOneCxUi: true,
   laboratoryEnabled: false,
 };
 
@@ -69,8 +60,8 @@ export const settingsStore = {
     const merged: AppSettings = {...DEFAULT_SETTINGS, ...saved};
     // The default network is a picker preference with no behaviour behind it
     // (CLAUDE.md's display-value exception). A saved network the app no
-    // longer has -- `arc`, removed 2026-10-13 -- would otherwise sit in the
-    // More picker as a raw id with no option to match it.
+    // longer has -- `arc` (2026-10-13), `omnione` (2026-10-29) -- would
+    // otherwise sit in the More picker as a raw id with no option to match it.
     if (!NETWORK_CATEGORIES.some(n => n.id === merged.defaultNetwork)) {
       console.log(
         `[settings] saved defaultNetwork '${merged.defaultNetwork}' is not a known network ` +

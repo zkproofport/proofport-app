@@ -27,7 +27,6 @@ export type ProofStackParamList = {
   Laboratory: undefined;
   CountryInput: undefined;
   DomainInput: undefined;
-  MdlKrInput: { variant: 'ownership' | 'age' | 'region' };
   /**
    * Build an EIP-712 action for a circuit that can bind one.
    *
@@ -40,8 +39,6 @@ export type ProofStackParamList = {
    * are offered in the Laboratory.
    */
   ActionInput: {circuit: CircuitName};
-  /** OACX widget WebView screen. provider = OacxProvider string, scope = scopeString. */
-  OacxWebView: { provider: string; scope: string };
   ProofGeneration: {
     circuitId: string;
     proofRequest?: ProofRequest;
@@ -54,25 +51,6 @@ export type ProofStackParamList = {
     /** Scope override from an input screen. */
     scope?: string;
     domainInput?: { domain?: string; scope: string; provider?: string };
-    mdlKrInputs?: {
-      variant: 'ownership' | 'age' | 'region';
-      /**
-       * OmniOne CX document type:
-       *   comdl_v1.5      = mobile driver's license
-       *   comrc_v1.5      = mobile resident registration card
-       *   comnh_v1.5      = mobile veterans (national-merit) card
-       *   coresidence_v1.5 = alien registration card
-       */
-      provider?: 'comdl_v1.5' | 'comrc_v1.5' | 'comnh_v1.5' | 'coresidence_v1.5';
-      discloseFlags?: number;
-      expectedName?: string;
-      expectedBirth?: string;
-      expectedSex?: string;
-      expectedTelno?: string;
-      ageThreshold?: number;
-      currentYear?: number;
-      targetRegion?: string;
-    };
   };
   ProofComplete: {
     proofHex: string;

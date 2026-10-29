@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Platform } from 'react-native';
-import { useNavigation, useNavigationContainerRef } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { HostProvider, OpenStoaApp } from 'openstoa-mobile';
 import { createZkProofportHostApi } from '../../openstoa-host/zkProofportHostApi';
 import { resolveOpenStoaBaseUrl } from '../../openstoa-host/openStoaBaseUrl';
 import { useError, useThemeColors } from '../../context';
-import { getEnvironment } from '../../config';
 import { useSettings } from '../../hooks';
 
 const OPENSTOA_BASE_URL = resolveOpenStoaBaseUrl();
@@ -37,7 +35,6 @@ function describeErrorDetails(details?: Record<string, unknown>): string | undef
 
 const OpenStoaRootScreen: React.FC = () => {
   const navigation = useNavigation();
-  const rootRef = useNavigationContainerRef();
   const { mode, colors } = useThemeColors();
   // The host's real error modal. This screen sits inside <ErrorProvider> (see
   // App.tsx), so the mini-app's failures can reach the same modal every native
@@ -65,7 +62,7 @@ const OpenStoaRootScreen: React.FC = () => {
   }, []);
 
   // Same pattern for Developer Mode — mini-app uses it to gate experimental
-  // affordances (e.g. mDL sign-in) so they only appear when the host user
+  // affordances so they only appear when the host user
   // has explicitly opted in.
   const developerModeRef = useRef<boolean>(developerMode);
   const developerModeListenersRef = useRef<Set<(enabled: boolean) => void>>(new Set());

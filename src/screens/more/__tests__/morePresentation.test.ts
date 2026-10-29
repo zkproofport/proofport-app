@@ -183,10 +183,11 @@ describe('More settings and local data actions', () => {
     expect(mockShowError).toHaveBeenCalledWith('E5001', expect.stringContaining(mockTranslate('host.more.saveError')));
     expect(JSON.parse(mockDisk.get(SETTINGS_KEY)!).confirmBeforeGenerate).toBe(true);
   });
-  it.each(['base', 'giwa', 'omnione', 'other'])('offers every network with Developer Mode off while %s is saved, and still hides developer tools', async saved => {
+  it.each(['base', 'giwa', 'other'])('offers every network with Developer Mode off while %s is saved, and still hides developer tools', async saved => {
     settings({developerMode: false, defaultNetwork: saved});
     await render(); await press('more-network');
-    for (const id of ['base', 'giwa', 'omnione', 'other']) expect(has(`more-network-option-${id}`)).toBe(true);
+    for (const id of ['base', 'giwa', 'other']) expect(has(`more-network-option-${id}`)).toBe(true);
+    expect(has('more-network-option-omnione')).toBe(false);
     expect(has('more-openstoa')).toBe(false);
     expect(has('more-live-logs')).toBe(false);
   });

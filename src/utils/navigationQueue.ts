@@ -9,10 +9,10 @@
  * into that null ref is silently dropped: the app opens, the request validates
  * against the relay, and then nothing happens.
  *
- * Reproduced 2026-09-03 on the emulator with a relay-registered Korea mobile ID
- * link. Killed app: the log printed "navigating directly" and the screen never
- * left Verify home, so the document-type sheet never mounted. The same link
- * with the app already open reached the proof screen and raised the sheet.
+ * Reproduced 2026-09-03 on the emulator with a relay-registered proof link
+ * whose flow navigated imperatively. Killed app: the log printed "navigating
+ * directly" and the screen never left Verify home. The same link with the app
+ * already open reached the proof screen.
  *
  * Only that path was affected: every other proof request travels as React state
  * (the confirmation modal), which survives the loading gate and renders once

@@ -13,18 +13,16 @@
  * here, and an invented spelling has to be refused.
  */
 import {validateProofRequest, isProofportDeepLink} from '../deeplink';
+import {ALL_CIRCUIT_IDS} from '../../config/circuitIds';
 import type {ProofRequest} from '../deeplink';
 
-/** The eight ids the app accepts. Written out so a silent addition shows up. */
+/** The five ids the app accepts. Written out so a silent addition shows up. */
 const CANONICAL = [
   'coinbase_attestation',
   'coinbase_country_attestation',
   'oidc_domain_attestation',
   'giwa_attestation',
   'dojang_playground',
-  'mdl_kr_ownership',
-  'mdl_kr_age',
-  'mdl_kr_region',
 ];
 
 const base = (over: Partial<ProofRequest> = {}): ProofRequest =>
@@ -69,10 +67,22 @@ describe('a proof request is checked before the prover runs', () => {
     '../coinbase_attestation',
     // Removed on 2026-10-13. A link that still names it is an unknown circuit.
     'arc_eligibility',
+    // Korean mobile ID: not a circuit of this app, by either spelling.
+    'mdl_kr_ownership',
+    'mdl_kr_age',
+    'mdl_kr_region',
+    'mdl-kr-ownership',
+    'mdl-kr-age',
+    'mdl-kr-region',
   ])('refuses the invented or removed circuit %s', (circuit) => {
     const r = validateProofRequest(base({circuit} as Partial<ProofRequest>));
     expect(r.valid).toBe(false);
     expect(r.error).toMatch(/Invalid circuit type/);
+    expect(r.error).toContain(circuit);
+  });
+
+  it('accepts exactly the published ids, no more', () => {
+    expect([...CANONICAL].sort()).toEqual([...ALL_CIRCUIT_IDS].sort());
   });
 
   it.each(['giwa_attestation', 'dojang_playground'])('%s needs a scope, and a well-formed userAddress when one is given', circuit => {

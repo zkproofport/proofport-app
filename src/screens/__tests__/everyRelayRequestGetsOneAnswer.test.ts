@@ -14,7 +14,7 @@
  *                code shown in the ErrorModal: hook step errors (vk, validate,
  *                sign, storage, proof, OIDC validate), thrown error, no
  *                attestation, Dojang none / lookup failed, no wallet provider,
- *                missing country inputs, missing mDL age, unreadable settings,
+ *                missing country inputs, unreadable settings,
  *                OIDC sign-in failed / not ready, unknown circuit,
  *                OIDC token without this request's nonce (E2012), OIDC
  *                request with a non-UUID id / unknown provider / no scope (E2004)
@@ -77,7 +77,6 @@ jest.mock('react-native', () => ({
 }));
 jest.mock('../../components/ProofProgressCard', () => ({ProofProgressCard: 'ProofProgressCard'}));
 jest.mock('react-native-linear-gradient', () => 'LinearGradient');
-jest.mock('../../components/MobileIdTypeSheet', () => ({MobileIdTypeSheet: 'MobileIdTypeSheet'}));
 jest.mock('../../components/ui', () => ({Button: 'Button', Card: 'Card', StepIndicator: 'StepIndicator', LiveLogsPanel: 'LiveLogsPanel'}));
 jest.mock('@react-navigation/native', () => ({useNavigation: () => mockNavigate, useRoute: () => mockRoute}));
 jest.mock('react-i18next', () => ({useTranslation: () => ({t: mockT})}));
@@ -92,7 +91,6 @@ jest.mock('../../hooks', () => ({
   useDeepLink: jest.requireActual('../../hooks/useDeepLink').useDeepLink,
   useSettings: () => ({settings: {confirmBeforeGenerate: false}}),
 }));
-jest.mock('../../hooks/useMdlKr', () => ({useMdlKr: () => mockProofHook()}));
 jest.mock('../../hooks/useCircuitWalletGate', () => ({useCircuitWalletGate: () => ({
   runGate: mockRunGate, recordLookupFailure: mockNoop, wasFailedAddress: () => false, isPostPicker: false,
 })}));
@@ -320,15 +318,6 @@ describe('every inline failure path answers once, with its code', () => {
     expect(mockGenerate).not.toHaveBeenCalled();
   });
 
-  it('missing mDL age threshold -> E2004', async () => {
-    await mount('mdl_kr_age', request('mdl_kr_age', {scope: 's'}));
-    const sheet = tree!.root.findByType('MobileIdTypeSheet' as never);
-    await act(async () => {sheet.props.onSelect('comdl_v1.5');});
-    await act(async () => {await jest.advanceTimersByTimeAsync(10);});
-    expectOneError('E2004');
-    expect(mockGenerate).not.toHaveBeenCalled();
-  });
-
   it('unreadable settings -> E5002', async () => {
     mockSettingsGet.mockRejectedValue(new Error('storage unavailable'));
     await mount('coinbase_attestation', request('coinbase_attestation'));
@@ -420,9 +409,10 @@ describe('every inline failure path answers once, with its code', () => {
     expect(mockMsSignIn).not.toHaveBeenCalled();
   });
 
-  it('an unknown circuit is refused on arrival -> E2006', async () => {
-    await mount('not_a_circuit', {...request('coinbase_attestation'), requestId: 'req-unknown'});
+  it.each(['not_a_circuit', 'mdl_kr_age', 'mdl-kr-age'])('an unknown circuit (%s) is refused on arrival -> E2006', async circuit => {
+    await mount(circuit, {...request('coinbase_attestation'), requestId: 'req-unknown'});
     expectOneError('E2006');
+    expect(mockGenerate).not.toHaveBeenCalled();
   });
 });
 
@@ -523,7 +513,7 @@ describe('the relay answers back', () => {
 
 describe('every hook step has an error code', () => {
   it('covers each step id the proof hooks declare', () => {
-    const hooks = ['useCoinbaseKyc', 'useCoinbaseCountry', 'useOidcDomain', 'useGiwaKyc', 'useDojangPlayground', 'useMdlKr'];
+    const hooks = ['useCoinbaseKyc', 'useCoinbaseCountry', 'useOidcDomain', 'useGiwaKyc', 'useDojangPlayground'];
     const ids = new Set<string>();
     for (const name of hooks) {
       const src = fs.readFileSync(path.join(__dirname, '../../hooks', `${name}.ts`), 'utf8');

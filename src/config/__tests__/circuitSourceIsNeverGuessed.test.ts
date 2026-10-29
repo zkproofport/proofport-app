@@ -61,7 +61,7 @@ const {
   isCircuitsReleaseMissingError,
 } = require('../deployments');
 const {circuitBaseUrl} = require('../../utils/circuitDownload');
-const {CIRCUITS_RELEASE_TAG, STATIC_CONFIGS} = require('../contracts');
+const {CIRCUITS_RELEASE_TAG, CIRCUITS_WITH_BROADCAST, STATIC_CONFIGS} = require('../contracts');
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 /** Every URL fetched; answers from `records` (path after RAW), 404 otherwise. */
@@ -129,7 +129,10 @@ describe('one exact circuits tag per app version', () => {
     });
     await syncDeployments('production').catch(() => undefined);
     const urls = urlsOf(fetchMock);
-    expect(urls.length).toBeGreaterThan(3);
+    // One deployment record per circuit that has one -- so the loop below
+    // cannot pass by having looked at nothing.
+    expect(CIRCUITS_WITH_BROADCAST.length).toBeGreaterThan(0);
+    expect(urls).toHaveLength(CIRCUITS_WITH_BROADCAST.length);
     for (const u of urls) {
       expect(u).not.toMatch(/api\.github\.com|releases/);
       expect(u.startsWith(`${RAW}/${TAG}/`) || u.startsWith(`${RAW}/main/`)).toBe(true);
@@ -221,7 +224,7 @@ describe('development and staging', () => {
 });
 
 describe('the circuits that live only on main', () => {
-  it.each(['giwa_attestation', 'mdl_kr_age'])('%s reads main on a production build, with no tag involved', async circuit => {
+  it.each(['giwa_attestation', 'dojang_playground'])('%s reads main on a production build, with no tag involved', async circuit => {
     const fetchMock = github({}, {offline: true});
     expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/main`);
     expect(fetchMock).not.toHaveBeenCalled();

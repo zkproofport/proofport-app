@@ -227,22 +227,16 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployGiwaAttestation.s.sol/${chainId}/run-latest.json`,
   dojang_playground: (chainId) =>
     `DeployDojangPlayground.s.sol/${chainId}/run-latest.json`,
-  mdl_kr_ownership: (chainId) =>
-    `DeployMdlKrOwnership.s.sol/${chainId}/run-latest.json`,
-  mdl_kr_age: (chainId) =>
-    `DeployMdlKrAge.s.sol/${chainId}/run-latest.json`,
-  mdl_kr_region: (chainId) =>
-    `DeployMdlKrRegion.s.sol/${chainId}/run-latest.json`,
 };
 
 /**
  * Every circuit whose verifier address can be refreshed from a broadcast JSON,
  * derived from the table above rather than typed out a second time.
  *
- * `syncDeployments()` used to carry its own hand-written list of three, so the
- * three Korea mDL circuits — which have had a published broadcast JSON all
- * along — never refreshed off `FALLBACK_VERIFIERS`. Deriving it means the list
- * cannot be shorter than the paths that exist.
+ * `syncDeployments()` used to carry its own hand-written list of three, so
+ * circuits with a published broadcast JSON never refreshed off
+ * `FALLBACK_VERIFIERS`. Deriving it means the list cannot be shorter than the
+ * paths that exist.
  */
 export const CIRCUITS_WITH_BROADCAST: ReadonlyArray<CircuitName> =
   Object.freeze(ALL_CIRCUIT_IDS.filter((c) => BROADCAST_PATHS[c] !== null));
@@ -319,21 +313,6 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   giwa_attestation: 3,
   // v1: first release of the circuit (circuits 4bba5ed).
   dojang_playground: 2,
-  // Split into 3 independent circuits sharing the canonical ci identifier.
-  // v4: nullifier formula changed to keccak(keccak(ci) || scope), matching
-  // the OIDC-domain-attestation pattern. signal_hash, cx_integrity_root,
-  // cx_jti, cx_pri removed pending RAON RP registration (HS256 path dormant).
-  // Each circuit enforces a single predicate (selective disclosure, age, region).
-  // v5: force re-download to eliminate any stale on-device circuit cache
-  // while diagnosing the ownership witness mismatch (circuit bytes unchanged
-  // vs v4; bump only invalidates the device cache).
-  // v6: verifies the cache-invalidation fix self-heals WITHOUT a reinstall --
-  // a device holding the v5 cache must now auto delete + re-download on the
-  // next proof run (downloadCircuitFiles is always invoked; shouldInvalidateCache
-  // sees stored.dataVersion 5 != 6). Circuit bytes unchanged vs v5.
-  mdl_kr_ownership: 7,
-  mdl_kr_age: 7,
-  mdl_kr_region: 7,
 };
 
 /**
@@ -381,16 +360,6 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
     rpcUrl: 'https://sepolia-rpc.giwa.io/',
     explorerUrl: 'https://sepolia-explorer.giwa.io',
   };
-  // Korea Mobile ID verifiers live on Base Sepolia for now. OmniOne Chain
-  // (Hyperledger Besu, permissioned) needs a signup whose RPC is not public;
-  // the UI labels it "OmniOne" and these repoint once access is granted.
-  const OMNIONE_TESTNET: NetworkConfig = {
-    chainId: 84532,
-    name: 'OmniOne Chain Testnet',
-    rpcUrl: 'https://sepolia.base.org',
-    explorerUrl: 'https://sepolia.basescan.org',
-  };
-
   const testnetish = (coinbaseChain: NetworkConfig): Record<CircuitName, NetworkConfig> => ({
     coinbase_attestation: coinbaseChain,
     coinbase_country_attestation: coinbaseChain,
@@ -398,9 +367,6 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
     giwa_attestation: GIWA_SEPOLIA,
     // The Playground faucet and the circuit's chain-id literal are GIWA Sepolia.
     dojang_playground: GIWA_SEPOLIA,
-    mdl_kr_ownership: OMNIONE_TESTNET,
-    mdl_kr_age: OMNIONE_TESTNET,
-    mdl_kr_region: OMNIONE_TESTNET,
   });
 
   return {
@@ -438,10 +404,10 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
     // OIDC with the provider-key statement (circuits 5081cfd), Base Sepolia,
     // deployed 2026-10-28 (circuits 7e5c72d,
-    // broadcast/DeployOidcDomainAttestation.s.sol/84532). Not in core 0.3.0's
-    // table: core still pins 0x003334A7...4167, the OIDC v2 verifier from
-    // before the statement, which rejects every proof of this circuit (other
-    // vk), as does v1's 0x5D9E...F485.
+    // broadcast/DeployOidcDomainAttestation.s.sol/84532), the contract core
+    // 0.4.0-beta.0 pins. The OIDC v2 verifier from before the statement
+    // (0x003334A7...4167) and v1's 0x5D9E...F485 reject every proof of this
+    // circuit (other vk).
     oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
     // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
     // Every testnet verifier was redeployed 2026-10-22 for the nargo
@@ -453,10 +419,6 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // Dojang Playground verifier on GIWA Sepolia, same address across env
     // (testnet-only). circuits/deployments/91342/DojangPlayground.json.
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
-    // Korea mDL — three independent verifiers on Base Sepolia.
-    mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
-    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',
-    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   staging: {
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
@@ -464,9 +426,6 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
-    mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
-    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',
-    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
   production: {
     // Base mainnet, nargo 1.0.0-beta.19 / bb 4.2.0-aztecnr-rc.2 contracts.
@@ -481,10 +440,5 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     oidc_domain_attestation: '0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
-    // Korea mDL is on Base Sepolia only; production builds use those
-    // addresses.
-    mdl_kr_ownership: '0x49c03b925583Aa8528BBFbA5A1A4E1F9B157c95a',
-    mdl_kr_age:       '0x45d4850a9B197ceBa185B5069Fb13Ce0be1dC6d6',
-    mdl_kr_region:    '0x044116dF792eB424c9648DF2DeEda97aFa617Ac0',
   },
 };

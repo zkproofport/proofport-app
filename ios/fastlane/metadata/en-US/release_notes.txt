@@ -1,1 +1,3 @@
-• Fixed the document type screen not opening when a mobile ID verification link launched the app from closed
+• Coinbase KYC and organization account proofs confirmed by this phone's secure hardware
+• Proof progress kept on screen while circuit files download and the proof is built
+• Faster preparation before each proof

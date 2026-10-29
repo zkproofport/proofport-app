@@ -284,14 +284,32 @@ describe('on an Android phone', () => {
     setEnvironmentOverride(null);
   });
 
-  it('a production build has no Android verifier: refused (E2018) before any file is fetched or anything signed', async () => {
+  it('a variant with no verifier in the build is refused (E2018) before any file is fetched or anything signed', async () => {
+    // Every build names both Android packages' OIDC contracts since the Base
+    // mainnet deploy (variantVerifiers.ts), so the missing row is simulated.
+    const variants = require('../../config/variantVerifiers');
+    const spy = jest.spyOn(variants, 'androidVerifierFor').mockImplementation(((circuit: string, env: string, variant: string) => {
+      throw new variants.AndroidVerifierMissingError(circuit, env, variant);
+    }) as never);
+    try {
+      setEnvironmentOverride('production');
+      const {steps, logs} = await prove(PAYLOAD);
+      expect(spy).toHaveBeenCalledWith('oidc_domain_attestation', 'production', 'android');
+      expect(mockDownload).not.toHaveBeenCalled();
+      expect(mockSigner).not.toHaveBeenCalled();
+      expect(mockGenerate).not.toHaveBeenCalled();
+      expect(steps.find(s => s.status === 'error')).toMatchObject({id: 'download', code: 'E2018'});
+      expect(logs.join('\n')).toMatch(/No android verifier for oidc_domain_attestation in the production build/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("a production build finds the Android package's Base mainnet contract and goes on to fetch the files", async () => {
     setEnvironmentOverride('production');
-    const {steps, logs} = await prove(PAYLOAD);
-    expect(mockDownload).not.toHaveBeenCalled();
-    expect(mockSigner).not.toHaveBeenCalled();
-    expect(mockGenerate).not.toHaveBeenCalled();
-    expect(steps.find(s => s.status === 'error')).toMatchObject({id: 'download', code: 'E2018'});
-    expect(logs.join('\n')).toMatch(/No android verifier for oidc_domain_attestation in the production build/);
+    const {steps} = await prove(PAYLOAD);
+    expect(mockDownload).toHaveBeenCalledWith('oidc_domain_attestation', expect.any(Function));
+    expect(steps.find(s => s.code === 'E2018')).toBeUndefined();
   });
 
   it("a development build proves the Android package's ABI and says so in the parsed proof", async () => {
