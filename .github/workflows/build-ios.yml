@@ -87,15 +87,30 @@ jobs:
           key: pods-${{ hashFiles('proofport-app/ios/Podfile.lock') }}
           restore-keys: pods-
 
-      - name: Download mopro binaries
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          gh release download mopro-binaries-v0.3.2 \
-            --repo ${{ github.repository }} \
-            --pattern 'MoproFfiFramework.xcframework.tar.gz' \
-            --dir /tmp
-          tar xzf /tmp/MoproFfiFramework.xcframework.tar.gz -C proofport-app/mopro_bindings/
+      # The iOS proving library is the one committed in this repository
+      # (mopro_bindings/MoproFfiFramework.xcframework, Git LFS), built with
+      # the bindings beside it. This step used to unpack the release asset
+      # mopro-binaries-v0.3.2 (February 2026) over it, so every archive linked
+      # a library older than its bindings; the 1.4.5 archive failed on the
+      # three background-prover functions it lacked. LFS objects are cached
+      # by their ids, so a build downloads them only when they change.
+      - name: List the iOS proving library's LFS objects
+        working-directory: proofport-app
+        run: git lfs ls-files -l -I 'mopro_bindings/MoproFfiFramework.xcframework/**' | tee ../mopro-lfs-ids.txt
+
+      - name: Cache the iOS proving library
+        uses: actions/cache@v4
+        with:
+          path: proofport-app/.git/lfs
+          key: mopro-lfs-${{ hashFiles('mopro-lfs-ids.txt') }}
+
+      - name: Fetch the iOS proving library (Git LFS)
+        working-directory: proofport-app
+        run: git lfs pull --include 'mopro_bindings/MoproFfiFramework.xcframework/**'
+
+      - name: Check the proving library against its bindings
+        working-directory: proofport-app
+        run: scripts/check-mopro-ios-symbols.sh
 
       - name: Install dependencies
         if: steps.cache-node.outputs.cache-hit != 'true'
