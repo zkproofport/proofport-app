@@ -69,6 +69,7 @@ SCREEN = "src/screens/proof/ProofGenerationScreen.tsx"
 RELAY_TEST = "src/screens/__tests__/everyRelayRequestGetsOneAnswer.test.ts"
 VERIFY_TEST = "src/utils/__tests__/proofVerification.test.ts"
 VERIFIERS_TEST = "src/config/__tests__/verifierAddressesComeFromCore.test.ts"
+KEY_TEST = "src/appAttest/__tests__/theAppAttestKeyLivesOncePerInstall.test.ts"
 FACTORY_CHECK_TEST = "src/androidAttest/__tests__/aFactoryPhoneIsCheckedLikeTheCircuit.test.ts"
 FACTORY_SIGN_TEST = "src/androidAttest/__tests__/aFactoryPhoneSignsWithAVerdict.test.ts"
 FACTORY_CONVERTER_TEST = "src/utils/__tests__/androidFactoryChainMatchesTheCircuitsConverter.test.ts"
@@ -249,6 +250,23 @@ MUTATIONS: list[Mutation] = [
              "  if (!row || !row.address) throw new AndroidVerifierMissingError(circuit, env, variant);",
              "  if (!row || !row.address) return {address: '', chainId: BASE_SEPOLIA};",
              VERIFIERS_TEST, "an unknown variant, environment or circuit is an error, never a default"),
+    # --- the iPhone key: a development key inherited across an app update ---
+    Mutation("inherited-dev-key-reused", "src/appAttest/appAttestKey.ts",
+             "      if (!credential.production && stored.attestedByBuild !== buildId) {",
+             "      if (false) {",
+             KEY_TEST, "is replaced by a freshly attested key, which is production"),
+    Mutation("own-dev-key-reattested-every-proof", "src/appAttest/appAttestKey.ts",
+             "      if (!credential.production && stored.attestedByBuild !== buildId) {",
+             "      if (!credential.production) {",
+             KEY_TEST, "a development key THIS build attested is kept"),
+    Mutation("production-key-reattested", "src/appAttest/appAttestKey.ts",
+             "      if (!credential.production && stored.attestedByBuild !== buildId) {",
+             "      if (stored.attestedByBuild !== buildId) {",
+             KEY_TEST, "a production key from another build is kept"),
+    Mutation("build-not-recorded", "src/appAttest/appAttestKey.ts",
+             "JSON.stringify({...record, attestation, attestedByBuild: buildId})",
+             "JSON.stringify({...record, attestation})",
+             KEY_TEST, "another development build: one fresh attempt, still development, then kept"),
 ]
 
 

@@ -6,3 +6,9 @@
  * Tests that want the release path can override it per file.
  */
 globalThis.__DEV__ = true;
+
+// expo-application ships untranspiled ESM, which this config does not
+// transform. Modules that read the running build (src/utils/version.ts) get
+// "no native value" here, as on a JS-only runtime; a test that needs a
+// particular version mocks the module itself, which overrides this.
+jest.mock('expo-application', () => ({nativeApplicationVersion: null, nativeBuildVersion: null}));

@@ -54,6 +54,9 @@ function fakeService(opts: {supported?: boolean; aaguid?: Uint8Array} = {}) {
   const counters = new Map<string, number>();
   const calls = {generateKey: 0, attestKey: [] as Array<[string, string]>, generateAssertion: 0};
   const failNext: {attest?: string[]; assert?: string[]} = {attest: [], assert: []};
+  // The environment a key is attested in, as the running build's entitlement
+  // decides it; a test "updates the app" by changing it.
+  const env = {aaguid: opts.aaguid};
   const native: AppAttestNative = {
     isSupported: async () => opts.supported ?? true,
     generateKey: async () => {
@@ -69,7 +72,7 @@ function fakeService(opts: {supported?: boolean; aaguid?: Uint8Array} = {}) {
       const d = devices.get(keyId);
       if (!d || attested.has(keyId)) throw rnError(NATIVE_CODE.invalidKey);
       attested.add(keyId);
-      return Buffer.from(d.attestation(new Uint8Array(Buffer.from(cdhB64, 'base64')), {aaguid: opts.aaguid})).toString('base64');
+      return Buffer.from(d.attestation(new Uint8Array(Buffer.from(cdhB64, 'base64')), {aaguid: env.aaguid})).toString('base64');
     },
     generateAssertion: async (keyId, hashB64) => {
       calls.generateAssertion++;
@@ -84,7 +87,7 @@ function fakeService(opts: {supported?: boolean; aaguid?: Uint8Array} = {}) {
       return Buffer.from(assertionOverHash(d, new Uint8Array(Buffer.from(hashB64, 'base64')), n)).toString('base64');
     },
   };
-  return {native, devices, calls, failNext, pin, forget: (keyId: string) => devices.delete(keyId)};
+  return {native, devices, calls, failNext, pin, env, forget: (keyId: string) => devices.delete(keyId)};
 }
 
 /** syntheticDevice.assertion takes clientData; this one takes its hash. */
@@ -97,13 +100,14 @@ function assertionOverHash(d: SyntheticDevice, clientDataHash: Uint8Array, count
   return cbor(new Map<string, unknown>([['signature', sig], ['authenticatorData', authData]]));
 }
 
-function setup(opts: {supported?: boolean; aaguid?: Uint8Array} = {}) {
+function setup(opts: {supported?: boolean; aaguid?: Uint8Array; buildId?: string} = {}) {
   __resetAppAttestKeyForTests();
   const svc = fakeService(opts);
   const storage = new MemoryStorage();
   const logs: string[] = [];
-  const deps = () => ({native: svc.native, storage, log: (m: string) => logs.push(m), pinnedCaKeyHash: svc.pin});
-  return {svc, storage, logs, deps};
+  const build = {id: opts.buildId ?? '1.4.6(15)'};
+  const deps = () => ({native: svc.native, storage, log: (m: string) => logs.push(m), pinnedCaKeyHash: svc.pin, buildId: build.id});
+  return {svc, storage, logs, deps, build};
 }
 
 const code = async (p: Promise<unknown>) => {
@@ -203,6 +207,105 @@ describe('the key', () => {
     const {deps, storage} = setup({aaguid: AAGUID.sandbox});
     expect(await code(ensureAttestedKey(deps()))).toBe('E2014');
     expect(await storage.getItem(APP_ATTEST_KEY_STORAGE)).toBeNull();
+  });
+});
+
+describe('a development key left by another build', () => {
+  // 2026-10-30: TestFlight 1.4.5(14) installed over a locally signed build
+  // still failed Coinbase KYC with E2014 ("development (sandbox) key"). The
+  // key record lives in AsyncStorage, which an app update keeps; the local
+  // build had attested a development key, and the TestFlight build reused it.
+  async function devBuildThenUpdate(opts: {legacyRecord?: boolean} = {}) {
+    const t = setup({aaguid: AAGUID.development, buildId: '1.4.5(1)'});
+    const devKey = await ensureAttestedKey(t.deps());
+    expect(devKey.credential.production).toBe(false);
+    if (opts.legacyRecord) {
+      const {attestedByBuild: _b, ...legacy} = JSON.parse((await t.storage.getItem(APP_ATTEST_KEY_STORAGE))!);
+      await t.storage.setItem(APP_ATTEST_KEY_STORAGE, JSON.stringify(legacy));
+    }
+    // "Install the TestFlight build": production entitlement, another build.
+    t.svc.env.aaguid = AAGUID.production;
+    t.build.id = '1.4.5(14)';
+    __resetAppAttestKeyForTests();
+    return {...t, devKey};
+  }
+
+  it('is replaced by a freshly attested key, which is production', async () => {
+    const t = await devBuildThenUpdate();
+    const k = await ensureAttestedKey(t.deps());
+    expect(k.credential.production).toBe(true);
+    expect(k.keyId).not.toBe(t.devKey.keyId);
+    expect(t.svc.calls.generateKey).toBe(2);
+    const stored = JSON.parse((await t.storage.getItem(APP_ATTEST_KEY_STORAGE))!);
+    expect([stored.keyId, stored.attestedByBuild]).toEqual([k.keyId, '1.4.5(14)']);
+    expect(t.logs.some(l => l.includes('development key attested by 1.4.5(1), not 1.4.5(14); attesting a fresh key'))).toBe(true);
+  });
+
+  it('is replaced when the record predates the build field (installed 1.4.5 and earlier)', async () => {
+    const t = await devBuildThenUpdate({legacyRecord: true});
+    const k = await ensureAttestedKey(t.deps());
+    expect(k.credential.production).toBe(true);
+    expect(t.logs.some(l => l.includes('attested by an earlier build'))).toBe(true);
+  });
+
+  it('is replaced once even when two proofs start together', async () => {
+    const t = await devBuildThenUpdate();
+    const [a, b] = await Promise.all([ensureAttestedKey(t.deps()), ensureAttestedKey(t.deps())]);
+    expect(a.keyId).toBe(b.keyId);
+    expect(t.svc.calls.generateKey).toBe(2);
+    expect(t.svc.calls.attestKey).toHaveLength(2);
+  });
+
+  it('Apple unreachable during the re-attest: E3006, and the retry attests the same new key', async () => {
+    const t = await devBuildThenUpdate();
+    t.svc.failNext.attest = [NATIVE_CODE.serverUnavailable];
+    expect(await code(ensureAttestedKey(t.deps()))).toBe('E3006');
+    const k = await ensureAttestedKey(t.deps());
+    expect(k.credential.production).toBe(true);
+    expect(t.svc.calls.generateKey).toBe(2);
+    expect(t.svc.calls.attestKey[2]).toEqual(t.svc.calls.attestKey[1]);
+  });
+
+  it('a development key THIS build attested is kept, not re-attested on every proof', async () => {
+    const t = setup({aaguid: AAGUID.development, buildId: '1.4.6(0)'});
+    const first = await ensureAttestedKey(t.deps());
+    const again = await ensureAttestedKey(t.deps());
+    expect(again.keyId).toBe(first.keyId);
+    expect(again.credential.production).toBe(false);
+    expect(t.svc.calls.generateKey).toBe(1);
+  });
+
+  it('another development build: one fresh attempt, still development, then kept (no loop)', async () => {
+    const t = setup({aaguid: AAGUID.development, buildId: '1.4.5(1)'});
+    await ensureAttestedKey(t.deps());
+    t.build.id = '1.4.6(1)';
+    __resetAppAttestKeyForTests();
+    const fresh = await ensureAttestedKey(t.deps());
+    expect(fresh.credential.production).toBe(false);
+    await ensureAttestedKey(t.deps());
+    await ensureAttestedKey(t.deps());
+    expect(t.svc.calls.generateKey).toBe(2);
+  });
+
+  it('a production key from another build is kept (the symmetric case needs nothing)', async () => {
+    const t = setup({aaguid: AAGUID.production, buildId: '1.4.5(14)'});
+    const prod = await ensureAttestedKey(t.deps());
+    t.svc.env.aaguid = AAGUID.development; // a locally signed build installed over it
+    t.build.id = '1.4.6(0)';
+    __resetAppAttestKeyForTests();
+    const k = await ensureAttestedKey(t.deps());
+    expect([k.keyId, k.credential.production]).toEqual([prod.keyId, true]);
+    expect(t.svc.calls.generateKey).toBe(1);
+  });
+
+  it.each([42, null, {}, ['1.4.5(14)']])('a record whose build field is %j is unreadable: discarded, a new key made', async bad => {
+    const t = setup({aaguid: AAGUID.production});
+    await ensureAttestedKey(t.deps());
+    const rec = JSON.parse((await t.storage.getItem(APP_ATTEST_KEY_STORAGE))!);
+    await t.storage.setItem(APP_ATTEST_KEY_STORAGE, JSON.stringify({...rec, attestedByBuild: bad}));
+    __resetAppAttestKeyForTests();
+    await ensureAttestedKey(t.deps());
+    expect(t.svc.calls.generateKey).toBe(2);
   });
 });
 

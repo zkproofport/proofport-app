@@ -54,6 +54,8 @@ export interface AppAttestDeps {
   /** The App ID and pinned CA; tests replace them to run synthetic chains. */
   appId?: string;
   pinnedCaKeyHash?: string;
+  /** This build, `version(build)`; tests set it. Defaults to the native values. */
+  buildId?: string;
 }
 
 interface StoredKey {
@@ -62,6 +64,14 @@ interface StoredKey {
   attestClientDataHash: string;
   /** base64 attestation object, once Apple has certified the key. */
   attestation?: string;
+  /**
+   * The build (`version(build)`) that attested it. A key's environment is
+   * fixed when it is attested, by the entitlement of the build running then;
+   * the record survives an app update, so a development key attested by a
+   * locally signed build would otherwise be reused by the TestFlight or App
+   * Store build installed over it. Absent on records from before 1.4.6.
+   */
+  attestedByBuild?: string;
 }
 
 export interface AttestedKey {
@@ -75,11 +85,18 @@ export function attestClientDataHash(keyId: string): Uint8Array {
   return sha256(Uint8Array.from([...ethers.utils.toUtf8Bytes(ATTEST_HASH_LABEL), ...base64ToBytes(keyId)]));
 }
 
+function currentBuildId(): string {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {getVersion, getBuildNumber} = require('../utils/version') as typeof import('../utils/version');
+  return `${getVersion()}(${getBuildNumber()})`;
+}
+
 function settings(deps: AppAttestDeps) {
   return {
     storage: deps.storage ?? (AsyncStorage as KeyStorage),
     appId: deps.appId ?? APP_ATTEST_APP_ID,
     pinned: deps.pinnedCaKeyHash ?? APPLE_APP_ATTEST_CA1_KEY_HASH,
+    buildId: deps.buildId ?? currentBuildId(),
   };
 }
 
@@ -89,7 +106,8 @@ async function readStored(storage: KeyStorage, log: (m: string) => void): Promis
   try {
     const v = JSON.parse(raw);
     if (v && typeof v.keyId === 'string' && typeof v.attestClientDataHash === 'string'
-      && (v.attestation === undefined || typeof v.attestation === 'string')) {
+      && (v.attestation === undefined || typeof v.attestation === 'string')
+      && (v.attestedByBuild === undefined || typeof v.attestedByBuild === 'string')) {
       return v;
     }
   } catch {
@@ -130,7 +148,7 @@ function mapNativeError(error: unknown, during: string): AppAttestError {
 }
 
 async function createAndAttest(deps: AppAttestDeps, existing: StoredKey | null, freshKeyRetry: boolean): Promise<AttestedKey> {
-  const {storage, appId, pinned} = settings(deps);
+  const {storage, appId, pinned, buildId} = settings(deps);
   const {native, log} = deps;
 
   let record = existing;
@@ -177,13 +195,13 @@ async function createAndAttest(deps: AppAttestDeps, existing: StoredKey | null, 
     await discard(storage, record.keyId, log);
     throw e;
   }
-  await storage.setItem(APP_ATTEST_KEY_STORAGE, JSON.stringify({...record, attestation}));
-  log(`[AppAttest] Key ${record.keyId} attested (${credential.production ? 'production' : 'development'} environment)`);
+  await storage.setItem(APP_ATTEST_KEY_STORAGE, JSON.stringify({...record, attestation, attestedByBuild: buildId}));
+  log(`[AppAttest] Key ${record.keyId} attested by ${buildId} (${credential.production ? 'production' : 'development'} environment)`);
   return {keyId: record.keyId, credential};
 }
 
 async function loadOrCreate(deps: AppAttestDeps): Promise<AttestedKey> {
-  const {storage, appId, pinned} = settings(deps);
+  const {storage, appId, pinned, buildId} = settings(deps);
   let supported: boolean;
   try {
     supported = await deps.native.isSupported();
@@ -202,6 +220,22 @@ async function loadOrCreate(deps: AppAttestDeps): Promise<AttestedKey> {
       const credential = toCircuitCredential(
         base64ToBytes(stored.attestation), stored.keyId, base64ToBytes(stored.attestClientDataHash), appId, pinned,
       );
+      // A development key attested by ANOTHER build (or by one that did not
+      // record itself) is not evidence about this one: a TestFlight build
+      // installed over a locally signed one inherits the record. Attest a
+      // fresh key once; this build's entitlement decides its environment. A
+      // development key this very build attested is kept -- re-attesting it
+      // would only ask Apple again for the same answer -- and the proof code
+      // refuses it (E2014). A production key is kept whichever build made it:
+      // it is what every circuit accepts.
+      if (!credential.production && stored.attestedByBuild !== buildId) {
+        deps.log(
+          `[AppAttest] Stored key ${stored.keyId} is a development key attested by ` +
+            `${stored.attestedByBuild ?? 'an earlier build'}, not ${buildId}; attesting a fresh key`,
+        );
+        await discard(storage, stored.keyId, deps.log);
+        return createAndAttest(deps, null, true);
+      }
       return {keyId: stored.keyId, credential};
     } catch (e) {
       deps.log(`[AppAttest] Stored attestation no longer fits the circuit: ${e instanceof Error ? e.message : String(e)}`);
