@@ -57,6 +57,7 @@ import {AppState} from 'react-native';
 import {deviceProfile, setActiveProofTimer, startProofTimer, timed, type ProofTimer} from '../../utils/proofTiming';
 import {getProofProgress, resetProofProgress, updateProofProgress} from '../../utils/proofProgress';
 import {clearProofInFlight, markProofInFlight} from '../../utils/proofInFlight';
+import {claimGenerationScreen, markGenerationScreenBusy, markGenerationScreenIdle, releaseGenerationScreen} from '../../stores/generationScreenStore';
 import {markOpenRequestProving} from '../../utils/relayAnswer';
 import {ProofProgressCard} from '../../components/ProofProgressCard';
 
@@ -518,6 +519,8 @@ export const ProofGenerationScreen: React.FC = () => {
     }
     updateProofProgress({stage: outcome === 'proved' ? 'done' : 'failed'});
     clearProofInFlight().catch(console.error);
+    // Nothing runs here any more: a request that arrived meanwhile opens now.
+    markGenerationScreenIdle();
   }, []);
 
   // Mark history as failed (idempotent via ref), with the log up to the failure.
@@ -599,6 +602,15 @@ export const ProofGenerationScreen: React.FC = () => {
   proofRequestRef.current = proofRequest;
   const sendCancelledRef = useRef(sendCancelled);
   sendCancelledRef.current = sendCancelled;
+  // An accepted relay request is about to start here: hold new reviews. An
+  // in-app screen nobody has started holds nothing. Leaving the screen
+  // returns the store to its default.
+  useEffect(() => {
+    const screen = {};
+    claimGenerationScreen(screen, proofRequestRef.current !== null && proofRequestRef.current !== undefined);
+    return () => releaseGenerationScreen(screen);
+  }, []);
+
   useEffect(() => () => {
     const request = proofRequestRef.current;
     if (!request || isRelayRequestAnswered(request.requestId)) return;
@@ -773,6 +785,7 @@ export const ProofGenerationScreen: React.FC = () => {
     attemptEndedRef.current = false;
     keepLogRef.current = false;
     proofStartedAt.current = Date.now();
+    markGenerationScreenBusy();
     addLog(
       `[Attempt] ${canonical}, ${proofRequest
         ? `relay request ${proofRequest.requestId} from ${JSON.stringify(proofRequest.dappName ?? null)}`

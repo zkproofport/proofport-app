@@ -47,13 +47,23 @@ import {isUpdateRequired, useForceUpdate} from './src/hooks/useForceUpdate';
 import {answerRelayRequest, answerRequestsLeftOpen, rememberOpenRelayRequest} from './src/utils/relayAnswer';
 import {laboratoryRequestGate, type LaboratoryGate} from './src/utils/laboratory';
 import {reportInterruptedProof} from './src/utils/interruptedProof';
+import {isGenerationScreenIdle, onGenerationScreenIdle} from './src/stores/generationScreenStore';
 
 /** The responder never rejects; this only makes an impossible failure loud. */
 function logAnswerFailure(error: unknown) {
   console.error('[App] Answering a relay request failed:', error);
 }
 
-/** A proof may keep running while the user visits another tab or a screen above it. */
+/**
+ * A proof screen that still owns its attempt: on the Proof stack (a proof may
+ * keep running while the person visits another tab or a screen above it) and
+ * not idle (src/stores/generationScreenStore.ts). A screen whose attempt
+ * ended no longer holds a new request's review underneath it.
+ */
+function generationHoldsReview(state: NavigationState | undefined): boolean {
+  return hasGenerationScreen(state) && !isGenerationScreenIdle();
+}
+
 function hasGenerationScreen(state: NavigationState | undefined): boolean {
   const proofStack = state?.routes.find(route => route.name === 'ProofTab')?.state;
   if (!proofStack) return false;
@@ -130,7 +140,7 @@ const App: React.FC = () => {
 
   const showPendingReview = useCallback(() => {
     if (!pendingRequestRef.current || generationNavigationPending.current ||
-        hasGenerationScreen(navigationRef.current?.getRootState())) return;
+        generationHoldsReview(navigationRef.current?.getRootState())) return;
     queuedReturnNotice.current = null;
     if (modalOwner.current === 'notice') {
       modalOwner.current = Platform.OS === 'ios' ? 'noticeClosing' : null;
@@ -196,6 +206,10 @@ const App: React.FC = () => {
     // React Native exposes onDismiss only on iOS; Android uses a Dialog.
     if (Platform.OS !== 'ios') handleNoticeDismissed();
   }, [handleNoticeDismissed]);
+
+  // The proof screen's attempt ended without navigating anywhere (a failure
+  // stays on the screen): a review held during the attempt opens now.
+  useEffect(() => onGenerationScreenIdle(() => showPendingReview()), [showPendingReview]);
 
   const handleNavigationStateChange = useCallback(() => {
     const generating = hasGenerationScreen(navigationRef.current?.getRootState());
@@ -471,7 +485,7 @@ const App: React.FC = () => {
     if (!pendingRequest || reviewedRequest !== pendingRequest ||
         pendingRequestRef.current !== reviewedRequest || modalOwner.current !== 'review') return false;
     if (generationNavigationPending.current ||
-        hasGenerationScreen(navigationRef.current?.getRootState())) return false;
+        generationHoldsReview(navigationRef.current?.getRootState())) return false;
 
     const validation = validateProofRequest(reviewedRequest);
     const expired = reviewBlockReason(reviewedRequest) === 'expired';

@@ -117,6 +117,9 @@ import App from '../../App';
 import {resetRelayAnswersForTests} from '../utils/relayAnswer';
 import {clearActiveProofRequest, getActiveProofRequest} from '../stores/activeProofRequestStore';
 import {showReturnNotice, resetReturnNoticeHandler} from '../utils/returnNoticeBridge';
+import {
+  claimGenerationScreen, isGenerationScreenIdle, markGenerationScreenBusy, markGenerationScreenIdle, releaseGenerationScreen,
+} from '../stores/generationScreenStore';
 
 const SETTINGS_KEY = '@zkproofport:settings:app';
 
@@ -144,6 +147,11 @@ beforeEach(async () => {
   (Platform as {OS: string}).OS = 'ios';
   resetReturnNoticeHandler();
   clearActiveProofRequest();
+  {
+    const reset = {};
+    claimGenerationScreen(reset, true);
+    releaseGenerationScreen(reset);
+  }
   mockNavigationChanged = undefined;
   mockNavigationState = {index: 0, routes: [{name: 'ProofTab', state: {index: 0, routes: [{name: 'CircuitSelection'}]}}]};
   mockValidateRelay.mockResolvedValue({valid: true});
@@ -517,6 +525,83 @@ it.each(['ProofComplete', 'CircuitSelection'])('releases the newest deferred rev
   expect(result.routes.map((route: any) => route.name)).toEqual(['CircuitSelection', 'ProofGeneration']);
   expect(result.routes.some((route: any) => route.key === result.previousKey)).toBe(false);
   expect(result.routes[1].params.proofRequest.requestId).toBe('newest');
+});
+
+describe('a new request comes to the front of a proof screen whose attempt ended', () => {
+  // 2026-10-29, Galaxy A23: a relay OIDC attempt failed (E2008) and its screen
+  // stayed up with "try again". The next request was valid and "waiting for
+  // review", but the review was held under that screen until Back was pressed.
+  async function failedAttemptOnTop(selectedTab = 'ProofTab') {
+    const first = request('giwa_attestation', 'first');
+    await receive(first);
+    await act(async () => {mockModal.onAccept(first);});
+    const screen = {};
+    claimGenerationScreen(screen, true);
+    await proofStackState([{name: 'CircuitSelection'}, {name: 'ProofGeneration', params: {proofRequest: first}}], selectedTab);
+    clearActiveProofRequest(first);
+    await act(async () => markGenerationScreenIdle());
+    return {first, screen};
+  }
+
+  it.each(['ProofTab', 'WalletTab'])('opens the review at once (selected tab %s) and accepting replaces the ended screen', async tab => {
+    await ready();
+    await failedAttemptOnTop(tab);
+    const next = request('giwa_attestation', 'next');
+    await receive(next);
+    expect(mockModal.visible).toBe(true);
+    expect(mockModal.request).toBe(next);
+    let accepted: boolean | undefined;
+    await act(async () => {accepted = mockModal.onAccept(next);});
+    expect(accepted).toBe(true);
+    expect(getActiveProofRequest()).toBe(next);
+    const navigation = mockDispatch.mock.calls.at(-1)![0];
+    expect(navigation.payload.params.state.routes.map((r: any) => r.name)).toEqual(['CircuitSelection', 'ProofGeneration']);
+    expect(navigation.payload.params.state.routes[1].params.proofRequest).toBe(next);
+  });
+
+  it('a review held while the attempt ran opens the moment the attempt ends, with no navigation', async () => {
+    await ready();
+    const first = request('giwa_attestation', 'first');
+    await receive(first);
+    await act(async () => {mockModal.onAccept(first);});
+    const screen = {};
+    claimGenerationScreen(screen, true);
+    await proofStackState([{name: 'CircuitSelection'}, {name: 'ProofGeneration', params: {proofRequest: first}}]);
+    const next = request('giwa_attestation', 'next');
+    await receive(next);
+    expect(mockModal.visible).toBe(false);
+    const dispatched = mockDispatch.mock.calls.length;
+    await act(async () => markGenerationScreenIdle());
+    expect(mockModal.visible).toBe(true);
+    expect(mockModal.request).toBe(next);
+    expect(mockDispatch.mock.calls.length).toBe(dispatched);
+  });
+
+  it('a retry on that screen holds the next request again (the queue policy for a running proof)', async () => {
+    await ready();
+    await failedAttemptOnTop();
+    await act(async () => markGenerationScreenBusy());
+    const next = request('giwa_attestation', 'next');
+    await receive(next);
+    expect(mockModal.visible).toBe(false);
+    let accepted: boolean | undefined;
+    await act(async () => {accepted = mockModal.onAccept(next);});
+    expect(accepted).toBe(false);
+  });
+
+  it('an old screen unmounting after its replacement mounted does not change the new screen\'s state', () => {
+    const old = {};
+    const fresh = {};
+    claimGenerationScreen(old, false);
+    claimGenerationScreen(fresh, true);
+    releaseGenerationScreen(old);
+    expect(isGenerationScreenIdle()).toBe(false);
+    claimGenerationScreen(fresh, false);
+    releaseGenerationScreen(old);
+    expect(isGenerationScreenIdle()).toBe(true);
+    releaseGenerationScreen(fresh);
+    expect(isGenerationScreenIdle()).toBe(false);
+  });
 });
 
 it('reports stale, expired, and duplicate acceptance as false', async () => {

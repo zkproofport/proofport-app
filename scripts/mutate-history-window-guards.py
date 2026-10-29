@@ -46,6 +46,11 @@ RELAY = "src/openstoa-host/topicProofRelay.ts"
 RELAY_TEST = "src/openstoa-host/__tests__/topicProofRelay.test.ts"
 IDS = "src/config/circuitIds.ts"
 V2_TEST = "src/__tests__/coinbaseKycIsV2Everywhere.test.ts"
+APP_ROOT_TSX = "App.tsx"
+LIFECYCLE_TEST = "src/__tests__/proofRequestReviewLifecycle.test.ts"
+SCREEN = "src/screens/proof/ProofGenerationScreen.tsx"
+SCREEN_TEST = "src/screens/__tests__/everyRelayRequestGetsOneAnswer.test.ts"
+STORE = "src/stores/generationScreenStore.ts"
 
 
 @dataclass(frozen=True)
@@ -117,6 +122,35 @@ MUTATIONS = [
              "  if (!Object.prototype.hasOwnProperty.call(data, 'signerVariant') || data.signerVariant === undefined) return {};",
              "  if (!Object.prototype.hasOwnProperty.call(data, 'signerVariant') || data.signerVariant === undefined) return {signerVariant: 'standard'};",
              RELAY_TEST, "absent stays absent"),
+    # --- a new request's review is not held under an ended attempt ---
+    Mutation("review-held-under-any-proof-screen", APP_ROOT_TSX,
+             """    if (!pendingRequestRef.current || generationNavigationPending.current ||
+        generationHoldsReview(navigationRef.current?.getRootState())) return;""",
+             """    if (!pendingRequestRef.current || generationNavigationPending.current ||
+        hasGenerationScreen(navigationRef.current?.getRootState())) return;""",
+             LIFECYCLE_TEST, "opens the review at once (selected tab ProofTab)"),
+    Mutation("accept-refused-under-any-proof-screen", APP_ROOT_TSX,
+             """    if (generationNavigationPending.current ||
+        generationHoldsReview(navigationRef.current?.getRootState())) return false;""",
+             """    if (generationNavigationPending.current ||
+        hasGenerationScreen(navigationRef.current?.getRootState())) return false;""",
+             LIFECYCLE_TEST, "opens the review at once (selected tab WalletTab)"),
+    Mutation("held-review-not-reopened-when-attempt-ends", APP_ROOT_TSX,
+             "  useEffect(() => onGenerationScreenIdle(() => showPendingReview()), [showPendingReview]);",
+             "",
+             LIFECYCLE_TEST, "a review held while the attempt ran opens the moment the attempt ends"),
+    Mutation("ended-attempt-not-reported-idle", SCREEN,
+             "    markGenerationScreenIdle();\n  }, []);",
+             "  }, []);",
+             SCREEN_TEST, "idle once the attempt fails (a thrown error)"),
+    Mutation("started-attempt-not-reported-busy", SCREEN,
+             "    proofStartedAt.current = Date.now();\n    markGenerationScreenBusy();",
+             "    proofStartedAt.current = Date.now();",
+             SCREEN_TEST, "pressing generate makes it busy"),
+    Mutation("old-screen-release-overwrites-new", STORE,
+             "  if (owner !== screen) return;\n",
+             "",
+             LIFECYCLE_TEST, "an old screen unmounting after its replacement mounted"),
 ]
 
 

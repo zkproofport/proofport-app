@@ -492,6 +492,55 @@ describe('success, leaving, retrying', () => {
   });
 });
 
+describe('the screen says when it stops holding a new request\'s review', () => {
+  // App.tsx keeps a new request's review closed only while this screen is
+  // busy (src/stores/generationScreenStore.ts); an ended attempt must say so,
+  // or the next request stays invisible underneath it.
+  /* eslint-disable-next-line @typescript-eslint/no-var-requires */
+  const store = require('../../stores/generationScreenStore');
+
+  it('busy from the moment an accepted relay request mounts, while it proves', async () => {
+    mockGenerate.mockImplementation(() => new Promise(() => {}));
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    expect(store.isGenerationScreenIdle()).toBe(false);
+  });
+
+  it.each([
+    ['a thrown error', () => mockGenerate.mockRejectedValue(new Error('prover crashed'))],
+    ['no attestation', () => mockFindAttestation.mockResolvedValue(null)],
+  ])('idle once the attempt fails (%s), while the failed screen stays up', async (_label, arrange) => {
+    arrange();
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    expect(answers()[0].status).toBe('error');
+    expect(store.isGenerationScreenIdle()).toBe(true);
+  });
+
+  it('idle once a proof is made', async () => {
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'standard'};
+    await rerender();
+    expect(store.isGenerationScreenIdle()).toBe(true);
+  });
+
+  it('an in-app screen nobody started is idle; pressing generate makes it busy', async () => {
+    mockGenerate.mockImplementation(() => new Promise(() => {}));
+    await mount('coinbase_attestation', undefined);
+    expect(store.isGenerationScreenIdle()).toBe(true);
+    const generate = tree!.root.findAllByType('Button' as never)[0];
+    await act(async () => {generate.props.onPress();});
+    expect(store.isGenerationScreenIdle()).toBe(false);
+  });
+
+  it('leaving returns the store to its default (busy) unless a newer screen took over', async () => {
+    mockFindAttestation.mockResolvedValue(null);
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    expect(store.isGenerationScreenIdle()).toBe(true);
+    act(() => tree!.unmount());
+    tree = null;
+    expect(store.isGenerationScreenIdle()).toBe(false);
+  });
+});
+
 describe('the relay answers back', () => {
   it('409 timed out: the person is told the request expired', async () => {
     mockPost.mockResolvedValue({kind: 'conflict', status: 409, timedOut: true, body: '{"reason":"timeout"}'});
