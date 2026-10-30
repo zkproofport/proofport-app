@@ -17,6 +17,7 @@
 // cannot be loaded by jest.
 import {getNetworkConfigForCircuit} from '../config/environment';
 import type {CircuitName} from '../config/circuitIds';
+import {describeWalletError} from './walletError';
 
 /** The shape of the provider the app already passes around. */
 interface Eip1193 {
@@ -28,6 +29,29 @@ const CHAIN_NOT_ADDED = 4902;
 
 /** The user closed the prompt. Not an error to retry; an answer. */
 const USER_REJECTED = 4001;
+
+/**
+ * A chain id as a number, from any of the shapes a provider answers with.
+ *
+ * EIP-1193 says `eth_chainId` is a hex string, and the test wallet here
+ * answered that way. AppKit's provider does not: WalletConnect's
+ * UniversalProvider answers `eth_chainId` itself, with
+ * `parseInt(this.getDefaultChain())` -- the NUMBER 84532. Compared as a string
+ * against "0x14a34" it never matched, so on 2026-10-30 a phone already on Base
+ * Sepolia logged "Wallet is on 84532, asking it to switch to Base Sepolia
+ * (0x14a34)". Anything that is none of these shapes is undefined, and the
+ * caller treats that as "not on the chain", never as a match.
+ */
+export function chainIdNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+  if (typeof value !== 'string') return undefined;
+  const s = value.trim();
+  let n: number | undefined;
+  if (/^0x[0-9a-f]+$/i.test(s)) n = parseInt(s, 16);
+  else if (/^[0-9]+$/.test(s)) n = Number(s);
+  else if (/^eip155:[0-9]+$/.test(s)) n = Number(s.slice('eip155:'.length));
+  return n !== undefined && Number.isSafeInteger(n) && n > 0 ? n : undefined;
+}
 
 function errorCode(e: unknown): number | undefined {
   if (typeof e === 'object' && e !== null && 'code' in e) {
@@ -89,12 +113,20 @@ export async function ensureWalletOnChain(
   const net = getNetworkConfigForCircuit(circuit);
   const wanted = `0x${net.chainId.toString(16)}`;
 
+  // Over WalletConnect this is the SESSION's default chain, answered by the
+  // provider without asking the wallet. The request that follows carries that
+  // chain, and the wallet moves to it before signing; what the wallet's own
+  // screen is set to cannot be read from here.
   const current = await ethereum.request({method: 'eth_chainId'});
-  if (typeof current === 'string' && current.toLowerCase() === wanted.toLowerCase()) {
-    log?.(`[Chain] Wallet is already on ${net.name} (${wanted})`);
+  const currentId = chainIdNumber(current);
+  if (currentId === net.chainId) {
+    log?.(`[Chain] Wallet is already on ${net.name} (${net.chainId})`);
     return;
   }
-  log?.(`[Chain] Wallet is on ${String(current)}, asking it to switch to ${net.name} (${wanted})`);
+  log?.(
+    `[Chain] Wallet is on ${currentId ?? `an unreadable chain (${describeWalletError(current)})`}, ` +
+      `asking it to switch to ${net.name} (${net.chainId}, ${wanted})`,
+  );
 
   try {
     await ethereum.request({
@@ -110,7 +142,7 @@ export async function ensureWalletOnChain(
       );
     }
     if (errorCode(e) !== CHAIN_NOT_ADDED) {
-      throw e;
+      throw new Error(`The wallet did not switch to ${net.name}: ${describeWalletError(e)}`);
     }
   }
 
@@ -126,18 +158,22 @@ export async function ensureWalletOnChain(
         `The wallet declined to add ${net.name}. It can be added by hand: RPC ${net.rpcUrl}, chain id ${net.chainId}, explorer ${net.explorerUrl}.`,
       );
     }
-    throw e;
+    throw new Error(`The wallet did not add ${net.name}: ${describeWalletError(e)}`);
   }
 
   // Some wallets add without switching, so ask again rather than assume.
   const after = await ethereum.request({method: 'eth_chainId'});
-  if (typeof after === 'string' && after.toLowerCase() === wanted.toLowerCase()) {
+  if (chainIdNumber(after) === net.chainId) {
     log?.(`[Chain] Added and switched to ${net.name}`);
     return;
   }
-  await ethereum.request({
-    method: 'wallet_switchEthereumChain',
-    params: [{chainId: wanted}],
-  });
+  try {
+    await ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{chainId: wanted}],
+    });
+  } catch (e) {
+    throw new Error(`The wallet added ${net.name} but did not switch to it: ${describeWalletError(e)}`);
+  }
   log?.(`[Chain] Added ${net.name} and switched to it`);
 }
