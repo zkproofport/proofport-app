@@ -629,9 +629,16 @@ describe('a wallet rejection is recognised by its code', () => {
     const signing = ['useCoinbaseKyc', 'useCoinbaseCountry', 'useGiwaKyc', 'useDojangPlayground'];
     for (const name of signing) {
       const src = fs.readFileSync(path.join(__dirname, '../../hooks', `${name}.ts`), 'utf8');
-      expect([name, /if \(isWalletRejection\(signError\)\) \{\s*throw new Error\(`\$\{WALLET_REJECTED_PREFIX\}/.test(src)])
-        .toEqual([name, true]);
+      // The classification lives in one place since 2026-10-30
+      // (src/utils/walletError.ts), so each hook must hand its error there.
+      expect([name, /throw signingFailure\(signError\);/.test(src)]).toEqual([name, true]);
     }
+    const {signingFailure} = jest.requireActual('../../utils/walletError');
+    // A WalletConnect rejection arrives as a plain object, not an Error.
+    expect(signingFailure({code: 4001, message: 'User rejected the request.'}).message)
+      .toMatch(new RegExp(`^${WALLET_REJECTED_PREFIX}: `));
+    expect(rejectedInWallet(signingFailure({code: 5000, message: 'rejected'}).message)).toBe(true);
+    expect(rejectedInWallet(signingFailure({code: -32603, message: 'Internal error'}).message)).toBe(false);
   });
 });
 

@@ -46,6 +46,7 @@ import {
   circuitsInWalletGroup,
 } from '../../stores/circuitWalletStore';
 import type {CircuitName} from '../../config';
+import {describeWalletError} from '../../utils/walletError';
 
 // Group representatives — one row per wallet-binding group. OIDC and Korea
 /**
@@ -184,7 +185,7 @@ export const CircuitWalletsCard: React.FC = () => {
         // until either the bind completes or the user dismisses the picker
         // (in which case the user can re-tap and we'll overwrite busy).
       } catch (e) {
-        showError('E4003', e instanceof Error ? e.message : String(e));
+        showError('E4003', describeWalletError(e));
         setBusy(null);
         setPendingBindTarget(null);
       }
@@ -207,7 +208,7 @@ export const CircuitWalletsCard: React.FC = () => {
           } catch (e) {
             // Same reason as the global row: a console line is invisible, and
             // the person is left looking at a button that did nothing.
-            showError('E4004', e instanceof Error ? e.message : String(e));
+            showError('E4004', describeWalletError(e));
           }
         }
         await refresh();
@@ -230,7 +231,7 @@ export const CircuitWalletsCard: React.FC = () => {
       } catch (e) {
         // Third place this was swallowed. A console line is invisible to the
         // person holding the phone, and the row just sits there.
-        showError('E4004', e instanceof Error ? e.message : String(e));
+        showError('E4004', describeWalletError(e));
       } finally {
         setBusy(null);
       }

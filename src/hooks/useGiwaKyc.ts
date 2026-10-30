@@ -11,7 +11,7 @@
  * - On-chain verifier: GIWA Sepolia HonkVerifier (chain 91342)
  */
 import {useState, useCallback, useRef} from 'react';
-import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
+import {describeWalletError, signingFailure} from '../utils/walletError';
 import {ethers} from 'ethers';
 import {
   parseProofWithPublicInputs,
@@ -293,15 +293,10 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           userSignature = result as string;
           if (!userSignature) throw new Error('Empty signature returned');
         } catch (signError) {
-          const msg = signError instanceof Error ? signError.message : String(signError);
-          const code = (signError as {code?: number})?.code;
-          if (code === -32002 || msg.includes('already pending')) {
-            throw new Error('Signing request already pending. Please try again.');
-          }
-          if (isWalletRejection(signError)) {
-            throw new Error(`${WALLET_REJECTED_PREFIX}: ${msg}`);
-          }
-          throw new Error(`Signature failed: ${msg}`);
+          // The wallet's JSON-RPC error arrives as a plain object; its code and
+          // message go to the log and the step detail, never "[object Object]".
+          addLog(`[Sign] Wallet answered with an error: ${describeWalletError(signError)}`);
+          throw signingFailure(signError);
         } finally {
           isSigningRef.current = false;
         }
@@ -398,7 +393,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         setStatus('Proof ready');
         addLog('=== GIWA Proof Generation Complete ===');
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = describeWalletError(error);
         addLog(`Error: ${errorMessage}`);
         setStatus('Error generating proof');
         setProofSteps(prev =>

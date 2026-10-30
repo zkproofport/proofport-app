@@ -1,6 +1,7 @@
 import {useState, useCallback, useEffect} from 'react';
 import {useAppKit, useAccount, useProvider} from '@reown/appkit-react-native';
 import {ethers} from 'ethers';
+import {describeWalletError} from '../utils/walletError';
 
 export type WalletConnectionStatus =
   | 'initializing'
@@ -128,8 +129,7 @@ export const useWallet = (
       log('Opening wallet selector...');
       await open();
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to connect';
+      const errorMessage = describeWalletError(err);
       log(`Connect error: ${errorMessage}`);
       setError(errorMessage);
     } finally {
@@ -167,7 +167,7 @@ export const useWallet = (
       // No `isConnected` guard: that state is the one that was already wrong.
       await appKitDisconnect();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Disconnect failed';
+      const message = describeWalletError(err);
       log(`Disconnect error: ${message}`);
       setError(message);
       throw new Error(message);

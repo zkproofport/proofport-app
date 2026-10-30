@@ -6,6 +6,7 @@ import {WalletNoConnectionScreen} from './WalletNoConnectionScreen';
 import {WalletConnectedScreen} from './WalletConnectedScreen';
 import {useWalletInfo} from '@reown/appkit-react-native';
 import {useTranslation} from 'react-i18next';
+import {describeWalletError} from '../../utils/walletError';
 
 /**
  * The name of a chain, from the chains this app already knows.
@@ -38,7 +39,7 @@ export const WalletMainScreen: React.FC = () => {
       // A failure used to go to the console and nowhere else, so a refused
       // disconnect and a successful one looked identical to the person: the
       // button did nothing either way.
-      showError('E4004', error instanceof Error ? error.message : String(error));
+      showError('E4004', describeWalletError(error));
     }
   };
 

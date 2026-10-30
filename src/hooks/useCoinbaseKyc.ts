@@ -1,5 +1,5 @@
 import {useState, useCallback, useRef} from 'react';
-import {isWalletRejection, WALLET_REJECTED_PREFIX} from '../utils/walletRejection';
+import {describeWalletError, signingFailure} from '../utils/walletError';
 import {ethers} from 'ethers';
 import {
   parseProofWithPublicInputs,
@@ -386,7 +386,6 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // Step 4: Sign with wallet
         updateStep('sign', {status: 'in_progress'});
         addLog('Step 4: Requesting signature from wallet...');
-        addLog('[Sign] Preparing EIP-191 personal_sign request...');
 
         if (!ethereum) {
           throw new Error('Wallet provider not available');
@@ -415,7 +414,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           await ensureWalletOnChain(ethereum, CIRCUIT_NAME, addLog);
         }
 
-        addLog(`[Sign] Message: ${messageHex.slice(0, 20)}...`);
+        // With an action the signal hash is 32 zero bytes by design (the
+        // circuit requires it); what the wallet signs is the typed-data digest.
+        addLog(`[Sign] Request: ${signed.method}, signing digest ${signedDigestOf(signed)}`);
 
         if (isSigningRef.current) {
           throw new Error('Signing already in progress');
@@ -440,16 +441,10 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           addLog(`[Sign] Signature received (${userSignature.length} chars)`);
           addLog(`[Sign] Signature: ${userSignature.slice(0, 40)}...`);
         } catch (signError) {
-          const signErrorMsg = signError instanceof Error ? signError.message : String(signError);
-          const errorCode = (signError as {code?: number})?.code;
-
-          if (errorCode === -32002 || signErrorMsg.includes('already pending')) {
-            throw new Error('Signing request already pending. Please try again.');
-          }
-          if (isWalletRejection(signError)) {
-            throw new Error(`${WALLET_REJECTED_PREFIX}: ${signErrorMsg}`);
-          }
-          throw new Error(`Signature failed: ${signErrorMsg}`);
+          // The wallet's JSON-RPC error arrives as a plain object; its code and
+          // message go to the log and the step detail, never "[object Object]".
+          addLog(`[Sign] Wallet answered with an error: ${describeWalletError(signError)}`);
+          throw signingFailure(signError);
         } finally {
           isSigningRef.current = false;
         }
@@ -627,7 +622,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         setStatus('Proof ready');
         addLog('=== Proof Generation Complete ===');
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = describeWalletError(error);
         addLog(`Error: ${errorMessage}`);
         setStatus('Error generating proof');
 
