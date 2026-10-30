@@ -80,7 +80,7 @@ describe('a circuit download from the pinned release', () => {
   // (src/config/circuitArtifacts.ts), so no download reaches
   // CIRCUITS_RELEASE_TAG; the launch sync above still reads broadcasts there.
   it.each(['production', 'staging'] as const)(
-    '%s: Coinbase Country v2 reads its pinned ref, never the release tag or main, and fails loudly without one',
+    '%s: Coinbase Country v2 reads its pinned commit, never the release tag or main',
     async env => {
       mockStatus = 404;
       const err = await downloadCircuitFiles('coinbase_country_attestation', env, undefined, () => {}).catch((e: Error) => e);
@@ -88,14 +88,10 @@ describe('a circuit download from the pinned release', () => {
       const message = (err as Error).message;
       expect(message).not.toContain('CIRCUITS_RELEASE_TAG');
       expect(message).not.toContain('/circuits/main/');
-      if (COUNTRY_V2_CIRCUITS_REF === '') {
-        // Placeholder until the CI-built files are on a commit: nothing is fetched.
-        expect(message).toBe('COUNTRY_V2_CIRCUITS_REF is empty (src/config/circuitArtifacts.ts).');
-        expect(mockFiles.size).toBe(0);
-      } else {
-        expect(message).toContain(`/circuits/${COUNTRY_V2_CIRCUITS_REF}/coinbase-country-attestation-v2/`);
-        expect(mockFiles.has('/docs/circuits/coinbase_country_attestation.json')).toBe(false);
-      }
+      expect(COUNTRY_V2_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
+      expect(message).toContain(`/circuits/${COUNTRY_V2_CIRCUITS_REF}/coinbase-country-attestation-v2/`);
+      expect(message).toContain(`circuits ref ${COUNTRY_V2_CIRCUITS_REF} (src/config/circuitArtifacts.ts) does not contain this file`);
+      expect(mockFiles.has('/docs/circuits/coinbase_country_attestation.json')).toBe(false);
     },
   );
 

@@ -1,12 +1,12 @@
 {
   "source": {
-    "circuitsCommit": "d91b69932f77a169cc70c23575b71f702aabb6ea",
+    "circuitsCommit": "75bec01f877aa8a500974dc65321b0455c677654",
     "circuitsWorkingTreeChanged": false
   },
   "app_attest": {
     "package": "coinbase_country_attestation_v2",
     "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "a8ea7c8edf811eef2c79a14151ee075c9b26a5ec6a13faef1012b03758425909",
+    "jsonSha256": "d6e7eae3bb6e25806ce2f83c1e0bff48abd60aed6fa48d37d8fd076f64e34ca8",
     "parameters": [
       {
         "name": "signal_hash",
@@ -173,7 +173,7 @@
   "android": {
     "package": "coinbase_country_attestation_v2_android",
     "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "358708176b32b5572448149e80f83f69c11f1f241b87ff17ff74190973d16339",
+    "jsonSha256": "1fe65925b510b251f13a7e847f35d092292aa62b91b2825d0333426c3a77c3c3",
     "parameters": [
       {
         "name": "signal_hash",
@@ -355,7 +355,7 @@
   "android_factory": {
     "package": "coinbase_country_attestation_v2_android_factory",
     "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "0f247c1234020a1189048e8f9ecc20c260883197fe964edfe68c193f1b4f8111",
+    "jsonSha256": "f5aeae850abd12c246bd60816dab7105e4ceb8f63d88f85699abcd948069e1e7",
     "parameters": [
       {
         "name": "signal_hash",

@@ -83,14 +83,17 @@ export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f1
 export const ANDROID_SIGNATURE_CIRCUITS_REF = '8fad8daa4fc7cdb3315deb4a40cd6a263229a455';
 
 /**
- * The zkproofport/circuits ref carrying Coinbase Country v2's CI-built files
- * (`coinbase_country_attestation_v2`, `_android`, `_android_factory`, circuits
- * branch country-v2, 2026-10-30): json, .srs (split for the 2^21 Android
- * packages) with SHA256SUMS, and vk. EMPTY until those files are on a commit:
- * every Country download ends at requireArtifactRef's error naming this
- * constant, never at v1's files. The Android rows need a full 40-hex commit.
+ * The zkproofport/circuits commit carrying Coinbase Country v2's CI-built
+ * files (`coinbase_country_attestation_v2`, `_android`, `_android_factory`):
+ * 75bec01 (branch country-v2, 2026-10-30; nargo 1.0.0-beta.19, bb
+ * 4.2.0-aztecnr-rc.2; vk log sizes 20 / 21 / 21, the two Android .srs in
+ * three parts), checked against each package's target/SHA256SUMS and
+ * target/vk/SHA256SUMS at that commit (json d6e7eae3... / 1fe65925... /
+ * f5aeae85...). A full commit, not a branch: a branch moves under an
+ * installed app. Empty would end every Country download at
+ * requireArtifactRef's error naming this constant, never at v1's files.
  */
-export const COUNTRY_V2_CIRCUITS_REF = '';
+export const COUNTRY_V2_CIRCUITS_REF = '75bec01f877aa8a500974dc65321b0455c677654';
 
 /** The .srs size of a 2^21 circuit (bb 4.2.0-aztecnr-rc.2), split for GitHub. */
 export const SRS_2_21_BYTES = 134_217_940;
