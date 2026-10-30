@@ -31,7 +31,7 @@ import {laboratoryRequestGate, LABORATORY_CIRCUIT_IDS} from '../utils/laboratory
 const SRC = path.resolve(__dirname, '..');
 const SETTINGS_KEY = '@zkproofport:settings:app';
 const LAB = ['giwa_attestation', 'dojang_playground'];
-const HOME = ['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation'];
+const HOME = ['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation', 'human_passport_score'];
 
 beforeEach(() => {mockDisk.clear(); mockReadFailure = false;});
 

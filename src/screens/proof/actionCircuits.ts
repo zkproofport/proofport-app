@@ -15,7 +15,7 @@
 import {ALL_CIRCUIT_IDS, CIRCUIT_ACTION_BINDING, type CircuitName} from '../../config/circuitIds';
 import {isLaboratoryCircuit} from './proofCatalog';
 
-export const CIRCUITS_WITH_OWN_INPUTS: readonly CircuitName[] = ['coinbase_country_attestation'];
+export const CIRCUITS_WITH_OWN_INPUTS: readonly CircuitName[] = ['coinbase_country_attestation', 'human_passport_score'];
 
 export const ACTION_CIRCUITS: readonly CircuitName[] = ALL_CIRCUIT_IDS.filter(
   id => CIRCUIT_ACTION_BINDING[id] !== 'none',

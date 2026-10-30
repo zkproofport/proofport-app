@@ -26,7 +26,7 @@ export const USER_FACING_NETWORKS: ReadonlyArray<NetworkDescriptor> = [
   {
     id: 'base',
     labelKey: 'host.more.networkBase',
-    circuits: ['coinbase_attestation', 'coinbase_country_attestation'],
+    circuits: ['coinbase_attestation', 'coinbase_country_attestation', 'human_passport_score'],
   },
   {
     id: 'giwa',

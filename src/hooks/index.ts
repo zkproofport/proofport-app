@@ -4,6 +4,8 @@ export {useCoinbaseKyc} from './useCoinbaseKyc';
 export type {UseCoinbaseKycReturn, CoinbaseKycProofInputs} from './useCoinbaseKyc';
 export {useGiwaKyc} from './useGiwaKyc';
 export {useDojangPlayground} from './useDojangPlayground';
+export {useHumanPassport} from './useHumanPassport';
+export type {UseHumanPassportReturn, HumanPassportProofInputs} from './useHumanPassport';
 export type {UseDojangPlaygroundReturn, DojangPlaygroundProofInputs} from './useDojangPlayground';
 export type {UseGiwaKycReturn, GiwaKycProofInputs} from './useGiwaKyc';
 export {useCoinbaseCountry} from './useCoinbaseCountry';

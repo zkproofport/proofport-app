@@ -38,6 +38,8 @@ const CIRCUIT_WALLET_GROUP: Record<CircuitName, string> = {
   // necessarily the one the GIWA mock attester registered.
   dojang_playground: 'dojang',
   oidc_domain_attestation: 'oidc',
+  // Its own group: the wallet holding a Human Passport score is chosen for it.
+  human_passport_score: 'human_passport',
 };
 
 /**
@@ -61,6 +63,8 @@ export const CIRCUIT_BINDS_A_WALLET = {
   dojang_playground: true,
   // The signature is inside the OIDC identity token. No wallet is read.
   oidc_domain_attestation: false,
+  // The wallet the score names signs the request.
+  human_passport_score: true,
 } satisfies Record<CircuitName, boolean>;
 
 export function walletGroupKey(circuit: CircuitName): CircuitName {

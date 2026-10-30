@@ -53,6 +53,7 @@ const mockRunGate = jest.fn();
 const mockGetProvider = jest.fn();
 const mockFindAttestation = jest.fn();
 const mockFindDojang = jest.fn();
+const mockFindPassport = jest.fn();
 const mockStatement = jest.fn();
 const mockPrepareOidcSigner = jest.fn();
 const mockOidcSigner = jest.fn();
@@ -83,7 +84,7 @@ jest.mock('react-i18next', () => ({useTranslation: () => ({t: mockT})}));
 jest.mock('../../context', () => ({useThemeColors: () => ({colors: jest.requireActual('../../theme').darkColors})}));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
-  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
+  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(), useHumanPassport: () => mockProofHook(),
   useGoogleAuth: () => ({isReady: mockAuthReady, promptSignIn: mockSignIn}),
   useMicrosoftAuth: () => ({isReady: mockAuthReady, promptSignIn: mockMsSignIn}),
   useWallet: () => ({account: ACCOUNT, isReady: true, getProvider: mockGetProvider, connect: mockNoop, disconnect: mockNoop}),
@@ -108,6 +109,13 @@ jest.mock('../../utils', () => {
     computeScope: () => new Uint8Array(32),
     nullifierForCircuit: () => new Uint8Array(32),
   };
+});
+jest.mock('../../utils/humanPassport', () => {
+  class HumanPassportError extends Error {
+    code: string;
+    constructor(code: string, message: string) { super(message); this.code = code; }
+  }
+  return {findHumanPassportScore: (...args: unknown[]) => mockFindPassport(...args), HumanPassportError};
 });
 jest.mock('../../utils/errorBridge', () => ({showGlobalError: (...args: unknown[]) => mockShowError(...args)}));
 jest.mock('../../utils/deeplink', () => ({
@@ -180,6 +188,7 @@ beforeEach(() => {
   mockGetProvider.mockResolvedValue({send: jest.fn()});
   mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
   mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
+  mockFindPassport.mockResolvedValue({request: {recipient: ACCOUNT}, head: {score: 300000}});
   mockStatement.mockResolvedValue({clientData: new Uint8Array(225), attestedAt: 1});
   mockPrepareOidcSigner.mockResolvedValue(mockOidcSigner);
   mockGenerate.mockResolvedValue(undefined);
@@ -318,6 +327,35 @@ describe('every inline failure path answers once, with its code', () => {
     mockFindDojang.mockRejectedValue(new Error('rpc down'));
     await mount('dojang_playground', request('dojang_playground'));
     expectOneError('E3002');
+  });
+
+  it.each([['E2021', 'no score'], ['E2022', 'below'], ['E2023', 'too large'], ['E3001', 'lookup did not finish']])(
+    'a Human Passport lookup refused with %s answers once with it', async (code, message) => {
+      const {HumanPassportError} = jest.requireMock('../../utils/humanPassport');
+      mockFindPassport.mockRejectedValue(new HumanPassportError(code, message));
+      await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}));
+      expectOneError(code);
+      expect(mockGenerate).not.toHaveBeenCalled();
+    });
+
+  it('a Human Passport lookup that threw something else -> E3001', async () => {
+    mockFindPassport.mockRejectedValue(new Error('socket hang up'));
+    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}));
+    expectOneError('E3001');
+  });
+
+  it.each([[undefined], [0], ['20'], [20.00001]])('a Human Passport request with minScore %p -> E2004, nothing looked up', async minScore => {
+    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore}));
+    expectOneError('E2004');
+    expect(mockFindPassport).not.toHaveBeenCalled();
+  });
+
+  it('a Human Passport request proves with the requested threshold in score units', async () => {
+    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20.5}));
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 205000, expect.any(Number), expect.any(Function));
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    expect(mockGenerate.mock.calls[0][0]).toMatchObject({userAddress: ACCOUNT, minScoreUnits: 205000, scopeString: 's'});
+    expect(answers()).toHaveLength(0);
   });
 
   it('no wallet provider -> E4001', async () => {
@@ -597,7 +635,7 @@ describe('the relay answers back', () => {
 
 describe('every hook step has an error code', () => {
   it('covers each step id the proof hooks declare', () => {
-    const hooks = ['useCoinbaseKyc', 'useCoinbaseCountry', 'useOidcDomain', 'useGiwaKyc', 'useDojangPlayground'];
+    const hooks = ['useCoinbaseKyc', 'useCoinbaseCountry', 'useOidcDomain', 'useGiwaKyc', 'useDojangPlayground', 'useHumanPassport'];
     const ids = new Set<string>();
     for (const name of hooks) {
       const src = fs.readFileSync(path.join(__dirname, '../../hooks', `${name}.ts`), 'utf8');
@@ -626,7 +664,7 @@ describe('a wallet rejection is recognised by its code', () => {
   });
 
   it('every signing hook re-throws a rejection with the prefix', () => {
-    const signing = ['useCoinbaseKyc', 'useCoinbaseCountry', 'useGiwaKyc', 'useDojangPlayground'];
+    const signing = ['useCoinbaseKyc', 'useCoinbaseCountry', 'useGiwaKyc', 'useDojangPlayground', 'useHumanPassport'];
     for (const name of signing) {
       const src = fs.readFileSync(path.join(__dirname, '../../hooks', `${name}.ts`), 'utf8');
       // The classification lives in one place since 2026-10-30

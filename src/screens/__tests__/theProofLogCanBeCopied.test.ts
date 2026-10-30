@@ -58,7 +58,7 @@ jest.mock('../../context', () => ({
 jest.mock('../../context/ThemeContext', () => ({useThemeColors: () => ({mode: 'dark'})}));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
-  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
+  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(), useHumanPassport: () => mockProofHook(),
   useLogs: jest.requireActual('../../hooks/useLogs').useLogs,
 }));
 jest.mock('../../stores', () => ({

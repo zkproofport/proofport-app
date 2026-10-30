@@ -348,6 +348,7 @@ describe('every proof hook uses the shared checks and carries no copy', () => {
     'useGiwaKyc.ts',
     'useOidcDomain.ts',
     'useDojangPlayground.ts',
+    'useHumanPassport.ts',
   ];
   const code = (file: string) =>
     fs
@@ -614,12 +615,17 @@ describe('a History proof older than the request window is asked of the contract
     expect(() => proofAgeSeconds(id, [], 100)).toThrow(/Unknown circuit/);
   });
 
-  it('every circuit has its window decided, and only OIDC and the two Coinbase circuits have one', () => {
+  it('every circuit has its window decided, and only OIDC, the two Coinbase circuits and Human Passport have one', () => {
     const {ALL_CIRCUIT_IDS} = jest.requireActual('@zkproofport-app/core');
     expect(Object.keys(REQUEST_WINDOWS).sort()).toEqual([...ALL_CIRCUIT_IDS].sort());
     expect(Object.entries(REQUEST_WINDOWS).filter(([, w]) => w).map(([c]) => c).sort()).toEqual(
-      ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'],
+      ['coinbase_attestation', 'coinbase_country_attestation', 'human_passport_score', 'oidc_domain_attestation'],
     );
+    // Human Passport: `now` is the last of its 195 inputs; past the window the
+    // anchors (issuer root, scorer, threshold) are still checked.
+    expect(REQUEST_WINDOWS.human_passport_score!.index).toBe(194);
+    expect(REQUEST_WINDOWS.human_passport_score!.maxAgeSeconds).toBe(core.HUMAN_PASSPORT_NOW_MAX_AGE_SECONDS);
+    expect(REQUEST_WINDOWS.human_passport_score!.stillChecked).toBe(core.checkHumanPassportAnchors);
     expect(REQUEST_WINDOWS.coinbase_attestation!.maxAgeSeconds).toBe(core.COINBASE_ATTESTED_AT_MAX_AGE_SECONDS);
     // Coinbase Country v2: attested_at is the last of its 215 inputs, the same window as KYC's.
     expect(REQUEST_WINDOWS.coinbase_country_attestation!.index).toBe(214);

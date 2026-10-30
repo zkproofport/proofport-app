@@ -46,6 +46,16 @@ const CATALOG: Readonly<Record<CircuitName, CatalogDetails>> = {
     providerKey: 'host.proof.home.country.provider',
     open: navigation => navigation.navigate('CountryInput'),
   },
+  // Main list beside Coinbase: a mainnet score and mainnet verifiers, which is
+  // where the main list draws the line (the Laboratory holds testnet-only
+  // proofs). Its own screen sets the threshold, then the optional action.
+  human_passport_score: {
+    surface: 'home', purpose: 'identity', icon: 'identity',
+    titleKey: 'host.proof.home.humanPassport.title',
+    descriptionKey: 'host.proof.home.humanPassport.description',
+    providerKey: 'host.proof.home.humanPassport.provider',
+    open: navigation => navigation.navigate('HumanPassportInput'),
+  },
   giwa_attestation: {
     surface: 'laboratory', purpose: 'identity', icon: 'document',
     titleKey: 'host.proof.laboratory.giwa.title',

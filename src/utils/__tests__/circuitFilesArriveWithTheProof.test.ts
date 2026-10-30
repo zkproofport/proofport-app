@@ -348,7 +348,7 @@ describe('nothing downloads ahead of a proof', () => {
     expect(fs.readFileSync(path.join(ROOT, 'App.tsx'), 'utf8')).not.toMatch(/downloadCircuitFiles/);
   });
 
-  it.each(['useOidcDomain', 'useCoinbaseKyc', 'useCoinbaseCountry', 'useGiwaKyc', 'useDojangPlayground'])(
+  it.each(['useOidcDomain', 'useCoinbaseKyc', 'useCoinbaseCountry', 'useGiwaKyc', 'useDojangPlayground', 'useHumanPassport'])(
     '%s fetches its circuit at the start of every proof, unconditionally',
     hook => {
       const source = fs.readFileSync(path.join(SRC, 'hooks', `${hook}.ts`), 'utf8');

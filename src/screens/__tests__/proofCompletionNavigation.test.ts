@@ -38,7 +38,7 @@ jest.mock('../../context', () => ({
 }));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
-  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
+  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(), useHumanPassport: () => mockProofHook(),
   useLogs: () => ({logs: [], addLog: jest.fn()}),
 }));
 jest.mock('../../stores', () => ({proofHistoryStore: {update: jest.fn()}}));

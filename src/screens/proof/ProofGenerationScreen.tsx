@@ -22,7 +22,9 @@ import {
   LiveLogsPanel,
   type StepData,
 } from '../../components/ui';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useHumanPassport, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
+import {findHumanPassportScore, HumanPassportError, type PassportIssuance} from '../../utils/humanPassport';
+import {humanPassportScoreUnits} from '../../config/circuitIds';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, nullifierForCircuit} from '../../utils';
 import type {TypedAction} from '../../utils/typedAction';
@@ -90,7 +92,7 @@ type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGener
  * proof under another proof's heading. Everything is keyed by the canonical id now, and the
  * translation happens once, in `canonicalCircuitId`.
  */
-type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'dojang';
+type ProofFlow = 'coinbase' | 'country' | 'oidc' | 'giwa' | 'dojang' | 'passport';
 
 const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
   coinbase_attestation: 'coinbase',
@@ -98,6 +100,7 @@ const FLOW_OF_CANONICAL: Record<CircuitName, ProofFlow> = {
   oidc_domain_attestation: 'oidc',
   giwa_attestation: 'giwa',
   dojang_playground: 'dojang',
+  human_passport_score: 'passport',
 };
 
 /** Title / description i18n keys, keyed canonically so no id can miss them. */
@@ -121,6 +124,10 @@ const CIRCUIT_TEXT: Record<CircuitName, {title: string; description: string}> = 
   dojang_playground: {
     title: 'host.proof.generation.dojangPlaygroundTitle',
     description: 'host.proof.generation.dojangPlaygroundDescription',
+  },
+  human_passport_score: {
+    title: 'host.proof.generation.humanPassportTitle',
+    description: 'host.proof.generation.humanPassportDescription',
   },
 };
 
@@ -179,6 +186,9 @@ const FLOW_STEP_ERROR_CODE: Record<ProofFlow, Partial<Record<HookStepId, ErrorCo
   oidc: {validate: 'E2008'},
   giwa: {},
   dojang: {},
+  // `validate` re-checks the score found before signing; the lookup itself
+  // reports its own code (E2021-E2023, E3001) before the hook runs.
+  passport: {validate: 'E2021'},
 };
 
 export function errorCodeForStep(flow: ProofFlow, stepId: string): ErrorCode {
@@ -388,6 +398,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const isOidc = flow === 'oidc';
   const isGiwa = flow === 'giwa';
   const isDojang = flow === 'dojang';
+  const isPassport = flow === 'passport';
   const oidcProvider = (proofRequest?.inputs as {provider?: string} | undefined)?.provider || route.params?.domainInput?.provider;
 
   const kycHook = useCoinbaseKyc();
@@ -395,6 +406,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
   const dojangHook = useDojangPlayground();
+  const passportHook = useHumanPassport();
   const googleAuth = useGoogleAuth();
   const microsoftAuth = useMicrosoftAuth();
   const generateKycProof = kycHook.generateProofWithSteps;
@@ -402,6 +414,7 @@ export const ProofGenerationScreen: React.FC = () => {
   const generateOidcProof = oidcHook.generateProofWithSteps;
   const generateGiwaProof = giwaHook.generateProofWithSteps;
   const generateDojangProof = dojangHook.generateProofWithSteps;
+  const generatePassportProof = passportHook.generateProofWithSteps;
   const googleReady = googleAuth.isReady;
   const microsoftReady = microsoftAuth.isReady;
   const promptGoogleSignIn = googleAuth.promptSignIn;
@@ -415,6 +428,7 @@ export const ProofGenerationScreen: React.FC = () => {
     oidc: oidcHook,
     giwa: giwaHook,
     dojang: dojangHook,
+    passport: passportHook,
   } satisfies Record<ProofFlow, unknown>;
   const hook = flow ? HOOK_OF_FLOW[flow] : kycHook;
 
@@ -429,6 +443,7 @@ export const ProofGenerationScreen: React.FC = () => {
     oidcHook.resetProofCache();
     giwaHook.resetProofCache();
     dojangHook.resetProofCache();
+    passportHook.resetProofCache();
   }
 
   const {account, isReady: isWalletReady, connect: connectWallet, disconnect: disconnectWallet, getProvider} = useWallet(addLog);
@@ -860,6 +875,7 @@ export const ProofGenerationScreen: React.FC = () => {
           ...route.params?.domainInput,
           ...proofRequest?.inputs,
           ...route.params?.countryInputs,
+          ...route.params?.passportInputs,
           ...(route.params?.scope !== undefined ? {scope: route.params.scope} : {}),
           ...(route.params?.action !== undefined ? {action: route.params.action} : {}),
         };
@@ -1039,6 +1055,65 @@ export const ProofGenerationScreen: React.FC = () => {
           {
             userAddress: walletAddress,
             rawTransaction: issuance.rawTransaction,
+            scopeString: scopeStr,
+            action: route.params?.action ?? deep?.action,
+          },
+          {
+            request: async (args: {method: string; params?: unknown[]}) =>
+              provider.send(args.method, args.params || []),
+          },
+          addLog,
+        );
+        return;
+      }
+
+      if (isPassport) {
+        const deep = proofRequest?.inputs as {scope?: string; action?: TypedAction; minScore?: unknown} | undefined;
+        // The threshold: the dApp's, or the one chosen on the Human Passport
+        // screen. Never a default -- a request without one was refused by
+        // validateProofRequest, and the in-app screen always sets it.
+        const requested = proofRequest ? deep?.minScore : route.params?.passportInputs?.minScore;
+        let minScoreUnits: number;
+        try {
+          minScoreUnits = humanPassportScoreUnits(requested);
+        } catch (e) {
+          const details = e instanceof Error ? e.message : String(e);
+          addLog(`[HumanPassport] ${details}`);
+          failAttempt({code: 'E2004', error: details});
+          return;
+        }
+        addLog(`=== Searching for a Human Passport score >= ${minScoreUnits / 1e4} ===`);
+        let issuance: PassportIssuance;
+        try {
+          issuance = await timer.step('score lookup', () =>
+            findHumanPassportScore(walletAddress, minScoreUnits, Math.floor(Date.now() / 1000), addLog));
+        } catch (e) {
+          const details = e instanceof Error ? e.message : String(e);
+          const code: ErrorCode = e instanceof HumanPassportError ? e.code : 'E3001';
+          // No score (or too low) is an answer about this wallet; a lookup
+          // that did not finish is not, and must not read as "you have none".
+          if (code === 'E2021' || code === 'E2022') await recordLookupFailure(configName, walletAddress);
+          addLog(details);
+          failAttempt({
+            code,
+            error: details,
+            inline: `[${code}] ${t(`host.errors.${code}.description`, {defaultValue: ErrorCodes[code].description})}`,
+          });
+          return;
+        }
+
+        const provider = await getProvider();
+        if (!provider) {
+          addLog('No wallet provider available');
+          failAttempt({code: 'E4001', error: 'No wallet provider available'});
+          return;
+        }
+        const scopeStr = route.params?.scope ?? deep?.scope ?? 'proofport:human-passport';
+        await generatePassportProof(
+          {
+            userAddress: walletAddress,
+            issuance,
+            minScoreUnits,
             scopeString: scopeStr,
             action: route.params?.action ?? deep?.action,
           },

@@ -23,6 +23,7 @@ const CANONICAL = [
   'oidc_domain_attestation',
   'giwa_attestation',
   'dojang_playground',
+  'human_passport_score',
 ];
 
 const base = (over: Partial<ProofRequest> = {}): ProofRequest =>
@@ -52,6 +53,7 @@ describe('a proof request is checked before the prover runs', () => {
         inputs.countryList = ['US'];
         inputs.isIncluded = true;
       }
+      if (circuit === 'human_passport_score') inputs.minScore = 20;
       const r = validateProofRequest(base({circuit, inputs} as Partial<ProofRequest>));
       expect({circuit, ...r}).toMatchObject({circuit, valid: true});
     }

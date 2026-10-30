@@ -12,7 +12,7 @@ export interface ProofRequestPresentation {
   private: string;
 }
 type Translate = (key: string, options?: Record<string, unknown>) => string;
-type ConditionField = 'domain' | 'provider' | 'countryList' | 'isIncluded';
+type ConditionField = 'domain' | 'provider' | 'countryList' | 'isIncluded' | 'minScore';
 interface PresentationDefinition {
   icon: ProofRequestPresentationIcon;
   section: string;
@@ -28,10 +28,11 @@ const PRESENTATIONS = {
   coinbase_country_attestation: {icon: 'country', section: 'country', fields: ['countryList', 'isIncluded']},
   giwa_attestation: {icon: 'identity', section: 'giwa', fields: [], requirement: 'giwa.requirement'},
   dojang_playground: {icon: 'identity', section: 'dojangPlayground', fields: [], requirement: 'dojangPlayground.requirement'},
+  human_passport_score: {icon: 'identity', section: 'humanPassport', fields: ['minScore'], requirement: 'humanPassport.requirement'},
 } satisfies Record<CircuitName, PresentationDefinition>;
 
 const FIELD_LABELS: Record<ConditionField, string> = {
-  domain: 'organization', provider: 'provider', countryList: 'countries', isIncluded: 'countryRule',
+  domain: 'organization', provider: 'provider', countryList: 'countries', isIncluded: 'countryRule', minScore: 'minScore',
 };
 // These remain available in the original-input/typed-action review cards.
 const TECHNICAL_FIELDS = new Set(['scope', 'scopeString', 'action', 'rawTransaction', 'signalHash', 'metadata']);
@@ -57,6 +58,9 @@ function conditionValue(field: ConditionField, value: unknown, t: Translate): un
   if (field === 'countryList' && Array.isArray(value)) {
     if (value.length === 0) return t(PREFIX + 'values.emptyList');
     if (value.every(country => typeof country === 'string' && country.length > 0)) return value.join(' · ');
+  }
+  if (field === 'minScore' && typeof value === 'number' && Number.isFinite(value)) {
+    return t(PREFIX + 'values.minScore', {score: value});
   }
   if (field === 'isIncluded' && typeof value === 'boolean') {
     return t(PREFIX + (value ? 'values.countryIncluded' : 'values.countryExcluded'));

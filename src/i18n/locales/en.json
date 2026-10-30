@@ -363,7 +363,9 @@
           "transaction": "Get the transaction",
           "signer": "Check the attester",
           "signing": "Sign the request"
-        }
+        },
+        "humanPassportTitle": "Human Passport score",
+        "humanPassportDescription": "Generate a zero-knowledge proof that your wallet's Human Passport score on Base is at least the requested score. Connect the wallet that holds the score."
       },
       "domain": {
         "heroLabel": "OIDC DOMAIN VERIFICATION",
@@ -490,7 +492,12 @@
         },
         "laboratoryTitle": "Laboratory",
         "laboratoryDescription": "Explore beta proofs",
-        "laboratoryBadge": "Beta"
+        "laboratoryBadge": "Beta",
+        "humanPassport": {
+          "title": "Human Passport score",
+          "description": "Prove your Human Passport score meets a threshold, without revealing your wallet or the score",
+          "provider": "Human Passport"
+        }
       },
       "laboratory": {
         "title": "Laboratory",
@@ -510,6 +517,16 @@
           "description": "Prove the Dojang you issued yourself in the GIWA Playground",
           "provider": "GIWA testnet · GIWA Playground"
         }
+      },
+      "humanPassport": {
+        "stackTitle": "Human Passport",
+        "heroLabel": "HUMAN PASSPORT",
+        "heroTitle": "Human Passport score",
+        "heroDescription": "Prove that your Human Passport score is at least a threshold. The proof shows the threshold, never your score or your wallet.",
+        "thresholdLabel": "MINIMUM SCORE",
+        "thresholdInvalid": "Enter a score above 0 with at most four decimals.",
+        "summary": "Prove that your score is at least {{score}}",
+        "continueButton": "Continue to Proof"
       }
     },
     "proofRequest": {
@@ -570,7 +587,8 @@
           "countries": "Requested countries (country codes)",
           "countryRule": "Country condition",
           "userAddress": "Authentication wallet",
-          "additional": "Additional request data: {{field}}"
+          "additional": "Additional request data: {{field}}",
+          "minScore": "Minimum score"
         },
         "values": {
           "notProvided": "Not supplied in the request",
@@ -580,7 +598,8 @@
           "domainAccount": "An account at {{domain}}",
           "countryIncluded": "Attested country must be in the list",
           "countryExcluded": "Attested country must not be in the list",
-          "unknownProvider": "Unsupported sign-in provider: {{provider}}"
+          "unknownProvider": "Unsupported sign-in provider: {{provider}}",
+          "minScore": "At least {{score}}"
         },
         "providers": {
           "google": "Google Workspace account",
@@ -613,6 +632,12 @@
           "requirement": "A GIWA Playground Dojang issued by this wallet",
           "shared": "Dojang Playground condition result · participation identifier · action and domain hashes when an action is requested",
           "private": "Wallet address · original wallet signature · the issuance transaction"
+        },
+        "humanPassport": {
+          "title": "Prove your Human Passport score",
+          "requirement": "A current Human Passport score on Base",
+          "shared": "Score condition result · requested minimum score · participation identifier · action and domain hashes when an action is requested",
+          "private": "Wallet address · exact score · stamps · original wallet signature"
         }
       }
     },
@@ -825,6 +850,18 @@
       "E2020": {
         "title": "Country Verification Does Not Match",
         "description": "The country in your Coinbase verification could not be matched to its record, so no proof was generated. Verify your country again with Coinbase, then try again."
+      },
+      "E2021": {
+        "title": "No Human Passport Score",
+        "description": "This wallet has no current Human Passport score recorded on Base. Create or refresh your score in Human Passport and record it on Base with this wallet, then try again."
+      },
+      "E2022": {
+        "title": "Human Passport Score Too Low",
+        "description": "Your Human Passport score is below the score this request asks for, so no proof was generated. Raise your score in Human Passport, record it on Base, then try again."
+      },
+      "E2023": {
+        "title": "Human Passport Score Too Large",
+        "description": "Your Human Passport score carries more stamp data than this proof can hold, so no proof was generated."
       }
     },
     "browser": {

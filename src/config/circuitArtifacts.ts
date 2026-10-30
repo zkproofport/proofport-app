@@ -95,6 +95,17 @@ export const ANDROID_SIGNATURE_CIRCUITS_REF = '8fad8daa4fc7cdb3315deb4a40cd6a263
  */
 export const COUNTRY_V2_CIRCUITS_REF = '75bec01f877aa8a500974dc65321b0455c677654';
 
+/**
+ * The zkproofport/circuits commit carrying human_passport_score's CI-built
+ * files: 197104c (circuits main, pre-release v2.2.0, 2026-10-30; nargo
+ * 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2; vk log size 21, the .srs in three
+ * parts; json 8580afec...). One package for every phone: the
+ * wallet signs, no device statement, so its three rows below are one source
+ * (`signerIndependent`). A full commit, not a branch. Empty ends every Human
+ * Passport download at requireArtifactRef's error naming this constant.
+ */
+export const HUMAN_PASSPORT_CIRCUITS_REF = '197104cb01d7987d29e9c89fe8d242a2cf87537b';
+
 /** The .srs size of a 2^21 circuit (bb 4.2.0-aztecnr-rc.2), split for GitHub. */
 export const SRS_2_21_BYTES = 134_217_940;
 /** Upper bound on one published .srs part. */
@@ -258,7 +269,32 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
   }),
+  human_passport_score: (() => {
+    // dataVersion 1 = CIRCUIT_DATA_VERSIONS.human_passport_score.
+    const source: CircuitArtifactSource = Object.freeze({
+      variant: 'app_attest',
+      ref: HUMAN_PASSPORT_CIRCUITS_REF,
+      refName: 'HUMAN_PASSPORT_CIRCUITS_REF',
+      basePath: 'human-passport-score/target',
+      vkPath: 'human-passport-score/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'human_passport_score',
+      dataVersion: 1,
+      publicInputCount: 195,
+      srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    });
+    return Object.freeze({app_attest: source, android: source, android_factory: source});
+  })(),
 });
+
+/**
+ * A circuit whose files do not depend on the statement signer: every
+ * variant's row is the same source. Its files are decidable on any phone,
+ * before the Android chain kind is known.
+ */
+function signerIndependent(row: PerVariant): boolean {
+  return row.android === row.app_attest && row.android_factory === row.app_attest;
+}
 
 function ownRow(circuit: string): PerVariant | undefined {
   return Object.prototype.hasOwnProperty.call(CIRCUIT_ARTIFACT_SOURCES, circuit)
@@ -292,7 +328,10 @@ export function artifactSourceFor(circuit: string, variant: string): CircuitArti
 export function circuitArtifactSource(circuit: string): CircuitArtifactSource | undefined {
   // The platform is read only for a circuit that has a row, so every other
   // circuit's download never depends on it.
-  return hasPinnedArtifactSource(circuit) ? artifactSourceFor(circuit, currentSignerVariant()) : undefined;
+  const row = ownRow(circuit);
+  if (!row) return undefined;
+  if (signerIndependent(row)) return row.app_attest;
+  return artifactSourceFor(circuit, currentSignerVariant());
 }
 
 /**
@@ -301,7 +340,8 @@ export function circuitArtifactSource(circuit: string): CircuitArtifactSource | 
  * the launch prefetch leaves those to the proof, which learns the kind first.
  */
 export function circuitFilesDecidableNow(circuit: string): boolean {
-  if (!hasPinnedArtifactSource(circuit)) return true;
+  const row = ownRow(circuit);
+  if (!row || signerIndependent(row)) return true;
   return currentSignerPlatform() === 'ios' || knownAndroidChainKind() !== null;
 }
 

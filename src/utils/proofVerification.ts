@@ -25,6 +25,9 @@ import {
   getVerifierContract,
   OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT,
   OIDC_NOW_MAX_AGE_SECONDS,
+  HUMAN_PASSPORT_SCORE_PUBLIC_INPUT_LAYOUT,
+  HUMAN_PASSPORT_NOW_MAX_AGE_SECONDS,
+  checkHumanPassportAnchors,
   SIGNER_ROOT_LAYOUTS,
   signerRootCheck,
   verifyProofOnChain,
@@ -193,6 +196,14 @@ export const REQUEST_WINDOWS: Readonly<Record<CircuitName, RequestWindow | null>
   },
   giwa_attestation: null,
   dojang_playground: null,
+  // now (input 194): the time the score was unexpired at; the issuer root,
+  // scorer and threshold are still checked when the contract is asked directly.
+  human_passport_score: {
+    input: 'now',
+    index: HUMAN_PASSPORT_SCORE_PUBLIC_INPUT_LAYOUT.NOW,
+    maxAgeSeconds: HUMAN_PASSPORT_NOW_MAX_AGE_SECONDS,
+    stillChecked: checkHumanPassportAnchors,
+  },
 });
 
 function requestWindow(circuit: string): RequestWindow | null {

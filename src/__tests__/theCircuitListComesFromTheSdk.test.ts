@@ -90,7 +90,7 @@ describe('the identifiers come from the published SDK', () => {
      * circuit was added or removed upstream and the cases below say which of
      * this app's tables have not caught up.
      */
-    expect(ALL_CIRCUIT_IDS.length).toBe(5);
+    expect(ALL_CIRCUIT_IDS.length).toBe(6);
     for (const id of ALL_CIRCUIT_IDS) {
       expect([id, /^[a-z][a-z0-9_]*$/.test(id)]).toEqual([id, true]);
     }

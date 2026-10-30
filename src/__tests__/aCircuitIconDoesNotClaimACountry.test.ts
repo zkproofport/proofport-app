@@ -9,6 +9,7 @@ const expectedIcons: Record<CircuitName, string> = {
   coinbase_country_attestation: 'country',
   giwa_attestation: 'identity',
   dojang_playground: 'identity',
+  human_passport_score: 'identity',
 };
 
 describe('a circuit icon does not claim a country', () => {

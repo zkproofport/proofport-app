@@ -94,7 +94,7 @@ describe('one answer feeds sign, recover and prove', () => {
     );
   });
 
-  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts'])('%s reads it in the wallet request, the recovery and the inputs — all three', file => {
+  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts', 'useHumanPassport.ts'])('%s reads it in the wallet request, the recovery and the inputs — all three', file => {
     const fs = require('fs');
     const path = require('path');
     const hook = fs.readFileSync(

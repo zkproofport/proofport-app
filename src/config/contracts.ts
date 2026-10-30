@@ -230,6 +230,10 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
     `DeployGiwaAttestation.s.sol/${chainId}/run-latest.json`,
   dojang_playground: (chainId) =>
     `DeployDojangPlayground.s.sol/${chainId}/run-latest.json`,
+  // Human Passport score: null for Coinbase KYC v2's reason -- the record
+  // (DeployHumanPassportScore) is read only from the ref circuitArtifacts.ts
+  // pins; the address is the per-environment row below, which core pins.
+  human_passport_score: null,
 };
 
 /**
@@ -319,6 +323,9 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   giwa_attestation: 3,
   // v1: first release of the circuit (circuits 4bba5ed).
   dojang_playground: 2,
+  // v1: first release (circuits human-passport-score); read from the pinned
+  // ref in circuitArtifacts.ts, whose row carries the same version.
+  human_passport_score: 1,
 };
 
 /**
@@ -373,6 +380,8 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
     giwa_attestation: GIWA_SEPOLIA,
     // The Playground faucet and the circuit's chain-id literal are GIWA Sepolia.
     dojang_playground: GIWA_SEPOLIA,
+    // Verified where Coinbase is (the score itself is always read on Base).
+    human_passport_score: coinbaseChain,
   });
 
   return {
@@ -429,6 +438,9 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // Dojang Playground verifier on GIWA Sepolia, same address across env
     // (testnet-only). circuits/deployments/91342/DojangPlayground.json.
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
+    // Human Passport score, Base Sepolia, deployed 2026-10-30
+    // (broadcast/DeployHumanPassportScore.s.sol/84532), the contract core pins.
+    human_passport_score: '0x39df92D9C603Fe6d229c7b00272A1E874a628acE',
   },
   staging: {
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
@@ -436,6 +448,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
+    human_passport_score: '0x39df92D9C603Fe6d229c7b00272A1E874a628acE',
   },
   production: {
     // Base mainnet, nargo 1.0.0-beta.19 / bb 4.2.0-aztecnr-rc.2 contracts.
@@ -451,5 +464,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     oidc_domain_attestation: '0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
+    // Human Passport score, Base mainnet, deployed 2026-10-30
+    // (broadcast/DeployHumanPassportScore.s.sol/8453), the contract core pins.
+    human_passport_score: '0x2d055c42a2B0c1024aC4aa83b4995fc8fD45662e',
   },
 };

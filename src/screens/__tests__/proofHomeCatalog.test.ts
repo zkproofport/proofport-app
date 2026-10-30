@@ -91,9 +91,9 @@ describe('the proof home', () => {
     expect(node('proof-card-coinbase_country_attestation').props.accessibilityLabel)
       .toBe('국가 조건. Coinbase');
   });
-  it('offers the three main proofs with developer mode off and another default network', () => {
+  it('offers the four main proofs with developer mode off and another default network', () => {
     renderHome();
-    expect(visibleProofs()).toEqual(['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation']);
+    expect(visibleProofs()).toEqual(['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation', 'human_passport_score']);
     expect(mockUpdateSettings).not.toHaveBeenCalled();
   });
 
@@ -102,6 +102,8 @@ describe('the proof home', () => {
     // Coinbase KYC v2 binds an optional action, so it opens the action screen.
     ['coinbase_attestation', ['ActionInput', {circuit: 'coinbase_attestation'}]],
     ['coinbase_country_attestation', ['CountryInput']],
+    // Its own screen sets the score threshold, then the optional action.
+    ['human_passport_score', ['HumanPassportInput']],
   ])('opens the existing input route for %s', (id, destination) => {
     renderHome();
     press(`proof-card-${id}`);
@@ -127,18 +129,19 @@ describe('the proof home', () => {
     expect(node('proof-empty')).toBeDefined();
     expect(node('proof-laboratory').props.disabled).not.toBe(true);
     press('proof-clear-search');
-    expect(visibleProofs()).toEqual(['coinbase_attestation']);
+    expect(visibleProofs()).toEqual(['coinbase_attestation', 'human_passport_score']);
     press('proof-purpose-country');
     expect(visibleProofs()).toEqual(['coinbase_country_attestation']);
     press('proof-purpose-all');
-    expect(visibleProofs()).toHaveLength(3);
+    expect(visibleProofs()).toHaveLength(4);
     expect(mockUpdateSettings).not.toHaveBeenCalled();
   });
 
   it.each([
     ['en', 'organization', ['oidc_domain_attestation']],
     ['ko', '소속', ['oidc_domain_attestation']],
-    ['ko', '신원', ['coinbase_attestation']],
+    ['ko', '신원', ['coinbase_attestation', 'human_passport_score']],
+    ['en', 'passport', ['human_passport_score']],
     ['en', 'Ｃｏｉｎｂａｓｅ', ['coinbase_attestation', 'coinbase_country_attestation']],
   ] as const)('searches the displayed words in %s for %s', (locale, query, expected) => {
     mockLocale = locale;
@@ -150,7 +153,7 @@ describe('the proof home', () => {
   it.each(['', ' \n\t '])('keeps all main proofs for empty search %j', query => {
     renderHome();
     search(query);
-    expect(visibleProofs()).toHaveLength(3);
+    expect(visibleProofs()).toHaveLength(4);
   });
 
   it.each(['%', '_', '\\', "' OR 1=1 --", '<script>alert(1)</script>', '\u0000', '🪪', 'x'.repeat(10000)])('treats hostile or unmatched search case %# as literal text', query => {
@@ -218,7 +221,7 @@ describe('the Laboratory switch on the Proof tab', () => {
     mockSettings = settings as Record<string, unknown> | null;
     renderHome();
     expect(hasLaboratoryEntry()).toBe(false);
-    expect(visibleProofs()).toEqual(['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation']);
+    expect(visibleProofs()).toEqual(['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation', 'human_passport_score']);
   });
 
   it('shows the entry as soon as the settings say on, with no restart', () => {

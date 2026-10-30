@@ -1,7 +1,7 @@
 import {showReturnNotice, type ReturnNoticeKind} from './returnNoticeBridge';
 import {ALL_CIRCUIT_IDS, isCircuitId, type CircuitName} from '../config/circuitIds';
 import {checkAction, type TypedAction} from './typedAction';
-import {circuitActionBinding} from '../config/circuitIds';
+import {circuitActionBinding, humanPassportScoreUnits} from '../config/circuitIds';
 import {checkInputsHash} from './inputsHash';
 
 /**
@@ -303,7 +303,8 @@ export function validateProofRequest(
     request.circuit === 'coinbase_attestation' ||
     request.circuit === 'coinbase_country_attestation' ||
     request.circuit === 'giwa_attestation' ||
-    request.circuit === 'dojang_playground'
+    request.circuit === 'dojang_playground' ||
+    request.circuit === 'human_passport_score'
   ) {
     // KYC-style circuits: userAddress is optional — app will connect wallet if not provided
     const inputs = request.inputs as CoinbaseKycInputs;
@@ -316,7 +317,8 @@ export function validateProofRequest(
       (request.circuit === 'coinbase_attestation' ||
         request.circuit === 'coinbase_country_attestation' ||
         request.circuit === 'giwa_attestation' ||
-        request.circuit === 'dojang_playground') &&
+        request.circuit === 'dojang_playground' ||
+        request.circuit === 'human_passport_score') &&
       !inputs.scope
     ) {
       return {valid: false, error: 'Missing required scope parameter'};
@@ -338,6 +340,15 @@ export function validateProofRequest(
       }
       if (typeof countryInputs.isIncluded !== 'boolean') {
         return {valid: false, error: 'isIncluded is required for coinbase_country_attestation'};
+      }
+    }
+    // The threshold is a public input the dApp checks against its own
+    // request; one the circuit cannot carry is refused here, never rounded.
+    if (request.circuit === 'human_passport_score') {
+      try {
+        humanPassportScoreUnits((request.inputs as {minScore?: unknown}).minScore);
+      } catch (e) {
+        return {valid: false, error: e instanceof Error ? e.message : String(e)};
       }
     }
     // If userAddress is not provided, app will prompt wallet connection

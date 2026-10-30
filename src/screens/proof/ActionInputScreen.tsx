@@ -270,8 +270,9 @@ export const ActionInputScreen: React.FC = () => {
       circuitId: circuit,
       action: parsed.action,
       ...(route.params.countryInputs ? {countryInputs: route.params.countryInputs} : {}),
+      ...(route.params.passportInputs ? {passportInputs: route.params.passportInputs} : {}),
     });
-  }, [navigation, parsed, circuit, route.params.countryInputs]);
+  }, [navigation, parsed, circuit, route.params.countryInputs, route.params.passportInputs]);
 
   const inputStyle = (filled: boolean) => ({
     backgroundColor: themeColors.background.secondary,
@@ -501,6 +502,7 @@ export const ActionInputScreen: React.FC = () => {
             onPress={() => navigation.navigate('ProofGeneration', {
               circuitId: circuit,
               ...(route.params.countryInputs ? {countryInputs: route.params.countryInputs} : {}),
+      ...(route.params.passportInputs ? {passportInputs: route.params.passportInputs} : {}),
             })}
             variant="secondary"
             size="large"

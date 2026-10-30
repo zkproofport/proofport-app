@@ -240,6 +240,8 @@ const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, false | {tag: strin
   coinbase_country_attestation: {tag: 'coinbase_country_attestation'},
   giwa_attestation: {tag: 'giwa_attestation'},
   dojang_playground: {tag: 'dojang_playground'},
+  // human-passport-score/src/main.nr CIRCUIT_TAG = keccak256("human_passport_score").
+  human_passport_score: {tag: 'human_passport_score'},
 });
 
 /** The nullifier this circuit expects, by its own rule. No default. */

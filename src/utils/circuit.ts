@@ -21,6 +21,7 @@ const CIRCUIT_ICONS: Readonly<Record<CircuitName, string>> = {
   oidc_domain_attestation: 'shield',
   giwa_attestation: 'user',
   dojang_playground: 'user',
+  human_passport_score: 'user',
 };
 
 const CIRCUIT_DISPLAY_NAMES: Readonly<Record<CircuitName, string>> = {
@@ -29,6 +30,7 @@ const CIRCUIT_DISPLAY_NAMES: Readonly<Record<CircuitName, string>> = {
   oidc_domain_attestation: 'OIDC Domain',
   giwa_attestation: 'GIWA KYC (Experimental)',
   dojang_playground: 'Dojang Playground',
+  human_passport_score: 'Human Passport',
 };
 
 /*

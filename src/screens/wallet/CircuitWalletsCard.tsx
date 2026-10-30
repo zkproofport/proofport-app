@@ -92,7 +92,7 @@ function formatTtl(entry: Entry, t: TFunction): string {
 }
 
 function groupName(group: string): string {
-  const names: Record<string, string> = {coinbase: 'Coinbase', giwa: 'GIWA', dojang: 'Dojang Playground'};
+  const names: Record<string, string> = {coinbase: 'Coinbase', giwa: 'GIWA', dojang: 'Dojang Playground', human_passport: 'Human Passport'};
   if (!names[group]) throw new Error(`Unknown wallet group '${group}'.`);
   return names[group];
 }

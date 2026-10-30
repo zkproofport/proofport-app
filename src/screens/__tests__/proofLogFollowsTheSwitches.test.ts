@@ -67,7 +67,7 @@ jest.mock('../../oidc/oidcAppSigner', () => ({
 }));
 jest.mock('../../hooks', () => ({
   useCoinbaseKyc: () => mockProofHook(), useCoinbaseCountry: () => mockProofHook(),
-  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(),
+  useOidcDomain: () => mockProofHook(), useGiwaKyc: () => mockProofHook(), useDojangPlayground: () => mockProofHook(), useHumanPassport: () => mockProofHook(),
   useGoogleAuth: () => ({isReady: true, promptSignIn: mockSignIn}),
   useMicrosoftAuth: () => ({isReady: true, promptSignIn: mockSignIn}),
   useWallet: () => ({account: ACCOUNT, isReady: true, getProvider: mockGetProvider, connect: mockNoop, disconnect: mockNoop}),

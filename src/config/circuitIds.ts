@@ -51,6 +51,14 @@ import {
   getCircuitSupportStatus,
   isCircuitId,
   isSupportedCircuitId,
+  HUMAN_PASSPORT_ISSUER,
+  HUMAN_PASSPORT_ISSUER_LEAVES,
+  HUMAN_PASSPORT_ISSUER_ROOT,
+  HUMAN_PASSPORT_MAX_DATA_BYTES,
+  HUMAN_PASSPORT_SCORER_ID,
+  HUMAN_PASSPORT_SCORE_DECIMALS,
+  HUMAN_PASSPORT_SCORE_SCHEMA,
+  humanPassportScoreUnits,
   type CircuitId,
   type CircuitSupportStatus,
 } from '@zkproofport-app/core/circuits';
@@ -69,6 +77,16 @@ export {
   getCircuitSupportStatus,
   isCircuitId,
   isSupportedCircuitId,
+  // Human Passport's issuer list, scorer and score units: what core checks,
+  // read by the prover so the two cannot disagree.
+  HUMAN_PASSPORT_ISSUER,
+  HUMAN_PASSPORT_ISSUER_LEAVES,
+  HUMAN_PASSPORT_ISSUER_ROOT,
+  HUMAN_PASSPORT_MAX_DATA_BYTES,
+  HUMAN_PASSPORT_SCORER_ID,
+  HUMAN_PASSPORT_SCORE_DECIMALS,
+  HUMAN_PASSPORT_SCORE_SCHEMA,
+  humanPassportScoreUnits,
 };
 export type {CircuitId, CircuitSupportStatus};
 

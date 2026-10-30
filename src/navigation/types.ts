@@ -26,6 +26,8 @@ export type ProofStackParamList = {
   CircuitSelection: undefined;
   Laboratory: undefined;
   CountryInput: undefined;
+  /** The score threshold for an in-app Human Passport proof. */
+  HumanPassportInput: undefined;
   DomainInput: undefined;
   /**
    * Build an EIP-712 action for a circuit that can bind one.
@@ -46,11 +48,15 @@ export type ProofStackParamList = {
      * action screen offers no other circuit while it is set.
      */
     countryInputs?: {countryList: string[]; isIncluded: boolean};
+    /** Human Passport: the threshold chosen on its screen, carried the same way. */
+    passportInputs?: {minScore: number};
   };
   ProofGeneration: {
     circuitId: string;
     proofRequest?: ProofRequest;
     countryInputs?: { countryList: string[]; isIncluded: boolean };
+    /** Human Passport threshold (points) from its input screen. */
+    passportInputs?: { minScore: number };
     /**
      * Optional EIP-712 action for an action-capable circuit, supplied by the
      * standalone input screen or a deep link.

@@ -95,10 +95,10 @@ describe('every hook that asks a wallet to sign goes through signingFailure', ()
     .filter(f => fs.readFileSync(path.join(hooksDir, f), 'utf8').includes('method: signed.method'));
 
   it('finds the four signing hooks', () => {
-    expect(signers.sort()).toEqual(['useCoinbaseCountry.ts', 'useCoinbaseKyc.ts', 'useDojangPlayground.ts', 'useGiwaKyc.ts']);
+    expect(signers.sort()).toEqual(['useCoinbaseCountry.ts', 'useCoinbaseKyc.ts', 'useDojangPlayground.ts', 'useGiwaKyc.ts', 'useHumanPassport.ts']);
   });
 
-  it.each(['useCoinbaseCountry.ts', 'useCoinbaseKyc.ts', 'useDojangPlayground.ts', 'useGiwaKyc.ts'])('%s', file => {
+  it.each(['useCoinbaseCountry.ts', 'useCoinbaseKyc.ts', 'useDojangPlayground.ts', 'useGiwaKyc.ts', 'useHumanPassport.ts'])('%s', file => {
     const src = fs.readFileSync(path.join(hooksDir, file), 'utf8');
     expect(src).toContain('throw signingFailure(signError)');
     expect(src).toContain('const errorMessage = describeWalletError(error)');

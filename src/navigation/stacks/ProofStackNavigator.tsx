@@ -7,6 +7,7 @@ import {
   CircuitSelectionScreen,
   LaboratoryScreen,
   CountryInputScreen,
+  HumanPassportInputScreen,
   DomainInputScreen,
   ActionInputScreen,
   ProofGenerationScreen,
@@ -38,6 +39,11 @@ const ProofStackNavigator: React.FC = () => {
         name="CountryInput"
         component={CountryInputScreen}
         options={{ title: t('host.proof.country.stackTitle') }}
+      />
+      <Stack.Screen
+        name="HumanPassportInput"
+        component={HumanPassportInputScreen}
+        options={{ title: t('host.proof.humanPassport.stackTitle') }}
       />
       <Stack.Screen
         name="DomainInput"

@@ -193,6 +193,27 @@ export const ErrorCodes = {
       'The country in your Coinbase verification could not be matched to its record, so no proof was generated. Verify your country again with Coinbase, then try again.',
   },
 
+  // Human Passport (src/utils/humanPassport.ts). Raised only when the score
+  // lookup finished; one that did not finish is E3001.
+  E2021: {
+    code: 'E2021',
+    title: 'No Human Passport Score',
+    description:
+      'This wallet has no current Human Passport score recorded on Base. Create or refresh your score in Human Passport and record it on Base with this wallet, then try again.',
+  },
+  E2022: {
+    code: 'E2022',
+    title: 'Human Passport Score Too Low',
+    description:
+      'Your Human Passport score is below the score this request asks for, so no proof was generated. Raise your score in Human Passport, record it on Base, then try again.',
+  },
+  E2023: {
+    code: 'E2023',
+    title: 'Human Passport Score Too Large',
+    description:
+      'Your Human Passport score carries more stamp data than this proof can hold, so no proof was generated.',
+  },
+
   // Network errors
   E3001: {
     code: 'E3001',

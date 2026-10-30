@@ -122,10 +122,10 @@ afterEach(async () => {
 });
 
 describe('wallet presentation preserves the binding and live-session distinction', () => {
-  it('renders one Coinbase group for KYC and Country, and separate GIWA and Dojang Playground groups', async () => {
+  it('renders one Coinbase group for KYC and Country, and separate GIWA, Dojang Playground and Human Passport groups', async () => {
     await render();
     const rows = screen!.root.findAll(item => typeof item.type === 'string' && item.props.testID?.startsWith('wallet-binding-'));
-    expect(rows.map(row => row.props.testID).sort()).toEqual(['wallet-binding-coinbase', 'wallet-binding-dojang', 'wallet-binding-giwa']);
+    expect(rows.map(row => row.props.testID).sort()).toEqual(['wallet-binding-coinbase', 'wallet-binding-dojang', 'wallet-binding-giwa', 'wallet-binding-human_passport']);
     expect(textOf(findNode('wallet-binding-dojang'))).toContain('Dojang Playground');
     const coinbase = textOf(findNode('wallet-binding-coinbase'));
     for (const name of ['Coinbase KYC', 'Coinbase Country']) expect(coinbase).toContain(name);

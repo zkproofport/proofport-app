@@ -16,7 +16,7 @@ import {useTranslation} from 'react-i18next';
 import {Icon, Badge, Button, Card} from '../../components/ui';
 import {useError, useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
-import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useLogs} from '../../hooks';
+import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useHumanPassport, useLogs} from '../../hooks';
 import {proofHistoryStore} from '../../stores';
 import {getVerifierAddressSync, getNetworkConfigForCircuit, canonicalCircuitId, isCircuitId, type CircuitName} from '../../config';
 import {findGiwaAttestationTransaction, findDojangPlaygroundIssuance, getCircuitDisplayName} from '../../utils';
@@ -84,12 +84,14 @@ export const ProofCompleteScreen: React.FC = () => {
   const oidcHook = useOidcDomain();
   const giwaHook = useGiwaKyc();
   const dojangHook = useDojangPlayground();
+  const passportHook = useHumanPassport();
   const HOOK_OF_CIRCUIT = {
     coinbase_attestation: kycHook,
     coinbase_country_attestation: countryHook,
     oidc_domain_attestation: oidcHook,
     giwa_attestation: giwaHook,
     dojang_playground: dojangHook,
+    human_passport_score: passportHook,
   } satisfies Record<CircuitName, unknown>;
   // Without a known circuit there is no proof cache to verify; on-chain
   // verification refuses below, and the Coinbase hook only fills the slot.
