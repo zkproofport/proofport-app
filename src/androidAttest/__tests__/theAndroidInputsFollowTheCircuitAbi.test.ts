@@ -186,6 +186,7 @@ describe('coinbase_attestation_v2_android', () => {
     merkle_proof_depth: str(t.merkle_proof_depth),
   };
   const request = {
+    circuit: 'coinbase_attestation' as const,
     userAddress: wallet,
     scope: computeScope((iosVector as unknown as {scopeString: string}).scopeString),
     signedDigest: coinbaseRequestDigest(wallet, (iosVector as unknown as {scopeString: string}).scopeString),

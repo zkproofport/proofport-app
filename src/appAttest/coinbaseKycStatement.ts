@@ -20,7 +20,8 @@ import {ethers} from 'ethers';
 import type {TypedAction} from '../config/circuitIds';
 import {currentSignerPlatform, type SignerPlatform} from '../config/signerPlatform';
 import {computeScope} from '../utils/circuitHelpers';
-import {coinbaseSignalHash} from '../utils/coinbaseSignal';
+import {coinbaseSignalHashFor} from '../utils/coinbaseSignal';
+import type {CoinbaseStatementCircuit} from './coinbaseStatementKinds';
 import {signedDigestOf, whatTheWalletSigns} from '../utils/signedAction';
 import {
   ANDROID_CIRCUIT_TRUST,
@@ -54,9 +55,19 @@ export interface CoinbaseKycStatementRequest {
   log: (msg: string) => void;
 }
 
-/** The digest the wallet will sign for this request -- the clientData's offset 161. */
+/** The digest the wallet will sign for this Coinbase KYC request -- the clientData's offset 161. */
 export function coinbaseRequestDigest(walletAddress: string, scopeString: string, action?: TypedAction): string {
-  const signal = action ? new Uint8Array(32) : coinbaseSignalHash(walletAddress, scopeString);
+  return coinbaseRequestDigestFor('coinbase_attestation', walletAddress, scopeString, action);
+}
+
+/** The same for either Coinbase circuit: the signal hash names the circuit. */
+export function coinbaseRequestDigestFor(
+  circuit: CoinbaseStatementCircuit,
+  walletAddress: string,
+  scopeString: string,
+  action?: TypedAction,
+): string {
+  const signal = action ? new Uint8Array(32) : coinbaseSignalHashFor(circuit, walletAddress, scopeString);
   return signedDigestOf(whatTheWalletSigns(ethers.utils.hexlify(signal), action));
 }
 
@@ -115,16 +126,38 @@ export async function prepareCoinbaseKycStatement(
   req: CoinbaseKycStatementRequest,
   overrides: CoinbaseKycStatementOverrides = {},
 ): Promise<CoinbaseStatementWitness> {
+  return prepareCoinbaseStatement('coinbase_attestation', req, overrides);
+}
+
+/**
+ * Coinbase Country v2's statement: the same lookup and device signer, the
+ * Country schema, and the country of the transaction being proved, which the
+ * record must name too (E2020 otherwise, before the wallet is asked).
+ */
+export async function prepareCoinbaseCountryStatement(
+  req: CoinbaseKycStatementRequest & {transactionCountry: string},
+  overrides: CoinbaseKycStatementOverrides = {},
+): Promise<CoinbaseStatementWitness> {
+  return prepareCoinbaseStatement('coinbase_country_attestation', req, overrides);
+}
+
+async function prepareCoinbaseStatement(
+  circuit: CoinbaseStatementCircuit,
+  req: CoinbaseKycStatementRequest & {transactionCountry?: string},
+  overrides: CoinbaseKycStatementOverrides,
+): Promise<CoinbaseStatementWitness> {
   const platform = overrides.platform ?? currentSignerPlatform();
   if (!Object.prototype.hasOwnProperty.call(MAKE_STATEMENT, platform)) {
     throw new Error(`No Coinbase KYC statement signer for '${platform}'. Known: ${Object.keys(MAKE_STATEMENT).join(', ')}.`);
   }
   return MAKE_STATEMENT[platform](
     {
+      circuit,
       wallet: req.walletAddress,
       attestationUid: req.attestationUid,
-      requestDigest: coinbaseRequestDigest(req.walletAddress, req.scopeString, req.action),
+      requestDigest: coinbaseRequestDigestFor(circuit, req.walletAddress, req.scopeString, req.action),
       scope: computeScope(req.scopeString),
+      ...(req.transactionCountry !== undefined ? {transactionCountry: req.transactionCountry} : {}),
     },
     req,
     overrides,

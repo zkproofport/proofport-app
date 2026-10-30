@@ -17,6 +17,7 @@
  */
 import {ethers} from 'ethers';
 import {verifyNoirProof} from 'mopro-ffi';
+import {COUNTRY_V2_ATTESTED_AT_INDEX, COUNTRY_V2_PUBLIC_INPUT_COUNT} from './coinbaseAppAttestInputs';
 import {
   COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT,
   COINBASE_ATTESTED_AT_MAX_AGE_SECONDS,
@@ -169,7 +170,21 @@ export const REQUEST_WINDOWS: Readonly<Record<CircuitName, RequestWindow | null>
     maxAgeSeconds: COINBASE_ATTESTED_AT_MAX_AGE_SECONDS,
     stillChecked: signerRootCheck(SIGNER_ROOT_LAYOUTS.coinbase_attestation),
   },
-  coinbase_country_attestation: null,
+  // Coinbase Country v2: attested_at is input 214 (215 inputs: Coinbase KYC
+  // v2's first 128, then the country list 128-149, scope, nullifier); the
+  // signer-list root sits at 96 as in KYC v2. Written from the circuit's
+  // layout (circuits coinbase-country-attestation-v2/src/main.nr) until core
+  // publishes it, then read from core like the KYC row.
+  coinbase_country_attestation: {
+    input: 'attested_at',
+    index: COUNTRY_V2_ATTESTED_AT_INDEX,
+    maxAgeSeconds: COINBASE_ATTESTED_AT_MAX_AGE_SECONDS,
+    stillChecked: signerRootCheck({
+      ...SIGNER_ROOT_LAYOUTS.coinbase_country_attestation,
+      rootStart: 96,
+      publicInputCount: COUNTRY_V2_PUBLIC_INPUT_COUNT,
+    }),
+  },
   oidc_domain_attestation: {
     input: 'now',
     index: OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT.NOW,

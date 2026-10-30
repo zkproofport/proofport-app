@@ -1,5 +1,5 @@
 /**
- * Why a device check (or the Coinbase KYC lookup beside it) refused: one
+ * Why a device check (or the Coinbase KYC / Country lookup beside it) refused: one
  * stable, neutral code per distinct cause, and the ErrorModal code each
  * belongs to. One table; an unknown reason is an error.
  *
@@ -59,6 +59,18 @@ export const DEVICE_CHECK_REASONS = Object.freeze({
   kyc_lookup_unreachable: 'E3002',
   kyc_lookup_errors: 'E3002',
   kyc_lookup_incomplete: 'E3002',
+  // Coinbase Country v2's lookup (src/appAttest/coinbaseStatementKinds.ts).
+  country_record_revoked: 'E2011',
+  country_record_uid_malformed: 'E2005',
+  country_record_missing: 'E2005',
+  country_record_wrong_schema: 'E2005',
+  country_record_wrong_issuer: 'E2005',
+  country_record_other_wallet: 'E2005',
+  country_record_unreadable: 'E2005',
+  country_record_differs_from_transaction: 'E2020',
+  country_lookup_unreachable: 'E3002',
+  country_lookup_errors: 'E3002',
+  country_lookup_incomplete: 'E3002',
   device_no_verifier: 'E2018',
   proof_package_unstated: 'E2016',
   android_native_module_missing: 'E2015',

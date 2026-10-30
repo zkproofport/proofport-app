@@ -44,8 +44,8 @@ describe('the reason table', () => {
     }
   });
 
-  it('maps every reason to a registered code of a device check or the KYC lookup', () => {
-    const allowed = ['E2005', 'E2009', 'E2011', 'E2014', 'E2015', 'E2016', 'E2017', 'E2018', 'E3002', 'E3006', 'E3008'];
+  it('maps every reason to a registered code of a device check or the Coinbase lookups', () => {
+    const allowed = ['E2005', 'E2009', 'E2011', 'E2014', 'E2015', 'E2016', 'E2017', 'E2018', 'E2020', 'E3002', 'E3006', 'E3008'];
     for (const r of REASONS) {
       const code = DEVICE_CHECK_REASONS[r];
       expect([r, allowed.includes(code), Object.prototype.hasOwnProperty.call(ErrorCodes, code)]).toEqual([r, true, true]);

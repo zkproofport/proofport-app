@@ -139,7 +139,7 @@ export const ErrorCodes = {
     description:
       'The sign-in answer was not issued for this request, so no proof was generated. Try signing in again.',
   },
-  // E2009-E2011, E2014-E2019 and E3006 are device-check codes. E2013 is not
+  // E2009-E2011, E2014-E2018, E2020 and E3006 are device-check codes. E2013 is not
   // assigned: a code a dApp may already have been sent is never reused.
   E2014: {
     code: 'E2014',
@@ -181,6 +181,16 @@ export const ErrorCodes = {
     title: 'Proof Interrupted',
     description:
       'The app closed while the proof was being made, so no proof was sent. Start the request again to make a new one.',
+  },
+  // Coinbase Country v2: the country in the wallet's current Coinbase
+  // verification is not the one in the transaction that recorded it
+  // (src/appAttest/revocationStatement.ts). Refused before the wallet signs:
+  // the circuit would refuse the proof.
+  E2020: {
+    code: 'E2020',
+    title: 'Country Verification Does Not Match',
+    description:
+      'The country in your Coinbase verification could not be matched to its record, so no proof was generated. Verify your country again with Coinbase, then try again.',
   },
 
   // Network errors

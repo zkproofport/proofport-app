@@ -36,6 +36,7 @@ jest.mock('react-native', () => ({Platform: {OS: 'ios'}}));
 import {syncDeploymentsAtLaunch} from '../launchDeploymentSync';
 import {CircuitsReleaseMissingError} from '../../config/deployments';
 import {downloadCircuitFiles} from '../circuitDownload';
+import {COUNTRY_V2_CIRCUITS_REF} from '../../config/circuitArtifacts';
 
 describe('the launch sync', () => {
   it('shows E3007 with the tag when the pinned release is missing', async () => {
@@ -75,17 +76,28 @@ describe('a circuit download from the pinned release', () => {
     (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({ok: false, status: 404, text: async () => ''}));
   });
 
-  it('a 404 in production names the tag, and the error body is deleted', async () => {
-    mockStatus = 404;
-    // coinbase_attestation (v2) reads a pinned commit on this branch; the
-    // tag-read official circuits are Country and OIDC.
-    const err = await downloadCircuitFiles('coinbase_country_attestation', 'production', undefined, () => {}).catch((e: Error) => e);
-    expect(err).toBeInstanceOf(Error);
-    expect((err as Error).message).toContain('/circuits/v2.0.0/');
-    expect((err as Error).message).toContain('circuits release v2.0.0 (CIRCUITS_RELEASE_TAG) is missing or does not contain this file');
-    expect(mockUnlinked).toContain('/docs/circuits/coinbase_country_attestation.json');
-    expect(mockFiles.has('/docs/circuits/coinbase_country_attestation.json')).toBe(false);
-  });
+  // Since Coinbase Country v2 every official circuit reads a pinned ref
+  // (src/config/circuitArtifacts.ts), so no download reaches
+  // CIRCUITS_RELEASE_TAG; the launch sync above still reads broadcasts there.
+  it.each(['production', 'staging'] as const)(
+    '%s: Coinbase Country v2 reads its pinned ref, never the release tag or main, and fails loudly without one',
+    async env => {
+      mockStatus = 404;
+      const err = await downloadCircuitFiles('coinbase_country_attestation', env, undefined, () => {}).catch((e: Error) => e);
+      expect(err).toBeInstanceOf(Error);
+      const message = (err as Error).message;
+      expect(message).not.toContain('CIRCUITS_RELEASE_TAG');
+      expect(message).not.toContain('/circuits/main/');
+      if (COUNTRY_V2_CIRCUITS_REF === '') {
+        // Placeholder until the CI-built files are on a commit: nothing is fetched.
+        expect(message).toBe('COUNTRY_V2_CIRCUITS_REF is empty (src/config/circuitArtifacts.ts).');
+        expect(mockFiles.size).toBe(0);
+      } else {
+        expect(message).toContain(`/circuits/${COUNTRY_V2_CIRCUITS_REF}/coinbase-country-attestation-v2/`);
+        expect(mockFiles.has('/docs/circuits/coinbase_country_attestation.json')).toBe(false);
+      }
+    },
+  );
 
   it('a 404 for Coinbase KYC v2 names its pinned pre-release tag, never CIRCUITS_RELEASE_TAG', async () => {
     mockStatus = 404;
@@ -98,7 +110,7 @@ describe('a circuit download from the pinned release', () => {
 
   it('a 404 on main in staging is reported plainly, not as a missing release', async () => {
     mockStatus = 404;
-    const err = await downloadCircuitFiles('coinbase_country_attestation', 'staging', undefined, () => {}).catch((e: Error) => e);
+    const err = await downloadCircuitFiles('giwa_attestation', 'staging', undefined, () => {}).catch((e: Error) => e);
     expect((err as Error).message).toContain('HTTP 404 from https://raw.githubusercontent.com/zkproofport/circuits/main/');
     expect((err as Error).message).not.toContain('CIRCUITS_RELEASE_TAG');
   });

@@ -225,8 +225,10 @@ Circuit files are downloaded from GitHub at runtime and cached locally. Attestat
    - Output: Zero-knowledge proof of attestation
 
 2. **coinbase_country_attestation**: Country attestation
-   - Input: Country from Coinbase attestation
-   - Output: Country-specific proof
+   - Input: the Coinbase country attestation, checked unrevoked right before
+     proving and vouched for by this phone's security check, a list of up to 10
+     countries, and optionally an action the wallet authorises
+   - Output: Proof that the wallet's verified country is in (or not in) the list
 
 3. **oidc_domain_attestation**: OIDC domain attestation
    - Input: OIDC JWT from Google or Microsoft

@@ -92,8 +92,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         name="no-attestation-not-answered",
         path=SCREEN,
-        old="        failAttempt({code: 'E2005', error: msg});",
-        new="        setErrorMessage(msg);",
+        old="        addLog(msg);\n        failAttempt({code: 'E2005', error: msg});",
+        new="        addLog(msg);\n        setErrorMessage(msg);",
         guard=SCREEN_TEST,
         expect_case="no attestation -> E2005",
     ),

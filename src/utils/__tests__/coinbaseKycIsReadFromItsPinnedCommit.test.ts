@@ -85,7 +85,6 @@ describe('coinbase_attestation (v2)', () => {
   });
 
   it('leaves every other circuit on main / its release', async () => {
-    expect(circuitArtifactSource('coinbase_country_attestation')).toBeUndefined();
     expect(circuitArtifactSource('__proto__')).toBeUndefined();
     await downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {});
     expect(mockDownloads[0].fromUrl).toBe('https://raw.githubusercontent.com/zkproofport/circuits/main/giwa-attestation/target/giwa_attestation.json');

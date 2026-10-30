@@ -219,8 +219,15 @@ describe("the proof callback's signerVariant", () => {
   });
 
   it('every other circuit is standard', () => {
-    expect(proofSignerVariant('coinbase_country_attestation', {})).toBe('standard');
     expect(proofSignerVariant('giwa_attestation', {signerVariant: 'android'})).toBe('standard');
+    expect(proofSignerVariant('dojang_playground', {})).toBe('standard');
+  });
+
+  it('Coinbase Country v2 is per-signer too: its proof says which package made it, or is an error', () => {
+    for (const v of ['standard', 'android', 'android_factory']) {
+      expect(proofSignerVariant('coinbase_country_attestation', {signerVariant: v})).toBe(v);
+    }
+    expect(() => proofSignerVariant('coinbase_country_attestation', {})).toThrow(/does not say which package/);
   });
 
   it('a per-signer proof that does not say is an error, never "standard"', () => {

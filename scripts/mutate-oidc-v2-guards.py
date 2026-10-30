@@ -87,24 +87,14 @@ MUTATIONS: list[Mutation] = [
              "    circuitsSource: {type: 'release', tag: CIRCUITS_RELEASE_TAG},",
              "    circuitsSource: {type: 'branch', branch: CIRCUITS_BRANCH},",
              SOURCE_TEST, "production names that tag; development and staging name main"),
-    Mutation("verifier-record-from-main", DEPLOY,
-             "  return `${GITHUB_RAW(circuitsRef(circuit, env))}/broadcast/${pathFn(chainId)}`;",
-             "  return `${GITHUB_RAW(CIRCUITS_BRANCH)}/broadcast/${pathFn(chainId)}`;",
-             SOURCE_TEST, "production reads the coinbase_country_attestation verifier record from the same tag"),
-    Mutation("missing-tag-is-quiet", DEPLOY,
-             "  if (response.status === 404 && isReleaseRef(env, ref)) {",
-             "  if (response.status === -1 && isReleaseRef(env, ref)) {",
-             SOURCE_TEST, "a 404 at the tag is an error naming the tag and the file"),
-    # "sync-swallows-missing-tag" (`missing.length > 0` -> `< 0`) was removed
-    # on branch oidc-signature: with Coinbase KYC v2 and OIDC read from pinned
-    # commits, Coinbase Country is the only record read at the tag, so a sync
-    # has at most one missing file and the generic rethrow below that block
-    # throws the same CircuitsReleaseMissingError -- an equivalent mutant.
-    # Restore it when a second circuit's record is read at the tag.
-    Mutation("cache-key-without-ref", DEPLOY,
-             "  return `${CACHE_PREFIX}/${env}/${circuit}@${circuitsRef(circuit, env)}`;",
-             "  return `${CACHE_PREFIX}/${env}/${circuit}`;",
-             SOURCE_TEST, "a verifier cached under another tag, or under the old unkeyed key, is not used"),
+    # "verifier-record-from-main", "missing-tag-is-quiet",
+    # "sync-swallows-missing-tag" and "cache-key-without-ref" were removed on
+    # branch country-v2 (2026-10-30): Coinbase Country v2 now reads a pinned
+    # ref and a configured address like Coinbase KYC v2 and OIDC, so no
+    # circuit reads a verifier record at CIRCUITS_RELEASE_TAG and these lines
+    # of deployments.ts run for nothing. Restore them (their cases were in
+    # circuitSourceIsNeverGuessed.test.ts at proofport-app b294f36) when a
+    # circuit's record is read at the tag again.
     Mutation("unknown-env-not-refused", DEPLOY,
              "  if (!config) {\n    throw new Error(`Unknown environment",
              "  if (config === null) {\n    throw new Error(`Unknown environment",
@@ -113,14 +103,13 @@ MUTATIONS: list[Mutation] = [
              "      deps.showError('E3007', error.message);",
              "",
              LAUNCH_TEST, "shows E3007 with the tag when the pinned release is missing"),
-    Mutation("download-404-does-not-name-tag", DOWNLOAD,
-             "  } else if (statusCode === 404 && pinned) {",
-             "  } else if (statusCode === -1 && pinned) {",
-             LAUNCH_TEST, "a 404 in production names the tag, and the error body is deleted"),
+    # "download-404-does-not-name-tag" (the release-tag branch of
+    # httpFailureReason) was removed with the four above: no circuit file is
+    # read at CIRCUITS_RELEASE_TAG since Coinbase Country v2 either.
     Mutation("download-keeps-error-body", DOWNLOAD,
              "    await RNFS.unlink(destPath).catch(() => {});\n    const reason = httpFailureReason(",
              "    const reason = httpFailureReason(",
-             LAUNCH_TEST, "a 404 in production names the tag, and the error body is deleted"),
+             LAUNCH_TEST, "a 404 for Coinbase KYC v2 names its pinned pre-release tag"),
     Mutation("v1-oidc-verifier-back", CONTRACTS,
              "    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',\n    giwa_attestation",
              "    oidc_domain_attestation: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167',\n    giwa_attestation",

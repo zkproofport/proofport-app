@@ -38,7 +38,15 @@ export type ProofStackParamList = {
    * nobody reaches this screen; it exists to test circuits whose verifiers
    * are offered in the Laboratory.
    */
-  ActionInput: {circuit: CircuitName};
+  ActionInput: {
+    circuit: CircuitName;
+    /**
+     * Coinbase Country v2: the list chosen on the country screen, carried to
+     * the proof screen with the action. Only that circuit takes it; the
+     * action screen offers no other circuit while it is set.
+     */
+    countryInputs?: {countryList: string[]; isIncluded: boolean};
+  };
   ProofGeneration: {
     circuitId: string;
     proofRequest?: ProofRequest;

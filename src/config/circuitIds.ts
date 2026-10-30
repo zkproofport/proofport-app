@@ -155,10 +155,25 @@ import type {CircuitActionBinding} from '@zkproofport-app/core/circuits';
 export type {CircuitActionBinding};
 
 /**
- * Core's action table (Coinbase KYC v2 says 'optional' since core
- * 0.4.0-beta.1, as the circuit does; this app used to override it).
+ * Where this app's circuits take an action that the published core does not
+ * know of yet. Coinbase Country v2 binds an optional EIP-712 action like
+ * Coinbase KYC v2 (circuits coinbase-country-attestation-v2); core
+ * 0.4.0-beta.1 still describes v1 ('none'). Removed when core says
+ * 'optional' itself -- `theActionTableFollowsCore` fails once it does, so the
+ * override cannot outlive its reason.
  */
-export const CIRCUIT_ACTION_BINDING: Readonly<Record<CircuitName, CircuitActionBinding>> = CORE_CIRCUIT_ACTION_BINDING;
+export const APP_ACTION_BINDING_OVERRIDES: Readonly<Partial<Record<CircuitName, CircuitActionBinding>>> = Object.freeze({
+  coinbase_country_attestation: 'optional',
+});
+
+/**
+ * Core's action table (Coinbase KYC v2 says 'optional' since core
+ * 0.4.0-beta.1, as the circuit does), with the overrides above.
+ */
+export const CIRCUIT_ACTION_BINDING: Readonly<Record<CircuitName, CircuitActionBinding>> = Object.freeze({
+  ...CORE_CIRCUIT_ACTION_BINDING,
+  ...APP_ACTION_BINDING_OVERRIDES,
+});
 
 /** Whether `circuit` binds an action. An id outside the list is an error. */
 export function circuitActionBinding(circuit: string): CircuitActionBinding {

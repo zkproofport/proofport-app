@@ -11,8 +11,10 @@ import {ethers} from 'ethers';
 import {__resetAppAttestKeyForTests, type KeyStorage} from '../appAttestKey';
 import {AppAttestError} from '../appAttestError';
 import {COINBASE_ATTESTER, COINBASE_KYC_SCHEMA_UID} from '../clientData';
+import {COINBASE_STATEMENT_KINDS} from '../coinbaseStatementKinds';
 import {APP_ATTEST_APP_ID} from '../constants';
-import {coinbaseRequestDigest, prepareCoinbaseKycStatement} from '../coinbaseKycStatement';
+import {coinbaseRequestDigest, coinbaseRequestDigestFor, prepareCoinbaseCountryStatement, prepareCoinbaseKycStatement} from '../coinbaseKycStatement';
+import {COINBASE_COUNTRY_SCHEMA_UID} from '../coinbaseStatementKinds';
 import {
   checkStatementAge,
   fetchAttestationStatus,
@@ -65,7 +67,25 @@ function harness(opts: {supported?: boolean; development?: boolean} = {}) {
         revocation: {fetchStatus: status(s) as never, now: () => NOW},
       },
     ).catch((e: unknown) => e);
-  return {device, calls, run, storage, ca};
+  // Coinbase Country v2 through the same App Attest key: the Country record
+  // (data = "KR") and the transaction's country.
+  const runCountry = (s: Partial<AttestationStatus>, transactionCountry = 'KR') =>
+    prepareCoinbaseCountryStatement(
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'proofport', transactionCountry, log: () => {}},
+      {
+        native,
+        keyDeps: {storage, pinnedCaKeyHash: '0x' + Buffer.from(sha256(ca.x, ca.y)).toString('hex')},
+        revocation: {
+          fetchStatus: (async () => {
+            calls.status++;
+            return {uid: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET.toLowerCase(), revoked: false,
+              data: ethers.utils.defaultAbiCoder.encode(['string'], ['KR']), ...s};
+          }) as never,
+          now: () => NOW,
+        },
+      },
+    ).catch((e: unknown) => e);
+  return {device, calls, run, runCountry, storage, ca};
 }
 
 const codeOf = (e: unknown) => (e instanceof AppAttestError ? e.code : e instanceof Error ? e.message : 'no error');
@@ -126,14 +146,48 @@ describe('the revocation statement', () => {
   });
 });
 
+describe('the Coinbase Country v2 statement on iPhone', () => {
+  it('is the 227 bytes naming KR, signed by the App Attest key', async () => {
+    const h = harness();
+    const w = await h.runCountry({});
+    if (w instanceof Error) throw w;
+    const witness = w as {clientData: Uint8Array; attestedAt: number; assertion: {authenticatorData: Uint8Array; signature: Uint8Array}};
+    const cd = witness.clientData;
+    expect(cd).toHaveLength(227);
+    expect(ethers.utils.hexlify(cd.slice(16, 48))).toBe(ethers.utils.keccak256(ethers.utils.toUtf8Bytes('coinbase_country_attestation')));
+    expect(String.fromCharCode(cd[225], cd[226])).toBe('KR');
+    expect(ethers.utils.hexlify(cd.slice(161, 193))).toBe(coinbaseRequestDigestFor('coinbase_country_attestation', WALLET, 'proofport'));
+    const nonce = sha256(witness.assertion.authenticatorData, sha256(cd));
+    expect(verifyP1363(h.device.cred, nonce, witness.assertion.signature)).toBe(true);
+  });
+
+  it.each([
+    ['revoked', {revoked: true}, 'KR', 'E2011'],
+    ['naming another country', {data: ethers.utils.defaultAbiCoder.encode(['string'], ['US'])}, 'KR', 'E2020'],
+    ['of the KYC schema', {schemaId: COINBASE_KYC_SCHEMA_UID}, 'KR', 'E2005'],
+  ])('is refused for a record %s, and nothing is signed', async (_l, s, txCountry, code) => {
+    const h = harness();
+    expect(codeOf(await h.runCountry(s as Partial<AttestationStatus>, txCountry))).toBe(code);
+    expect(h.calls.assert).toBe(0);
+  });
+
+  it('refuses a development key (E2014) before the lookup, naming Country v2', async () => {
+    const h = harness({development: true});
+    const e = await h.runCountry({});
+    expect(codeOf(e)).toBe('E2014');
+    expect((e as Error).message).toMatch(/Coinbase Country v2 accepts production keys only/);
+    expect(h.calls.status).toBe(0);
+  });
+});
+
 describe('the lookup itself', () => {
   const answer = (body: unknown, ok = true, status = 200) =>
     jest.fn(async () => ({ok, status, json: async () => body}));
 
   it('asks for the one uid, every time (no cache)', async () => {
     const f = answer({data: {attestation: {id: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false}}});
-    await fetchAttestationStatus(UID, () => {}, f);
-    await fetchAttestationStatus(UID, () => {}, f);
+    await fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, f);
+    await fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, f);
     expect(f).toHaveBeenCalledTimes(2);
     const sent = JSON.parse((f.mock.calls[0] as unknown as [string, {body: string}])[1].body);
     expect(sent.variables).toEqual({id: UID});
@@ -142,23 +196,23 @@ describe('the lookup itself', () => {
 
   it('turns HTTP errors, thrown fetches and GraphQL errors into E3002', async () => {
     const c = (p: Promise<unknown>) => p.then(() => 'ok', codeOf);
-    expect(await c(fetchAttestationStatus(UID, () => {}, answer({}, false, 503)))).toBe('E3002');
-    expect(await c(fetchAttestationStatus(UID, () => {}, jest.fn(async () => { throw new Error('offline'); })))).toBe('E3002');
-    expect(await c(fetchAttestationStatus(UID, () => {}, answer({errors: [{message: 'x'}]})))).toBe('E3002');
+    expect(await c(fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, answer({}, false, 503)))).toBe('E3002');
+    expect(await c(fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, jest.fn(async () => { throw new Error('offline'); })))).toBe('E3002');
+    expect(await c(fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, answer({errors: [{message: 'x'}]})))).toBe('E3002');
   });
 
   it('reads a record without a revoked flag as unknown (E3002), never as unrevoked', async () => {
     const f = answer({data: {attestation: {id: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET}}});
-    expect(await fetchAttestationStatus(UID, () => {}, f).then(() => 'ok', codeOf)).toBe('E3002');
+    expect(await fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, f).then(() => 'ok', codeOf)).toBe('E3002');
   });
 
   it('reads an unknown uid as "no attestation" (E2005)', async () => {
-    expect(await fetchAttestationStatus(UID, () => {}, answer({data: {attestation: null}})).then(() => 'ok', codeOf)).toBe('E2005');
+    expect(await fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, answer({data: {attestation: null}})).then(() => 'ok', codeOf)).toBe('E2005');
   });
 
   it('refuses a uid that is not 32 bytes of hex without asking', async () => {
     const f = answer({});
-    expect(await fetchAttestationStatus("0x12' OR 1=1", () => {}, f).then(() => 'ok', codeOf)).toBe('E2005');
+    expect(await fetchAttestationStatus("0x12' OR 1=1", () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, f).then(() => 'ok', codeOf)).toBe('E2005');
     expect(f).not.toHaveBeenCalled();
   });
 });

@@ -82,6 +82,16 @@ export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f1
  */
 export const ANDROID_SIGNATURE_CIRCUITS_REF = '8fad8daa4fc7cdb3315deb4a40cd6a263229a455';
 
+/**
+ * The zkproofport/circuits ref carrying Coinbase Country v2's CI-built files
+ * (`coinbase_country_attestation_v2`, `_android`, `_android_factory`, circuits
+ * branch country-v2, 2026-10-30): json, .srs (split for the 2^21 Android
+ * packages) with SHA256SUMS, and vk. EMPTY until those files are on a commit:
+ * every Country download ends at requireArtifactRef's error naming this
+ * constant, never at v1's files. The Android rows need a full 40-hex commit.
+ */
+export const COUNTRY_V2_CIRCUITS_REF = '';
+
 /** The .srs size of a 2^21 circuit (bb 4.2.0-aztecnr-rc.2), split for GitHub. */
 export const SRS_2_21_BYTES = 134_217_940;
 /** Upper bound on one published .srs part. */
@@ -158,6 +168,49 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
       remoteFileName: 'coinbase_attestation_v2_android_factory',
       dataVersion: 4,
       publicInputCount: 193,
+      srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    }),
+  }),
+  // Coinbase Country v2 (statement-bound revocation, optional EIP-712 action,
+  // wallet + circuit-tag nullifier; circuits-dev.md "Decisions, 2026-10-23"):
+  // 215 public inputs on every package. dataVersion 3-5 replace v1's
+  // CIRCUIT_DATA_VERSIONS 2, and differ from each other: the version names
+  // the file set.
+  coinbase_country_attestation: Object.freeze({
+    app_attest: Object.freeze({
+      variant: 'app_attest',
+      ref: COUNTRY_V2_CIRCUITS_REF,
+      refName: 'COUNTRY_V2_CIRCUITS_REF',
+      basePath: 'coinbase-country-attestation-v2/target',
+      vkPath: 'coinbase-country-attestation-v2/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'coinbase_country_attestation_v2',
+      dataVersion: 3,
+      publicInputCount: 215,
+      srsParts: null,
+    }),
+    android: Object.freeze({
+      variant: 'android',
+      ref: COUNTRY_V2_CIRCUITS_REF,
+      refName: 'COUNTRY_V2_CIRCUITS_REF',
+      basePath: 'coinbase-country-attestation-v2-android/target',
+      vkPath: 'coinbase-country-attestation-v2-android/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'coinbase_country_attestation_v2_android',
+      dataVersion: 4,
+      publicInputCount: 215,
+      srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    }),
+    android_factory: Object.freeze({
+      variant: 'android_factory',
+      ref: COUNTRY_V2_CIRCUITS_REF,
+      refName: 'COUNTRY_V2_CIRCUITS_REF',
+      basePath: 'coinbase-country-attestation-v2-android-factory/target',
+      vkPath: 'coinbase-country-attestation-v2-android-factory/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'coinbase_country_attestation_v2_android_factory',
+      dataVersion: 5,
+      publicInputCount: 215,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
   }),
@@ -263,6 +316,13 @@ export function requireArtifactRef(source: CircuitArtifactSource): string {
   }
   if (source.ref === '') throw new Error(`${source.refName} is empty (src/config/circuitArtifacts.ts).`);
   return source.ref;
+}
+
+/** Coinbase Country v2's source on this phone. Required: the app proves only v2 for this id. */
+export function coinbaseCountryArtifact(variant: StatementSignerVariant = currentSignerVariant()): CircuitArtifactSource {
+  const source = artifactSourceFor('coinbase_country_attestation', variant);
+  if (!source) throw new Error('coinbase_country_attestation has no pinned v2 artifact source in circuitArtifacts.ts.');
+  return source;
 }
 
 /** Coinbase KYC v2's source on this phone. Required: the app proves only v2 for this id. */

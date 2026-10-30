@@ -311,8 +311,10 @@ export function validateProofRequest(
       return {valid: false, error: 'Invalid userAddress format'};
     }
     // Scope is required: it is a public input, and the nullifier is per scope.
+    // Coinbase Country v2 too: the scope is in the device statement as well.
     if (
       (request.circuit === 'coinbase_attestation' ||
+        request.circuit === 'coinbase_country_attestation' ||
         request.circuit === 'giwa_attestation' ||
         request.circuit === 'dojang_playground') &&
       !inputs.scope
@@ -324,6 +326,15 @@ export function validateProofRequest(
       const countryInputs = request.inputs as CoinbaseCountryInputs;
       if (!countryInputs.countryList || !Array.isArray(countryInputs.countryList) || countryInputs.countryList.length === 0) {
         return {valid: false, error: 'countryList is required for coinbase_country_attestation'};
+      }
+      // The circuit holds 10 codes of two bytes each. A longer list, or an
+      // entry that is not two uppercase letters, cannot be proved as asked.
+      if (countryInputs.countryList.length > 10) {
+        return {valid: false, error: `countryList has ${countryInputs.countryList.length} entries; at most 10 are proved`};
+      }
+      const badCode = countryInputs.countryList.find(c => typeof c !== 'string' || !/^[A-Z]{2}$/.test(c));
+      if (badCode !== undefined) {
+        return {valid: false, error: `countryList entry ${JSON.stringify(badCode)} is not an ISO 3166-1 alpha-2 code (two uppercase letters)`};
       }
       if (typeof countryInputs.isIncluded !== 'boolean') {
         return {valid: false, error: 'isIncluded is required for coinbase_country_attestation'};

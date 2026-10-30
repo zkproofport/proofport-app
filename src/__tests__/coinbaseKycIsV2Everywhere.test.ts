@@ -99,11 +99,12 @@ describe('the verifier', () => {
 });
 
 describe('the action', () => {
-  it("is optional for coinbase_attestation, and the app reads core's table unchanged", () => {
+  it("is optional for coinbase_attestation, and the app reads core's row unchanged", () => {
     expect(CORE_BINDING.coinbase_attestation).toBe('optional');
     expect(circuitActionBinding('coinbase_attestation')).toBe('optional');
-    expect(CIRCUIT_ACTION_BINDING).toBe(CORE_BINDING);
-    expect(CIRCUIT_ACTION_BINDING.coinbase_country_attestation).toBe('none');
+    expect(CIRCUIT_ACTION_BINDING.coinbase_attestation).toBe(CORE_BINDING.coinbase_attestation);
+    // Coinbase Country v2 is the app's one override (coinbaseCountryIsV2Everywhere.test.ts).
+    expect(CIRCUIT_ACTION_BINDING.coinbase_country_attestation).toBe('optional');
   });
 
   it.each(['__proto__', 'constructor', 'arc_eligibility'])('refuses %s instead of picking a binding', id => {
@@ -130,7 +131,11 @@ describe('the action', () => {
 
   it('opens from the Coinbase KYC card on the action screen, limited to the same surface', () => {
     expect(read('screens/proof/proofCatalog.ts')).toMatch(/navigate\('ActionInput', \{circuit: 'coinbase_attestation'\}\)/);
-    expect(read('screens/proof/ActionInputScreen.tsx')).toMatch(/isLaboratoryCircuit\(id\) === isLaboratoryCircuit\(route\.params\.circuit\)/);
+    expect(read('screens/proof/ActionInputScreen.tsx')).toMatch(/actionCircuitsFor\(route\.params\.circuit\)/);
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {actionCircuitsFor} = require('../screens/proof/actionCircuits');
+    expect(actionCircuitsFor('coinbase_attestation')).toEqual(['coinbase_attestation']);
+    expect(actionCircuitsFor('giwa_attestation').sort()).toEqual(['dojang_playground', 'giwa_attestation']);
   });
 });
 
@@ -160,10 +165,12 @@ describe('the nullifier', () => {
     expect(ethers.utils.hexlify(a)).toBe(ethers.utils.hexlify(b));
   });
 
-  it('leaves Coinbase Country on its signal_hash rule', () => {
+  it('gives Coinbase Country v2 its own tag, so the two circuits never share a nullifier', () => {
     const a = nullifierForCircuit('coinbase_country_attestation', wallet, new Uint8Array(32).fill(1), scope);
     const b = nullifierForCircuit('coinbase_country_attestation', wallet, new Uint8Array(32).fill(2), scope);
-    expect(ethers.utils.hexlify(a)).not.toBe(ethers.utils.hexlify(b));
+    expect(ethers.utils.hexlify(a)).toBe(ethers.utils.hexlify(b));
+    expect(ethers.utils.hexlify(a)).toBe(ethers.utils.hexlify(computeWalletNullifier(wallet, 'coinbase_country_attestation', scope)));
+    expect(ethers.utils.hexlify(a)).not.toBe(ethers.utils.hexlify(nullifierForCircuit('coinbase_attestation', wallet, new Uint8Array(32), scope)));
   });
 
   it.each(['__proto__', 'constructor', 'coinbase_app_attest_poc'])('refuses %s instead of picking a rule', id => {

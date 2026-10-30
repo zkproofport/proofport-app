@@ -24,8 +24,12 @@ import {OIDC_PUBLIC_INPUT_COUNT} from '../../utils/oidcDomain';
 import {hasPinnedArtifactSource} from '../circuitArtifacts';
 
 // Every circuit is held to core's table -- Coinbase KYC v2 too, since core
-// 0.4.0-beta.1 pins its contracts (core 0.4.0-beta.0 still pinned v1's).
-const IN_CORE = ALL_CIRCUIT_IDS;
+// 0.4.0-beta.1 pins its contracts (core 0.4.0-beta.0 still pinned v1's) --
+// except Coinbase Country v2 while its row is the empty placeholder (no
+// verifier deployed and pinned yet; held below).
+const COUNTRY_PENDING = (['development', 'staging', 'production'] as const)
+  .some(env => FALLBACK_VERIFIERS[env].coinbase_country_attestation === '');
+const IN_CORE = ALL_CIRCUIT_IDS.filter(id => !(COUNTRY_PENDING && id === 'coinbase_country_attestation'));
 
 const ENVS: Environment[] = ['development', 'staging', 'production'];
 
@@ -53,7 +57,7 @@ describe('every environment resolves every circuit through core', () => {
 
   it('addresses are checksummed, as History and the relay callback showed them before', () => {
     for (const env of ENVS) {
-      for (const circuit of ALL_CIRCUIT_IDS) {
+      for (const circuit of IN_CORE) {
         const a = FALLBACK_VERIFIERS[env][circuit];
         expect(a).toBe(ethers.utils.getAddress(a));
       }
@@ -89,6 +93,28 @@ describe('Coinbase KYC: v2 everywhere, never a v1 contract', () => {
 
   it('is read from a pinned circuits commit', () => {
     expect(hasPinnedArtifactSource('coinbase_attestation')).toBe(true);
+  });
+});
+
+describe('Coinbase Country: v2 or nothing, never a v1 contract', () => {
+  // core 0.4.0-beta.1's coinbase_country_attestation rows (v1, 150 inputs).
+  const V1 = [
+    '0x9deea2189ae694d7a36f65fb7d7dbe9f75abddce', // 84532
+    '0x8e89f11e65f219203f5be9d6a69a4da084630c56', // 8453
+    '0xdee363585926c3c28327efd1edd01cf4559738cf', // 84532, older
+    '0xf3d5a09d2c85b28c52ef2905c1be3a852b609d0c', // beta.8
+  ];
+
+  it.each(ENVS)('%s: the row is empty (refused before proving) or a checksummed contract that is none of v1\'s', env => {
+    const a = FALLBACK_VERIFIERS[env].coinbase_country_attestation;
+    if (a === '') return;
+    expect(a).toBe(ethers.utils.getAddress(a));
+    expect(V1.includes(a.toLowerCase())).toBe(false);
+    expect(a.toLowerCase()).toBe(getPinnedVerifier('coinbase_country_attestation', CIRCUIT_NETWORKS[env].coinbase_country_attestation.chainId).address);
+  });
+
+  it('is read from a pinned circuits ref', () => {
+    expect(hasPinnedArtifactSource('coinbase_country_attestation')).toBe(true);
   });
 });
 

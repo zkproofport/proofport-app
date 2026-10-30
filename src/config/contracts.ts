@@ -211,8 +211,11 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
   // getVerifierAddress skips the cache for a null row, so neither can win.
   // Point it at DeployCoinbaseAttestationV2 when the pinned release carries it.
   coinbase_attestation: null,
-  coinbase_country_attestation: (chainId) =>
-    `DeployCoinbaseCountryAttestation.s.sol/${chainId}/run-latest.json`,
+  // Coinbase Country v2: null for Coinbase KYC v2's reason. The
+  // DeployCoinbaseCountryAttestation record names v1's verifier, which
+  // rejects every v2 proof; v2's (DeployCoinbaseCountryAttestationV2) is not
+  // on a ref this app reads yet. The address is the fallback below.
+  coinbase_country_attestation: null,
   // OIDC with the provider-key statement: null for the same reason. Its record
   // (circuits 7e5c72d) is only on branch oidc-signature; circuits main and
   // CIRCUITS_RELEASE_TAG still name the verifier from before the statement,
@@ -299,7 +302,10 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // toolchain: the bytecode, keys and reference strings all changed, and a
   // device holding the old files would hand beta.8 bytecode to the new prover.
   coinbase_attestation: 2,
-  coinbase_country_attestation: 2,
+  // v3: Coinbase Country v2 (215 public inputs, device statement); read from
+  // the pinned ref in circuitArtifacts.ts, whose iPhone row carries the same
+  // version. v1's files (version 2) are deleted and fetched again.
+  coinbase_country_attestation: 3,
   // v4: provider public input + MAX_PARTIAL_DATA_LENGTH 768.
   // v5: OIDC v2 (circuits a874776) -- aud_hash, nonce_mode, nonce_binding, now
   // appended (148 -> 214 public inputs), MAX_PARTIAL_DATA_LENGTH 2048. A v4
@@ -401,7 +407,11 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // in tag v2.0.0-rc.1). Replaces the 2026-10-23 circuit's 0xF898db95...Bb12
     // (circuits 33344e2), which rejects every final-v2 proof (other vk).
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
-    coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
+    // Coinbase Country v2: EMPTY until its verifier is deployed and core pins
+    // it. A Country proof is refused before proving while this is empty
+    // (requireVerifierForVariant, E2018). v1's 0x9DEea218...DDcE rejects every
+    // v2 proof (other vk) and is never named here.
+    coinbase_country_attestation: '',
     // OIDC with the provider-key statement (circuits 5081cfd), Base Sepolia,
     // deployed 2026-10-28 (circuits 7e5c72d,
     // broadcast/DeployOidcDomainAttestation.s.sol/84532), the contract core
@@ -422,7 +432,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   },
   staging: {
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
-    coinbase_country_attestation: '0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE',
+    coinbase_country_attestation: '',
     oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
@@ -432,9 +442,10 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // Coinbase KYC v2: circuits 1d41d85, broadcast/DeployCoinbaseAttestationV2.s.sol/8453
     // (the v1 contract 0xF7dED73E...5382 rejects every v2 proof).
     coinbase_attestation: '0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F',
-    // circuits 1d41d85, broadcast/DeployCoinbaseCountryAttestation.s.sol/8453
-    // (the beta.8 contract 0xF3D5A09d...9D0C rejects beta.19 proofs).
-    coinbase_country_attestation: '0x8e89f11E65f219203f5bE9d6a69a4da084630C56',
+    // Coinbase Country v2: EMPTY until deployed and pinned by core (see
+    // development). v1's 0x8e89f11E...0C56 (circuits 1d41d85) rejects every
+    // v2 proof.
+    coinbase_country_attestation: '',
     // OIDC with the provider-key statement (circuits 5081cfd), deployed
     // 2026-10-29: circuits da21683, broadcast/DeployOidcDomainAttestation.s.sol/8453.
     oidc_domain_attestation: '0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35',

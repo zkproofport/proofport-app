@@ -92,6 +92,7 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
       prepareCoinbaseAppAttestInputs(
         coinbase,
         {
+          circuit: 'coinbase_attestation',
           userAddress: wallet,
           scope: computeScope(vector.scopeString),
           signedDigest: coinbaseRequestDigest(wallet, vector.scopeString, actionOf(m)),
@@ -203,26 +204,26 @@ describe('the vector builder refuses a statement for another proof', () => {
 
   it('names another wallet', () => {
     const {coinbase, witness} = base();
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: '0x' + '33'.repeat(20), scope, signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {circuit: 'coinbase_attestation', userAddress: '0x' + '33'.repeat(20), scope, signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/clientData names wallet/);
   });
 
   it('binds another request', () => {
     const {coinbase, witness} = base();
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope, signedDigest: '0x' + '44'.repeat(32), pinnedCaKeyHash: PINNED}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {circuit: 'coinbase_attestation', userAddress: wallet, scope, signedDigest: '0x' + '44'.repeat(32), pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/binds request/);
   });
 
   it('binds another scope', () => {
     const {coinbase, witness} = base();
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope: computeScope('another'), signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {circuit: 'coinbase_attestation', userAddress: wallet, scope: computeScope('another'), signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/another scope/);
   });
 
   it('carries a TBS longer than the circuit holds', () => {
     const {coinbase, witness} = base();
     witness.credential.credentialTbs = new Uint8Array(1001);
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {userAddress: wallet, scope, signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {circuit: 'coinbase_attestation', userAddress: wallet, scope, signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/the circuit holds 1000/);
   });
 
@@ -234,7 +235,7 @@ describe('the vector builder refuses a statement for another proof', () => {
     }
     return 'built';
   };
-  const request = (o: Record<string, unknown> = {}) => ({userAddress: wallet, scope, signedDigest: digest, pinnedCaKeyHash: PINNED, ...o});
+  const request = (o: Record<string, unknown> = {}) => ({circuit: 'coinbase_attestation' as const, userAddress: wallet, scope, signedDigest: digest, pinnedCaKeyHash: PINNED, ...o});
 
   it('refuses an intermediate the circuit does not pin with E2014, before anything else', () => {
     const {coinbase, witness} = base();

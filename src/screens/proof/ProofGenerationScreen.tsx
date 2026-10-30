@@ -46,7 +46,9 @@ import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
 import type {DeviceCheckReason} from '../../appAttest/deviceCheckReasons';
-import {prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
+import {prepareCoinbaseCountryStatement, prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
+import {attestedCountryOfTx} from '../../utils/attestCountryTx';
+import {countryRequestRefusal} from '../../utils/coinbaseAppAttestInputs';
 import {proofSignerVariant, verifierForProof} from '../../utils/proofSignerVariant';
 
 import {newStandaloneRequestId} from '../../oidc/oidcNonce';
@@ -1094,6 +1096,11 @@ export const ProofGenerationScreen: React.FC = () => {
         const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
         const countryList = manual?.countryList || deep?.countryList;
         const isIncluded = manual?.isIncluded ?? deep?.isIncluded;
+        // Optional EIP-712 action: from the action screen (after the country
+        // screen), or from the dApp's request -- as for Coinbase KYC v2.
+        const action =
+          route.params?.action ??
+          (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action;
 
         if (!countryList || countryList.length === 0 || typeof isIncluded !== 'boolean') {
           const msg = 'Missing required inputs: countryList and isIncluded';
@@ -1102,8 +1109,50 @@ export const ProofGenerationScreen: React.FC = () => {
           return;
         }
 
+        // The country the transaction attests, checked against the list
+        // before anything is signed: the circuit would refuse the proof only
+        // after the device statement, the wallet signature and the prover.
+        let transactionCountry: string;
+        try {
+          transactionCountry = attestedCountryOfTx(txResult.rawTransaction);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          addLog(`[Country] ${msg}`);
+          failAttempt({code: 'E2005', error: msg});
+          return;
+        }
+        addLog(`[Country] Attested country: ${transactionCountry}`);
+        const refusal = countryRequestRefusal({countryList, isIncluded, transactionCountry});
+        if (refusal) {
+          addLog(`[Country] ${refusal.error}`);
+          failAttempt(refusal);
+          return;
+        }
+
+        // Coinbase Country v2, for every request: the same device statement
+        // as Coinbase KYC v2, about the Country attestation, naming the
+        // transaction's country (E2020 when the record names another).
+        addLog('=== Device signer: checking revocation and signing the statement ===');
+        const countryWitness: CoinbaseStatementWitness = await timer.step('device: Coinbase statement', () => prepareCoinbaseCountryStatement({
+          walletAddress,
+          attestationUid: txResult.attestation.id,
+          scopeString: scopeStr,
+          action,
+          transactionCountry,
+          log: addLog,
+        }));
+
         await generateCountryProof(
-          {userAddress: walletAddress, rawTransaction: txResult.rawTransaction, signerIndex: 0, countryList, countryListLength: countryList.length, isIncluded, scopeString: scopeStr},
+          {
+            circuit: canonical,
+            userAddress: walletAddress,
+            rawTransaction: txResult.rawTransaction,
+            signerIndex: 0,
+            countryList,
+            isIncluded,
+            scopeString: scopeStr,
+            appAttest: {witness: countryWitness, action},
+          },
           ethereum, addLog,
         );
       } else if (isGiwa) {

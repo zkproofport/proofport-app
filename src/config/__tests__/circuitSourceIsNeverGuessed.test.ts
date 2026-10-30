@@ -45,11 +45,12 @@ jest.mock('react-native-fs', () => ({
 
 const TAG = 'v2.0.0';
 const RAW = 'https://raw.githubusercontent.com/zkproofport/circuits';
-// The official circuits read from the tag. coinbase_attestation (v2) and
-// oidc_domain_attestation (with the provider-key statement) are read from
-// pinned circuits commits on this branch (circuitArtifacts.ts); their own
-// cases are at the end of this file and in coinbaseKycIsV2Everywhere.test.ts.
-const OFFICIAL = ['coinbase_country_attestation'] as const;
+// Since Coinbase Country v2 (2026-10-30) no official circuit reads its files
+// or its verifier record at the release tag: Coinbase KYC v2, Coinbase Country
+// v2 and OIDC (provider-key statement) each read a pinned ref
+// (circuitArtifacts.ts) and a configured address. The tag stays in the build
+// for when those rows are folded into it; nothing reads it until then, which
+// the cases below hold.
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 const {
@@ -57,11 +58,10 @@ const {
   fetchDeploymentAddress,
   getVerifierAddress,
   syncDeployments,
-  circuitsRef,
-  isCircuitsReleaseMissingError,
 } = require('../deployments');
 const {circuitBaseUrl} = require('../../utils/circuitDownload');
-const {CIRCUITS_RELEASE_TAG, CIRCUITS_WITH_BROADCAST, STATIC_CONFIGS} = require('../contracts');
+const {CIRCUITS_RELEASE_TAG, CIRCUITS_WITH_BROADCAST, FALLBACK_VERIFIERS, STATIC_CONFIGS} = require('../contracts');
+const {COUNTRY_V2_CIRCUITS_REF} = require('../circuitArtifacts');
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 /** Every URL fetched; answers from `records` (path after RAW), 404 otherwise. */
@@ -106,21 +106,20 @@ describe('one exact circuits tag per app version', () => {
     expect(STATIC_CONFIGS.staging.circuitsSource).toEqual({type: 'branch', branch: 'main'});
   });
 
-  it.each(OFFICIAL)('production reads %s files from the exact tag, without asking GitHub', async circuit => {
-    const fetchMock = github();
-    expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/${TAG}`);
-    expect(circuitsRef(circuit, 'production')).toBe(TAG);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it.each(OFFICIAL)('production reads the %s verifier record from the same tag', async circuit => {
-    const fetchMock = github(releaseRecords());
-    expect(await fetchDeploymentAddress(circuit, 'production')).toMatch(/^0x[0-9a-fA-F]{40}$/);
-    const urls = urlsOf(fetchMock);
-    expect(urls).toHaveLength(1);
-    expect(urls[0].startsWith(`${RAW}/${TAG}/broadcast/`)).toBe(true);
-    expect(urls[0].endsWith('/8453/run-latest.json')).toBe(true);
-  });
+  it.each(['development', 'staging', 'production'] as const)(
+    '%s reads Coinbase Country v2 files from its pinned ref, never the tag or main, and asks GitHub nothing',
+    async env => {
+      const fetchMock = github();
+      const url = await circuitBaseUrl('coinbase_country_attestation', env).catch((e: Error) => e);
+      if (COUNTRY_V2_CIRCUITS_REF === '') {
+        expect(url).toBeInstanceOf(Error);
+        expect((url as Error).message).toBe('COUNTRY_V2_CIRCUITS_REF is empty (src/config/circuitArtifacts.ts).');
+      } else {
+        expect(url).toBe(`${RAW}/${COUNTRY_V2_CIRCUITS_REF}`);
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it('a whole production sync touches only the tag and main, never the API', async () => {
     const fetchMock = github({
@@ -144,67 +143,38 @@ describe('one exact circuits tag per app version', () => {
   it('a "latest" tag remembered by an older app version changes nothing', async () => {
     mockDisk.set('@proofport/deployment/release-tag', JSON.stringify({tag: 'v9.9.9', fetchedAt: Date.now()}));
     const fetchMock = github(releaseRecords());
-    expect(await circuitBaseUrl('coinbase_country_attestation', 'production')).toBe(`${RAW}/${TAG}`);
-    await fetchDeploymentAddress('coinbase_country_attestation', 'production');
+    await syncDeployments('production').catch(() => undefined);
+    for (const circuit of ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'] as const) {
+      await fetchDeploymentAddress(circuit, 'production');
+    }
     expect(urlsOf(fetchMock).some(u => u.includes('v9.9.9'))).toBe(false);
   });
 
-  it('a verifier cached under another tag, or under the old unkeyed key, is not used', async () => {
+  it('reads Coinbase Country v2 from its configured address, never a broadcast or an old cache', async () => {
     mockDisk.set('@proofport/deployment/production/coinbase_country_attestation', JSON.stringify({address: '0x1111111111111111111111111111111111111111'}));
-    mockDisk.set('@proofport/deployment/production/coinbase_country_attestation@v1.3.0', JSON.stringify({address: '0x2222222222222222222222222222222222222222'}));
-    github({}, {offline: true});
-    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe('0x8e89f11E65f219203f5bE9d6a69a4da084630C56');
-  });
-
-  it('a verifier read from this tag is cached under it and survives going offline', async () => {
-    const redeployed = '0x3333333333333333333333333333333333333333';
-    github({[`/${TAG}/broadcast/DeployCoinbaseCountryAttestation.s.sol/8453/run-latest.json`]: redeployed});
-    expect(await fetchDeploymentAddress('coinbase_country_attestation', 'production')).toBe(redeployed);
-    expect(JSON.parse(mockDisk.get(`@proofport/deployment/production/coinbase_country_attestation@${TAG}`)!).ref).toBe(TAG);
-    github({}, {offline: true});
-    expect(await fetchDeploymentAddress('coinbase_country_attestation', 'production')).toBeNull();
-    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe(redeployed);
+    mockDisk.set(`@proofport/deployment/production/coinbase_country_attestation@${TAG}`, JSON.stringify({address: '0x8e89f11E65f219203f5bE9d6a69a4da084630C56'}));
+    const fetchMock = github(releaseRecords());
+    for (const env of ['development', 'staging', 'production'] as const) {
+      expect(await fetchDeploymentAddress('coinbase_country_attestation', env)).toBeNull();
+      expect(await getVerifierAddress('coinbase_country_attestation', env)).toBe(FALLBACK_VERIFIERS[env].coinbase_country_attestation);
+    }
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployCoinbaseCountryAttestation'))).toBe(false);
   });
 });
 
 describe('the pinned tag is missing', () => {
-  it('a 404 at the tag is an error naming the tag and the file, never main', async () => {
-    github({});
-    const err = await fetchDeploymentAddress('coinbase_country_attestation', 'production').catch((e: Error) => e);
-    expect(isCircuitsReleaseMissingError(err)).toBe(true);
-    expect((err as Error).message).toContain(`Circuits release ${TAG} is not available`);
-    expect((err as Error).message).toContain(`${RAW}/${TAG}/broadcast/DeployCoinbaseCountryAttestation.s.sol/8453/run-latest.json`);
-    expect((err as Error).message).not.toMatch(/circuits\/main\//);
-  });
-
-  it('a sync tries every circuit, caches the ones that answer, then names every missing file', async () => {
-    // Coinbase Country is now the only official circuit whose record is read
-    // at the tag; Coinbase KYC v2 and OIDC (provider-key statement) have
-    // none to miss, and GIWA reads main.
+  it('cannot stop a production sync: no circuit reads a record at the tag', async () => {
     const giwa = '0xf6edb9d6114b2546b6e559997fdde08caeea83b3';
-    github({'/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': giwa});
-    const err = await syncDeployments('production').catch((e: Error) => e);
-    expect(isCircuitsReleaseMissingError(err)).toBe(true);
-    expect((err as Error).message).toContain('DeployCoinbaseCountryAttestation.s.sol');
-    expect((err as Error).message).not.toContain('DeployOidcDomainAttestation');
-    expect((err as Error).message).not.toContain('DeployCoinbaseAttestation.s.sol');
+    const fetchMock = github({'/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': giwa});
+    await expect(syncDeployments('production')).resolves.toBeDefined();
+    expect(urlsOf(fetchMock).filter(u => u.startsWith(`${RAW}/${TAG}/`))).toEqual([]);
     expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBe(giwa);
   });
 
   it('offline is not a missing tag: no error, built-in addresses answer', async () => {
     github({}, {offline: true});
     await expect(syncDeployments('production')).resolves.toBe(false);
-    expect(await getVerifierAddress('coinbase_country_attestation', 'production')).toBe('0x8e89f11E65f219203f5bE9d6a69a4da084630C56');
-  });
-
-  it('a server error (500) is not a missing tag either', async () => {
-    (globalThis as {fetch?: unknown}).fetch = jest.fn(async () => ({ok: false, status: 500, json: async () => ({})}));
-    await expect(fetchDeploymentAddress('coinbase_country_attestation', 'production')).resolves.toBeNull();
-  });
-
-  it.each(['development', 'staging'] as const)('a 404 on main in %s stays a quiet null (not a pinned release)', async env => {
-    github({});
-    await expect(fetchDeploymentAddress('coinbase_country_attestation', env)).resolves.toBeNull();
+    expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F');
   });
 });
 
@@ -212,7 +182,7 @@ describe('development and staging', () => {
   it.each(['development', 'staging'] as const)('%s reads main and never asks GitHub for a tag', async env => {
     const fetchMock = github();
     expect(resolveCircuitBaseUrl(env)).toBe(`${RAW}/main`);
-    for (const circuit of OFFICIAL) {
+    for (const circuit of ['giwa_attestation', 'dojang_playground']) {
       expect(await circuitBaseUrl(circuit, env)).toBe(`${RAW}/main`);
     }
     expect(fetchMock).not.toHaveBeenCalled();
@@ -239,8 +209,6 @@ describe('a verifier follows the circuit bytes', () => {
     return github({
       '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': currentGiwa,
       [`/${TAG}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: oldGiwa,
-      [`/${TAG}/broadcast/DeployCoinbaseCountryAttestation.s.sol/8453/run-latest.json`]: '0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C',
-      '/main/broadcast/DeployCoinbaseCountryAttestation.s.sol/84532/run-latest.json': '0xdee363585926c3c28327efd1edd01cf4559738cf',
     });
   }
 
@@ -248,12 +216,6 @@ describe('a verifier follows the circuit bytes', () => {
     const fetchMock = broadcasts();
     expect(await fetchDeploymentAddress('giwa_attestation', env)).toBe(giwa);
     expect(urlsOf(fetchMock).every(url => url.includes('/main/broadcast/'))).toBe(true);
-  });
-
-  it('keeps supported production verifiers on the tag and staging on main', async () => {
-    broadcasts();
-    expect(await fetchDeploymentAddress('coinbase_country_attestation', 'production')).toBe('0xF3D5A09d2C85B28C52EF2905c1BE3a852b609D0C');
-    expect(await fetchDeploymentAddress('coinbase_country_attestation', 'staging')).toBe('0xdee363585926c3c28327efd1edd01cf4559738cf');
   });
 
   it('reads Coinbase KYC v2 from its configured address, never a broadcast or an old cache', async () => {

@@ -614,13 +614,16 @@ describe('a History proof older than the request window is asked of the contract
     expect(() => proofAgeSeconds(id, [], 100)).toThrow(/Unknown circuit/);
   });
 
-  it('every circuit has its window decided, and only OIDC and Coinbase KYC have one', () => {
+  it('every circuit has its window decided, and only OIDC and the two Coinbase circuits have one', () => {
     const {ALL_CIRCUIT_IDS} = jest.requireActual('@zkproofport-app/core');
     expect(Object.keys(REQUEST_WINDOWS).sort()).toEqual([...ALL_CIRCUIT_IDS].sort());
     expect(Object.entries(REQUEST_WINDOWS).filter(([, w]) => w).map(([c]) => c).sort()).toEqual(
-      ['coinbase_attestation', 'oidc_domain_attestation'],
+      ['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation'],
     );
     expect(REQUEST_WINDOWS.coinbase_attestation!.maxAgeSeconds).toBe(core.COINBASE_ATTESTED_AT_MAX_AGE_SECONDS);
+    // Coinbase Country v2: attested_at is the last of its 215 inputs, the same window as KYC's.
+    expect(REQUEST_WINDOWS.coinbase_country_attestation!.index).toBe(214);
+    expect(REQUEST_WINDOWS.coinbase_country_attestation!.maxAgeSeconds).toBe(core.COINBASE_ATTESTED_AT_MAX_AGE_SECONDS);
     expect(REQUEST_WINDOWS.oidc_domain_attestation!.maxAgeSeconds).toBe(core.OIDC_NOW_MAX_AGE_SECONDS);
   });
 

@@ -128,12 +128,60 @@ describe('a proof request is checked before the prover runs', () => {
     ['countryList not an array', {countryList: 'US', isIncluded: true}, /countryList is required/],
     ['no isIncluded', {countryList: ['US']}, /isIncluded is required/],
     ['isIncluded not a boolean', {countryList: ['US'], isIncluded: 'yes'}, /isIncluded is required/],
+    // Coinbase Country v2: the scope is a public input and in the device
+    // statement, and the list is at most 10 two-letter codes.
+    ['no scope', {countryList: ['US'], isIncluded: true, scope: undefined}, /Missing required scope/],
+    ['an empty scope', {countryList: ['US'], isIncluded: true, scope: ''}, /Missing required scope/],
+    ['11 countries', {countryList: ['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK'], isIncluded: true}, /11 entries; at most 10/],
+    ['a lowercase code', {countryList: ['kr'], isIncluded: true}, /"kr" is not an ISO 3166-1 alpha-2 code/],
+    ['a three-letter code', {countryList: ['KOR'], isIncluded: true}, /"KOR" is not/],
+    ['a one-letter code', {countryList: ['K'], isIncluded: true}, /"K" is not/],
+    ['a Korean name', {countryList: ['한국'], isIncluded: true}, /"한국" is not/],
+    ['an emoji flag', {countryList: ['🇰🇷'], isIncluded: true}, /is not an ISO/],
+    ['wildcards', {countryList: ['%_'], isIncluded: true}, /"%_" is not/],
+    ['a markup string', {countryList: ['<script>'], isIncluded: true}, /is not an ISO/],
+    ['a number', {countryList: [82], isIncluded: true}, /82 is not/],
+    ['a null entry', {countryList: [null], isIncluded: true}, /null is not/],
+    ['whitespace around a code', {countryList: [' KR'], isIncluded: true}, /" KR" is not/],
   ])('country attestation with %s is refused', (_l, inputs, msg) => {
     const r = validateProofRequest(
-      base({circuit: 'coinbase_country_attestation', inputs} as Partial<ProofRequest>),
+      base({circuit: 'coinbase_country_attestation', inputs: {scope: 'zkproofport', ...inputs}} as Partial<ProofRequest>),
     );
     expect(r.valid).toBe(false);
     expect(r.error).toMatch(msg);
+  });
+
+  it.each([
+    ['one country', ['KR']],
+    ['ten countries, the circuit\'s maximum', ['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'KR']],
+    ['a repeated country', ['KR', 'KR']],
+  ])('country attestation with %s is accepted', (_l, countryList) => {
+    for (const isIncluded of [true, false]) {
+      const r = validateProofRequest(
+        base({circuit: 'coinbase_country_attestation', inputs: {scope: 'zkproofport', countryList, isIncluded}} as Partial<ProofRequest>),
+      );
+      expect(r).toEqual({valid: true});
+    }
+  });
+
+  describe('Coinbase Country v2 takes an optional EIP-712 action, as Coinbase KYC v2 does', () => {
+    const action = {
+      domain: {name: 'Forum', version: '1', chainId: 84532, verifyingContract: '0x1111111111111111111111111111111111111111'},
+      types: {Join: [{name: 'topicId', type: 'string'}]},
+      primaryType: 'Join',
+      message: {topicId: '한국어 topic'},
+    };
+    const country = (extra: Record<string, unknown>) => validateProofRequest(
+      base({circuit: 'coinbase_country_attestation', inputs: {scope: 'zkproofport', countryList: ['KR'], isIncluded: true, ...extra}} as Partial<ProofRequest>),
+    );
+    it('accepts one, and none', () => {
+      expect(country({action})).toEqual({valid: true});
+      expect(country({})).toEqual({valid: true});
+    });
+    it('still checks it', () => {
+      expect(country({action: {...action, primaryType: ''}}).valid).toBe(false);
+      expect(country({action: {...action, message: {}}}).valid).toBe(false);
+    });
   });
 
   it('oidc_domain_attestation needs a scope', () => {

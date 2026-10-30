@@ -508,6 +508,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         const flatInputs = BUILD_FLAT_INPUTS[signerVariant](
           circuitInputs,
           {
+            circuit: CIRCUIT_NAME,
             userAddress: inputs.userAddress,
             scope: computeScope(inputs.scopeString),
             signedDigest: signedDigestOf(signed),

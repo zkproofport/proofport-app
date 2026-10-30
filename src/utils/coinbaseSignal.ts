@@ -20,3 +20,17 @@ export function coinbaseSignalHash(userAddress: string, scopeString: string): Ui
   );
   return ethers.utils.arrayify(ethers.utils.keccak256(preimage));
 }
+
+/**
+ * The deterministic signal hash of either Coinbase circuit with a device
+ * statement: keccak256(abi.encodePacked(address, scope, circuitId)), the id
+ * being the canonical one (Coinbase Country v1 and v2 compute it the same
+ * way). Any other id is an error.
+ */
+export function coinbaseSignalHashFor(circuit: string, userAddress: string, scopeString: string): Uint8Array {
+  if (circuit !== 'coinbase_attestation' && circuit !== 'coinbase_country_attestation') {
+    throw new Error(`No Coinbase signal hash for circuit '${circuit}'. Known: coinbase_attestation, coinbase_country_attestation.`);
+  }
+  const preimage = ethers.utils.solidityPack(['address', 'string', 'string'], [userAddress, scopeString, circuit]);
+  return ethers.utils.arrayify(ethers.utils.keccak256(preimage));
+}

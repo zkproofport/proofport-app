@@ -235,7 +235,9 @@ const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, false | {tag: strin
   // CIRCUIT_TAG). Nullifiers of the v1 circuit (signal_hash rule) do not
   // carry over; decided 2026-10-23 (circuits-dev.md, "Decisions").
   coinbase_attestation: {tag: 'coinbase_attestation'},
-  coinbase_country_attestation: false,
+  // Coinbase Country v2 (coinbase-country-v2-libs CIRCUIT_TAG): the same rule
+  // with its own tag; v1's signal_hash nullifiers do not carry over.
+  coinbase_country_attestation: {tag: 'coinbase_country_attestation'},
   giwa_attestation: {tag: 'giwa_attestation'},
   dojang_playground: {tag: 'dojang_playground'},
 });

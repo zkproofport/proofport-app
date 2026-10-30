@@ -9,7 +9,8 @@
 import {AppAttestError} from '../appAttest/appAttestError';
 import {hasPinnedArtifactSource} from '../config/circuitArtifacts';
 import {getEnvironment} from '../config/environment';
-import type {Environment} from '../config/contracts';
+import {FALLBACK_VERIFIERS, type Environment} from '../config/contracts';
+import type {CircuitName} from '../config/circuitIds';
 import type {StatementSignerVariant} from '../config/signerPlatform';
 import {androidVerifierFor, AndroidVerifierMissingError, type VariantVerifier} from '../config/variantVerifiers';
 
@@ -44,8 +45,27 @@ export function verifierForProof(
   }
 }
 
-/** Refuse, before proving, a phone variant whose proofs nothing in this build can verify. */
+/**
+ * Refuse, before proving, a phone variant whose proofs nothing in this build
+ * can verify: an Android package with no contract row, or (iPhone / standard
+ * package) a circuit whose FALLBACK_VERIFIERS row is empty -- Coinbase
+ * Country v2 until its verifier is deployed.
+ */
 export function requireVerifierForVariant(circuit: string, variant: StatementSignerVariant, env?: Environment): void {
-  if (variant === 'app_attest') return;
+  if (variant === 'app_attest') {
+    const e = env ?? getEnvironment();
+    const byEnv = Object.prototype.hasOwnProperty.call(FALLBACK_VERIFIERS, e) ? FALLBACK_VERIFIERS[e] : undefined;
+    if (!byEnv) throw new Error(`Unknown environment '${e}'. Known: ${Object.keys(FALLBACK_VERIFIERS).join(', ')}.`);
+    if (!Object.prototype.hasOwnProperty.call(byEnv, circuit)) {
+      throw new Error(`Unknown circuit '${circuit}'. Known: ${Object.keys(byEnv).join(', ')}.`);
+    }
+    if (!byEnv[circuit as CircuitName]) {
+      throw new AppAttestError(
+        'device_no_verifier',
+        `No verifier for ${circuit} in the ${e} build: a proof of it cannot be checked by anyone, so it is not made or sent. src/config/contracts.ts FALLBACK_VERIFIERS`,
+      );
+    }
+    return;
+  }
   verifierForProof(circuit, variant, env);
 }

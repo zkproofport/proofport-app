@@ -37,6 +37,14 @@
  * 512, att_tbs_len 1, att_sig 64, leaf_tbs 1024, leaf_tbs_len 1, leaf_sig 64
  * -> 4,481 values (prepareCoinbaseAndroidInputs). Held to that package's
  * compiled ABI by `theAndroidInputsFollowTheCircuitAbi.test.ts`.
+ *
+ * COINBASE COUNTRY v2 (`coinbase_country_attestation`; circuits
+ * `coinbase-country-attestation-v2*`): the same vector with v1's country
+ * fields after the signer root -- country_list 20 (10 x 2 bytes),
+ * country_list_length 1, is_included 1 -- and a 227-byte client_data (the
+ * statement plus the country), so 215 public inputs and 24 more values in
+ * all; the nullifier tag is keccak256("coinbase_country_attestation"). The
+ * request names its circuit and, for Country, carries `country`.
  */
 import {ethers} from 'ethers';
 import type {AppAttestWitness} from '../appAttest/revocationStatement';
@@ -50,7 +58,7 @@ import {
   type AndroidStatementWitness,
 } from '../androidAttest/androidSignerInputs';
 import {appSignerInputs} from '../appAttest/appSignerInputs';
-import {CLIENT_DATA_LEN} from '../appAttest/clientData';
+import {coinbaseStatementKind, type CoinbaseStatementCircuit} from '../appAttest/coinbaseStatementKinds';
 import {bytesToNoirInput, nullifierForCircuit, type AttesterCircuitInputs} from './circuitHelpers';
 
 const ZERO32 = new Array(32).fill(0);
@@ -60,6 +68,8 @@ export interface CoinbaseAppAttestInputs {
   domain_separator: string[];
   action_hash: string[];
   signer_list_merkle_root: string[];
+  /** Coinbase Country v2 only: 20 bytes, 1 length, 1 inclusion flag. */
+  country?: {country_list: string[]; country_list_length: string; is_included: string};
   scope: string[];
   nullifier: string[];
   attested_at: string;
@@ -117,12 +127,94 @@ type CoinbaseCommonInputs = Omit<
 >;
 
 export interface CoinbaseStatementRequest {
+  /**
+   * Which circuit the vector is for: Coinbase KYC v2 or Coinbase Country v2.
+   * Required; `country` must be present exactly when it is Country.
+   */
+  circuit: CoinbaseStatementCircuit;
   userAddress: string;
   scope: Uint8Array;
   /** The digest the wallet signed. */
   signedDigest: string;
   /** Present in EIP-712 action mode. */
   publicHashes?: {domainSeparator: string; actionHash: string};
+  /**
+   * Coinbase Country v2 only, and what makes the vector Country's: the public
+   * list, its mode, and the country of the transaction being proved (the
+   * statement must name it at offset 225).
+   */
+  country?: CountryListRequest;
+}
+
+export interface CountryListRequest {
+  /** 1 to 10 ISO 3166-1 alpha-2 codes, two uppercase letters each. */
+  countryList: string[];
+  isIncluded: boolean;
+  /** The attestCountry transaction's country (attestedCountryOfTx). */
+  transactionCountry: string;
+}
+
+/** Coinbase Country v2's public input count and where attested_at sits (circuits coinbase-country-attestation-v2). */
+export const COUNTRY_V2_PUBLIC_INPUT_COUNT = 215;
+export const COUNTRY_V2_ATTESTED_AT_INDEX = 214;
+
+/** The public list's capacity in the circuit. */
+export const COUNTRY_LIST_MAX = 10;
+
+/**
+ * The circuit's country fields for a list, refusing what it would refuse and
+ * what it cannot represent: an empty list or more than 10 entries, an entry
+ * that is not two uppercase letters, and a list whose mode the transaction's
+ * country does not satisfy (the circuit refuses that proof only after the
+ * wallet has signed and the phone has proved).
+ */
+/**
+ * Why a country request cannot be proved, or null: E2004 for a list the
+ * circuit cannot take (empty, more than 10, an entry that is not two
+ * uppercase letters, no mode), E2005 when the wallet's attested country does
+ * not meet the list (the attestation this wallet holds is not one this
+ * request accepts). The proof screen asks before the device statement and the
+ * wallet signature, so neither is spent on a proof the circuit refuses.
+ */
+export function countryRequestRefusal(c: CountryListRequest): {code: 'E2004' | 'E2005'; error: string} | null {
+  if (!Array.isArray(c.countryList) || c.countryList.length === 0) {
+    return {code: 'E2004', error: 'Country list must not be empty'};
+  }
+  if (c.countryList.length > COUNTRY_LIST_MAX) {
+    return {code: 'E2004', error: `Country list has ${c.countryList.length} entries; the circuit holds ${COUNTRY_LIST_MAX}`};
+  }
+  for (const code of c.countryList) {
+    if (typeof code !== 'string' || !/^[A-Z]{2}$/.test(code)) {
+      return {code: 'E2004', error: `Country list entry ${JSON.stringify(code)} is not two uppercase letters`};
+    }
+  }
+  if (typeof c.isIncluded !== 'boolean') return {code: 'E2004', error: 'isIncluded must be true or false'};
+  if (typeof c.transactionCountry !== 'string' || !/^[A-Z]{2}$/.test(c.transactionCountry)) {
+    return {code: 'E2005', error: `The transaction's country ${JSON.stringify(c.transactionCountry)} is not two uppercase letters`};
+  }
+  const found = c.countryList.includes(c.transactionCountry);
+  if (c.isIncluded && !found) {
+    return {code: 'E2005', error: `The attested country ${c.transactionCountry} is not in the inclusion list ${c.countryList.join(', ')}`};
+  }
+  if (!c.isIncluded && found) {
+    return {code: 'E2005', error: `The attested country ${c.transactionCountry} is in the exclusion list ${c.countryList.join(', ')}`};
+  }
+  return null;
+}
+
+export function countryListInputs(c: CountryListRequest): NonNullable<CoinbaseAppAttestInputs['country']> {
+  const refusal = countryRequestRefusal(c);
+  if (refusal) throw new Error(refusal.error);
+  const bytes: number[] = [];
+  for (let i = 0; i < COUNTRY_LIST_MAX; i++) {
+    const code = c.countryList[i];
+    bytes.push(code ? code.charCodeAt(0) : 0, code ? code.charCodeAt(1) : 0);
+  }
+  return {
+    country_list: bytesToNoirInput(bytes),
+    country_list_length: String(c.countryList.length),
+    is_included: c.isIncluded ? '1' : '0',
+  };
 }
 
 /**
@@ -143,8 +235,22 @@ function coinbaseCommonInputs(
   request: CoinbaseStatementRequest,
   statement: {clientData: Uint8Array; attestedAt: number},
 ): CoinbaseCommonInputs {
+  const kind = coinbaseStatementKind(request.circuit);
+  if (kind.carriesCountry !== Boolean(request.country)) {
+    throw new Error(
+      kind.carriesCountry
+        ? `${kind.label} needs the country list and the transaction's country`
+        : `${kind.label} takes no country list`,
+    );
+  }
   const cd = statement.clientData;
-  if (cd.length !== CLIENT_DATA_LEN) throw new Error(`clientData is ${cd.length} bytes, not ${CLIENT_DATA_LEN}`);
+  if (cd.length !== kind.clientDataLength) {
+    throw new Error(`clientData is ${cd.length} bytes; ${kind.label} takes ${kind.clientDataLength}`);
+  }
+  const statementTag = ethers.utils.hexlify(cd.slice(16, 48)).toLowerCase();
+  if (statementTag !== ethers.utils.keccak256(ethers.utils.toUtf8Bytes(kind.circuit)).toLowerCase()) {
+    throw new Error(`clientData is not ${kind.label}'s statement (tag ${statementTag})`);
+  }
   const hexOf = (from: number, len: number) => ethers.utils.hexlify(cd.slice(from, from + len)).toLowerCase();
   if (hexOf(48, 20) !== request.userAddress.toLowerCase()) {
     throw new Error(`clientData names wallet ${hexOf(48, 20)}, the proof is for ${request.userAddress}`);
@@ -154,6 +260,13 @@ function coinbaseCommonInputs(
   }
   if (hexOf(193, 32) !== ethers.utils.hexlify(request.scope).toLowerCase()) {
     throw new Error('clientData binds another scope');
+  }
+  const country = request.country ? countryListInputs(request.country) : undefined;
+  if (request.country) {
+    const named = String.fromCharCode(cd[225], cd[226]);
+    if (named !== request.country.transactionCountry) {
+      throw new Error(`clientData names country ${JSON.stringify(named)}, the transaction ${request.country.transactionCountry}`);
+    }
   }
 
   const actionMode = Boolean(request.publicHashes);
@@ -168,13 +281,14 @@ function coinbaseCommonInputs(
     ? fixed(ethers.utils.arrayify(request.publicHashes.actionHash), 32, 'action_hash')
     : bytesToNoirInput(ZERO32);
 
-  const nullifier = nullifierForCircuit('coinbase_attestation', request.userAddress, new Uint8Array(32), request.scope);
+  const nullifier = nullifierForCircuit(kind.circuit, request.userAddress, new Uint8Array(32), request.scope);
 
   return {
     signal_hash: signal,
     domain_separator: domain,
     action_hash: action,
     signer_list_merkle_root: coinbase.signer_list_merkle_root,
+    ...(country ? {country} : {}),
     scope: fixed(request.scope, 32, 'scope'),
     nullifier: bytesToNoirInput(Array.from(nullifier)),
     attested_at: String(statement.attestedAt),
@@ -191,7 +305,7 @@ function coinbaseCommonInputs(
     coinbase_signer_leaf_index: coinbase.coinbase_signer_leaf_index,
     merkle_proof_depth: coinbase.merkle_proof_depth,
 
-    client_data: fixed(cd, CLIENT_DATA_LEN, 'client_data'),
+    client_data: fixed(cd, kind.clientDataLength, 'client_data'),
   };
 }
 
@@ -240,6 +354,10 @@ export interface CoinbaseAndroidInputs extends CoinbaseCommonInputs {
 
 /** Everything up to client_data: 193 public and 996 private values, on every Coinbase KYC v2 circuit. */
 const COINBASE_COMMON_FLAT_COUNT = 1189;
+/** Coinbase Country v2: 22 more public values (the list) and 2 more statement bytes. */
+const COUNTRY_COMMON_FLAT_COUNT = COINBASE_COMMON_FLAT_COUNT + 24;
+export const COUNTRY_ANDROID_FLAT_INPUT_COUNT = COUNTRY_COMMON_FLAT_COUNT + ANDROID_SIGNER_FLAT_COUNT;
+export const COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT = COUNTRY_COMMON_FLAT_COUNT + ANDROID_FACTORY_SIGNER_FLAT_COUNT;
 export const COINBASE_ANDROID_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_SIGNER_FLAT_COUNT;
 /** `coinbase_attestation_v2_android_factory`: the common inputs, then the factory signer. */
 export const COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_FACTORY_SIGNER_FLAT_COUNT;
@@ -268,9 +386,11 @@ export function flattenCoinbaseAndroidInputs(i: CoinbaseAndroidInputs): string[]
       v => v.toString(),
     ),
   ];
-  const expected = isAndroidSignerInputs(i.signer) ? COINBASE_ANDROID_FLAT_INPUT_COUNT : COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT;
+  const expected = i.country
+    ? (isAndroidSignerInputs(i.signer) ? COUNTRY_ANDROID_FLAT_INPUT_COUNT : COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT)
+    : (isAndroidSignerInputs(i.signer) ? COINBASE_ANDROID_FLAT_INPUT_COUNT : COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT);
   if (flat.length !== expected) {
-    throw new Error(`Coinbase KYC v2 (${i.signer.variant}) inputs flattened to ${flat.length} values; the circuit takes ${expected}`);
+    throw new Error(`Coinbase ${i.country ? 'Country' : 'KYC'} v2 (${i.signer.variant}) inputs flattened to ${flat.length} values; the circuit takes ${expected}`);
   }
   return flat;
 }
@@ -281,6 +401,7 @@ function flattenCommon(i: CoinbaseCommonInputs): string[] {
     ...i.domain_separator,
     ...i.action_hash,
     ...i.signer_list_merkle_root,
+    ...(i.country ? [...i.country.country_list, i.country.country_list_length, i.country.is_included] : []),
     ...i.scope,
     ...i.nullifier,
     i.attested_at,
@@ -299,7 +420,7 @@ function flattenCommon(i: CoinbaseCommonInputs): string[] {
   ];
 }
 
-/** `fn main`'s order. The first 193 values are the public inputs. */
+/** `fn main`'s order. The first 193 values (215 for Country) are the public inputs. */
 export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): string[] {
   return [
     ...flattenCommon(i),

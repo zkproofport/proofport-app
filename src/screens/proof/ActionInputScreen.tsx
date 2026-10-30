@@ -34,21 +34,14 @@ import type {SelectOption} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import type {TypedAction} from '../../utils/typedAction';
-import {ALL_CIRCUIT_IDS, CIRCUIT_ACTION_BINDING, getNetworkConfigForCircuit} from '../../config';
+import {CIRCUIT_ACTION_BINDING, getNetworkConfigForCircuit} from '../../config';
 import type {CircuitName} from '../../config';
-import {isLaboratoryCircuit} from './proofCatalog';
+import {actionCircuitsFor} from './actionCircuits';
 
 type Navigation = NativeStackNavigationProp<ProofStackParamList, 'ActionInput'>;
 type Route = RouteProp<ProofStackParamList, 'ActionInput'>;
 
-/**
- * The circuits that can carry an action, from the SDK's table. Not a list
- * typed here: one of those is how `giwa_attestation` sat unserved for a day
- * after its circuit could take an action.
- */
-const ACTION_CIRCUITS = ALL_CIRCUIT_IDS.filter(
-  (id) => CIRCUIT_ACTION_BINDING[id] !== 'none',
-);
+
 
 type FieldId = 'to' | 'amount' | 'nonce';
 
@@ -170,8 +163,8 @@ export const ActionInputScreen: React.FC = () => {
     // Only circuits on the same surface as the one this screen was opened
     // for: Coinbase KYC (Proof tab) must not offer the Laboratory's circuits,
     // which the Laboratory switch may be hiding.
-    () => ACTION_CIRCUITS
-      .filter(id => isLaboratoryCircuit(id) === isLaboratoryCircuit(route.params.circuit))
+    // Same surface only; Coinbase Country alone (actionCircuits.ts).
+    () => actionCircuitsFor(route.params.circuit)
       .map(id => ({
         value: id,
         label: `${id}  ·  ${getNetworkConfigForCircuit(id).name}`,
@@ -276,8 +269,9 @@ export const ActionInputScreen: React.FC = () => {
     navigation.navigate('ProofGeneration', {
       circuitId: circuit,
       action: parsed.action,
+      ...(route.params.countryInputs ? {countryInputs: route.params.countryInputs} : {}),
     });
-  }, [navigation, parsed, circuit]);
+  }, [navigation, parsed, circuit, route.params.countryInputs]);
 
   const inputStyle = (filled: boolean) => ({
     backgroundColor: themeColors.background.secondary,
@@ -504,7 +498,10 @@ export const ActionInputScreen: React.FC = () => {
         {CIRCUIT_ACTION_BINDING[circuit] === 'optional' ? (
           <Button
             title={t('host.proof.actionInput.identityOnly')}
-            onPress={() => navigation.navigate('ProofGeneration', {circuitId: circuit})}
+            onPress={() => navigation.navigate('ProofGeneration', {
+              circuitId: circuit,
+              ...(route.params.countryInputs ? {countryInputs: route.params.countryInputs} : {}),
+            })}
             variant="secondary"
             size="large"
           />

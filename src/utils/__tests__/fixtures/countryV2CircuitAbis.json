@@ -1,0 +1,552 @@
+{
+  "source": {
+    "circuitsCommit": "d91b69932f77a169cc70c23575b71f702aabb6ea",
+    "circuitsWorkingTreeChanged": false
+  },
+  "app_attest": {
+    "package": "coinbase_country_attestation_v2",
+    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
+    "jsonSha256": "a8ea7c8edf811eef2c79a14151ee075c9b26a5ec6a13faef1012b03758425909",
+    "parameters": [
+      {
+        "name": "signal_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "domain_separator",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "action_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "signer_list_merkle_root",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "country_list",
+        "visibility": "public",
+        "size": 20
+      },
+      {
+        "name": "country_list_length",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "is_included",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "scope",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "nullifier",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "attested_at",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "user_address",
+        "visibility": "private",
+        "size": 20
+      },
+      {
+        "name": "user_signature",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "user_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "user_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "raw_transaction",
+        "visibility": "private",
+        "size": 300
+      },
+      {
+        "name": "tx_length",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "coinbase_attester_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_attester_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_signer_merkle_proof",
+        "visibility": "private",
+        "size": 256
+      },
+      {
+        "name": "coinbase_signer_leaf_index",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "merkle_proof_depth",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "client_data",
+        "visibility": "private",
+        "size": 227
+      },
+      {
+        "name": "signer_kind",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "statement_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "credential_tbs",
+        "visibility": "private",
+        "size": 1000
+      },
+      {
+        "name": "credential_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "credential_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "att_auth_data",
+        "visibility": "private",
+        "size": 256
+      },
+      {
+        "name": "att_auth_data_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "att_client_data_hash",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "assertion_auth_data",
+        "visibility": "private",
+        "size": 128
+      },
+      {
+        "name": "assertion_auth_data_len",
+        "visibility": "private",
+        "size": 1
+      }
+    ]
+  },
+  "android": {
+    "package": "coinbase_country_attestation_v2_android",
+    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
+    "jsonSha256": "358708176b32b5572448149e80f83f69c11f1f241b87ff17ff74190973d16339",
+    "parameters": [
+      {
+        "name": "signal_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "domain_separator",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "action_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "signer_list_merkle_root",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "country_list",
+        "visibility": "public",
+        "size": 20
+      },
+      {
+        "name": "country_list_length",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "is_included",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "scope",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "nullifier",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "attested_at",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "user_address",
+        "visibility": "private",
+        "size": 20
+      },
+      {
+        "name": "user_signature",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "user_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "user_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "raw_transaction",
+        "visibility": "private",
+        "size": 300
+      },
+      {
+        "name": "tx_length",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "coinbase_attester_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_attester_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_signer_merkle_proof",
+        "visibility": "private",
+        "size": 256
+      },
+      {
+        "name": "coinbase_signer_leaf_index",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "merkle_proof_depth",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "client_data",
+        "visibility": "private",
+        "size": 227
+      },
+      {
+        "name": "statement_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "ca2_tbs",
+        "visibility": "private",
+        "size": 600
+      },
+      {
+        "name": "ca2_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "ca2_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "ca3_tbs",
+        "visibility": "private",
+        "size": 768
+      },
+      {
+        "name": "ca3_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "ca3_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "att_tbs",
+        "visibility": "private",
+        "size": 512
+      },
+      {
+        "name": "att_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "att_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "leaf_tbs",
+        "visibility": "private",
+        "size": 1024
+      },
+      {
+        "name": "leaf_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "leaf_sig",
+        "visibility": "private",
+        "size": 64
+      }
+    ]
+  },
+  "android_factory": {
+    "package": "coinbase_country_attestation_v2_android_factory",
+    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
+    "jsonSha256": "0f247c1234020a1189048e8f9ecc20c260883197fe964edfe68c193f1b4f8111",
+    "parameters": [
+      {
+        "name": "signal_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "domain_separator",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "action_hash",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "signer_list_merkle_root",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "country_list",
+        "visibility": "public",
+        "size": 20
+      },
+      {
+        "name": "country_list_length",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "is_included",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "scope",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "nullifier",
+        "visibility": "public",
+        "size": 32
+      },
+      {
+        "name": "attested_at",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "user_address",
+        "visibility": "private",
+        "size": 20
+      },
+      {
+        "name": "user_signature",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "user_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "user_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "raw_transaction",
+        "visibility": "private",
+        "size": 300
+      },
+      {
+        "name": "tx_length",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "coinbase_attester_pubkey_x",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_attester_pubkey_y",
+        "visibility": "private",
+        "size": 32
+      },
+      {
+        "name": "coinbase_signer_merkle_proof",
+        "visibility": "private",
+        "size": 256
+      },
+      {
+        "name": "coinbase_signer_leaf_index",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "merkle_proof_depth",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "client_data",
+        "visibility": "private",
+        "size": 227
+      },
+      {
+        "name": "statement_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "ik_tbs",
+        "visibility": "private",
+        "size": 512
+      },
+      {
+        "name": "ik_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "ik_sig",
+        "visibility": "private",
+        "size": 35
+      },
+      {
+        "name": "batch_tbs",
+        "visibility": "private",
+        "size": 512
+      },
+      {
+        "name": "batch_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "batch_sig",
+        "visibility": "private",
+        "size": 96
+      },
+      {
+        "name": "leaf_tbs",
+        "visibility": "private",
+        "size": 1024
+      },
+      {
+        "name": "leaf_tbs_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "leaf_sig",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "integrity_payload_b64",
+        "visibility": "private",
+        "size": 1368
+      },
+      {
+        "name": "integrity_payload_b64_len",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "integrity_signature",
+        "visibility": "private",
+        "size": 64
+      },
+      {
+        "name": "rsa_root_modulus",
+        "visibility": "private",
+        "size": 35
+      },
+      {
+        "name": "rsa_root_redc",
+        "visibility": "private",
+        "size": 35
+      },
+      {
+        "name": "play_integrity_key",
+        "visibility": "private",
+        "size": 64
+      }
+    ]
+  }
+}

@@ -187,7 +187,7 @@ describe('the Android circuits ref', () => {
 describe('every other circuit', () => {
   it('never asks the platform', async () => {
     mockPlatform.OS = 'web'; // would throw if read
-    for (const id of ['coinbase_country_attestation', 'giwa_attestation', 'no_such_circuit', '__proto__']) {
+    for (const id of ['giwa_attestation', 'dojang_playground', 'no_such_circuit', '__proto__']) {
       expect(hasPinnedArtifactSource(id)).toBe(false);
       expect(circuitArtifactSource(id)).toBeUndefined();
       expect(circuitFilesDecidableNow(id)).toBe(true);

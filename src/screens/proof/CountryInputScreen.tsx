@@ -47,9 +47,12 @@ export const CountryInputScreen: React.FC = () => {
     setSelectedCountries(selectedCountries.filter(c => c !== code));
   };
 
+  // Coinbase Country v2 binds an optional EIP-712 action, as Coinbase KYC v2
+  // does: the list goes on to the action screen, whose "prove only" button
+  // skips the action.
   const handleContinue = () => {
-    navigation.navigate('ProofGeneration', {
-      circuitId: 'coinbase_country_attestation',
+    navigation.navigate('ActionInput', {
+      circuit: 'coinbase_country_attestation',
       countryInputs: {
         countryList: selectedCountries,
         isIncluded: isIncluded,
