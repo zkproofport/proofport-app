@@ -23,9 +23,16 @@ describe('decodeCbor', () => {
   });
 
   it('refuses a byte string that declares 2^32 - 1 bytes, without allocating them', () => {
+    const hostile = bytes(0x5a, 0xff, 0xff, 0xff, 0xff, 0x00);
+    // Warm the decoder first: the first call in a busy full-suite run pays
+    // for loading and compiling it, which once took longer than the bound
+    // below (2026-10-30, 50 ms) with no allocation involved. The bound only
+    // has to tell "refused from the header" from "allocated and copied
+    // 4 GiB", which takes seconds.
+    expect(() => decodeCbor(hostile, L)).toThrow(/needs 4294967295 bytes/);
     const t = Date.now();
-    expect(() => decodeCbor(bytes(0x5a, 0xff, 0xff, 0xff, 0xff, 0x00), L)).toThrow(/needs 4294967295 bytes/);
-    expect(Date.now() - t).toBeLessThan(50);
+    expect(() => decodeCbor(hostile, L)).toThrow(/needs 4294967295 bytes/);
+    expect(Date.now() - t).toBeLessThan(500);
   });
 
   it('refuses an 8-byte length beyond 2^53 and one that merely overruns', () => {
