@@ -12,6 +12,7 @@ import type {CircuitFilePaths, CircuitName, Environment} from '../config/contrac
 import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
 import {circuitArtifactSource, requireArtifactRef, SRS_PART_MAX_BYTES, type CircuitArtifactSource} from '../config/circuitArtifacts';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
+import {appendFileBytes, readFileRange} from './fileRange';
 
 const CIRCUIT_EXTENSIONS = ['json', 'srs', 'vk'] as const;
 
@@ -473,9 +474,9 @@ async function downloadAndVerifyOnce(
 }
 
 /**
- * Bytes read from a part and appended to the joined file per step. RNFS
- * moves file contents through the bridge as base64, so one step holds about
- * 5.6 MB of string in JS; the whole 128 MiB file never is.
+ * Bytes read from a part and appended to the joined file per step, through
+ * fileRange.ts (RNFS.read cannot be called on iPhone under the New
+ * Architecture). One step holds 4 MiB in JS; the whole 128 MiB file never is.
  */
 export const SRS_JOIN_CHUNK_BYTES = 4 * 1024 * 1024;
 
@@ -581,8 +582,7 @@ async function downloadSplitSrs(
       const {size} = await RNFS.stat(partPath(i));
       for (let pos = 0; pos < size; pos += SRS_JOIN_CHUNK_BYTES) {
         const length = Math.min(SRS_JOIN_CHUNK_BYTES, size - pos);
-        const chunk = await RNFS.read(partPath(i), length, pos, 'base64');
-        await RNFS.appendFile(joinPath, chunk, 'base64');
+        appendFileBytes(joinPath, readFileRange(partPath(i), pos, length));
       }
       joined += size;
     }

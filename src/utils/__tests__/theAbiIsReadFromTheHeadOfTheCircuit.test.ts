@@ -2,24 +2,28 @@
  * circuitAbiParameterNames reads only as much of a circuit JSON as it takes
  * to close the top-level "abi" object -- reading all 8.7 MB of the Android
  * OIDC circuit took 34.6 s on a Galaxy A23 -- and still reads a file whose
- * ABI comes late, refuses one without an ABI, and decodes UTF-8 names.
+ * ABI comes late, refuses one without an ABI, and decodes UTF-8 names --
+ * through fileRange.ts, never react-native-fs's read(), which throws on
+ * iPhone under the New Architecture.
  */
 const mockFiles = new Map<string, Buffer>();
-const mockReads: Array<{length: number; position: number}> = [];
+const mockRangeReads: Array<{path: string; length: number; position: number}> = [];
+// react-native-fs's read() throws on iPhone under the New Architecture (its
+// iOS signature takes NSInteger pointers the interop layer cannot convert),
+// so the mock throws what the iPhone threw: any call to it fails the test.
 jest.mock('react-native-fs', () => ({
   __esModule: true,
   default: {
     stat: async (p: string) => ({size: mockFiles.get(p)!.length}),
-    read: async (p: string, length: number, position: number, enc: string) => {
-      if (enc !== 'ascii') throw new Error(`unexpected encoding ${enc}`);
-      mockReads.push({length, position});
-      return mockFiles.get(p)!.subarray(position, position + length).toString('latin1');
+    read: async () => {
+      throw new Error(jest.requireActual('./fixtures/memoryExpoFile').IOS_RNFS_READ_ERROR);
     },
     readFile: async () => {
       throw new Error('the whole file must not be read');
     },
   },
 }));
+jest.mock('expo-file-system', () => jest.requireActual('./fixtures/memoryExpoFile').memoryExpoFile(() => mockFiles, () => mockRangeReads));
 jest.mock('../circuitDownload', () => ({getCircuitFilePath: (c: string, ext: string) => `/c/${c}.${ext}`}));
 
 import {circuitAbiParameterNames, topLevelValue, ABI_HEAD_BYTES} from '../circuitAbi';
@@ -32,26 +36,27 @@ function publish(obj: Record<string, unknown>) {
 
 beforeEach(() => {
   mockFiles.clear();
-  mockReads.length = 0;
+  mockRangeReads.length = 0;
 });
 
 describe('the ABI comes from the head of the file', () => {
   it('nargo order (abi before an 8 MB bytecode): one read of the first window', async () => {
     publish({noir_version: '1.0.0-beta.19', hash: '1', abi: abi(['jwt', 'pubkey_modulus_limbs']), bytecode: 'A'.repeat(8_000_000)});
     await expect(circuitAbiParameterNames('x')).resolves.toEqual(['jwt', 'pubkey_modulus_limbs']);
-    expect(mockReads).toEqual([{length: ABI_HEAD_BYTES, position: 0}]);
+    expect(mockRangeReads).toEqual([{path: '/c/x.json', length: ABI_HEAD_BYTES, position: 0}]);
   });
 
   it('an ABI after the bytecode is still found, by growing the window', async () => {
     publish({bytecode: 'B'.repeat(300_000), abi: abi(['a', 'b'])});
     await expect(circuitAbiParameterNames('x')).resolves.toEqual(['a', 'b']);
-    expect(mockReads.length).toBeGreaterThan(1);
+    expect(mockRangeReads.length).toBeGreaterThan(1);
+    expect(mockRangeReads.every(r => r.position === 0)).toBe(true);
   });
 
   it('a file smaller than the window is read once, whole', async () => {
     publish({abi: abi(['only'])});
     await expect(circuitAbiParameterNames('x')).resolves.toEqual(['only']);
-    expect(mockReads).toEqual([{length: mockFiles.get('/c/x.json')!.length, position: 0}]);
+    expect(mockRangeReads).toEqual([{path: '/c/x.json', length: mockFiles.get('/c/x.json')!.length, position: 0}]);
   });
 
   it('UTF-8 names survive a byte-wise read', async () => {

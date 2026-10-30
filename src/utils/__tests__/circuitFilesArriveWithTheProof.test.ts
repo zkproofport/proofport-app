@@ -66,10 +66,9 @@ jest.mock('react-native-fs', () => {
         if (!f) throw missing(p);
         mockFiles.set(p, Buffer.concat([f, Buffer.from(data, 'base64')]));
       },
-      read: async (p: string, length: number, position: number) => {
-        const f = mockFiles.get(p);
-        if (!f) throw missing(p);
-        return f.subarray(position, position + length).toString('base64');
+      // What the iPhone throws; the join reads through fileRange.ts.
+      read: async () => {
+        throw new Error(jest.requireActual('./fixtures/memoryExpoFile').IOS_RNFS_READ_ERROR);
       },
       moveFile: async (from: string, to: string) => {
         const f = mockFiles.get(from);
@@ -98,6 +97,7 @@ jest.mock('react-native-fs', () => {
     },
   };
 });
+jest.mock('expo-file-system', () => jest.requireActual('./fixtures/memoryExpoFile').memoryExpoFile(() => mockFiles));
 jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'android'}}));
 const TEST_REF = 'cd'.repeat(20);
 jest.mock('../../config/circuitArtifacts', () => {

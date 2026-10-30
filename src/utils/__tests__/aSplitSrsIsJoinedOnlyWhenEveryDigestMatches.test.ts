@@ -63,12 +63,11 @@ jest.mock('react-native-fs', () => {
         if (!f) throw missing(p);
         mockFiles.set(p, Buffer.concat([f, Buffer.from(data, 'base64')]));
       },
-      read: async (p: string, length: number, position: number, enc: string) => {
-        if (enc !== 'base64') throw new Error(`unexpected encoding ${enc}`);
-        const f = mockFiles.get(p);
-        if (!f) throw missing(p);
-        mockReads.push({path: p, length, position});
-        return f.subarray(position, position + length).toString('base64');
+      // Throws what the iPhone threw (react-native-fs's iOS read takes
+      // NSInteger pointers the New Architecture cannot pass): the join reads
+      // through fileRange.ts, on both platforms.
+      read: async () => {
+        throw new Error(jest.requireActual('./fixtures/memoryExpoFile').IOS_RNFS_READ_ERROR);
       },
       moveFile: async (from: string, to: string) => {
         const f = mockFiles.get(from);
@@ -86,6 +85,7 @@ jest.mock('react-native-fs', () => {
     },
   };
 });
+jest.mock('expo-file-system', () => jest.requireActual('./fixtures/memoryExpoFile').memoryExpoFile(() => mockFiles, () => mockReads));
 jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'android'}}));
 const TEST_REF = 'ab'.repeat(20);
 jest.mock('../../config/circuitArtifacts', () => {

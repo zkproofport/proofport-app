@@ -12,3 +12,15 @@ globalThis.__DEV__ = true;
 // "no native value" here, as on a JS-only runtime; a test that needs a
 // particular version mocks the module itself, which overrides this.
 jest.mock('expo-application', () => ({nativeApplicationVersion: null, nativeBuildVersion: null}));
+
+// expo-file-system is a native module shipped as untranspiled ESM. Code that
+// imports it (src/utils/fileRange.ts) loads here, but using it without a
+// test-supplied mock fails loudly rather than touching the real disk;
+// src/utils/__tests__/fixtures/memoryExpoFile.ts is the in-memory one.
+jest.mock('expo-file-system', () => ({
+  File: class {
+    constructor(uri) {
+      throw new Error(`expo-file-system is native; mock it in this test (opened ${uri})`);
+    }
+  },
+}));

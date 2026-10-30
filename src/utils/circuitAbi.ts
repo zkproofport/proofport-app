@@ -14,10 +14,12 @@
  * UTF-8 in JavaScript and took 34.6 s on a Galaxy A23 (2026-10-29,
  * [ProofTiming] "circuit ABI check"). The window grows until the ABI object
  * is closed, so a file that puts it later is still read correctly, just
- * slower.
+ * slower. The range is read through fileRange.ts: RNFS.read cannot be called
+ * on iPhone under the New Architecture (see there).
  */
 import RNFS from 'react-native-fs';
 import {getCircuitFilePath} from './circuitDownload';
+import {bytesToLatin1, readFileRange} from './fileRange';
 
 /** First read; the OIDC ABI ends about 17.5 KB in. */
 export const ABI_HEAD_BYTES = 64 * 1024;
@@ -42,10 +44,10 @@ async function readAbiText(path: string): Promise<string> {
   const size = Number((await RNFS.stat(path)).size);
   if (!Number.isFinite(size) || size <= 0) throw new Error(`${path} is empty`);
   for (let window = Math.min(ABI_HEAD_BYTES, size); ; window = Math.min(window * 4, size)) {
-    // 'ascii' hands back one character per byte, so a window that ends
-    // inside a multi-byte character cannot fail to decode; the ABI text is
-    // decoded as UTF-8 once it is complete.
-    const head = await RNFS.read(path, window, 0, 'ascii');
+    // One character per byte, so a window that ends inside a multi-byte
+    // character cannot fail to decode; the ABI text is decoded as UTF-8 once
+    // it is complete.
+    const head = bytesToLatin1(readFileRange(path, 0, window));
     const found = topLevelValue(head, 'abi');
     if (found === 'incomplete' && window < size) continue;
     if (found === 'incomplete' || found === null) throw new Error(`${path} is not JSON: no complete top-level "abi"`);
