@@ -252,7 +252,7 @@ describe("the verifier an Android proof names", () => {
     for (const env of ['staging', 'production'] as const) {
       let code = '';
       try {
-        requireVerifierForVariant('coinbase_country_attestation', variant, env);
+        requireVerifierForVariant('giwa_attestation', variant, env);
       } catch (e) {
         code = e instanceof AppAttestError ? e.code : String(e);
       }

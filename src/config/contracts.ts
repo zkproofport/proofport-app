@@ -407,11 +407,11 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // in tag v2.0.0-rc.1). Replaces the 2026-10-23 circuit's 0xF898db95...Bb12
     // (circuits 33344e2), which rejects every final-v2 proof (other vk).
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
-    // Coinbase Country v2: EMPTY until its verifier is deployed and core pins
-    // it. A Country proof is refused before proving while this is empty
-    // (requireVerifierForVariant, E2018). v1's 0x9DEea218...DDcE rejects every
-    // v2 proof (other vk) and is never named here.
-    coinbase_country_attestation: '',
+    // Coinbase Country v2, Base Sepolia, deployed 2026-10-30 (circuits 744900e,
+    // broadcast/DeployCoinbaseCountryAttestationV2.s.sol/84532), the contract
+    // core 0.4.0-beta.2 pins. v1's 0x9DEea218...DDcE rejects every v2 proof
+    // (other vk) and is never named here.
+    coinbase_country_attestation: '0xC5363d7587bd580148373D0d8b7909Be423242CB',
     // OIDC with the provider-key statement (circuits 5081cfd), Base Sepolia,
     // deployed 2026-10-28 (circuits 7e5c72d,
     // broadcast/DeployOidcDomainAttestation.s.sol/84532), the contract core
@@ -432,7 +432,7 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
   },
   staging: {
     coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
-    coinbase_country_attestation: '',
+    coinbase_country_attestation: '0xC5363d7587bd580148373D0d8b7909Be423242CB',
     oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
     giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
@@ -442,10 +442,10 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // Coinbase KYC v2: circuits 1d41d85, broadcast/DeployCoinbaseAttestationV2.s.sol/8453
     // (the v1 contract 0xF7dED73E...5382 rejects every v2 proof).
     coinbase_attestation: '0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F',
-    // Coinbase Country v2: EMPTY until deployed and pinned by core (see
-    // development). v1's 0x8e89f11E...0C56 (circuits 1d41d85) rejects every
-    // v2 proof.
-    coinbase_country_attestation: '',
+    // Coinbase Country v2: circuits a5bf7ba,
+    // broadcast/DeployCoinbaseCountryAttestationV2.s.sol/8453 (v1's
+    // 0x8e89f11E...0C56, circuits 1d41d85, rejects every v2 proof).
+    coinbase_country_attestation: '0x509DEE10cc1578361b450fED7475EA3BD69c6e8d',
     // OIDC with the provider-key statement (circuits 5081cfd), deployed
     // 2026-10-29: circuits da21683, broadcast/DeployOidcDomainAttestation.s.sol/8453.
     oidc_domain_attestation: '0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35',

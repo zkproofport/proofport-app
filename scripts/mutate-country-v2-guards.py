@@ -145,7 +145,7 @@ MUTATIONS = [
              "isLaboratoryCircuit(id) === isLaboratoryCircuit(openedFor) && !CIRCUITS_WITH_OWN_INPUTS.includes(id),", "isLaboratoryCircuit(id) === isLaboratoryCircuit(openedFor),",
              EVERYWHERE_TEST, "opens after the country screen"),
     Mutation("country-action-none", IDS,
-             "  coinbase_country_attestation: 'optional',\n});", "});",
+             "  ...CORE_CIRCUIT_ACTION_BINDING,\n});", "  ...CORE_CIRCUIT_ACTION_BINDING,\n  coinbase_country_attestation: 'none',\n});",
              EVERYWHERE_TEST, "is optional for Country"),
 ]
 

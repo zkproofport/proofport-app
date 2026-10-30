@@ -15,9 +15,10 @@ const fs = require('fs');
 const path = require('path');
 const {CIRCUIT_ARTIFACT_SOURCES, COUNTRY_V2_CIRCUITS_REF, coinbaseCountryArtifact, requireArtifactRef} = require('../config/circuitArtifacts');
 const {BROADCAST_PATHS, CIRCUIT_DATA_VERSIONS, FALLBACK_VERIFIERS} = require('../config/contracts');
-const {APP_ACTION_BINDING_OVERRIDES, CIRCUIT_ACTION_BINDING, circuitActionBinding} = require('../config/circuitIds');
+const {CIRCUIT_ACTION_BINDING, circuitActionBinding} = require('../config/circuitIds');
 const {CIRCUIT_ACTION_BINDING: CORE_BINDING} = require('@zkproofport-app/core/circuits');
 const {requireVerifierForVariant} = require('../utils/proofSignerVariant');
+const {androidVerifierFor} = require('../config/variantVerifiers');
 const {AppAttestError} = require('../appAttest/appAttestError');
 const {ErrorCodes} = require('../constants/errorCodes');
 const en = require('../i18n/locales/en.json');
@@ -99,30 +100,40 @@ describe('the files', () => {
 });
 
 describe('the verifier', () => {
+  // v1's contracts reject every v2 proof (other vk); a row naming one would
+  // send proofs nobody can verify.
+  const V1 = ['0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE', '0x8e89f11E65f219203f5bE9d6a69a4da084630C56', '0x0b3Af3DFc67dC65E0145c37ee00230139d579F64', '0x2EB64D21fB29f26cD58901767aD232841a945D46'].map(a => a.toLowerCase());
+  const V2 = {development: '0xC5363d7587bd580148373D0d8b7909Be423242CB', staging: '0xC5363d7587bd580148373D0d8b7909Be423242CB', production: '0x509DEE10cc1578361b450fED7475EA3BD69c6e8d'} as Record<string, string>;
+
+  it.each(['development', 'staging', 'production'])("%s: the row is v2's contract, never v1's", env => {
+    const row = FALLBACK_VERIFIERS[env].coinbase_country_attestation;
+    expect(row).toBe(V2[env]);
+    expect(V1).not.toContain(row.toLowerCase());
+    expect(() => requireVerifierForVariant('coinbase_country_attestation', 'app_attest', env)).not.toThrow();
+  });
+
   it.each(['development', 'staging', 'production'])('%s: an empty row refuses a proof before it is made (E2018)', env => {
-    if (FALLBACK_VERIFIERS[env].coinbase_country_attestation !== '') {
-      expect(() => requireVerifierForVariant('coinbase_country_attestation', 'app_attest', env)).not.toThrow();
-      return;
-    }
+    const saved = FALLBACK_VERIFIERS[env].coinbase_country_attestation;
+    FALLBACK_VERIFIERS[env].coinbase_country_attestation = '';
     let thrown: unknown;
     try {
       requireVerifierForVariant('coinbase_country_attestation', 'app_attest', env);
     } catch (e) {
       thrown = e;
+    } finally {
+      FALLBACK_VERIFIERS[env].coinbase_country_attestation = saved;
     }
     expect(thrown).toBeInstanceOf(AppAttestError);
     expect([(thrown as {code: string}).code, (thrown as {reason: string}).reason]).toEqual(['E2018', 'device_no_verifier']);
   });
 
-  it.each(['android', 'android_factory'])('%s: no row in this build is E2018, never the standard contract', variant => {
-    let thrown: unknown;
-    try {
-      requireVerifierForVariant('coinbase_country_attestation', variant, 'staging');
-    } catch (e) {
-      thrown = e;
+  it.each(['android', 'android_factory'])("%s: each build has the package's own contract, never the standard one", variant => {
+    for (const env of ['development', 'staging', 'production']) {
+      expect(() => requireVerifierForVariant('coinbase_country_attestation', variant, env)).not.toThrow();
+      const address: string = androidVerifierFor('coinbase_country_attestation', env, variant).address;
+      expect([env, address.toLowerCase()]).not.toEqual([env, V2[env].toLowerCase()]);
+      expect(V1).not.toContain(address.toLowerCase());
     }
-    // Until the Android Country verifiers are deployed and listed.
-    if (thrown) expect((thrown as {code: string}).code).toBe('E2018');
   });
 
   it('other circuits keep proving: their rows are set', () => {
@@ -140,14 +151,12 @@ describe('the action', () => {
     expect(CIRCUIT_ACTION_BINDING.coinbase_attestation).toBe('optional');
   });
 
-  it("is the app's override only while core still says otherwise", () => {
-    // Fails the day core says 'optional' itself: then remove the override.
-    for (const [id, binding] of Object.entries(APP_ACTION_BINDING_OVERRIDES)) {
-      expect([id, CORE_BINDING[id]]).not.toEqual([id, binding]);
-    }
+  it("is core's table, with no app override", () => {
+    expect(CORE_BINDING.coinbase_country_attestation).toBe('optional');
     for (const id of Object.keys(CORE_BINDING)) {
-      if (!(id in APP_ACTION_BINDING_OVERRIDES)) expect([id, CIRCUIT_ACTION_BINDING[id]]).toEqual([id, CORE_BINDING[id]]);
+      expect([id, CIRCUIT_ACTION_BINDING[id]]).toEqual([id, CORE_BINDING[id]]);
     }
+    expect(Object.keys(CIRCUIT_ACTION_BINDING).sort()).toEqual(Object.keys(CORE_BINDING).sort());
   });
 
   it('opens after the country screen, on the action screen, which keeps the list and offers no other circuit', () => {

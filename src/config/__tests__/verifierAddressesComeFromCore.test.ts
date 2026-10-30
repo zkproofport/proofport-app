@@ -146,7 +146,7 @@ describe('OIDC v2: the app and core agree on the circuit', () => {
 
 /*
  * The Android packages' verifiers (src/config/variantVerifiers.ts). The
- * published core (0.4.0-beta.1) pins all four in PINNED_VARIANT_VERIFIERS and
+ * published core (0.4.0-beta.2) pins all six in PINNED_VARIANT_VERIFIERS and
  * the rows are held to it. When core's source is checked out beside this app
  * (the parent repository's proofport-app-sdk submodule), the OIDC rows are
  * held to that too, and every row to the circuits repository's own deployment
@@ -162,10 +162,10 @@ describe('Android package verifiers', () => {
   /* eslint-enable @typescript-eslint/no-var-requires */
   const PARENT = path.join(__dirname, '..', '..', '..', '..');
   const VARIANTS = ['android', 'android_factory'] as const;
-  const CIRCUITS = ['oidc_domain_attestation', 'coinbase_attestation'] as const;
+  const CIRCUITS = ['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation'] as const;
   const EXPECTED: Record<string, Record<string, string>> = {
-    android: {oidc_domain_attestation: '0x64866bf6734ed43d34799c7949f5ecb35b7e7e44', coinbase_attestation: '0x395b3bcc27e7e405ec909a81374243fd0b44aacc'},
-    android_factory: {oidc_domain_attestation: '0x9e47e3c2b30e840cfc4d6901ba3e28fc666b3135', coinbase_attestation: '0xbfaf9390c36d14d596556e42eb52d984de040aa1'},
+    android: {oidc_domain_attestation: '0x64866bf6734ed43d34799c7949f5ecb35b7e7e44', coinbase_attestation: '0x395b3bcc27e7e405ec909a81374243fd0b44aacc', coinbase_country_attestation: '0x98013abb7ac83b6c985dcfbd5748ad2ae04c8c12'},
+    android_factory: {oidc_domain_attestation: '0x9e47e3c2b30e840cfc4d6901ba3e28fc666b3135', coinbase_attestation: '0xbfaf9390c36d14d596556e42eb52d984de040aa1', coinbase_country_attestation: '0xd7bfd6d7bcc6c627da12cfcdf39fca6f64fdc0b9'},
   };
 
   it.each(['development', 'staging'] as const)("%s: each variant's Base Sepolia contract, checksummed, never the standard address", env => {
@@ -179,12 +179,12 @@ describe('Android package verifiers', () => {
         expect(row.address.toLowerCase()).not.toBe(FALLBACK[env][c].toLowerCase());
       }
     }
-    expect(new Set(VARIANTS.flatMap(v => CIRCUITS.map(c => androidVerifierFor(c, env, v).address))).size).toBe(4);
+    expect(new Set(VARIANTS.flatMap(v => CIRCUITS.map(c => androidVerifierFor(c, env, v).address))).size).toBe(6);
   });
 
   const MAINNET: Record<string, Record<string, string>> = {
-    android: {oidc_domain_attestation: '0x3d99a36b39231bc35f6e840f18ac443bf5d229de', coinbase_attestation: '0x836d8b0fd01bed4e34220ebcee6d63265951fbf9'},
-    android_factory: {oidc_domain_attestation: '0x1b8e60db8b51015cdb1983f64c1210ac40d8f532', coinbase_attestation: '0x87d9a66cacac95b2bc43bac8e610c59acb67c5e0'},
+    android: {oidc_domain_attestation: '0x3d99a36b39231bc35f6e840f18ac443bf5d229de', coinbase_attestation: '0x836d8b0fd01bed4e34220ebcee6d63265951fbf9', coinbase_country_attestation: '0xb57182062141f59ddbb98da73764ec1676689832'},
+    android_factory: {oidc_domain_attestation: '0x1b8e60db8b51015cdb1983f64c1210ac40d8f532', coinbase_attestation: '0x87d9a66cacac95b2bc43bac8e610c59acb67c5e0', coinbase_country_attestation: '0x1f2975abd0711cf6b98084829e04712ee105d8f7'},
   };
 
   it("production: each variant's Base mainnet contract, checksummed, never the standard or a testnet address", () => {
@@ -199,13 +199,13 @@ describe('Android package verifiers', () => {
         expect(row.address.toLowerCase()).not.toBe(EXPECTED[v][c]);
       }
     }
-    expect(new Set(VARIANTS.flatMap(v => CIRCUITS.map(c => androidVerifierFor(c, 'production', v).address))).size).toBe(4);
+    expect(new Set(VARIANTS.flatMap(v => CIRCUITS.map(c => androidVerifierFor(c, 'production', v).address))).size).toBe(6);
   });
 
   it('an unknown variant, environment or circuit is an error, never a default', () => {
     expect(() => androidVerifierFor('oidc_domain_attestation', 'staging', 'standard')).toThrow(/Unknown Android signer variant 'standard'/);
     expect(() => androidVerifierFor('oidc_domain_attestation', 'mainnet', 'android')).toThrow(/Unknown environment 'mainnet'/);
-    expect(() => androidVerifierFor('coinbase_country_attestation', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
+    expect(() => androidVerifierFor('giwa_attestation', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
     expect(() => androidVerifierFor('__proto__', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
   });
 
@@ -239,8 +239,8 @@ describe('Android package verifiers', () => {
   });
 
   const BROADCAST: Record<string, Record<string, string>> = {
-    android: {oidc_domain_attestation: 'DeployOidcDomainAttestationAndroid', coinbase_attestation: 'DeployCoinbaseAttestationV2Android'},
-    android_factory: {oidc_domain_attestation: 'DeployOidcDomainAttestationAndroidFactory', coinbase_attestation: 'DeployCoinbaseAttestationV2AndroidFactory'},
+    android: {oidc_domain_attestation: 'DeployOidcDomainAttestationAndroid', coinbase_attestation: 'DeployCoinbaseAttestationV2Android', coinbase_country_attestation: 'DeployCoinbaseCountryAttestationV2Android'},
+    android_factory: {oidc_domain_attestation: 'DeployOidcDomainAttestationAndroidFactory', coinbase_attestation: 'DeployCoinbaseAttestationV2AndroidFactory', coinbase_country_attestation: 'DeployCoinbaseCountryAttestationV2AndroidFactory'},
   };
   const broadcastDir = path.join(PARENT, 'circuits', 'broadcast');
   (fs.existsSync(path.join(broadcastDir, `${BROADCAST.android.coinbase_attestation}.s.sol`)) ? it : it.skip)(
