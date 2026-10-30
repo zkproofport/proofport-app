@@ -31,7 +31,9 @@
  * here.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {ErrorCodes, type ErrorCode} from '../constants/errorCodes';
+import {DETAILS_STAY_IN_LOGS, ErrorCodes, type ErrorCode} from '../constants/errorCodes';
+import {deviceCheckCode, isDeviceCheckReason, type DeviceCheckReason} from '../appAttest/deviceCheckReasons';
+import {namesAService} from './neutralText';
 import {showGlobalError} from './errorBridge';
 import {
   checkRelayCallbackUrl,
@@ -51,8 +53,50 @@ export type CompletedFields = Omit<
 
 export type RelayAnswer =
   | {status: 'completed'; fields: CompletedFields}
-  | {status: 'error'; errorCode: ErrorCode; error: string}
+  | {status: 'error'; errorCode: ErrorCode; error: string; deviceCheckReason?: DeviceCheckReason}
   | {status: 'cancelled'; reason: string};
+
+/**
+ * The `error` text a relay answer carries, never the app's own wording:
+ *
+ *   with a device-check reason   `<the code's description> [reason: <reason>]`
+ *   a device-check code without  `<the code's description>`
+ *   any other code               the app's text, unless it names a service
+ *                                (namesAService), then the code's description
+ *
+ * The relay passes `error` through as a capped string and keeps only the
+ * fields it knows (proofport-relay callbackFieldError / ProofResult), so the
+ * reason travels inside `error` rather than as a field a deployed relay would
+ * drop. A dApp report quoting the answer gives us the code and the reason:
+ * parse with RELAY_REASON_IN_ERROR. The table of reasons is in
+ * .claude/agents/app-dev.md.
+ */
+export function relayErrorText(code: ErrorCode, appText: string, reason?: DeviceCheckReason): string {
+  const description = ErrorCodes[code].description;
+  if (reason !== undefined) {
+    const own = deviceCheckCode(reason);
+    if (own !== code) throw new Error(`Device-check reason '${reason}' is ${own}, not ${code}`);
+    return `${description} [reason: ${reason}]`;
+  }
+  if (DETAILS_STAY_IN_LOGS.has(code)) return description;
+  return appText && !namesAService(appText) ? appText : description;
+}
+
+/**
+ * A pending answer read back from storage. A device-check reason this build
+ * does not know (a record written by another version, or damaged) is left
+ * out and logged: the dApp is still answered, with the code.
+ */
+function storedAnswer(record: OpenRecord): RelayAnswer | undefined {
+  const p = record.pending;
+  if (p?.status !== 'error' || p.deviceCheckReason === undefined) return p;
+  if (isDeviceCheckReason(p.deviceCheckReason) && deviceCheckCode(p.deviceCheckReason) === p.errorCode) return p;
+  console.error(`[RelayAnswer] Stored answer for ${record.requestId} names reason ${JSON.stringify(p.deviceCheckReason)}, not one of ${p.errorCode}'s; answering without it`);
+  return {status: 'error', errorCode: p.errorCode, error: p.error};
+}
+
+/** The reason in an answer's `error`, as relayErrorText writes it. */
+export const RELAY_REASON_IN_ERROR = /\[reason: ([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\]$/;
 
 /**
  * - `delivered`        — the relay took it (2xx).
@@ -95,7 +139,7 @@ interface OpenRecord {
   openedAt: number;
   attempts: number;
   /** An error/cancel that was claimed but did not reach the relay. */
-  pending?: {status: 'error'; errorCode: ErrorCode; error: string} | {status: 'cancelled'; reason: string};
+  pending?: {status: 'error'; errorCode: ErrorCode; error: string; deviceCheckReason?: DeviceCheckReason} | {status: 'cancelled'; reason: string};
 }
 
 const answered = new Map<string, RelayAnswer['status']>();
@@ -127,7 +171,7 @@ function payloadFor(request: RelayRequestRef, answer: RelayAnswer): ProofRespons
         ...envelope,
         status: 'error',
         errorCode: answer.errorCode,
-        error: answer.error || ErrorCodes[answer.errorCode].description,
+        error: relayErrorText(answer.errorCode, answer.error, answer.deviceCheckReason),
       };
     case 'cancelled':
       return {...envelope, status: 'cancelled', error: answer.reason};
@@ -202,7 +246,12 @@ function forgetOpen(requestId: string): Promise<void> {
 function pendingFor(answer: RelayAnswer): NonNullable<OpenRecord['pending']> {
   switch (answer.status) {
     case 'error':
-      return {status: 'error', errorCode: answer.errorCode, error: answer.error};
+      return {
+        status: 'error',
+        errorCode: answer.errorCode,
+        error: answer.error,
+        ...(answer.deviceCheckReason !== undefined && {deviceCheckReason: answer.deviceCheckReason}),
+      };
     case 'cancelled':
       return {status: 'cancelled', reason: answer.reason};
     case 'completed':
@@ -355,8 +404,8 @@ export async function answerRequestsLeftOpen(): Promise<number> {
   });
   for (const record of leftOver) {
     if (record.attempts + 1 >= MAX_LAUNCH_ATTEMPTS) lastAttempt.add(record.requestId);
-    const answer: RelayAnswer =
-      record.pending ?? {status: 'cancelled', reason: 'The app was closed before this request was answered.'};
+    const answer: RelayAnswer = storedAnswer(record) ??
+      {status: 'cancelled', reason: 'The app was closed before this request was answered.'};
     console.log(`[RelayAnswer] Answering ${record.requestId} left open by an earlier run (attempt ${record.attempts + 1})`);
     await answerRelayRequest(record, answer, {notifyUser: false});
   }

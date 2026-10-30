@@ -33,7 +33,8 @@
 import {timed} from '../utils/proofTiming';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {ethers} from 'ethers';
-import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
+import {AppAttestError} from './appAttestError';
+import type {DeviceCheckReason} from './deviceCheckReasons';
 import {base64ToBytes, decodeAssertion, sha256, toCircuitCredential, type CircuitAssertion, type CircuitCredential} from './appAttestObjects';
 import {APP_ATTEST_APP_ID, APPLE_APP_ATTEST_CA1_KEY_HASH} from './constants';
 import {NATIVE_CODE, nativeCodeOf, type AppAttestNative} from './nativeAppAttest';
@@ -131,20 +132,28 @@ async function discard(storage: KeyStorage, keyId: string, log: (m: string) => v
   await storage.removeItem(APP_ATTEST_KEY_STORAGE);
 }
 
-function mapNativeError(error: unknown, during: string): AppAttestError {
+/** Which native call failed, and the reason its "other" failure is. One table. */
+const FAILED_DURING = Object.freeze({
+  'support check': 'ios_key_support_check_failed',
+  'key generation': 'ios_key_generation_failed',
+  attestation: 'ios_key_certification_failed',
+  assertion: 'ios_key_assertion_failed',
+} satisfies Record<string, DeviceCheckReason>);
+
+function mapNativeError(error: unknown, during: keyof typeof FAILED_DURING): AppAttestError {
   if (error instanceof AppAttestError) return error;
   const code = nativeCodeOf(error);
   const message = error instanceof Error ? error.message : String(error);
   if (code === NATIVE_CODE.unsupported) {
-    return new AppAttestError(APP_ATTEST_ERROR_CODE.unsupported, `App Attest is not supported on this device (${during}): ${message}`);
+    return new AppAttestError('ios_key_service_unsupported', `App Attest is not supported on this device (${during}): ${message}`);
   }
   if (code === NATIVE_CODE.serverUnavailable) {
     return new AppAttestError(
-      APP_ATTEST_ERROR_CODE.serviceUnavailable,
+      'ios_key_service_unreachable',
       `Apple's App Attest service could not be reached (${during}): ${message}`,
     );
   }
-  return new AppAttestError(APP_ATTEST_ERROR_CODE.malformed, `App Attest ${during} failed (${code ?? 'no code'}): ${message}`);
+  return new AppAttestError(FAILED_DURING[during], `App Attest ${during} failed (${code ?? 'no code'}): ${message}`);
 }
 
 async function createAndAttest(deps: AppAttestDeps, existing: StoredKey | null, freshKeyRetry: boolean): Promise<AttestedKey> {
@@ -210,7 +219,7 @@ async function loadOrCreate(deps: AppAttestDeps): Promise<AttestedKey> {
   }
   if (!supported) {
     throw new AppAttestError(
-      APP_ATTEST_ERROR_CODE.unsupported,
+      'ios_device_unsupported',
       'App Attest is not supported on this device (DCAppAttestService.isSupported is false; the simulator never supports it).',
     );
   }
@@ -291,7 +300,7 @@ export async function assertClientData(deps: AppAttestDeps, clientData: Uint8Arr
     }
     return {keyId: key.keyId, credential: key.credential, assertion: decodeAssertion(base64ToBytes(raw), appId)};
   }
-  throw new AppAttestError(APP_ATTEST_ERROR_CODE.malformed, 'App Attest refused a freshly attested key for an assertion.');
+  throw new AppAttestError('ios_key_refused_after_renewal', 'App Attest refused a freshly attested key for an assertion.');
 }
 
 /** Test seam: forget an in-flight attempt left over by another test. */

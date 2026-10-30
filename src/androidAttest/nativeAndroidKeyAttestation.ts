@@ -12,7 +12,8 @@
  * weeks; a stored key would outlive it.
  */
 import {NativeModules, Platform} from 'react-native';
-import {AppAttestError, ANDROID_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
+import {AppAttestError} from '../appAttest/appAttestError';
+import type {DeviceCheckReason} from '../appAttest/deviceCheckReasons';
 
 export interface AndroidAttestationResult {
   /** Base64 DER certificates, leaf first, as KeyStore.getCertificateChain returns them. */
@@ -48,15 +49,15 @@ export const ANDROID_NATIVE_CODE = Object.freeze({
   integrityUnavailable: 'ANDROIDATTEST_INTEGRITY_UNAVAILABLE',
 });
 
-/** The modal code for each native rejection. One table; an unknown code is reported as such. */
-const MODAL_CODE_BY_NATIVE: Readonly<Record<string, string>> = Object.freeze({
-  [ANDROID_NATIVE_CODE.unsupported]: ANDROID_ATTEST_ERROR_CODE.unavailable,
-  [ANDROID_NATIVE_CODE.keyGeneration]: ANDROID_ATTEST_ERROR_CODE.unavailable,
-  [ANDROID_NATIVE_CODE.emptyChain]: ANDROID_ATTEST_ERROR_CODE.unavailable,
-  [ANDROID_NATIVE_CODE.signing]: ANDROID_ATTEST_ERROR_CODE.malformed,
-  [ANDROID_NATIVE_CODE.invalidInput]: ANDROID_ATTEST_ERROR_CODE.malformed,
-  [ANDROID_NATIVE_CODE.integrityTransient]: ANDROID_ATTEST_ERROR_CODE.checkUnavailable,
-  [ANDROID_NATIVE_CODE.integrityUnavailable]: ANDROID_ATTEST_ERROR_CODE.unavailable,
+/** The reason (and so the modal code) for each native rejection. One table; an unknown code is reported as such. */
+const REASON_BY_NATIVE: Readonly<Record<string, DeviceCheckReason>> = Object.freeze({
+  [ANDROID_NATIVE_CODE.unsupported]: 'android_key_unsupported',
+  [ANDROID_NATIVE_CODE.keyGeneration]: 'android_key_generation_failed',
+  [ANDROID_NATIVE_CODE.emptyChain]: 'android_key_empty_chain',
+  [ANDROID_NATIVE_CODE.signing]: 'android_key_signing_failed',
+  [ANDROID_NATIVE_CODE.invalidInput]: 'android_key_invalid_input',
+  [ANDROID_NATIVE_CODE.integrityTransient]: 'integrity_service_transient',
+  [ANDROID_NATIVE_CODE.integrityUnavailable]: 'integrity_service_unavailable_on_device',
 });
 
 /**
@@ -66,15 +67,12 @@ const MODAL_CODE_BY_NATIVE: Readonly<Record<string, string>> = Object.freeze({
 export function androidNativeFailure(error: unknown): AppAttestError {
   const nativeCode = (error as {code?: unknown} | null)?.code;
   const message = error instanceof Error ? error.message : String(error);
-  if (typeof nativeCode === 'string' && Object.prototype.hasOwnProperty.call(MODAL_CODE_BY_NATIVE, nativeCode)) {
-    return new AppAttestError(
-      MODAL_CODE_BY_NATIVE[nativeCode] as AppAttestError['code'],
-      `Android key attestation failed (${nativeCode}): ${message}`,
-    );
+  if (typeof nativeCode === 'string' && Object.prototype.hasOwnProperty.call(REASON_BY_NATIVE, nativeCode)) {
+    return new AppAttestError(REASON_BY_NATIVE[nativeCode], `Android key attestation failed (${nativeCode}): ${message}`);
   }
   return new AppAttestError(
-    ANDROID_ATTEST_ERROR_CODE.malformed,
-    `Android key attestation failed with an unknown code ${String(nativeCode)} (known: ${Object.keys(MODAL_CODE_BY_NATIVE).join(', ')}): ${message}`,
+    'android_key_unknown_native_failure',
+    `Android key attestation failed with an unknown code ${String(nativeCode)} (known: ${Object.keys(REASON_BY_NATIVE).join(', ')}): ${message}`,
   );
 }
 
@@ -85,7 +83,7 @@ export function getAndroidKeyAttestationNative(): AndroidKeyAttestationNative {
   const mod = NativeModules.AndroidKeyAttestation as AndroidKeyAttestationNative | undefined;
   if (!mod) {
     throw new AppAttestError(
-      ANDROID_ATTEST_ERROR_CODE.unavailable,
+      'android_native_module_missing',
       'This build has no AndroidKeyAttestation native module (AndroidKeyAttestationModule.kt).',
     );
   }

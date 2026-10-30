@@ -22,7 +22,8 @@
  * now (network, rate limit, the relay not configured).
  */
 import {ethers} from 'ethers';
-import {AppAttestError, ANDROID_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
+import {ANDROID_ATTEST_ERROR_CODE, refuseWith} from '../appAttest/appAttestError';
+import type {DeviceCheckReason} from '../appAttest/deviceCheckReasons';
 import {N_P256} from '../appAttest/constants';
 import {hexToBytes} from '../appAttest/der';
 
@@ -46,14 +47,14 @@ export const PAYLOAD_MAX_LEN = 1024;
 /** The JSON escape of '=' Google uses when it echoes a padded nonce (6 characters). */
 const ESCAPED_PAD = String.fromCharCode(92) + 'u003d';
 
-const malformed = (why: string): never => {
-  throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.malformed, why);
+const malformed = (reason: DeviceCheckReason, why: string): never => {
+  return refuseWith(ANDROID_ATTEST_ERROR_CODE.malformed, reason, why);
 };
-const integrityNotMet = (why: string): never => {
-  throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.integrityNotMet, why);
+const integrityNotMet = (reason: DeviceCheckReason, why: string): never => {
+  return refuseWith(ANDROID_ATTEST_ERROR_CODE.integrityNotMet, reason, why);
 };
-const serviceUnavailable = (why: string): never => {
-  throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.checkUnavailable, why);
+const serviceUnavailable = (reason: DeviceCheckReason, why: string): never => {
+  return refuseWith(ANDROID_ATTEST_ERROR_CODE.checkUnavailable, reason, why);
 };
 
 /** SHA256(SHA256(statement) || statementSig): the nonce the circuit recomputes. */
@@ -69,7 +70,7 @@ export function base64UrlEncode(bytes: Uint8Array): string {
 
 export function base64UrlDecode(text: string, what: string): Uint8Array {
   if (typeof text !== 'string' || !/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) {
-    return malformed(`${what} is not unpadded base64url`);
+    return malformed('integrity_value_not_base64url', `${what} is not unpadded base64url`);
   }
   const std = text.replace(/-/g, '+').replace(/_/g, '/');
   return ethers.utils.base64.decode(std + '='.repeat((4 - (std.length % 4)) % 4));
@@ -130,7 +131,7 @@ export const PLAY_INTEGRITY_DECRYPT_PATH = '/api/v1/play-integrity/decrypt';
  * an answer of another shape is E2016.
  */
 export async function decryptIntegrityTokenViaRelay(token: string, opts: RelayDecryptOptions): Promise<DecryptedIntegrityToken> {
-  if (typeof token !== 'string' || token.length === 0) return malformed('Play Integrity returned an empty token');
+  if (typeof token !== 'string' || token.length === 0) return malformed('integrity_token_empty', 'Play Integrity returned an empty token');
   if (!/^https:\/\/[^/]+$/.test(opts.baseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(opts.baseUrl)) {
     throw new Error(`Relay base URL must be https://host (no path): '${opts.baseUrl}'`);
   }
@@ -149,7 +150,7 @@ export async function decryptIntegrityTokenViaRelay(token: string, opts: RelayDe
     });
     body = await res.json().catch(() => undefined);
   } catch (e) {
-    return serviceUnavailable(`The device check service at ${url} could not be reached: ${e instanceof Error ? e.message : String(e)}`);
+    return serviceUnavailable('integrity_service_unreachable', `The device check service at ${url} could not be reached: ${e instanceof Error ? e.message : String(e)}`);
   } finally {
     clearTimeout(timer);
   }
@@ -160,16 +161,16 @@ export async function decryptIntegrityTokenViaRelay(token: string, opts: RelayDe
     // deployed without it -- staging on 2026-10-28). That is the service's
     // fault, not the phone's, so it is "try again later", not E2016.
     if (res.status === 429 || res.status >= 500 || reason === 'not_configured' || (res.status === 404 && !reason)) {
-      return serviceUnavailable(`The device check service answered HTTP ${res.status}${reason ? ` (${reason})` : ''}; try again later`);
+      return serviceUnavailable('integrity_service_unavailable', `The device check service answered HTTP ${res.status}${reason ? ` (${reason})` : ''}; try again later`);
     }
     if (reason && RELAY_REASONS_DEVICE.has(reason)) {
-      return malformed(`The device check service refused the integrity token: ${reason} (HTTP ${res.status})`);
+      return malformed('integrity_token_refused', `The device check service refused the integrity token: ${reason} (HTTP ${res.status})`);
     }
-    return malformed(`The device check service answered HTTP ${res.status} with an unknown reason ${JSON.stringify(reason ?? null)}`);
+    return malformed('integrity_service_unknown_answer', `The device check service answered HTTP ${res.status} with an unknown reason ${JSON.stringify(reason ?? null)}`);
   }
   const b = body as Partial<DecryptedIntegrityToken> | undefined;
   if (!b || typeof b.protectedHeader !== 'string' || typeof b.payload !== 'string' || typeof b.signature !== 'string') {
-    return malformed('The device check service answered 200 without {protectedHeader, payload, signature}');
+    return malformed('integrity_service_bad_answer', 'The device check service answered 200 without {protectedHeader, payload, signature}');
   }
   return {protectedHeader: b.protectedHeader, payload: b.payload, signature: b.signature};
 }
@@ -184,15 +185,15 @@ export function integrityTokenInputs(
   expect: {nonce: Uint8Array; packageName: string},
 ): IntegrityTokenInputs {
   if (jws.protectedHeader !== JWS_HEADER_B64) {
-    malformed(`The integrity verdict's header is ${JSON.stringify(jws.protectedHeader)}; the circuit takes exactly ${JWS_HEADER_B64} ({"alg":"ES256"})`);
+    malformed('integrity_verdict_wrong_header', `The integrity verdict's header is ${JSON.stringify(jws.protectedHeader)}; the circuit takes exactly ${JWS_HEADER_B64} ({"alg":"ES256"})`);
   }
   const payloadText = jws.payload;
   if (payloadText.length === 0 || payloadText.length > PAYLOAD_B64_MAX_LEN) {
-    malformed(`The integrity verdict payload is ${payloadText.length} base64url characters; the circuit takes 1..${PAYLOAD_B64_MAX_LEN}`);
+    malformed('integrity_verdict_payload_length', `The integrity verdict payload is ${payloadText.length} base64url characters; the circuit takes 1..${PAYLOAD_B64_MAX_LEN}`);
   }
   const json = base64UrlDecode(payloadText, 'The integrity verdict payload');
   if (json.length > PAYLOAD_MAX_LEN) {
-    malformed(`The integrity verdict is ${json.length} bytes; the circuit reads at most ${PAYLOAD_MAX_LEN}`);
+    malformed('integrity_verdict_too_long', `The integrity verdict is ${json.length} bytes; the circuit reads at most ${PAYLOAD_MAX_LEN}`);
   }
   let verdict: any;
   let text: string;
@@ -200,15 +201,15 @@ export function integrityTokenInputs(
     text = ethers.utils.toUtf8String(json);
     verdict = JSON.parse(text);
   } catch (e) {
-    return malformed(`The integrity verdict is not JSON: ${e instanceof Error ? e.message : String(e)}`);
+    return malformed('integrity_verdict_not_json', `The integrity verdict is not JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
   checkVerdict(verdict, expect, text);
 
   const sig = base64UrlDecode(jws.signature, 'The integrity verdict signature');
-  if (sig.length !== 64) malformed(`The integrity verdict signature is ${sig.length} bytes; ES256 is 64 (r || s)`);
+  if (sig.length !== 64) malformed('integrity_verdict_signature_length', `The integrity verdict signature is ${sig.length} bytes; ES256 is 64 (r || s)`);
   const r = BigInt(ethers.utils.hexlify(sig.slice(0, 32)));
   let s = BigInt(ethers.utils.hexlify(sig.slice(32)));
-  if (r === 0n || r >= N_P256 || s === 0n || s >= N_P256) malformed('The integrity verdict signature is out of range');
+  if (r === 0n || r >= N_P256 || s === 0n || s >= N_P256) malformed('integrity_verdict_signature_range', 'The integrity verdict signature is out of range');
   if (s > N_P256 / 2n) s = N_P256 - s;
   const lowS = ethers.utils.arrayify(ethers.utils.hexZeroPad('0x' + s.toString(16), 32));
 
@@ -227,23 +228,23 @@ export function checkVerdict(verdict: any, expect: {nonce: Uint8Array; packageNa
   const app = verdict?.appIntegrity;
   const device = verdict?.deviceIntegrity;
   if (!request || typeof request !== 'object' || !app || typeof app !== 'object' || !device || typeof device !== 'object') {
-    malformed('The integrity verdict lacks requestDetails, appIntegrity or deviceIntegrity');
+    malformed('integrity_verdict_fields_missing', 'The integrity verdict lacks requestDetails, appIntegrity or deviceIntegrity');
   }
   if (request.requestPackageName !== expect.packageName) {
-    malformed(`The integrity verdict was requested by ${JSON.stringify(request.requestPackageName)}, not ${expect.packageName}`);
+    malformed('integrity_verdict_other_requester', `The integrity verdict was requested by ${JSON.stringify(request.requestPackageName)}, not ${expect.packageName}`);
   }
   if (app.packageName !== expect.packageName) {
-    integrityNotMet(`The integrity verdict is for ${JSON.stringify(app.packageName)}, not ${expect.packageName}`);
+    integrityNotMet('integrity_verdict_other_app', `The integrity verdict is for ${JSON.stringify(app.packageName)}, not ${expect.packageName}`);
   }
   if (app.appRecognitionVerdict !== 'PLAY_RECOGNIZED') {
-    integrityNotMet(`This app is not recognized as the store's build (appRecognitionVerdict ${JSON.stringify(app.appRecognitionVerdict)})`);
+    integrityNotMet('integrity_app_not_recognized', `This app is not recognized as the store's build (appRecognitionVerdict ${JSON.stringify(app.appRecognitionVerdict)})`);
   }
   const verdicts = device.deviceRecognitionVerdict;
   if (!Array.isArray(verdicts) || verdicts.some(v => typeof v !== 'string') || verdicts.length > 4) {
-    malformed(`deviceRecognitionVerdict is not a list of at most four strings: ${JSON.stringify(verdicts)}`);
+    malformed('integrity_device_verdict_malformed', `deviceRecognitionVerdict is not a list of at most four strings: ${JSON.stringify(verdicts)}`);
   }
   if (!verdicts.includes('MEETS_DEVICE_INTEGRITY') && !verdicts.includes('MEETS_STRONG_INTEGRITY')) {
-    integrityNotMet(`This phone does not meet device integrity (deviceRecognitionVerdict ${JSON.stringify(verdicts)})`);
+    integrityNotMet('integrity_device_not_met', `This phone does not meet device integrity (deviceRecognitionVerdict ${JSON.stringify(verdicts)})`);
   }
   const want = playIntegrityNonceText(expect.nonce);
   // Google may echo the nonce with one padding character, escaped in the JSON
@@ -252,6 +253,6 @@ export function checkVerdict(verdict: any, expect: {nonce: Uint8Array; packageNa
   const exact = request.nonce === want;
   const escapedPad = request.nonce === `${want}=` && rawJson.includes(`"${want}${ESCAPED_PAD}"`);
   if (!exact && !escapedPad) {
-    malformed(`The integrity verdict's nonce ${JSON.stringify(request.nonce)} is not this statement's (${want}, or ${want} with an escaped pad)`);
+    malformed('integrity_verdict_nonce_mismatch', `The integrity verdict's nonce ${JSON.stringify(request.nonce)} is not this statement's (${want}, or ${want} with an escaped pad)`);
   }
 }

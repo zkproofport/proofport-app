@@ -467,9 +467,12 @@ export const useOidcDomain = (): UseOidcDomainReturn => {
         // instead of the step's generic one.
         const code: ErrorCode | undefined =
           error instanceof AppAttestError || error instanceof OidcProviderKeyError ? error.code : undefined;
+        const deviceCheckReason = error instanceof AppAttestError ? error.reason : undefined;
         setProofSteps(prev =>
           prev.map(step =>
-            step.status === 'in_progress' ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {})} : step,
+            step.status === 'in_progress'
+              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {}), ...(deviceCheckReason ? {deviceCheckReason} : {})}
+              : step,
           ),
         );
       } finally {

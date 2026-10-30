@@ -634,11 +634,12 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // the first step started (statement age, verifier) marks the first
         // step, so the screen always sees it.
         const code: ErrorCode | undefined = error instanceof AppAttestError ? error.code : undefined;
+        const deviceCheckReason = error instanceof AppAttestError ? error.reason : undefined;
         setProofSteps(prev => {
           const active = prev.some(step => step.status === 'in_progress');
           return prev.map((step, i) =>
             (active ? step.status === 'in_progress' : i === 0)
-              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {})}
+              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {}), ...(deviceCheckReason ? {deviceCheckReason} : {})}
               : step,
           );
         });

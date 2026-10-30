@@ -222,8 +222,8 @@ it('hands the prover the signed statement after signature_limbs, 3,889 values in
 });
 
 it.each([
-  ['a development key', new AppAttestError('E2014', 'development key'), 'E2014'],
-  ['Apple unreachable', new AppAttestError('E3006', 'server unavailable'), 'E3006'],
+  ['a development key', new AppAttestError('ios_key_dev_environment', 'development key'), 'E2014'],
+  ['Apple unreachable', new AppAttestError('ios_key_service_unreachable', 'server unavailable'), 'E3006'],
 ])('passes %s to the screen with its own code, without proving', async (_l, err, code) => {
   mockSigner.mockImplementation(async () => {
     throw err;

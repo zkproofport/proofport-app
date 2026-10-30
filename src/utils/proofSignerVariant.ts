@@ -6,7 +6,7 @@
  * circuit. A per-signer proof that does not say is an error, never reported
  * as `standard` (the dApp would check it against the wrong verifier).
  */
-import {AppAttestError, ANDROID_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
+import {AppAttestError} from '../appAttest/appAttestError';
 import {hasPinnedArtifactSource} from '../config/circuitArtifacts';
 import {getEnvironment} from '../config/environment';
 import type {Environment} from '../config/contracts';
@@ -38,7 +38,7 @@ export function verifierForProof(
     return androidVerifierFor(circuit, env, variant);
   } catch (e) {
     if (e instanceof AndroidVerifierMissingError) {
-      throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.noVerifier, e.message);
+      throw new AppAttestError('device_no_verifier', e.message);
     }
     throw e;
   }

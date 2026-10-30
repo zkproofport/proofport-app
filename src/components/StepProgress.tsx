@@ -1,6 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, ActivityIndicator} from 'react-native';
 import type {ErrorCode} from '../constants/errorCodes';
+import type {DeviceCheckReason} from '../appAttest/deviceCheckReasons';
 
 export type StepStatus = 'pending' | 'in_progress' | 'completed' | 'error';
 
@@ -14,6 +15,8 @@ export interface Step {
    * (App Attest, the provider key list). Otherwise the screen maps the step id.
    */
   code?: ErrorCode;
+  /** The device-check cause behind `code`, for the relay answer (deviceCheckReasons.ts). */
+  deviceCheckReason?: DeviceCheckReason;
 }
 
 interface StepProgressProps {

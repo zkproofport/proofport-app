@@ -23,7 +23,7 @@
  * and the circuit verifies it.
  */
 import {ethers} from 'ethers';
-import {AppAttestError, ANDROID_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
+import {AppAttestError} from '../appAttest/appAttestError';
 import {N_P256} from '../appAttest/constants';
 import {DerError, ecdsaDerToLowS} from '../appAttest/der';
 import {
@@ -104,22 +104,22 @@ export function relayIntegrityDecrypter(baseUrl: () => string, log: (m: string) 
 
 function decodeBase64(value: unknown, what: string): Uint8Array {
   if (typeof value !== 'string' || value.length === 0) {
-    throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.malformed, `${what} is not a base64 string`);
+    throw new AppAttestError('android_value_not_base64', `${what} is not a base64 string`);
   }
   try {
     return ethers.utils.base64.decode(value);
   } catch (e) {
-    throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.malformed, `${what} is not base64: ${String(e)}`);
+    throw new AppAttestError('android_value_not_base64', `${what} is not base64: ${String(e)}`);
   }
 }
 
 /** The native result as DER bytes, refusing anything that is not that shape. */
 function decodeResult(result: AndroidAttestationResult): {chain: Uint8Array[]; signature: Uint8Array} {
   if (!result || !Array.isArray(result.chain)) {
-    throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.malformed, `Android key attestation returned no chain: ${JSON.stringify(result)}`);
+    throw new AppAttestError('android_no_chain', `Android key attestation returned no chain: ${JSON.stringify(result)}`);
   }
   if (result.chain.length === 0) {
-    throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.unavailable, 'Android key attestation returned an empty certificate chain');
+    throw new AppAttestError('android_empty_chain', 'Android key attestation returned an empty certificate chain');
   }
   return {
     chain: result.chain.map((c, i) => decodeBase64(c, `certificate ${i}`)),
@@ -167,7 +167,7 @@ function lowStatementSig(signature: Uint8Array): Uint8Array {
     return ecdsaDerToLowS(signature, 32, N_P256);
   } catch (e) {
     if (e instanceof DerError) {
-      throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.malformed, `The statement signature is not a P-256 ECDSA signature: ${e.message}`);
+      throw new AppAttestError('android_statement_signature_invalid', `The statement signature is not a P-256 ECDSA signature: ${e.message}`);
     }
     throw e;
   }
@@ -191,7 +191,7 @@ export async function signStatementOnAndroid(statement: Uint8Array, opts: Androi
   if (known !== null && known !== kind) {
     // The circuit files were chosen for the kind this phone showed before.
     throw new AppAttestError(
-      ANDROID_ATTEST_ERROR_CODE.malformed,
+      'android_chain_kind_changed',
       `This phone's attestation chain is now ${kind}, not ${known} as before; start the proof again to use the matching circuit`,
     );
   }

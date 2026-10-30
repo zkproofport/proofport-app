@@ -92,7 +92,7 @@ describe('the revocation statement', () => {
 
   it('carries a lookup failure through with its own code, and nothing is signed', async () => {
     const h = harness();
-    expect(codeOf(await h.run(new AppAttestError('E3002', 'EAS down')))).toBe('E3002');
+    expect(codeOf(await h.run(new AppAttestError('kyc_lookup_unreachable', 'EAS down')))).toBe('E3002');
     expect(h.calls.assert).toBe(0);
   });
 

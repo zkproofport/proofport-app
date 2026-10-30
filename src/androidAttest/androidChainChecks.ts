@@ -30,7 +30,8 @@
  * `unavailable` (E2015) is a phone or build that cannot prove; `malformed`
  * (E2016) is data that is not what a certificate should be.
  */
-import {AppAttestError, ANDROID_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
+import {ANDROID_ATTEST_ERROR_CODE, refuseWith} from '../appAttest/appAttestError';
+import type {DeviceCheckReason} from '../appAttest/deviceCheckReasons';
 import {bytesEqual, children, DerError, OID, parseCertificate, parseTbs, readLength, readTlv, toHex, type Tlv} from '../appAttest/der';
 import {ecKeyOf, refuseRsa, rsaModulusOf, splitStructural} from '../utils/androidKeyAttestation';
 import {
@@ -69,17 +70,17 @@ export interface KeyDescriptionSummary {
   attestationVersion: number;
 }
 
-const unavailable = (why: string): never => {
-  throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.unavailable, why);
+const unavailable = (reason: DeviceCheckReason, why: string): never => {
+  return refuseWith(ANDROID_ATTEST_ERROR_CODE.unavailable, reason, why);
 };
-const malformed = (why: string): never => {
-  throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.malformed, why);
+const malformed = (reason: DeviceCheckReason, why: string): never => {
+  return refuseWith(ANDROID_ATTEST_ERROR_CODE.malformed, reason, why);
 };
 function der<T>(what: string, step: () => T): T {
   try {
     return step();
   } catch (e) {
-    if (e instanceof DerError) malformed(`${what}: ${e.message}`);
+    if (e instanceof DerError) malformed('android_cert_unparsable', `${what}: ${e.message}`);
     throw e;
   }
 }
@@ -166,7 +167,7 @@ function entries(buf: Uint8Array, list: Tlv, tag: number, what: string): Array<{
   let seen = 0;
   while (pos < list.end) {
     if (++seen > MAX_AUTH_ENTRIES) {
-      unavailable(`${what} has more than ${MAX_AUTH_ENTRIES} entries; the circuit walks at most ${MAX_AUTH_ENTRIES}`);
+      unavailable('android_key_description_too_many_entries', `${what} has more than ${MAX_AUTH_ENTRIES} entries; the circuit walks at most ${MAX_AUTH_ENTRIES}`);
     }
     const e = contextEntry(buf, pos, list.end);
     if (e.number === tag) out.push({contentStart: e.contentStart, end: e.end});
@@ -199,10 +200,10 @@ export function checkKeyDescription(value: Uint8Array, app: AndroidAppIdentity):
     const km = securityLevel(value, p, kd.end, 'KeyMint security level');
     p = km.end;
     if (att.level !== SECURITY_LEVEL.trustedEnvironment && att.level !== SECURITY_LEVEL.strongBox) {
-      unavailable(`The key is not in secure hardware (attestation security level ${att.level}; TEE is 1, StrongBox 2)`);
+      unavailable('android_key_not_in_secure_hardware', `The key is not in secure hardware (attestation security level ${att.level}; TEE is 1, StrongBox 2)`);
     }
     if (km.level !== att.level) {
-      unavailable(`KeyMint security level ${km.level} differs from attestation security level ${att.level}`);
+      unavailable('android_key_security_level_mismatch', `KeyMint security level ${km.level} differs from attestation security level ${att.level}`);
     }
     p = readTlv(value, p, kd.end, 0x04).end; // attestationChallenge (not read: the key's signature binds the statement)
     p = readTlv(value, p, kd.end, 0x04).end; // uniqueId
@@ -211,18 +212,18 @@ export function checkKeyDescription(value: Uint8Array, app: AndroidAppIdentity):
     if (hw.end !== kd.end) throw new DerError('fields after hardwareEnforced');
 
     const apps = entries(value, sw, AUTH_TAG.applicationId, 'softwareEnforced');
-    if (apps.length !== 1) unavailable(`The key description names ${apps.length} applications; exactly one is required`);
+    if (apps.length !== 1) unavailable('android_key_description_apps_count', `The key description names ${apps.length} applications; exactly one is required`);
     checkApplicationId(value, apps[0], app);
 
     const rots = entries(value, hw, AUTH_TAG.rootOfTrust, 'hardwareEnforced');
-    if (rots.length !== 1) unavailable(`The key description has ${rots.length} hardware roots of trust; exactly one is required`);
+    if (rots.length !== 1) unavailable('android_key_description_roots_count', `The key description has ${rots.length} hardware roots of trust; exactly one is required`);
     checkRootOfTrust(value, rots[0]);
 
     const origins = entries(value, hw, AUTH_TAG.origin, 'hardwareEnforced');
     const o = origins[0];
     const generated = origins.length === 1 && o.end - o.contentStart === 3
       && value[o.contentStart] === 0x02 && value[o.contentStart + 1] === 0x01 && value[o.contentStart + 2] === 0x00;
-    if (!generated) unavailable('The key was not generated in secure hardware (origin is not GENERATED)');
+    if (!generated) unavailable('android_key_not_generated_in_hardware', 'The key was not generated in secure hardware (origin is not GENERATED)');
 
     return {
       securityLevel: att.level === SECURITY_LEVEL.strongBox ? 'StrongBox' : 'TrustedEnvironment',
@@ -248,18 +249,18 @@ function checkApplicationId(buf: Uint8Array, at: {contentStart: number; end: num
     }
     return String.fromCharCode(...buf.slice(name.contentStart, name.end));
   });
-  if (names.length !== 1) unavailable(`The key belongs to ${names.length} packages (${names.join(', ')}); exactly one is required`);
-  if (names[0] !== app.packageName) unavailable(`The key belongs to another app (${names[0]}), not ${app.packageName}`);
+  if (names.length !== 1) unavailable('android_key_package_count', `The key belongs to ${names.length} packages (${names.join(', ')}); exactly one is required`);
+  if (names[0] !== app.packageName) unavailable('android_key_other_app', `The key belongs to another app (${names[0]}), not ${app.packageName}`);
 
   const digests = children(buf, digestSet, 16).map(d => {
     if (d.tag !== 0x04) throw new DerError('signature digest is not an OCTET STRING');
     return toHex(buf.slice(d.contentStart, d.end));
   });
   if (digests.length !== 1 || digests[0].length !== 64) {
-    unavailable(`The app is signed with ${digests.length} certificates (${digests.join(', ')}); exactly one SHA-256 is required`);
+    unavailable('android_app_signing_cert_count', `The app is signed with ${digests.length} certificates (${digests.join(', ')}); exactly one SHA-256 is required`);
   }
   if (digests[0] !== app.signingCertSha256.toLowerCase()) {
-    unavailable(
+    unavailable('android_app_not_store_signed',
       `This build is signed with certificate ${digests[0]}, not the store signing certificate ${app.signingCertSha256} ` +
         'the circuit accepts; only the store-installed app can prove',
     );
@@ -275,8 +276,8 @@ function checkRootOfTrust(buf: Uint8Array, at: {contentStart: number; end: numbe
   if (!fields[0] || fields[0].tag !== 0x04) throw new DerError('root of trust has no verifiedBootKey');
   if (!locked || locked.tag !== 0x01 || locked.end - locked.contentStart !== 1) throw new DerError('root of trust has no deviceLocked');
   if (!state || state.tag !== 0x0a || state.end - state.contentStart !== 1) throw new DerError('root of trust has no verifiedBootState');
-  if (buf[locked.contentStart] === 0) unavailable("This phone's bootloader is unlocked");
-  if (buf[state.contentStart] !== 0) unavailable(`This phone's boot state is not Verified (verifiedBootState ${buf[state.contentStart]})`);
+  if (buf[locked.contentStart] === 0) unavailable('android_bootloader_unlocked', "This phone's bootloader is unlocked");
+  if (buf[state.contentStart] !== 0) unavailable('android_boot_not_verified', `This phone's boot state is not Verified (verifiedBootState ${buf[state.contentStart]})`);
 }
 
 /**
@@ -285,7 +286,7 @@ function checkRootOfTrust(buf: Uint8Array, at: {contentStart: number; end: numbe
  */
 export function requireAcceptableAndroidChain(ders: readonly Uint8Array[], opts: AndroidChainCheckOptions): KeyDescriptionSummary {
   if (ders.length !== 4 && ders.length !== 5) {
-    unavailable(
+    unavailable('android_chain_length',
       `An RKP chain has 4 certificates below the root (leaf, attestation key, Droid CA3, Droid CA2); got ${ders.length} in all. ` +
         'Factory-provisioned chains are not accepted.',
     );
@@ -297,38 +298,38 @@ export function requireAcceptableAndroidChain(ders: readonly Uint8Array[], opts:
     const cert = der(role.name, () => parseCertificate(ders[i]));
     const fields = der(role.name, () => parseTbs(cert.tbs));
     if (!bytesEqual(cert.signatureAlgorithm, role.signedWith)) {
-      unavailable(`${role.name} is signed with ${toHex(cert.signatureAlgorithm)}; an RKP chain signs it with ${role.signedWithName}`);
+      unavailable('android_cert_wrong_signature_alg', `${role.name} is signed with ${toHex(cert.signatureAlgorithm)}; an RKP chain signs it with ${role.signedWithName}`);
     }
     if (!bytesEqual(fields.curve, role.curve)) {
-      unavailable(`${role.name}'s key is on curve ${toHex(fields.curve)}, not ${role.curveName}`);
+      unavailable('android_cert_key_wrong_curve', `${role.name}'s key is on curve ${toHex(fields.curve)}, not ${role.curveName}`);
     }
     return {role, cert, fields};
   });
   const [leaf, att, ca3, ca2] = parsed;
 
   if (!att.fields.extensions.has(OID_PROVISIONING_INFO)) {
-    unavailable('The attestation key was not remotely provisioned (no provisioning-information extension); factory-provisioned chains are not accepted');
+    unavailable('android_signing_key_not_remote_provisioned', 'The attestation key was not remotely provisioned (no provisioning-information extension); factory-provisioned chains are not accepted');
   }
   if (att.fields.extensions.has(OID_KEY_ATTESTATION)) {
-    unavailable('The attestation-key certificate carries a key description; only the leaf may');
+    unavailable('android_signing_key_cert_has_description', 'The attestation-key certificate carries a key description; only the leaf may');
   }
   const keyDescription = leaf.fields.extensions.get(OID_KEY_ATTESTATION);
-  if (!keyDescription) unavailable('The leaf certificate has no key description');
+  if (!keyDescription) unavailable('android_leaf_no_key_description', 'The leaf certificate has no key description');
 
   if (ders.length === 5) {
     const root = der('The root', () => parseTbs(parseCertificate(ders[4]).tbs));
     if (!bytesEqual(root.curve, OID.secp384r1) || !bytesEqual(root.publicKey, opts.rootKey)) {
-      unavailable('The chain does not end at the pinned root (Key Attestation CA1)');
+      unavailable('android_chain_wrong_root', 'The chain does not end at the pinned root (Key Attestation CA1)');
     }
   }
 
   for (const {role, cert} of [ca2, ca3, att]) {
     const {notBefore, notAfter} = certificateValidity(cert.tbs, role.name);
     if (opts.now < notBefore) {
-      unavailable(`${role.name} is not valid until ${new Date(notBefore * 1000).toISOString()}; the statement's time is ${new Date(opts.now * 1000).toISOString()}. Check the phone's clock`);
+      unavailable('android_cert_not_yet_valid', `${role.name} is not valid until ${new Date(notBefore * 1000).toISOString()}; the statement's time is ${new Date(opts.now * 1000).toISOString()}. Check the phone's clock`);
     }
     if (opts.now > notAfter) {
-      unavailable(`${role.name} expired at ${new Date(notAfter * 1000).toISOString()}; the statement's time is ${new Date(opts.now * 1000).toISOString()}`);
+      unavailable('android_cert_expired', `${role.name} expired at ${new Date(notAfter * 1000).toISOString()}; the statement's time is ${new Date(opts.now * 1000).toISOString()}`);
     }
   }
 
@@ -361,38 +362,38 @@ export interface FactoryChainCheckOptions {
  */
 export function requireAcceptableFactoryChain(ders: readonly Uint8Array[], opts: FactoryChainCheckOptions): KeyDescriptionSummary {
   if (ders.length !== 3 && ders.length !== 4) {
-    unavailable(`A factory chain has 3 certificates below the root (leaf, batch, intermediate); got ${ders.length} in all`);
+    unavailable('android_factory_chain_length', `A factory chain has 3 certificates below the root (leaf, batch, intermediate); got ${ders.length} in all`);
   }
   const [leaf, batch, ik, root] = ders;
   if (root && rsaModulusOf(root, 'The root') !== opts.rootModulusHex.toLowerCase()) {
-    unavailable("The chain does not end at the pinned RSA root (Google's attestation root)");
+    unavailable('android_factory_chain_wrong_root', "The chain does not end at the pinned RSA root (Google's attestation root)");
   }
 
   const ikParts = splitStructural(ik, 'The intermediate');
   if (ikParts.algorithm !== OID_SHA256_WITH_RSA) {
-    unavailable(`The intermediate is signed with ${ikParts.algorithm}; a factory chain signs it with sha256WithRSAEncryption`);
+    unavailable('android_factory_intermediate_wrong_alg', `The intermediate is signed with ${ikParts.algorithm}; a factory chain signs it with sha256WithRSAEncryption`);
   }
   ecKeyOf(ik, 'P-384', 'The intermediate');
   const ikFields = der('The intermediate', () => parseTbs(ikParts.tbs));
   const bc = ikFields.extensions.get(OID_BASIC_CONSTRAINTS);
   const isCa = !!bc && bc.length >= 5 && bc[0] === 0x30 && bc[2] === 0x01 && bc[3] === 0x01 && bc[4] !== 0;
-  if (!isCa) unavailable('The intermediate is not a CA certificate');
+  if (!isCa) unavailable('android_factory_intermediate_not_ca', 'The intermediate is not a CA certificate');
 
   const batchParts = splitStructural(batch, 'The batch certificate');
   if (batchParts.algorithm !== OID_ECDSA_SHA256) {
-    unavailable(`The batch certificate is signed with ${batchParts.algorithm}; a factory chain signs it with ecdsa-with-SHA256`);
+    unavailable('android_factory_batch_wrong_alg', `The batch certificate is signed with ${batchParts.algorithm}; a factory chain signs it with ecdsa-with-SHA256`);
   }
   ecKeyOf(batch, 'P-256', 'The batch certificate');
   if (der('The batch certificate', () => parseTbs(batchParts.tbs)).extensions.has(OID_KEY_ATTESTATION)) {
-    unavailable('The batch certificate carries a key description; only the leaf may');
+    unavailable('android_factory_batch_has_description', 'The batch certificate carries a key description; only the leaf may');
   }
 
   const leafParts = splitStructural(leaf, 'Leaf');
   if (leafParts.algorithm !== OID_ECDSA_SHA256) {
-    unavailable(`Leaf is signed with ${leafParts.algorithm}; a factory chain signs it with ecdsa-with-SHA256`);
+    unavailable('android_factory_leaf_wrong_alg', `Leaf is signed with ${leafParts.algorithm}; a factory chain signs it with ecdsa-with-SHA256`);
   }
   ecKeyOf(leaf, 'P-256', 'Leaf');
   const keyDescription = der('Leaf', () => parseTbs(leafParts.tbs)).extensions.get(OID_KEY_ATTESTATION);
-  if (!keyDescription) return unavailable('The leaf certificate has no key description');
+  if (!keyDescription) return unavailable('android_leaf_no_key_description', 'The leaf certificate has no key description');
   return checkKeyDescription(keyDescription, opts.app);
 }

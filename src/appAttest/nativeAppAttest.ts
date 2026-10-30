@@ -7,7 +7,7 @@
  * ids; asking for App Attest on Android is a bug and throws by name.
  */
 import {NativeModules, Platform} from 'react-native';
-import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
+import {AppAttestError} from './appAttestError';
 
 export interface AppAttestNative {
   isSupported(): Promise<boolean>;
@@ -41,7 +41,7 @@ export function getAppAttestNative(): AppAttestNative {
   const mod = NativeModules.AppAttest as AppAttestNative | undefined;
   if (!mod) {
     throw new AppAttestError(
-      APP_ATTEST_ERROR_CODE.unsupported,
+      'ios_native_module_missing',
       'This build has no AppAttest native module (ios/ProofportApp/AppAttestModule.m).',
     );
   }

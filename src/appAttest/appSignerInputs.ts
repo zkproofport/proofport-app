@@ -17,7 +17,8 @@
  * E2014, before anything reaches the prover.
  */
 import {ethers} from 'ethers';
-import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
+import {APP_ATTEST_ERROR_CODE, refuseWith} from './appAttestError';
+import type {DeviceCheckReason} from './deviceCheckReasons';
 import type {CircuitAssertion, CircuitCredential} from './appAttestObjects';
 import {ASSERT_AUTH_DATA_MAX_LEN, ATT_AUTH_DATA_MAX_LEN, CREDENTIAL_TBS_MAX_LEN, N_P256} from './constants';
 
@@ -61,17 +62,17 @@ export function appSignerInputs(
   assertion: CircuitAssertion,
   pinnedCaKeyHash: string,
 ): AppSignerInputs {
-  const refuse = (why: string): never => {
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.malformed, why);
+  const refuse = (reason: DeviceCheckReason, why: string): never => {
+    return refuseWith(APP_ATTEST_ERROR_CODE.malformed, reason, why);
   };
   if (credential.caKeyHash.toLowerCase() !== pinnedCaKeyHash.toLowerCase()) {
-    refuse(`intermediate CA key hash ${credential.caKeyHash} is not the one the circuit pins (${pinnedCaKeyHash})`);
+    refuse('ios_ca_not_pinned', `intermediate CA key hash ${credential.caKeyHash} is not the one the circuit pins (${pinnedCaKeyHash})`);
   }
   if (!credential.production) {
-    refuse('development (sandbox) App Attest key; the circuit accepts production keys only');
+    refuse('ios_key_dev_environment', 'development (sandbox) App Attest key; the circuit accepts production keys only');
   }
   if (assertion.signature.length === 64 && BigInt(ethers.utils.hexlify(assertion.signature.slice(32))) > N_P256_HALF) {
-    refuse('assertion signature s is not in low form; the circuit refuses a high s');
+    refuse('ios_assertion_high_s', 'assertion signature s is not in low form; the circuit refuses a high s');
   }
   return {
     signer_kind: SIGNER_KIND_APP,

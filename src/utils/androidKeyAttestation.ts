@@ -31,7 +31,8 @@
  * are androidChainChecks.ts's, run before this.
  */
 import {ethers} from 'ethers';
-import {AppAttestError, ANDROID_ATTEST_ERROR_CODE} from '../appAttest/appAttestError';
+import {ANDROID_ATTEST_ERROR_CODE, refuseWith} from '../appAttest/appAttestError';
+import type {DeviceCheckReason} from '../appAttest/deviceCheckReasons';
 import {N_P256, N_P384} from '../appAttest/constants';
 import {bytesEqual, children, DerError, ecdsaDerToLowS, hexToBytes, OID, parseCertificate, parseTbs, readTlv, toHex} from '../appAttest/der';
 
@@ -67,7 +68,7 @@ export function certificateAlgorithms(certDer: Uint8Array, what: string): {signa
 export function refuseRsa(certDer: Uint8Array, what: string): void {
   const algs = certificateAlgorithms(certDer, what);
   if (algs.signature.startsWith(OID_RSA_FAMILY_PREFIX) || algs.key.startsWith(OID_RSA_FAMILY_PREFIX)) {
-    unavailable(
+    unavailable('android_chain_rsa',
       `${what} uses RSA: this is a factory-provisioned chain. Only Remote Key Provisioning chains under Key Attestation CA1 are accepted`,
     );
   }
@@ -105,11 +106,11 @@ export interface AndroidChainInputs {
   leaf_key: Uint8Array;
 }
 
-const unavailable = (why: string): never => {
-  throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.unavailable, why);
+const unavailable = (reason: DeviceCheckReason, why: string): never => {
+  return refuseWith(ANDROID_ATTEST_ERROR_CODE.unavailable, reason, why);
 };
-const malformed = (why: string): never => {
-  throw new AppAttestError(ANDROID_ATTEST_ERROR_CODE.malformed, why);
+const malformed = (reason: DeviceCheckReason, why: string): never => {
+  return refuseWith(ANDROID_ATTEST_ERROR_CODE.malformed, reason, why);
 };
 
 /** Run a DER step, reporting a DerError as malformed data named by `what`. */
@@ -117,7 +118,7 @@ function der<T>(what: string, step: () => T): T {
   try {
     return step();
   } catch (e) {
-    if (e instanceof DerError) malformed(`${what}: ${e.message}`);
+    if (e instanceof DerError) malformed('android_cert_unparsable', `${what}: ${e.message}`);
     throw e;
   }
 }
@@ -141,10 +142,10 @@ export function ecKeyOf(certDer: Uint8Array, crv: 'P-256' | 'P-384', what: strin
   const {tbs} = splitStructural(certDer, what);
   const fields = der(what, () => parseTbs(tbs));
   const found = CURVE_NAMES.find(([oid]) => bytesEqual(oid, fields.curve));
-  if (!found) return unavailable(`${what}'s key is on curve ${toHex(fields.curve)}, not ${crv}`);
-  if (found[1] !== crv) return unavailable(`${what}'s key is ${found[1]}, not ${crv}`);
+  if (!found) return unavailable('android_cert_key_wrong_curve', `${what}'s key is on curve ${toHex(fields.curve)}, not ${crv}`);
+  if (found[1] !== crv) return unavailable('android_cert_key_wrong_curve', `${what}'s key is ${found[1]}, not ${crv}`);
   const size = crv === 'P-256' ? 64 : 96;
-  if (fields.publicKey.length !== size) return malformed(`${what}'s ${crv} key is ${fields.publicKey.length} bytes, not ${size}`);
+  if (fields.publicKey.length !== size) return malformed('android_cert_key_length', `${what}'s ${crv} key is ${fields.publicKey.length} bytes, not ${size}`);
   return fields.publicKey;
 }
 
@@ -173,7 +174,7 @@ export function splitStructural(certDer: Uint8Array, what: string): {tbs: Uint8A
 }
 
 function pad(tbs: Uint8Array, max: number, what: string): Uint8Array {
-  if (tbs.length > max) malformed(`${what} TBS is ${tbs.length} bytes; the circuit takes at most ${max}`);
+  if (tbs.length > max) malformed('android_cert_tbs_too_long', `${what} TBS is ${tbs.length} bytes; the circuit takes at most ${max}`);
   const out = new Uint8Array(max);
   out.set(tbs);
   return out;
@@ -204,14 +205,14 @@ export function androidChainInputs(ders: readonly Uint8Array[], rootKey: Uint8Ar
     throw new Error('androidChainInputs needs the pinned root key (96 bytes, X || Y)');
   }
   if (ders.length !== 4 && ders.length !== 5) {
-    unavailable(
+    unavailable('android_chain_length',
       `An RKP chain has 4 certificates below the root (leaf, attestation key, Droid CA3, Droid CA2); got ${ders.length} in all. ` +
         'Factory-provisioned chains are not accepted.',
     );
   }
   const [leaf, att, ca3, ca2, root] = ders;
   if (root && !bytesEqual(certKey(root, 'P-384', 'The root certificate'), rootKey)) {
-    unavailable('The chain does not end at the pinned Google root (Key Attestation CA1)');
+    unavailable('android_chain_wrong_root', 'The chain does not end at the pinned Google root (Key Attestation CA1)');
   }
   const L = splitCertificate(leaf, 'Leaf');
   const A = splitCertificate(att, 'Attestation key');
@@ -337,18 +338,18 @@ export function androidFactoryChainInputs(ders: readonly Uint8Array[], rootModul
     throw new Error('androidFactoryChainInputs needs the pinned RSA-4096 root modulus (1024 hex characters)');
   }
   if (ders.length !== 3 && ders.length !== 4) {
-    unavailable(`A factory chain has 3 certificates below the root (leaf, batch, intermediate); got ${ders.length} in all.`);
+    unavailable('android_factory_chain_length', `A factory chain has 3 certificates below the root (leaf, batch, intermediate); got ${ders.length} in all.`);
   }
   const [leaf, batch, ik, root] = ders;
   if (root && rsaModulusOf(root, 'The root certificate') !== rootModulusHex.toLowerCase()) {
-    unavailable('The chain does not end at the pinned RSA root');
+    unavailable('android_factory_chain_wrong_root', 'The chain does not end at the pinned RSA root');
   }
   ecKeyOf(ik, 'P-384', 'The intermediate');
   ecKeyOf(batch, 'P-256', 'The batch certificate');
   const L = splitStructural(leaf, 'Leaf');
   const B = splitStructural(batch, 'Batch');
   const I = splitStructural(ik, 'Intermediate');
-  if (I.signature.length === 0) malformed('Intermediate has an empty signature');
+  if (I.signature.length === 0) malformed('android_factory_intermediate_unsigned', 'Intermediate has an empty signature');
   return {
     ik_tbs: pad(I.tbs, ANDROID_FACTORY_TBS_LIMITS.ik, 'Intermediate'),
     ik_tbs_len: I.tbs.length,
@@ -381,13 +382,13 @@ export function classifyAndroidChain(
       const key = ecKeyOf(last, 'P-384', 'The root certificate');
       if (bytesEqual(key, roots.rootKey)) return 'android';
     }
-    return unavailable('A 5-certificate chain must end at Key Attestation CA1; this one does not (an older RKP chain under the RSA root is not accepted)');
+    return unavailable('android_chain_5_wrong_root', 'A 5-certificate chain must end at Key Attestation CA1; this one does not (an older RKP chain under the RSA root is not accepted)');
   }
   if (ders.length === 4) {
     if (rsaModulusOf(last, 'The root certificate') === roots.rsaRootModulusHex.toLowerCase()) return 'android_factory';
-    return unavailable("A 4-certificate chain must be factory-provisioned under Google's RSA root; this one is not");
+    return unavailable('android_chain_4_not_factory', "A 4-certificate chain must be factory-provisioned under Google's RSA root; this one is not");
   }
-  return unavailable(
+  return unavailable('android_chain_length',
     `An attestation chain has 5 certificates (Remote Key Provisioning) or 4 (factory-provisioned); got ${ders.length}`,
   );
 }

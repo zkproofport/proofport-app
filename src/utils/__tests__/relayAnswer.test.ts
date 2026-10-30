@@ -329,6 +329,29 @@ describe('requests left open by an earlier run', () => {
     expect(bodies()[1]).toMatchObject({status: 'error', errorCode: 'E2007', error: 'none'});
   });
 
+  it('re-sends an undelivered device-check error with its reason, neutral', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('offline'));
+    await answerRelayRequest(req(), {status: 'error', errorCode: 'E2014', error: "App Attest key is a development (sandbox) key", deviceCheckReason: 'ios_key_dev_environment'});
+    await settle();
+    resetRelayAnswersForTests(Date.now() + 1);
+    await answerRequestsLeftOpen();
+    expect(bodies()[1]).toMatchObject({status: 'error', errorCode: 'E2014', error: `${ErrorCodes.E2014.description} [reason: ios_key_dev_environment]`});
+  });
+
+  it.each(['no_such_reason', 'android_cert_unparsable', '__proto__', 42])(
+    'a stored answer whose reason is %j (unknown, or another code\'s) is still sent, without it', async bad => {
+      mockStorage.set(OPEN_KEY, JSON.stringify([{
+        requestId: 'stored', circuit: 'coinbase_attestation', callbackUrl: CALLBACK, openedAt: 1, attempts: 0,
+        pending: {status: 'error', errorCode: 'E2014', error: 'App Attest failed', deviceCheckReason: bad},
+      }]));
+      const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+      resetRelayAnswersForTests(Date.now() + 1);
+      await expect(answerRequestsLeftOpen()).resolves.toBe(1);
+      expect(bodies()[0]).toMatchObject({requestId: 'stored', status: 'error', errorCode: 'E2014', error: ErrorCodes.E2014.description});
+      expect(errors.mock.calls.some(c => String(c[0]).includes('answering without it'))).toBe(true);
+      errors.mockRestore();
+    });
+
   it('leaves requests opened in this run alone', async () => {
     resetRelayAnswersForTests(Date.now() - 1000);
     await rememberOpenRelayRequest(req('current'));

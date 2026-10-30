@@ -10,6 +10,7 @@ import {
 } from '../utils/deeplink';
 import {answerRelayRequest, type CompletedFields, type RelayAnswerOutcome} from '../utils/relayAnswer';
 import type {ErrorCode} from '../constants/errorCodes';
+import type {DeviceCheckReason} from '../appAttest/deviceCheckReasons';
 
 export interface SendProofOptions {
   proof: string;
@@ -31,7 +32,7 @@ interface UseDeepLinkUtilsResult {
     request: ProofRequest,
     options: SendProofOptions,
   ) => Promise<boolean>;
-  sendError: (request: ProofRequest, errorCode: ErrorCode, error: string) => Promise<RelayAnswerOutcome>;
+  sendError: (request: ProofRequest, errorCode: ErrorCode, error: string, deviceCheckReason?: DeviceCheckReason) => Promise<RelayAnswerOutcome>;
   sendCancelled: (request: ProofRequest, reason: string) => Promise<RelayAnswerOutcome>;
 }
 
@@ -83,8 +84,8 @@ export function useDeepLink(): UseDeepLinkUtilsResult {
   // instant the error appears would hide the only explanation the user gets,
   // and would drop them into the requesting app with no idea what broke.
   const sendError = useCallback(
-    (request: ProofRequest, errorCode: ErrorCode, error: string) =>
-      answerRelayRequest(request, {status: 'error', errorCode, error}),
+    (request: ProofRequest, errorCode: ErrorCode, error: string, deviceCheckReason?: DeviceCheckReason) =>
+      answerRelayRequest(request, {status: 'error', errorCode, error, ...(deviceCheckReason !== undefined && {deviceCheckReason})}),
     [],
   );
 

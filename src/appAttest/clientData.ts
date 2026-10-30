@@ -19,7 +19,7 @@
  *   193   32  scope                                 = public scope
  */
 import {ethers} from 'ethers';
-import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
+import {AppAttestError} from './appAttestError';
 
 export const CLIENT_DATA_LEN = 225;
 export const CLIENT_DATA_MAGIC = 'ZKProofport/AA/1';
@@ -67,7 +67,7 @@ function exactBytes(value: Uint8Array | string, length: number, what: string): U
 export function buildClientData(f: ClientDataFields): Uint8Array {
   if (f.revoked !== false) {
     throw new AppAttestError(
-      APP_ATTEST_ERROR_CODE.revoked,
+      'kyc_record_revoked',
       `The Coinbase attestation ${f.attestationUid} is revoked; no App Attest statement is made for it.`,
     );
   }

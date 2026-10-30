@@ -1,4 +1,5 @@
 import type {ErrorCode} from '../constants/errorCodes';
+import {deviceCheckCode, type DeviceCheckReason} from './deviceCheckReasons';
 
 /**
  * A failure on a device-signer path -- App Attest on iPhone, Android key
@@ -10,12 +11,28 @@ import type {ErrorCode} from '../constants/errorCodes';
  */
 export class AppAttestError extends Error {
   readonly code: ErrorCode;
+  /** The precise cause, neutral (src/appAttest/deviceCheckReasons.ts); the code follows from it. */
+  readonly reason: DeviceCheckReason;
 
-  constructor(code: ErrorCode, message: string) {
+  constructor(reason: DeviceCheckReason, message: string) {
     super(message);
     this.name = 'AppAttestError';
-    this.code = code;
+    this.code = deviceCheckCode(reason);
+    this.reason = reason;
   }
+}
+
+/**
+ * Throw for `reason`, which must belong to `expected`: a refusal helper of
+ * one E-code that is handed another code's reason is a mistake in this app,
+ * said as such rather than shown as the wrong modal.
+ */
+export function refuseWith(expected: ErrorCode, reason: DeviceCheckReason, message: string): never {
+  const code = deviceCheckCode(reason);
+  if (code !== expected) {
+    throw new Error(`Device-check reason '${reason}' is ${code}, not ${expected}: ${message}`);
+  }
+  throw new AppAttestError(reason, message);
 }
 
 /** The modal codes this path raises, by cause. One table, no default. */

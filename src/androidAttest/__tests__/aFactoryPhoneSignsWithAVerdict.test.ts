@@ -147,7 +147,7 @@ describe('a factory-provisioned phone signs a statement', () => {
   it("passes the relay's refusal through with its code", async () => {
     const phone = fakePhone();
     const integrity = {decrypt: jest.fn(async () => {
-      throw new AppAttestError('E3008', 'The device check service answered HTTP 503 (not_configured)');
+      throw new AppAttestError('integrity_service_unavailable', 'The device check service answered HTTP 503 (not_configured)');
     })};
     expect(await codeOf(signStatementOnAndroid(STATEMENT, {now: NOW, log: () => {}, native: phone.native as never, trust: TRUST, integrity}))).toBe('E3008');
   });

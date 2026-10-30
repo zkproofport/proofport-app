@@ -45,6 +45,7 @@ import {showGlobalError} from '../../utils/errorBridge';
 import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
+import type {DeviceCheckReason} from '../../appAttest/deviceCheckReasons';
 import {prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
 import {proofSignerVariant, verifierForProof} from '../../utils/proofSignerVariant';
 
@@ -542,7 +543,9 @@ export const ProofGenerationScreen: React.FC = () => {
    * no-op, and the responder refuses a second answer for the request anyway.
    */
   const failAttempt = useCallback(
-    ({code, error, inline, details}: {code: ErrorCode; error: string; inline?: string; details?: string}) => {
+    ({code, error, inline, details, deviceCheckReason}: {
+      code: ErrorCode; error: string; inline?: string; details?: string; deviceCheckReason?: DeviceCheckReason;
+    }) => {
       if (attemptEndedRef.current) return;
       attemptEndedRef.current = true;
       // What the person was shown, so the kept log ends with it.
@@ -554,7 +557,7 @@ export const ProofGenerationScreen: React.FC = () => {
       showGlobalError(code, details ?? error);
       markHistoryFailed();
       if (proofRequest) {
-        sendError(proofRequest, code, error).catch(console.error);
+        sendError(proofRequest, code, error, deviceCheckReason).catch(console.error);
         clearActiveProofRequest(proofRequest);
       }
     },
@@ -594,7 +597,11 @@ export const ProofGenerationScreen: React.FC = () => {
     }
     // A cause with its own code (App Attest, the provider key list) wins over
     // the step's generic one.
-    failAttempt({code: errStep.code ?? errorCodeForStep(flow, errStep.id), error: detail});
+    failAttempt({
+      code: errStep.code ?? errorCodeForStep(flow, errStep.id),
+      error: detail,
+      ...(errStep.code && errStep.deviceCheckReason ? {deviceCheckReason: errStep.deviceCheckReason} : {}),
+    });
   }, [hook.proofSteps, flow, failAttempt, cancelAttempt]);
 
   // Leaving the screen before the request was answered — back button, a
@@ -662,7 +669,9 @@ export const ProofGenerationScreen: React.FC = () => {
       } catch (variantError) {
         const msg = variantError instanceof Error ? variantError.message : String(variantError);
         addLog(`Error: ${msg}`);
-        failAttempt({code: variantError instanceof AppAttestError ? variantError.code : 'E2016', error: msg});
+        failAttempt(variantError instanceof AppAttestError
+          ? {code: variantError.code, error: msg, deviceCheckReason: variantError.reason}
+          : {code: 'E2016', error: msg, deviceCheckReason: 'proof_package_unstated'});
         return;
       }
       let nullifierHex = '0x' + '00'.repeat(32);
@@ -1165,7 +1174,9 @@ export const ProofGenerationScreen: React.FC = () => {
       // Device-signer failures carry the code for their cause (unsupported
       // device, an Android chain the circuit refuses, revoked, Apple
       // unreachable, ...).
-      failAttempt({code: error instanceof AppAttestError ? error.code : 'E2001', error: msg});
+      failAttempt(error instanceof AppAttestError
+        ? {code: error.code, error: msg, deviceCheckReason: error.reason}
+        : {code: 'E2001', error: msg});
     } finally {
       setIsSearching(false);
     }

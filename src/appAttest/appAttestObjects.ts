@@ -43,7 +43,8 @@ import {
   N_P256,
   N_P384,
 } from './constants';
-import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
+import {APP_ATTEST_ERROR_CODE, refuseWith} from './appAttestError';
+import type {DeviceCheckReason} from './deviceCheckReasons';
 
 export function sha256(bytes: Uint8Array): Uint8Array {
   return ethers.utils.arrayify(ethers.utils.sha256(bytes));
@@ -51,8 +52,8 @@ export function sha256(bytes: Uint8Array): Uint8Array {
 
 const utf8Bytes = (s: string) => ethers.utils.toUtf8Bytes(s);
 
-function malformed(message: string): never {
-  throw new AppAttestError(APP_ATTEST_ERROR_CODE.malformed, message);
+function malformed(reason: DeviceCheckReason, message: string): never {
+  return refuseWith(APP_ATTEST_ERROR_CODE.malformed, reason, message);
 }
 
 /** Run a parse step and report CBOR/DER failures as malformed App Attest data. */
@@ -60,7 +61,7 @@ function parsing<T>(what: string, step: () => T): T {
   try {
     return step();
   } catch (e) {
-    if (e instanceof CborError || e instanceof DerError) malformed(`${what}: ${e.message}`);
+    if (e instanceof CborError || e instanceof DerError) malformed('ios_object_unparsable', `${what}: ${e.message}`);
     throw e;
   }
 }
@@ -71,7 +72,7 @@ function be32(b: Uint8Array, pos: number): number {
 
 export function base64ToBytes(s: string): Uint8Array {
   if (typeof s !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/.test(s) || s.length % 4 !== 0) {
-    malformed('not standard base64');
+    malformed('ios_object_not_base64', 'not standard base64');
   }
   return ethers.utils.base64.decode(s);
 }
@@ -109,11 +110,11 @@ export function decodeAttestationObject(
   const top = parsing('attestation object', () =>
     cborMap(decodeCbor(attestation, {maxBytes: ATTESTATION_OBJECT_MAX_BYTES, maxDepth: 4, maxItems: 16}), 'attestation object'),
   );
-  if (top.get('fmt') !== 'apple-appattest') malformed(`attestation fmt is ${JSON.stringify(top.get('fmt'))}, not "apple-appattest"`);
+  if (top.get('fmt') !== 'apple-appattest') malformed('ios_attestation_wrong_format', `attestation fmt is ${JSON.stringify(top.get('fmt'))}, not "apple-appattest"`);
   const attStmt = parsing('attStmt', () => cborMap(top.get('attStmt') ?? 0, 'attStmt'));
   const x5c = attStmt.get('x5c');
   if (!Array.isArray(x5c) || x5c.length < 2 || !x5c.every(c => c instanceof Uint8Array)) {
-    malformed('attStmt.x5c is not [credential certificate, intermediate, ...]');
+    malformed('ios_attestation_no_chain', 'attStmt.x5c is not [credential certificate, intermediate, ...]');
   }
   const authData = parsing('authData', () => cborBytes(top, 'authData', 'attestation object'));
   const [credDer, interDer] = x5c as Uint8Array[];
@@ -122,42 +123,42 @@ export function decodeAttestationObject(
   // Apple's credential certificates are ecdsa-with-SHA256 (the circuit hashes
   // the TBS with SHA-256); only root -> intermediate is SHA-384.
   if (!bytesEqual(cred.signatureAlgorithm, OID.ecdsaWithSha256)) {
-    malformed('credential certificate is not signed with ecdsa-with-SHA256');
+    malformed('ios_credential_wrong_signature_alg', 'credential certificate is not signed with ecdsa-with-SHA256');
   }
   const credFields = parsing('credential TBS', () => parseTbs(cred.tbs));
   if (!bytesEqual(credFields.curve, OID.prime256v1) || credFields.publicKey.length !== 64) {
-    malformed('credential key is not an uncompressed P-256 key');
+    malformed('ios_credential_key_not_p256', 'credential key is not an uncompressed P-256 key');
   }
   const inter = parsing('intermediate certificate', () => parseCertificate(interDer));
   const interFields = parsing('intermediate TBS', () => parseTbs(inter.tbs));
   if (!bytesEqual(interFields.curve, OID.secp384r1) || interFields.publicKey.length !== 96) {
-    malformed('intermediate key is not an uncompressed P-384 key');
+    malformed('ios_intermediate_key_not_p384', 'intermediate key is not an uncompressed P-384 key');
   }
 
   // keyId is SHA256 of the credential key in X9.62 uncompressed form.
   const keyId = base64ToBytes(keyIdBase64);
   const keyHash = sha256(Uint8Array.from([0x04, ...credFields.publicKey]));
-  if (!bytesEqual(keyHash, keyId)) malformed('credential certificate key does not hash to the key id');
+  if (!bytesEqual(keyHash, keyId)) malformed('ios_credential_key_id_mismatch', 'credential certificate key does not hash to the key id');
 
   // nonce = SHA256(authData || clientDataHash) is in extension 8.2.
   const nonce = parsing('nonce extension', () => appleNonce(credFields));
   if (!bytesEqual(sha256(Uint8Array.from([...authData, ...clientDataHash])), nonce)) {
-    malformed('attestation authData and clientDataHash do not hash to the certificate nonce');
+    malformed('ios_attestation_nonce_mismatch', 'attestation authData and clientDataHash do not hash to the certificate nonce');
   }
 
-  if (authData.length < 55) malformed(`attestation authData is ${authData.length} bytes, too short to hold its fixed fields`);
+  if (authData.length < 55) malformed('ios_attestation_authdata_short', `attestation authData is ${authData.length} bytes, too short to hold its fixed fields`);
   if (!bytesEqual(authData.slice(0, 32), sha256(utf8Bytes(appId)))) {
-    malformed(`attestation RP ID hash is not SHA256("${appId}")`);
+    malformed('ios_attestation_rp_id_mismatch', `attestation RP ID hash is not SHA256("${appId}")`);
   }
-  if (be32(authData, 33) !== 0) malformed('attestation counter is not 0');
+  if (be32(authData, 33) !== 0) malformed('ios_attestation_counter_nonzero', 'attestation counter is not 0');
   const aaguid = authData.slice(37, 53);
   let production: boolean;
   if (bytesEqual(aaguid, AAGUID_PRODUCTION)) production = true;
   else if (bytesEqual(aaguid, AAGUID_DEVELOPMENT)) production = false;
-  else malformed(`attestation AAGUID ${JSON.stringify(String.fromCharCode(...aaguid))} is neither production nor development`);
+  else malformed('ios_attestation_unknown_environment', `attestation AAGUID ${JSON.stringify(String.fromCharCode(...aaguid))} is neither production nor development`);
   const credIdLen = (authData[53] << 8) | authData[54];
   if (credIdLen !== 32 || authData.length < 55 + 32 || !bytesEqual(authData.slice(55, 87), keyId)) {
-    malformed('attestation credentialId is not the key id');
+    malformed('ios_attestation_credential_id_mismatch', 'attestation credentialId is not the key id');
   }
 
   const certificateAppId = parsing('App ID extension', () => appleAppId(credFields));
@@ -200,20 +201,20 @@ export function toCircuitCredential(
   pinnedCaKeyHash: string,
 ): CircuitCredential {
   if (clientDataHash.length !== 32) {
-    malformed(`attestation clientDataHash is ${clientDataHash.length} bytes; the circuit takes exactly 32`);
+    malformed('ios_client_data_hash_length', `attestation clientDataHash is ${clientDataHash.length} bytes; the circuit takes exactly 32`);
   }
   const d = decodeAttestationObject(attestation, keyIdBase64, clientDataHash, appId);
   if (d.certificateAppId !== appId) {
-    malformed(`credential certificate is for "${d.certificateAppId}", not "${appId}"`);
+    malformed('ios_credential_wrong_app', `credential certificate is for "${d.certificateAppId}", not "${appId}"`);
   }
   if (d.caKeyHash.toLowerCase() !== pinnedCaKeyHash.toLowerCase()) {
-    malformed(`intermediate CA key hash ${d.caKeyHash} is not the pinned ${pinnedCaKeyHash}`);
+    malformed('ios_ca_not_pinned', `intermediate CA key hash ${d.caKeyHash} is not the pinned ${pinnedCaKeyHash}`);
   }
   if (d.credentialTbs.length > CREDENTIAL_TBS_MAX_LEN) {
-    malformed(`credential TBS is ${d.credentialTbs.length} bytes; the circuit holds ${CREDENTIAL_TBS_MAX_LEN}`);
+    malformed('ios_credential_tbs_too_long', `credential TBS is ${d.credentialTbs.length} bytes; the circuit holds ${CREDENTIAL_TBS_MAX_LEN}`);
   }
   if (d.authData.length < ATT_AUTH_DATA_MIN_LEN || d.authData.length > ATT_AUTH_DATA_MAX_LEN) {
-    malformed(`attestation authData is ${d.authData.length} bytes; the circuit takes ${ATT_AUTH_DATA_MIN_LEN}..${ATT_AUTH_DATA_MAX_LEN}`);
+    malformed('ios_attestation_authdata_length', `attestation authData is ${d.authData.length} bytes; the circuit takes ${ATT_AUTH_DATA_MIN_LEN}..${ATT_AUTH_DATA_MAX_LEN}`);
   }
   return {
     caKey: d.caKey,
@@ -246,15 +247,15 @@ export function decodeAssertion(assertion: Uint8Array, appId: string): CircuitAs
   const authenticatorData = parsing('assertion', () => cborBytes(top, 'authenticatorData', 'assertion'));
   const signatureDer = parsing('assertion', () => cborBytes(top, 'signature', 'assertion'));
   if (authenticatorData.length < ASSERT_AUTH_DATA_MIN_LEN || authenticatorData.length > ASSERT_AUTH_DATA_MAX_LEN) {
-    malformed(
+    malformed('ios_assertion_authdata_length',
       `assertion authenticatorData is ${authenticatorData.length} bytes; the circuit takes ${ASSERT_AUTH_DATA_MIN_LEN}..${ASSERT_AUTH_DATA_MAX_LEN}`,
     );
   }
   if (!bytesEqual(authenticatorData.slice(0, 32), sha256(utf8Bytes(appId)))) {
-    malformed(`assertion RP ID hash is not SHA256("${appId}")`);
+    malformed('ios_assertion_rp_id_mismatch', `assertion RP ID hash is not SHA256("${appId}")`);
   }
   const counter = be32(authenticatorData, 33);
-  if (counter === 0) malformed('assertion counter is 0');
+  if (counter === 0) malformed('ios_assertion_counter_zero', 'assertion counter is 0');
   return {
     authenticatorData,
     signature: parsing('assertion signature', () => ecdsaDerToLowS(signatureDer, 32, N_P256)),

@@ -81,7 +81,7 @@ describe('no switch', () => {
   });
 
   it('reports an App Attest failure with the code for its cause, not the generic one', () => {
-    expect(SCREEN).toMatch(/error instanceof AppAttestError \? error\.code : 'E2001'/);
+    expect(SCREEN).toMatch(/error instanceof AppAttestError\s*\?\s*\{code: error\.code, error: msg, deviceCheckReason: error\.reason\}\s*:\s*\{code: 'E2001', error: msg\}/);
   });
 });
 

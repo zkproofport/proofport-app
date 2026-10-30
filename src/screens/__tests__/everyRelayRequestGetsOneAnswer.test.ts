@@ -39,7 +39,7 @@ import {act, create, type ReactTestRenderer} from 'react-test-renderer';
 import type {ProofStackParamList} from '../../navigation/types';
 import type {ProofRequest} from '../../utils/deeplink';
 
-type Step = {id: string; label: string; status: string; detail?: string; code?: string};
+type Step = {id: string; label: string; status: string; detail?: string; code?: string; deviceCheckReason?: string};
 
 const mockGenerate = jest.fn();
 const mockSignIn = jest.fn();
@@ -189,6 +189,12 @@ beforeEach(() => {
   logs = jest.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(() => {
+  // No answer this screen sends names a device-check service or build kind,
+  // whatever the failure (user decision 2026-10-30).
+  const {namesAService} = jest.requireActual('../../utils/neutralText');
+  for (const body of mockPost.mock.calls.map(call => call[0] as {error?: unknown})) {
+    if (typeof body.error === 'string') expect([body.error, namesAService(body.error)]).toEqual([body.error, false]);
+  }
   if (tree) act(() => tree!.unmount());
   jest.useRealTimers();
   errors.mockRestore();
@@ -198,6 +204,14 @@ afterEach(() => {
 /** Bodies the relay received, in order. */
 function answers(): Array<Record<string, unknown>> {
   return mockPost.mock.calls.map(call => call[0]);
+}
+
+/** A device-check reason that belongs to `code` (src/appAttest/deviceCheckReasons.ts). */
+function reasonOf(code: string): string {
+  const {DEVICE_CHECK_REASONS} = jest.requireActual('../../appAttest/deviceCheckReasons');
+  const r = Object.keys(DEVICE_CHECK_REASONS).find(k => DEVICE_CHECK_REASONS[k] === code);
+  if (!r) throw new Error(`No device-check reason for ${code}`);
+  return r;
 }
 
 async function mount(circuitId: string, proofRequest?: ProofRequest, extra: Partial<ProofStackParamList['ProofGeneration']> = {}) {
@@ -366,7 +380,7 @@ describe('every inline failure path answers once, with its code', () => {
     ['Apple App Attest unreachable', 'E3006'],
   ])('OIDC on %s -> %s before any sign-in, and nothing is proved', async (_label, code) => {
     const {AppAttestError} = jest.requireActual('../../appAttest/appAttestError');
-    mockPrepareOidcSigner.mockRejectedValue(new AppAttestError(code, 'refused'));
+    mockPrepareOidcSigner.mockRejectedValue(new AppAttestError(reasonOf(code), 'refused'));
     await mount('oidc_domain_attestation', oidcRequest());
     expectOneError(code);
     expect(mockSignIn).not.toHaveBeenCalled();
@@ -378,7 +392,7 @@ describe('every inline failure path answers once, with its code', () => {
     'a device-check failure (%s) shows the code\'s own text on the screen, never the internal reason', async code => {
       const {AppAttestError} = jest.requireActual('../../appAttest/appAttestError');
       const reason = "This build's App Attest key is a development (sandbox) key; Coinbase KYC v2 accepts production keys only";
-      mockPrepareOidcSigner.mockRejectedValue(new AppAttestError(code, reason));
+      mockPrepareOidcSigner.mockRejectedValue(new AppAttestError(reasonOf(code), reason));
       await mount('oidc_domain_attestation', oidcRequest());
       const shown = tree!.root.findAllByType('Text' as never).map(n => [n.props.children].flat().join(''));
       expect(shown).toContain(`host.errors.${code}.description`);
@@ -638,11 +652,38 @@ describe('Coinbase KYC v2 App Attest statement on a relay request', () => {
     ['E3006', 'Apple unreachable'],
     ['E3002', 'EAS lookup failed'],
   ])('%s (%s) answers one error with that code and proves nothing', async (code, why) => {
-    mockStatement.mockRejectedValue(new AppAttestError(code, why));
+    mockStatement.mockRejectedValue(new AppAttestError(reasonOf(code), why));
     await mount('coinbase_attestation', request('coinbase_attestation'));
     expectOneError(code);
     expect(mockShowError).toHaveBeenCalledWith(code, why);
     expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it('a development key is answered E2014 with its reason and neutral text, never the precise wording', async () => {
+    const precise = "This build's App Attest key is a development (sandbox) key; Coinbase KYC v2 accepts production keys only";
+    mockStatement.mockRejectedValue(new AppAttestError('ios_key_dev_environment', precise));
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    expectOneError('E2014');
+    const {ErrorCodes} = jest.requireActual('../../constants/errorCodes');
+    expect(answers()[0].error).toBe(`${ErrorCodes.E2014.description} [reason: ios_key_dev_environment]`);
+    // The precise reason is still this app's to log.
+    expect(mockShowError).toHaveBeenCalledWith('E2014', precise);
+  });
+
+  it('a hook step carrying a device-check reason answers it too', async () => {
+    await mount('oidc_domain_attestation', oidcRequest());
+    mockSteps = [{id: 'jwks', label: 'jwks', status: 'error', detail: 'Play Integrity said no', code: 'E2017', deviceCheckReason: 'integrity_device_not_met'}];
+    await rerender();
+    expectOneError('E2017');
+    expect(String(answers()[0].error)).toMatch(/\[reason: integrity_device_not_met\]$/);
+  });
+
+  it('a proof that does not say its package answers E2016 with its own reason', async () => {
+    await mount('coinbase_attestation', request('coinbase_attestation'));
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1} as never;
+    await rerender();
+    expectOneError('E2016');
+    expect(String(answers()[0].error)).toMatch(/\[reason: proof_package_unstated\]$/);
   });
 
   it('is made for the dApp request, with the action it carried, and handed to the hook', async () => {

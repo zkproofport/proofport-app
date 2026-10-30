@@ -16,7 +16,7 @@
  */
 import {ethers} from 'ethers';
 import {STATIC_CONFIGS} from '../config/contracts';
-import {AppAttestError, APP_ATTEST_ERROR_CODE} from './appAttestError';
+import {AppAttestError} from './appAttestError';
 import {assertClientData, ensureAttestedKey, type AppAttestDeps} from './appAttestKey';
 import type {CircuitAssertion, CircuitCredential} from './appAttestObjects';
 import {buildClientData, COINBASE_ATTESTER, COINBASE_KYC_SCHEMA_UID} from './clientData';
@@ -48,7 +48,7 @@ export async function fetchAttestationStatus(
   fetchImpl: FetchLike = fetch as unknown as FetchLike,
 ): Promise<AttestationStatus> {
   if (!/^0x[0-9a-fA-F]{64}$/.test(uid)) {
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.notFound, `Attestation uid is not 32 bytes of hex: ${uid}`);
+    throw new AppAttestError('kyc_record_uid_malformed', `Attestation uid is not 32 bytes of hex: ${uid}`);
   }
   log(`[Revocation] Asking ${EAS_GRAPHQL_ENDPOINT} about attestation ${uid}`);
   const controller = new AbortController();
@@ -68,23 +68,23 @@ export async function fetchAttestationStatus(
     body = await res.json();
   } catch (e) {
     throw new AppAttestError(
-      APP_ATTEST_ERROR_CODE.lookupFailed,
+      'kyc_lookup_unreachable',
       `The revocation lookup for ${uid} did not complete: ${e instanceof Error ? e.message : String(e)}`,
     );
   } finally {
     clearTimeout(timer);
   }
   if (body?.errors) {
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.lookupFailed, `EAS answered with errors: ${JSON.stringify(body.errors)}`);
+    throw new AppAttestError('kyc_lookup_errors', `EAS answered with errors: ${JSON.stringify(body.errors)}`);
   }
   const a = body?.data?.attestation;
   if (a === null) {
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.notFound, `EAS has no attestation ${uid}`);
+    throw new AppAttestError('kyc_record_missing', `EAS has no attestation ${uid}`);
   }
   if (!a || typeof a.revoked !== 'boolean' || typeof a.schemaId !== 'string'
     || typeof a.attester !== 'string' || typeof a.recipient !== 'string') {
     // A record that does not say whether it is revoked is not "unrevoked".
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.lookupFailed, `EAS answered without a complete record for ${uid}: ${JSON.stringify(a)}`);
+    throw new AppAttestError('kyc_lookup_incomplete', `EAS answered without a complete record for ${uid}: ${JSON.stringify(a)}`);
   }
   return {uid: String(a.id ?? uid), schemaId: a.schemaId, attester: a.attester, recipient: a.recipient, revoked: a.revoked};
 }
@@ -146,7 +146,7 @@ export interface RevocationDeps {
 export function requireProductionCredential(credential: CircuitCredential, proof = 'Coinbase KYC v2'): void {
   if (!credential.production) {
     throw new AppAttestError(
-      APP_ATTEST_ERROR_CODE.malformed,
+      'ios_key_dev_environment',
       `This build's App Attest key is a development (sandbox) key; ${proof} accepts production keys only ` +
         '(TestFlight and App Store builds use production).',
     );
@@ -166,14 +166,14 @@ export async function revocationClientData(
   const log = deps.log;
   const status = await (deps.fetchStatus ?? fetchAttestationStatus)(req.attestationUid, log);
   if (status.schemaId.toLowerCase() !== COINBASE_KYC_SCHEMA_UID) {
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.notFound, `Attestation ${status.uid} is schema ${status.schemaId}, not Coinbase Verified Account`);
+    throw new AppAttestError('kyc_record_wrong_schema', `Attestation ${status.uid} is schema ${status.schemaId}, not Coinbase Verified Account`);
   }
   if (ethers.utils.getAddress(status.attester) !== ethers.utils.getAddress(COINBASE_ATTESTER)) {
-    throw new AppAttestError(APP_ATTEST_ERROR_CODE.notFound, `Attestation ${status.uid} was issued by ${status.attester}, not Coinbase`);
+    throw new AppAttestError('kyc_record_wrong_issuer', `Attestation ${status.uid} was issued by ${status.attester}, not Coinbase`);
   }
   if (ethers.utils.getAddress(status.recipient) !== ethers.utils.getAddress(req.wallet)) {
     throw new AppAttestError(
-      APP_ATTEST_ERROR_CODE.notFound,
+      'kyc_record_other_wallet',
       `Attestation ${status.uid} is for ${status.recipient}, not the connected wallet ${req.wallet}`,
     );
   }
