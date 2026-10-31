@@ -526,7 +526,15 @@
         "thresholdLabel": "최소 점수",
         "thresholdInvalid": "0보다 크고 소수점 넷째 자리까지인 점수를 입력해 주세요.",
         "summary": "점수가 {{score}} 이상임을 증명",
-        "continueButton": "증명 계속하기"
+        "continueButton": "증명 계속하기",
+        "chainLabel": "체인",
+        "chainHint": "Human Passport에서 점수를 기록한 체인이에요.",
+        "chainConnectWallet": "지갑을 연결하면 확인할 수 있어요",
+        "chainChecking": "확인 중…",
+        "chainFound": "점수 {{score}} 있음",
+        "chainNone": "이 체인에는 점수가 없어요",
+        "chainUnchecked": "확인하지 못했어요",
+        "chainRequired": "점수가 기록된 체인을 선택해 주세요."
       }
     },
     "proofRequest": {

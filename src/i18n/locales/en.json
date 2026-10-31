@@ -526,7 +526,15 @@
         "thresholdLabel": "MINIMUM SCORE",
         "thresholdInvalid": "Enter a score above 0 with at most four decimals.",
         "summary": "Prove that your score is at least {{score}}",
-        "continueButton": "Continue to Proof"
+        "continueButton": "Continue to Proof",
+        "chainLabel": "CHAIN",
+        "chainHint": "The chain you recorded your score on in Human Passport.",
+        "chainConnectWallet": "Connect a wallet to check",
+        "chainChecking": "Checking…",
+        "chainFound": "Score {{score}} found",
+        "chainNone": "No score on this chain",
+        "chainUnchecked": "Could not check",
+        "chainRequired": "Choose the chain your score is on."
       }
     },
     "proofRequest": {

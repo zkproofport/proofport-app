@@ -49,14 +49,14 @@ export type ProofStackParamList = {
      */
     countryInputs?: {countryList: string[]; isIncluded: boolean};
     /** Human Passport: the threshold chosen on its screen, carried the same way. */
-    passportInputs?: {minScore: number};
+    passportInputs?: {minScore: number; chainId: number};
   };
   ProofGeneration: {
     circuitId: string;
     proofRequest?: ProofRequest;
     countryInputs?: { countryList: string[]; isIncluded: boolean };
     /** Human Passport threshold (points) from its input screen. */
-    passportInputs?: { minScore: number };
+    passportInputs?: { minScore: number; chainId: number };
     /**
      * Optional EIP-712 action for an action-capable circuit, supplied by the
      * standalone input screen or a deep link.

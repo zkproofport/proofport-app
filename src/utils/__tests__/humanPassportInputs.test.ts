@@ -21,6 +21,7 @@
 import {ethers} from 'ethers';
 import vector from './fixtures/humanPassportVector.json';
 import real from './fixtures/humanPassportRealIssuances.json';
+import byChain from './fixtures/humanPassportRealIssuancesByChain.json';
 import {
   findVerifyAndAttestCalls,
   matchIssuance,
@@ -31,7 +32,7 @@ import {
   type HumanPassportInputParams,
   type PassportRequest,
 } from '../humanPassport';
-import {HUMAN_PASSPORT_ISSUER, HUMAN_PASSPORT_ISSUER_ROOT} from '../../config/circuitIds';
+import {HUMAN_PASSPORT_CHAIN_IDS, HUMAN_PASSPORT_ISSUER, HUMAN_PASSPORT_ISSUER_LEAVES, HUMAN_PASSPORT_ISSUER_ROOT, humanPassportChain} from '../../config/circuitIds';
 
 const issuance = vector.issuance;
 const request: PassportRequest = {
@@ -78,6 +79,7 @@ function params(over: Partial<HumanPassportInputParams> = {}): HumanPassportInpu
       issuerPubkey: recoverIssuerPubkey(),
       leafIndex: vector.issuerLeafIndex,
       domainSeparator: issuance.domainSeparator,
+      head: {scorerId: vector.scorerId},
     },
     issuerLeaves: fixtureLeaves(),
     ...over,
@@ -127,7 +129,7 @@ describe('prepareHumanPassportInputs', () => {
   });
 
   it('refuses a leaf index outside the list', () => {
-    expect(() => prepareHumanPassportInputs(params({issuance: {...params().issuance, leafIndex: 3}}))).toThrow(/leaf 3/);
+    expect(() => prepareHumanPassportInputs(params({issuance: {...params().issuance, leafIndex: 9}}))).toThrow(/leaf 9/);
   });
 });
 
@@ -138,7 +140,7 @@ describe('real Base issuances', () => {
     const calls = findVerifyAndAttestCalls(item.input);
     expect(calls.length).toBeGreaterThan(0);
     const att = {...item.attestation, expirationTime: Number(item.attestation.expirationTime)};
-    const matched = calls.map(c => matchIssuance(c, att, att.recipient)).find(m => !('error' in m));
+    const matched = calls.map(c => matchIssuance(c, att, att.recipient, 8453)).find(m => !('error' in m));
     expect(matched).toBeDefined();
     if (!matched || 'error' in matched) return;
     expect(ethers.utils.computeAddress(matched.issuerPubkey)).toBe(ethers.utils.getAddress(HUMAN_PASSPORT_ISSUER));
@@ -152,31 +154,31 @@ describe('real Base issuances', () => {
   const call = () => findVerifyAndAttestCalls(direct.input)[0];
 
   it('refuses another wallet', () => {
-    expect(matchIssuance(call(), att, '0x' + '11'.repeat(20))).toMatchObject({error: expect.stringMatching(/not this wallet/)});
+    expect(matchIssuance(call(), att, '0x' + '11'.repeat(20), 8453)).toMatchObject({error: expect.stringMatching(/not this wallet/)});
   });
 
   it('refuses data other than the attestation\'s', () => {
-    expect(matchIssuance(call(), {...att, data: att.data.slice(0, -2) + (att.data.endsWith('ff') ? '00' : 'ff')}, att.recipient)).toMatchObject({error: expect.stringMatching(/other data/)});
+    expect(matchIssuance(call(), {...att, data: att.data.slice(0, -2) + (att.data.endsWith('ff') ? '00' : 'ff')}, att.recipient, 8453)).toMatchObject({error: expect.stringMatching(/other data/)});
   });
 
   it('refuses another expiry', () => {
-    expect(matchIssuance(call(), {...att, expirationTime: att.expirationTime + 1}, att.recipient)).toMatchObject({error: expect.stringMatching(/expires/)});
+    expect(matchIssuance(call(), {...att, expirationTime: att.expirationTime + 1}, att.recipient, 8453)).toMatchObject({error: expect.stringMatching(/expires/)});
   });
 
   it('refuses a request whose signature does not recover the issuer', () => {
     const c = call();
     const tampered = {...c, r: '0x' + '22'.repeat(32), v: c.v, s: c.s, attestationRequest: c.attestationRequest};
-    expect(matchIssuance(tampered as any, att, att.recipient)).toHaveProperty('error');
+    expect(matchIssuance(tampered as any, att, att.recipient, 8453)).toHaveProperty('error');
   });
 
   it('refuses another schema and a two-entry request', () => {
     const c = call();
     const req = c.attestationRequest;
     const otherSchema = {...c, attestationRequest: {...req, multiAttestationRequest: [{...req.multiAttestationRequest[0], schema: '0x' + '33'.repeat(32)}]}};
-    expect(matchIssuance(otherSchema as any, att, att.recipient)).toMatchObject({error: expect.stringMatching(/schema/)});
+    expect(matchIssuance(otherSchema as any, att, att.recipient, 8453)).toMatchObject({error: expect.stringMatching(/schema/)});
     const m = req.multiAttestationRequest[0];
     const twoEntries = {...c, attestationRequest: {...req, multiAttestationRequest: [{...m, data: [m.data[0], m.data[0]]}]}};
-    expect(matchIssuance(twoEntries as any, att, att.recipient)).toMatchObject({error: expect.stringMatching(/exactly one/)});
+    expect(matchIssuance(twoEntries as any, att, att.recipient, 8453)).toMatchObject({error: expect.stringMatching(/exactly one/)});
   });
 
   it('finds nothing in garbage, truncated calldata or a decoy selector', () => {
@@ -185,6 +187,39 @@ describe('real Base issuances', () => {
     expect(findVerifyAndAttestCalls('0x48a15e6f' + '00'.repeat(8))).toEqual([]);
     // A decoy before the real call: the real one is still found.
     expect(findVerifyAndAttestCalls('0x48a15e6fdead' + direct.input.slice(2))).toHaveLength(1);
+  });
+});
+
+describe('every chain a score can be recorded on', () => {
+  const cases = Object.entries(byChain).map(([id, item]) => [Number(id), item] as const);
+
+  it('has a real issuance for every listed chain but Base (covered above)', () => {
+    expect(cases.map(([id]) => id).sort()).toEqual(HUMAN_PASSPORT_CHAIN_IDS.filter(id => id !== 8453).sort());
+  });
+
+  it.each(cases)('chain %i: recovers the issuer under that chain\'s own verifier, with its scorer', (chainId, item) => {
+    const att = {...item.attestation, expirationTime: Number(item.attestation.expirationTime)};
+    const matched = findVerifyAndAttestCalls(item.input).map(c => matchIssuance(c, att, att.recipient, chainId)).find(m => !('error' in m));
+    expect(matched).toBeDefined();
+    if (!matched || 'error' in matched) return;
+    expect(ethers.utils.computeAddress(matched.issuerPubkey)).toBe(ethers.utils.getAddress(HUMAN_PASSPORT_ISSUER));
+    expect(matched.chainId).toBe(chainId);
+    expect(HUMAN_PASSPORT_ISSUER_LEAVES[matched.leafIndex].chainId).toBe(chainId);
+    expect(HUMAN_PASSPORT_ISSUER_LEAVES[matched.leafIndex].verifier.toLowerCase()).toBe(item.to.toLowerCase());
+    expect(matched.head.scorerId).toBe(humanPassportChain(chainId).scorerId);
+  });
+
+  it.each(cases)('chain %i: the same issuance named as another chain\'s is refused', (chainId, item) => {
+    const att = {...item.attestation, expirationTime: Number(item.attestation.expirationTime)};
+    const other = chainId === 10 ? 42161 : 10;
+    const results = findVerifyAndAttestCalls(item.input).map(c => matchIssuance(c, att, att.recipient, other));
+    expect(results.every(r => 'error' in r)).toBe(true);
+  });
+
+  it.each([1, 11155111, 84532, 0, NaN])('refuses unknown chain %p by name', chainId => {
+    const c = findVerifyAndAttestCalls(real.direct.input)[0];
+    const att = {...real.direct.attestation, expirationTime: Number(real.direct.attestation.expirationTime)};
+    expect(() => matchIssuance(c, att, att.recipient, chainId)).toThrow(/Unknown Human Passport chain/);
   });
 });
 

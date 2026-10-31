@@ -54,6 +54,7 @@ const mockGetProvider = jest.fn();
 const mockFindAttestation = jest.fn();
 const mockFindDojang = jest.fn();
 const mockFindPassport = jest.fn();
+const mockResolveChain = jest.fn();
 const mockStatement = jest.fn();
 const mockPrepareOidcSigner = jest.fn();
 const mockOidcSigner = jest.fn();
@@ -115,7 +116,11 @@ jest.mock('../../utils/humanPassport', () => {
     code: string;
     constructor(code: string, message: string) { super(message); this.code = code; }
   }
-  return {findHumanPassportScore: (...args: unknown[]) => mockFindPassport(...args), HumanPassportError};
+  return {
+    findHumanPassportScore: (...args: unknown[]) => mockFindPassport(...args),
+    resolvePassportChain: (...args: unknown[]) => mockResolveChain(...args),
+    HumanPassportError,
+  };
 });
 jest.mock('../../utils/errorBridge', () => ({showGlobalError: (...args: unknown[]) => mockShowError(...args)}));
 jest.mock('../../utils/deeplink', () => ({
@@ -189,6 +194,7 @@ beforeEach(() => {
   mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
   mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
   mockFindPassport.mockResolvedValue({request: {recipient: ACCOUNT}, head: {score: 300000}});
+  mockResolveChain.mockResolvedValue(10);
   mockStatement.mockResolvedValue({clientData: new Uint8Array(225), attestedAt: 1});
   mockPrepareOidcSigner.mockResolvedValue(mockOidcSigner);
   mockGenerate.mockResolvedValue(undefined);
@@ -338,6 +344,19 @@ describe('every inline failure path answers once, with its code', () => {
       expect(mockGenerate).not.toHaveBeenCalled();
     });
 
+  it.each([['E2021'], ['E2022'], ['E3001']])('no chain holding a usable score (%s) answers once with it, nothing proved', async code => {
+    const {HumanPassportError} = jest.requireMock('../../utils/humanPassport');
+    mockResolveChain.mockRejectedValue(new HumanPassportError(code, 'no chain'));
+    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}));
+    expectOneError(code);
+    expect(mockFindPassport).not.toHaveBeenCalled();
+  });
+
+  it('an in-app proof uses the chain the person picked', async () => {
+    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}), {passportInputs: {minScore: 20, chainId: 360}});
+    expect(mockResolveChain).toHaveBeenCalledWith(ACCOUNT, 360, 200000, expect.any(Number), expect.any(Function));
+  });
+
   it('a Human Passport lookup that threw something else -> E3001', async () => {
     mockFindPassport.mockRejectedValue(new Error('socket hang up'));
     await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}));
@@ -352,7 +371,8 @@ describe('every inline failure path answers once, with its code', () => {
 
   it('a Human Passport request proves with the requested threshold in score units', async () => {
     await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20.5}));
-    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 205000, expect.any(Number), expect.any(Function));
+    expect(mockResolveChain).toHaveBeenCalledWith(ACCOUNT, undefined, 205000, expect.any(Number), expect.any(Function));
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 10, 205000, expect.any(Number), expect.any(Function));
     expect(mockGenerate).toHaveBeenCalledTimes(1);
     expect(mockGenerate.mock.calls[0][0]).toMatchObject({userAddress: ACCOUNT, minScoreUnits: 205000, scopeString: 's'});
     expect(answers()).toHaveLength(0);

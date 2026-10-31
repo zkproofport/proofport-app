@@ -10,27 +10,55 @@
  * `verifyAndAttest`), so the lookup is: EAS record -> its transaction -> the
  * verifyAndAttest call inside it -> the issuer's signature.
  *
- * Score data is read on Base whatever the app environment, like Coinbase's:
- * Human Passport attests nowhere else we accept.
+ * A person records their score on the chain THEY choose (Base, OP Mainnet,
+ * Arbitrum One, Linea, Scroll, Shape, zkSync Era), so the lookup runs per
+ * chain, on the chain's mainnet whatever the app environment: Human Passport
+ * attests production scores nowhere else.
  */
 import {ethers} from 'ethers';
-import {STATIC_CONFIGS} from '../config/contracts';
 import {
+  HUMAN_PASSPORT_CHAIN_IDS,
   HUMAN_PASSPORT_ISSUER,
   HUMAN_PASSPORT_ISSUER_LEAVES,
   HUMAN_PASSPORT_MAX_DATA_BYTES,
-  HUMAN_PASSPORT_SCORER_ID,
   HUMAN_PASSPORT_SCORE_DECIMALS,
-  HUMAN_PASSPORT_SCORE_SCHEMA,
+  humanPassportChain,
 } from '../config/circuitIds';
 import {computeScope, computeWalletNullifier} from './circuitHelpers';
 
 export const HUMAN_PASSPORT_CIRCUIT = 'human_passport_score';
 
-const PRODUCTION = STATIC_CONFIGS.production;
-const EAS_GRAPHQL = PRODUCTION.attestation.easGraphqlEndpoint;
-const BASE_RPC_URLS = PRODUCTION.rpcUrls.base;
 const LOOKUP_TIMEOUT_MS = 10_000;
+
+/** EAS on OP-stack chains (Shape) is the predeploy. */
+const EAS_PREDEPLOY = '0x4200000000000000000000000000000000000021';
+
+/**
+ * Where each chain's scores are found. An indexer (EAS Scan GraphQL) where
+ * one exists; Shape has none, so its explorer's log search finds the
+ * attestation and the chain itself answers what it holds. Keyed by chain id;
+ * an id without a row is an error, never another chain's endpoint.
+ */
+type ChainLookup =
+  | {kind: 'easscan'; graphql: string; rpcUrls: readonly string[]}
+  | {kind: 'blockscout'; api: string; rpcUrls: readonly string[]};
+const CHAIN_LOOKUP: Readonly<Record<number, ChainLookup>> = Object.freeze({
+  8453: {kind: 'easscan', graphql: 'https://base.easscan.org/graphql', rpcUrls: ['https://base-rpc.publicnode.com', 'https://mainnet.base.org', 'https://base.drpc.org']},
+  10: {kind: 'easscan', graphql: 'https://optimism.easscan.org/graphql', rpcUrls: ['https://mainnet.optimism.io', 'https://optimism-rpc.publicnode.com']},
+  42161: {kind: 'easscan', graphql: 'https://arbitrum.easscan.org/graphql', rpcUrls: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com']},
+  59144: {kind: 'easscan', graphql: 'https://linea.easscan.org/graphql', rpcUrls: ['https://rpc.linea.build', 'https://linea-rpc.publicnode.com']},
+  534352: {kind: 'easscan', graphql: 'https://scroll.easscan.org/graphql', rpcUrls: ['https://rpc.scroll.io', 'https://scroll-rpc.publicnode.com']},
+  360: {kind: 'blockscout', api: 'https://shapescan.xyz/api', rpcUrls: ['https://mainnet.shape.network']},
+  324: {kind: 'easscan', graphql: 'https://zksync.easscan.org/graphql', rpcUrls: ['https://mainnet.era.zksync.io']},
+});
+
+export function chainLookup(chainId: number): ChainLookup {
+  humanPassportChain(chainId);
+  if (!Object.prototype.hasOwnProperty.call(CHAIN_LOOKUP, chainId)) {
+    throw new Error(`No score lookup for Human Passport chain ${chainId}. Known: ${Object.keys(CHAIN_LOOKUP).join(', ')}.`);
+  }
+  return CHAIN_LOOKUP[chainId];
+}
 
 /** verifyAndAttest(PassportAttestationRequest,uint8,bytes32,bytes32) */
 const VERIFY_AND_ATTEST =
@@ -80,6 +108,8 @@ export interface ScoreHead {
 }
 
 export interface PassportIssuance {
+  /** The chain the person recorded this score on. */
+  chainId: number;
   txHash: string;
   attestationId: string;
   request: PassportRequest;
@@ -87,7 +117,7 @@ export interface PassportIssuance {
   issuerSignature: string;
   /** Uncompressed 0x04 || x || y, recovered from the signature. */
   issuerPubkey: string;
-  /** Index into HUMAN_PASSPORT_ISSUER_LEAVES: the GitcoinVerifier whose domain signed it. */
+  /** Index into HUMAN_PASSPORT_ISSUER_LEAVES: the chain's GitcoinVerifier whose domain signed it. */
   leafIndex: number;
   domainSeparator: string;
   head: ScoreHead;
@@ -165,15 +195,17 @@ export function matchIssuance(
   call: ethers.utils.Result,
   attestation: {id: string; txid: string; recipient: string; data: string; expirationTime: number},
   wallet: string,
+  chainId: number,
 ): PassportIssuance | {error: string} {
+  const chain = humanPassportChain(chainId);
   const req = call.attestationRequest;
   if (req.multiAttestationRequest.length !== 1 || req.multiAttestationRequest[0].data.length !== 1) {
     return {error: 'the signed request does not hold exactly one attestation'};
   }
   const multi = req.multiAttestationRequest[0];
   const entry = multi.data[0];
-  if (multi.schema.toLowerCase() !== HUMAN_PASSPORT_SCORE_SCHEMA.toLowerCase()) {
-    return {error: `schema ${multi.schema} is not Human Passport's score schema`};
+  if (multi.schema.toLowerCase() !== chain.schema.toLowerCase()) {
+    return {error: `schema ${multi.schema} is not Human Passport's score schema on ${chain.name}`};
   }
   if (entry.recipient.toLowerCase() !== wallet.toLowerCase()) {
     return {error: `the request names ${entry.recipient}, not this wallet`};
@@ -197,6 +229,7 @@ export function matchIssuance(
   };
   const signature = ethers.utils.joinSignature({r: call.r, s: call.s, v: Number(call.v.toString())});
   for (let i = 0; i < HUMAN_PASSPORT_ISSUER_LEAVES.length; i++) {
+    if (HUMAN_PASSPORT_ISSUER_LEAVES[i].chainId !== chainId) continue;
     const domain = HUMAN_PASSPORT_ISSUER_LEAVES[i].domainSeparator;
     const digest = passportDigest(domain, request);
     let recovered: string;
@@ -212,7 +245,11 @@ export function matchIssuance(
     } catch (e) {
       return {error: e instanceof Error ? e.message : String(e)};
     }
+    if (head.scorerId !== chain.scorerId) {
+      return {error: `scorer ${head.scorerId}, not ${chain.name}'s ${chain.scorerId}`};
+    }
     return {
+      chainId,
       txHash: attestation.txid,
       attestationId: attestation.id,
       request,
@@ -223,7 +260,7 @@ export function matchIssuance(
       head,
     };
   }
-  return {error: "no Base GitcoinVerifier domain recovers Human Passport's issuer from this signature"};
+  return {error: `no ${chain.name} GitcoinVerifier domain recovers Human Passport's issuer from this signature`};
 }
 
 async function withTimeout<T>(what: string, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
@@ -240,85 +277,114 @@ async function withTimeout<T>(what: string, run: (signal: AbortSignal) => Promis
 
 interface EasRecord {id: string; txid: string; recipient: string; data: string; expirationTime: number; revoked: boolean}
 
-async function easScores(wallet: string, nowSeconds: number, log: (m: string) => void): Promise<EasRecord[]> {
-  const query = `query HumanPassportScores($recipient: String!, $schemaId: String!, $now: Int!) {
-    attestations(
-      where: { recipient: { equals: $recipient }, schemaId: { equals: $schemaId }, revoked: { equals: false }, expirationTime: { gt: $now } }
-      orderBy: { time: desc }
-      take: 5
-    ) { id txid recipient data expirationTime revoked }
-  }`;
-  log(`[HumanPassport] EAS lookup on Base for ${wallet}`);
-  const body = await withTimeout('The score lookup', async signal => {
-    const res = await fetch(EAS_GRAPHQL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({query, variables: {recipient: ethers.utils.getAddress(wallet), schemaId: HUMAN_PASSPORT_SCORE_SCHEMA, now: nowSeconds}}),
-      signal,
-    });
+async function postJson(url: string, body: unknown, what: string): Promise<any> {
+  return withTimeout(what, async signal => {
+    const res = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body), signal});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    if (json.errors) throw new Error(String(json.errors[0]?.message));
-    return json;
+    return res.json();
   });
-  const rows: EasRecord[] = (body?.data?.attestations ?? []).filter(
-    (a: EasRecord) => a.revoked === false && Number(a.expirationTime) > nowSeconds && a.recipient.toLowerCase() === wallet.toLowerCase(),
-  ).map((a: EasRecord) => ({...a, expirationTime: Number(a.expirationTime)}));
-  log(`[HumanPassport] ${rows.length} unexpired score(s)`);
-  return rows;
 }
 
-async function transactionInput(txHash: string, log: (m: string) => void): Promise<string> {
+async function rpc(chainId: number, method: string, params: unknown[], log: (m: string) => void): Promise<any> {
   let last: unknown;
-  for (const url of BASE_RPC_URLS) {
+  for (const url of chainLookup(chainId).rpcUrls) {
     try {
-      const input = await withTimeout(`Reading ${txHash}`, async signal => {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [txHash]}),
-          signal,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        if (!json.result?.input) throw new Error(json.error?.message ?? 'no transaction');
-        return json.result.input as string;
-      });
-      return input;
+      const json = await postJson(url, {jsonrpc: '2.0', id: 1, method, params}, `${method} on chain ${chainId}`);
+      if (json.error) throw new Error(json.error.message ?? 'rpc error');
+      return json.result;
     } catch (e) {
       last = e;
       log(`[HumanPassport] ${url}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  throw last instanceof HumanPassportError ? last : new HumanPassportError('E3001', `No Base RPC answered for ${txHash}`);
+  throw last instanceof HumanPassportError ? last : new HumanPassportError('E3001', `No RPC answered ${method} on chain ${chainId}`);
+}
+
+const EAS_IFACE = new ethers.utils.Interface([
+  'function getAttestation(bytes32 uid) view returns ((bytes32 uid, bytes32 schema, uint64 time, uint64 expirationTime, uint64 revocationTime, bytes32 refUID, address recipient, address attester, bool revocable, bytes data))',
+]);
+const ATTESTED_TOPIC = ethers.utils.id('Attested(address,address,bytes32,bytes32)');
+
+/** The wallet's unexpired, unrevoked scoreV2 attestations on one chain, newest first. */
+async function scoresOnChain(wallet: string, chainId: number, nowSeconds: number, log: (m: string) => void): Promise<EasRecord[]> {
+  const chain = humanPassportChain(chainId);
+  const lookup = chainLookup(chainId);
+  const recipient = ethers.utils.getAddress(wallet);
+  if (lookup.kind === 'easscan') {
+    const query = `query HumanPassportScores($recipient: String!, $schemaId: String!, $now: Int!) {
+      attestations(
+        where: { recipient: { equals: $recipient }, schemaId: { equals: $schemaId }, revoked: { equals: false }, expirationTime: { gt: $now } }
+        orderBy: { time: desc }
+        take: 5
+      ) { id txid recipient data expirationTime revoked }
+    }`;
+    const body = await postJson(lookup.graphql, {query, variables: {recipient, schemaId: chain.schema, now: nowSeconds}}, `The score lookup on ${chain.name}`);
+    if (body.errors) throw new HumanPassportError('E3001', `The score lookup on ${chain.name} failed: ${String(body.errors[0]?.message)}`);
+    return (body?.data?.attestations ?? [])
+      .filter((a: EasRecord) => a.revoked === false && Number(a.expirationTime) > nowSeconds && a.recipient.toLowerCase() === wallet.toLowerCase())
+      .map((a: EasRecord) => ({...a, expirationTime: Number(a.expirationTime)}));
+  }
+  // No indexer: the explorer's log search names the attestations made for
+  // this wallet under the chain's schema; the chain says what each holds now.
+  const topic = (hex: string) => ethers.utils.hexZeroPad(hex, 32).toLowerCase();
+  const url = `${lookup.api}?module=logs&action=getLogs&fromBlock=0&toBlock=latest&address=${EAS_PREDEPLOY}` +
+    `&topic0=${ATTESTED_TOPIC}&topic1=${topic(recipient)}&topic3=${chain.schema}&topic0_1_opr=and&topic0_3_opr=and&topic1_3_opr=and`;
+  const json = await withTimeout(`The score lookup on ${chain.name}`, async signal => {
+    const res = await fetch(url, {signal});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  });
+  if (!Array.isArray(json?.result)) {
+    // Blockscout answers "No logs found" with an empty or missing result.
+    if (/no logs found/i.test(String(json?.message))) return [];
+    throw new HumanPassportError('E3001', `The score lookup on ${chain.name} answered ${JSON.stringify(json?.message)}`);
+  }
+  const logs = [...json.result].sort((a: any, b: any) => Number(b.blockNumber) - Number(a.blockNumber)).slice(0, 5);
+  const records: EasRecord[] = [];
+  for (const entry of logs) {
+    const uid = ethers.utils.hexDataSlice(entry.data, 0, 32);
+    const raw = await rpc(chainId, 'eth_call', [{to: EAS_PREDEPLOY, data: EAS_IFACE.encodeFunctionData('getAttestation', [uid])}, 'latest'], log);
+    const [a] = EAS_IFACE.decodeFunctionResult('getAttestation', raw);
+    const expirationTime = Number(a.expirationTime.toString());
+    if (a.uid.toLowerCase() !== uid.toLowerCase() || a.schema.toLowerCase() !== chain.schema.toLowerCase()) continue;
+    if (a.recipient.toLowerCase() !== wallet.toLowerCase()) continue;
+    if (!a.revocationTime.isZero() || !(expirationTime > nowSeconds)) continue;
+    records.push({id: uid, txid: entry.transactionHash, recipient: a.recipient, data: a.data, expirationTime, revoked: false});
+  }
+  return records;
 }
 
 /**
- * The wallet's newest unexpired Human Passport score that the circuit can
- * prove, checked against `minScoreUnits` before anything is signed.
+ * The wallet's newest unexpired Human Passport score on `chainId` that the
+ * circuit can prove, checked against `minScoreUnits` before anything is
+ * signed. `chainId` must be one of HUMAN_PASSPORT_CHAINS: the person chose it.
  */
 export async function findHumanPassportScore(
   wallet: string,
+  chainId: number,
   minScoreUnits: number,
   nowSeconds: number,
   log: (m: string) => void,
 ): Promise<PassportIssuance> {
-  const records = await easScores(wallet, nowSeconds, log);
+  const chain = humanPassportChain(chainId);
+  log(`[HumanPassport] Looking up ${wallet} on ${chain.name} (${chainId})`);
+  const records = await scoresOnChain(wallet, chainId, nowSeconds, log);
+  log(`[HumanPassport] ${records.length} unexpired score(s) on ${chain.name}`);
   if (records.length === 0) {
-    throw new HumanPassportError('E2021', `No unexpired Human Passport score on Base for ${wallet}`);
+    throw new HumanPassportError('E2021', `No unexpired Human Passport score on ${chain.name} for ${wallet}`);
   }
   const refusals: string[] = [];
   for (const record of records) {
-    const input = await transactionInput(record.txid, log);
-    const calls = findVerifyAndAttestCalls(input);
+    const tx = await rpc(chainId, 'eth_getTransactionByHash', [record.txid], log);
+    if (!tx?.input) {
+      refusals.push(`${record.id}: transaction ${record.txid} not found`);
+      continue;
+    }
+    const calls = findVerifyAndAttestCalls(tx.input);
     for (const call of calls) {
-      const matched = matchIssuance(call, record, wallet);
+      const matched = matchIssuance(call, record, wallet, chainId);
       if ('error' in matched) {
         refusals.push(`${record.id}: ${matched.error}`);
-        continue;
-      }
-      if (matched.head.scorerId !== HUMAN_PASSPORT_SCORER_ID) {
-        refusals.push(`${record.id}: scorer ${matched.head.scorerId}, not ${HUMAN_PASSPORT_SCORER_ID}`);
         continue;
       }
       const dataBytes = ethers.utils.hexDataLength(matched.request.data);
@@ -326,14 +392,77 @@ export async function findHumanPassportScore(
         throw new HumanPassportError('E2023', `Score data is ${dataBytes} bytes; the proof holds ${HUMAN_PASSPORT_MAX_DATA_BYTES}`);
       }
       if (matched.head.score < minScoreUnits) {
-        throw new HumanPassportError('E2022', `Score ${matched.head.score / 1e4} is below the requested ${minScoreUnits / 1e4}`);
+        throw new HumanPassportError('E2022', `Score ${matched.head.score / 1e4} on ${chain.name} is below the requested ${minScoreUnits / 1e4}`);
       }
-      log(`[HumanPassport] Using ${record.id} (tx ${record.txid}), verifier leaf ${matched.leafIndex}, ${dataBytes} data bytes`);
+      log(`[HumanPassport] Using ${record.id} on ${chain.name} (tx ${record.txid}), verifier leaf ${matched.leafIndex}, ${dataBytes} data bytes`);
       return matched;
     }
     if (calls.length === 0) refusals.push(`${record.id}: no verifyAndAttest call in ${record.txid}`);
   }
-  throw new HumanPassportError('E2021', `No usable Human Passport score: ${refusals.join('; ')}`);
+  throw new HumanPassportError('E2021', `No usable Human Passport score on ${chain.name}: ${refusals.join('; ')}`);
+}
+
+/** What one chain holds for the wallet, for the chain picker. */
+export type ChainScoreState =
+  | {chainId: number; state: 'found'; score: number; expirationTime: number}
+  | {chainId: number; state: 'none'}
+  | {chainId: number; state: 'unchecked'; reason: string};
+
+/**
+ * Every Human Passport chain, looked up at once for the chain picker: where
+ * the wallet holds an unexpired score (and the score), where it holds none,
+ * and where the lookup did not finish -- three different answers, never one
+ * read as another. The score shown is the attestation's own head; the proof
+ * flow checks the issuer signature again before signing.
+ */
+export async function surveyHumanPassportChains(
+  wallet: string,
+  nowSeconds: number,
+  log: (m: string) => void,
+): Promise<ChainScoreState[]> {
+  return Promise.all(HUMAN_PASSPORT_CHAIN_IDS.map(async (chainId): Promise<ChainScoreState> => {
+    try {
+      const records = await scoresOnChain(wallet, chainId, nowSeconds, log);
+      if (records.length === 0) return {chainId, state: 'none'};
+      const head = readScoreHead(records[0].data);
+      return {chainId, state: 'found', score: head.score, expirationTime: records[0].expirationTime};
+    } catch (e) {
+      return {chainId, state: 'unchecked', reason: e instanceof Error ? e.message : String(e)};
+    }
+  }));
+}
+
+/**
+ * The chain to prove from. The person's pick when there is one (it must be a
+ * Human Passport chain); otherwise -- a dApp request, which has no picker --
+ * every chain is looked up and the score that meets the threshold is used,
+ * the newest when several do (each proves the same statement; the chain is
+ * not in the proof). With none: E2022 when a score exists but is too low,
+ * E3001 when a lookup did not finish (it might hold one), else E2021.
+ */
+export async function resolvePassportChain(
+  wallet: string,
+  picked: number | undefined,
+  minScoreUnits: number,
+  nowSeconds: number,
+  log: (m: string) => void,
+): Promise<number> {
+  if (picked !== undefined) return humanPassportChain(picked).chainId;
+  const states = await surveyHumanPassportChains(wallet, nowSeconds, log);
+  for (const st of states) {
+    log(`[HumanPassport] chain ${st.chainId}: ${st.state}${st.state === 'found' ? ` score ${st.score / 1e4}` : st.state === 'unchecked' ? ` (${st.reason})` : ''}`);
+  }
+  const meeting = states
+    .filter((st): st is Extract<ChainScoreState, {state: 'found'}> => st.state === 'found' && st.score >= minScoreUnits)
+    .sort((a, b) => b.expirationTime - a.expirationTime);
+  if (meeting.length > 0) return meeting[0].chainId;
+  if (states.some(st => st.state === 'found')) {
+    throw new HumanPassportError('E2022', `No Human Passport score of at least ${minScoreUnits / 1e4} on any chain`);
+  }
+  if (states.some(st => st.state === 'unchecked')) {
+    throw new HumanPassportError('E3001', 'The score lookup did not finish on every chain');
+  }
+  throw new HumanPassportError('E2021', `No unexpired Human Passport score on any chain for ${wallet}`);
 }
 
 const bytes = (hex: string) => Array.from(ethers.utils.arrayify(hex)).map(b => b.toString());
@@ -369,7 +498,7 @@ export interface HumanPassportInputParams {
   scopeString: string;
   minScoreUnits: number;
   nowSeconds: number;
-  issuance: Pick<PassportIssuance, 'request' | 'issuerSignature' | 'issuerPubkey' | 'leafIndex' | 'domainSeparator'>;
+  issuance: Pick<PassportIssuance, 'request' | 'issuerSignature' | 'issuerPubkey' | 'leafIndex' | 'domainSeparator'> & {head: Pick<ScoreHead, 'scorerId'>};
   /** The issuer list the leaf index points into: HUMAN_PASSPORT_ISSUER_LEAVES' leaves in production. */
   issuerLeaves: readonly string[];
 }
@@ -407,7 +536,7 @@ export function prepareHumanPassportInputs(p: HumanPassportInputParams): string[
     ...Array.from(scope).map(String),
     ...Array.from(nullifier).map(String),
     p.minScoreUnits.toString(),
-    HUMAN_PASSPORT_SCORER_ID.toString(),
+    p.issuance.head.scorerId.toString(),
     p.nowSeconds.toString(),
     ...bytes(p.userAddress),
     ...bytes(sig.r), ...bytes(sig.s),

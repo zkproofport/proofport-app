@@ -23,7 +23,7 @@ import {
   type StepData,
 } from '../../components/ui';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useHumanPassport, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
-import {findHumanPassportScore, HumanPassportError, type PassportIssuance} from '../../utils/humanPassport';
+import {findHumanPassportScore, HumanPassportError, resolvePassportChain, type PassportIssuance} from '../../utils/humanPassport';
 import {humanPassportScoreUnits} from '../../config/circuitIds';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, nullifierForCircuit} from '../../utils';
@@ -1085,8 +1085,14 @@ export const ProofGenerationScreen: React.FC = () => {
         addLog(`=== Searching for a Human Passport score >= ${minScoreUnits / 1e4} ===`);
         let issuance: PassportIssuance;
         try {
+          const nowSeconds = Math.floor(Date.now() / 1000);
+          // The chain the person picked on the Human Passport screen; for a
+          // dApp request (no picker) the chain holding a score that meets the
+          // threshold -- never a chain assumed without looking.
+          const chainId = await timer.step('score chain', () =>
+            resolvePassportChain(walletAddress, route.params?.passportInputs?.chainId, minScoreUnits, nowSeconds, addLog));
           issuance = await timer.step('score lookup', () =>
-            findHumanPassportScore(walletAddress, minScoreUnits, Math.floor(Date.now() / 1000), addLog));
+            findHumanPassportScore(walletAddress, chainId, minScoreUnits, nowSeconds, addLog));
         } catch (e) {
           const details = e instanceof Error ? e.message : String(e);
           const code: ErrorCode = e instanceof HumanPassportError ? e.code : 'E3001';

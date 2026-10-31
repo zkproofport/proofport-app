@@ -55,12 +55,15 @@ import {
   HUMAN_PASSPORT_ISSUER_LEAVES,
   HUMAN_PASSPORT_ISSUER_ROOT,
   HUMAN_PASSPORT_MAX_DATA_BYTES,
-  HUMAN_PASSPORT_SCORER_ID,
+  HUMAN_PASSPORT_SCORER_IDS,
+  HUMAN_PASSPORT_CHAINS,
+  HUMAN_PASSPORT_CHAIN_IDS,
+  humanPassportChain,
   HUMAN_PASSPORT_SCORE_DECIMALS,
-  HUMAN_PASSPORT_SCORE_SCHEMA,
   humanPassportScoreUnits,
   type CircuitId,
   type CircuitSupportStatus,
+  type HumanPassportChain,
 } from '@zkproofport-app/core/circuits';
 
 export {
@@ -83,12 +86,14 @@ export {
   HUMAN_PASSPORT_ISSUER_LEAVES,
   HUMAN_PASSPORT_ISSUER_ROOT,
   HUMAN_PASSPORT_MAX_DATA_BYTES,
-  HUMAN_PASSPORT_SCORER_ID,
+  HUMAN_PASSPORT_SCORER_IDS,
+  HUMAN_PASSPORT_CHAINS,
+  HUMAN_PASSPORT_CHAIN_IDS,
+  humanPassportChain,
   HUMAN_PASSPORT_SCORE_DECIMALS,
-  HUMAN_PASSPORT_SCORE_SCHEMA,
   humanPassportScoreUnits,
 };
-export type {CircuitId, CircuitSupportStatus};
+export type {CircuitId, CircuitSupportStatus, HumanPassportChain};
 
 /**
  * The app's long-standing name for a canonical circuit id. Kept as an alias so
