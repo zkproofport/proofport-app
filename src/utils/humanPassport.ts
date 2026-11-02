@@ -1,6 +1,6 @@
 /**
  * Human Passport score (`human_passport_score`): find the wallet's signed score
- * on Base and build the circuit's inputs.
+ * on the chain its owner recorded it on, and build the circuit's inputs.
  *
  * What the circuit proves (circuits human-passport-score/src/main.nr): a
  * scoreV2 attestation request signed (EIP-712) by Human Passport's issuer
@@ -11,9 +11,12 @@
  * verifyAndAttest call inside it -> the issuer's signature.
  *
  * A person records their score on the chain THEY choose (Base, OP Mainnet,
- * Arbitrum One, Linea, Scroll, Shape, zkSync Era), so the lookup runs per
- * chain, on the chain's mainnet whatever the app environment: Human Passport
- * attests production scores nowhere else.
+ * Arbitrum One, Linea, Scroll, zkSync Era: the six Human Passport's own "Go
+ * Onchain" screen offers), so the lookup runs per chain, on the chain's
+ * mainnet whatever the app environment: Human Passport attests production
+ * scores nowhere else. Linea's screen says "Attestation on Verax": the same
+ * transaction writes the score to Linea's EAS too, so Linea's EAS index finds
+ * every one (circuits human-passport-score/README.md).
  */
 import {ethers} from 'ethers';
 import {
@@ -30,25 +33,18 @@ export const HUMAN_PASSPORT_CIRCUIT = 'human_passport_score';
 
 const LOOKUP_TIMEOUT_MS = 10_000;
 
-/** EAS on OP-stack chains (Shape) is the predeploy. */
-const EAS_PREDEPLOY = '0x4200000000000000000000000000000000000021';
-
 /**
- * Where each chain's scores are found. An indexer (EAS Scan GraphQL) where
- * one exists; Shape has none, so its explorer's log search finds the
- * attestation and the chain itself answers what it holds. Keyed by chain id;
- * an id without a row is an error, never another chain's endpoint.
+ * Where each chain's scores are found: its EAS Scan GraphQL index, and the
+ * chain's RPCs for the recording transaction. Keyed by chain id; an id
+ * without a row is an error, never another chain's endpoint.
  */
-type ChainLookup =
-  | {kind: 'easscan'; graphql: string; rpcUrls: readonly string[]}
-  | {kind: 'blockscout'; api: string; rpcUrls: readonly string[]};
+type ChainLookup = {kind: 'easscan'; graphql: string; rpcUrls: readonly string[]};
 const CHAIN_LOOKUP: Readonly<Record<number, ChainLookup>> = Object.freeze({
   8453: {kind: 'easscan', graphql: 'https://base.easscan.org/graphql', rpcUrls: ['https://base-rpc.publicnode.com', 'https://mainnet.base.org', 'https://base.drpc.org']},
   10: {kind: 'easscan', graphql: 'https://optimism.easscan.org/graphql', rpcUrls: ['https://mainnet.optimism.io', 'https://optimism-rpc.publicnode.com']},
   42161: {kind: 'easscan', graphql: 'https://arbitrum.easscan.org/graphql', rpcUrls: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com']},
   59144: {kind: 'easscan', graphql: 'https://linea.easscan.org/graphql', rpcUrls: ['https://rpc.linea.build', 'https://linea-rpc.publicnode.com']},
   534352: {kind: 'easscan', graphql: 'https://scroll.easscan.org/graphql', rpcUrls: ['https://rpc.scroll.io', 'https://scroll-rpc.publicnode.com']},
-  360: {kind: 'blockscout', api: 'https://shapescan.xyz/api', rpcUrls: ['https://mainnet.shape.network']},
   324: {kind: 'easscan', graphql: 'https://zksync.easscan.org/graphql', rpcUrls: ['https://mainnet.era.zksync.io']},
 });
 
@@ -300,58 +296,23 @@ async function rpc(chainId: number, method: string, params: unknown[], log: (m: 
   throw last instanceof HumanPassportError ? last : new HumanPassportError('E3001', `No RPC answered ${method} on chain ${chainId}`);
 }
 
-const EAS_IFACE = new ethers.utils.Interface([
-  'function getAttestation(bytes32 uid) view returns ((bytes32 uid, bytes32 schema, uint64 time, uint64 expirationTime, uint64 revocationTime, bytes32 refUID, address recipient, address attester, bool revocable, bytes data))',
-]);
-const ATTESTED_TOPIC = ethers.utils.id('Attested(address,address,bytes32,bytes32)');
-
 /** The wallet's unexpired, unrevoked scoreV2 attestations on one chain, newest first. */
 async function scoresOnChain(wallet: string, chainId: number, nowSeconds: number, log: (m: string) => void): Promise<EasRecord[]> {
   const chain = humanPassportChain(chainId);
   const lookup = chainLookup(chainId);
   const recipient = ethers.utils.getAddress(wallet);
-  if (lookup.kind === 'easscan') {
-    const query = `query HumanPassportScores($recipient: String!, $schemaId: String!, $now: Int!) {
-      attestations(
-        where: { recipient: { equals: $recipient }, schemaId: { equals: $schemaId }, revoked: { equals: false }, expirationTime: { gt: $now } }
-        orderBy: { time: desc }
-        take: 5
-      ) { id txid recipient data expirationTime revoked }
-    }`;
-    const body = await postJson(lookup.graphql, {query, variables: {recipient, schemaId: chain.schema, now: nowSeconds}}, `The score lookup on ${chain.name}`);
-    if (body.errors) throw new HumanPassportError('E3001', `The score lookup on ${chain.name} failed: ${String(body.errors[0]?.message)}`);
-    return (body?.data?.attestations ?? [])
-      .filter((a: EasRecord) => a.revoked === false && Number(a.expirationTime) > nowSeconds && a.recipient.toLowerCase() === wallet.toLowerCase())
-      .map((a: EasRecord) => ({...a, expirationTime: Number(a.expirationTime)}));
-  }
-  // No indexer: the explorer's log search names the attestations made for
-  // this wallet under the chain's schema; the chain says what each holds now.
-  const topic = (hex: string) => ethers.utils.hexZeroPad(hex, 32).toLowerCase();
-  const url = `${lookup.api}?module=logs&action=getLogs&fromBlock=0&toBlock=latest&address=${EAS_PREDEPLOY}` +
-    `&topic0=${ATTESTED_TOPIC}&topic1=${topic(recipient)}&topic3=${chain.schema}&topic0_1_opr=and&topic0_3_opr=and&topic1_3_opr=and`;
-  const json = await withTimeout(`The score lookup on ${chain.name}`, async signal => {
-    const res = await fetch(url, {signal});
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  });
-  if (!Array.isArray(json?.result)) {
-    // Blockscout answers "No logs found" with an empty or missing result.
-    if (/no logs found/i.test(String(json?.message))) return [];
-    throw new HumanPassportError('E3001', `The score lookup on ${chain.name} answered ${JSON.stringify(json?.message)}`);
-  }
-  const logs = [...json.result].sort((a: any, b: any) => Number(b.blockNumber) - Number(a.blockNumber)).slice(0, 5);
-  const records: EasRecord[] = [];
-  for (const entry of logs) {
-    const uid = ethers.utils.hexDataSlice(entry.data, 0, 32);
-    const raw = await rpc(chainId, 'eth_call', [{to: EAS_PREDEPLOY, data: EAS_IFACE.encodeFunctionData('getAttestation', [uid])}, 'latest'], log);
-    const [a] = EAS_IFACE.decodeFunctionResult('getAttestation', raw);
-    const expirationTime = Number(a.expirationTime.toString());
-    if (a.uid.toLowerCase() !== uid.toLowerCase() || a.schema.toLowerCase() !== chain.schema.toLowerCase()) continue;
-    if (a.recipient.toLowerCase() !== wallet.toLowerCase()) continue;
-    if (!a.revocationTime.isZero() || !(expirationTime > nowSeconds)) continue;
-    records.push({id: uid, txid: entry.transactionHash, recipient: a.recipient, data: a.data, expirationTime, revoked: false});
-  }
-  return records;
+  const query = `query HumanPassportScores($recipient: String!, $schemaId: String!, $now: Int!) {
+    attestations(
+      where: { recipient: { equals: $recipient }, schemaId: { equals: $schemaId }, revoked: { equals: false }, expirationTime: { gt: $now } }
+      orderBy: { time: desc }
+      take: 5
+    ) { id txid recipient data expirationTime revoked }
+  }`;
+  const body = await postJson(lookup.graphql, {query, variables: {recipient, schemaId: chain.schema, now: nowSeconds}}, `The score lookup on ${chain.name}`);
+  if (body.errors) throw new HumanPassportError('E3001', `The score lookup on ${chain.name} failed: ${String(body.errors[0]?.message)}`);
+  return (body?.data?.attestations ?? [])
+    .filter((a: EasRecord) => a.revoked === false && Number(a.expirationTime) > nowSeconds && a.recipient.toLowerCase() === wallet.toLowerCase())
+    .map((a: EasRecord) => ({...a, expirationTime: Number(a.expirationTime)}));
 }
 
 /**

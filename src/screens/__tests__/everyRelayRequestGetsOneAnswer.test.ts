@@ -353,8 +353,8 @@ describe('every inline failure path answers once, with its code', () => {
   });
 
   it('an in-app proof uses the chain the person picked', async () => {
-    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}), {passportInputs: {minScore: 20, chainId: 360}});
-    expect(mockResolveChain).toHaveBeenCalledWith(ACCOUNT, 360, 200000, expect.any(Number), expect.any(Function));
+    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}), {passportInputs: {minScore: 20, chainId: 59144}});
+    expect(mockResolveChain).toHaveBeenCalledWith(ACCOUNT, 59144, 200000, expect.any(Number), expect.any(Function));
   });
 
   it('a Human Passport lookup that threw something else -> E3001', async () => {

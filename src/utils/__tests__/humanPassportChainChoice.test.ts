@@ -5,8 +5,9 @@
  * nothing is looked up); with no pick every chain is looked up: none anywhere
  * -> E2021, only too-low scores -> E2022, nothing found but a lookup that did
  * not finish -> E3001 (never read as "none"), one chain meeting the threshold
- * -> it, several -> the newest; Shape (no indexer) answers through the
- * explorer's log search and "No logs found" is "none", not a failure.
+ * -> it, several -> the newest. Shape (360) is not a chain the app accepts:
+ * picked, it is refused by name with the known list; surveyed, it is never
+ * asked, so a wallet whose only score is on Shape gets E2021.
  */
 import real from './fixtures/humanPassportRealIssuances.json';
 import {resolvePassportChain, surveyHumanPassportChains, HumanPassportError} from '../humanPassport';
@@ -19,9 +20,6 @@ type Answer = {kind: 'scores'; rows: {expirationTime: number}[]} | {kind: 'fail'
 let answers: Record<string, Answer>;
 const fetchMock = jest.fn(async (url: string) => {
   const host = new URL(url).host;
-  if (host === 'shapescan.xyz') {
-    return {ok: true, json: async () => ({message: 'No logs found', result: []})} as any;
-  }
   const a = answers[host] ?? {kind: 'scores', rows: []};
   if (a.kind === 'fail') throw new Error('network down');
   return {
@@ -40,18 +38,26 @@ beforeEach(() => {
 
 const log = () => {};
 
-it('uses the picked chain without looking anything up', async () => {
-  expect(await resolvePassportChain(WALLET, 360, 200000, NOW, log)).toBe(360);
+it.each([8453, 10, 42161, 59144, 534352, 324])('uses the picked chain %i without looking anything up', async id => {
+  expect(await resolvePassportChain(WALLET, id, 200000, NOW, log)).toBe(id);
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
-it.each([1, 84532, 0, NaN])('refuses an unknown picked chain %p by name', async id => {
-  await expect(resolvePassportChain(WALLET, id, 200000, NOW, log)).rejects.toThrow(/Unknown Human Passport chain/);
+it.each([360, 1, 84532, 0, NaN, -1, 1.5, '8453', 'shape', 'Shape', 'SHAPE', '', null])('refuses a picked chain %p by name, listing the known chains, before any lookup', async id => {
+  await expect(resolvePassportChain(WALLET, id as never, 200000, NOW, log))
+    .rejects.toThrow(/Unknown Human Passport chain .*Known: 8453, 10, 42161, 59144, 534352, 324\./);
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it('a wallet whose only score is on Shape: Shape is never asked, and the answer is E2021', async () => {
+  await expect(resolvePassportChain(WALLET, undefined, 200000, NOW, log)).rejects.toMatchObject({code: 'E2021'});
+  const hosts = fetchMock.mock.calls.map(c => new URL(c[0]).host).sort();
+  expect(hosts).toEqual(['arbitrum.easscan.org', 'base.easscan.org', 'linea.easscan.org', 'optimism.easscan.org', 'scroll.easscan.org', 'zksync.easscan.org']);
 });
 
 it('no score anywhere -> E2021', async () => {
   await expect(resolvePassportChain(WALLET, undefined, 200000, NOW, log)).rejects.toMatchObject({code: 'E2021'});
-  expect(fetchMock).toHaveBeenCalledTimes(7);
+  expect(fetchMock).toHaveBeenCalledTimes(6);
 });
 
 it('only scores below the threshold -> E2022', async () => {
@@ -83,7 +89,7 @@ it('the survey keeps found, none and unchecked apart, for every chain', async ()
   answers['zksync.easscan.org'] = {kind: 'fail'};
   const states = await surveyHumanPassportChains(WALLET, NOW, log);
   expect(states.map(s => [s.chainId, s.state])).toEqual([
-    [8453, 'found'], [10, 'none'], [42161, 'none'], [59144, 'none'], [534352, 'none'], [360, 'none'], [324, 'unchecked'],
+    [8453, 'found'], [10, 'none'], [42161, 'none'], [59144, 'none'], [534352, 'none'], [324, 'unchecked'],
   ]);
   expect(states[0]).toMatchObject({score: 205470});
 });

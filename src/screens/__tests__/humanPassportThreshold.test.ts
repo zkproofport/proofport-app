@@ -70,6 +70,13 @@ const button = () => tree.root.findByType('Button' as any);
 const type = (text: string) => act(() => input().props.onChangeText(text));
 const texts = () => tree.root.findAllByType('Text' as any).map(n => [].concat(n.props.children).join(''));
 
+it('offers exactly the six chains Human Passport offers, and no Shape', () => {
+  const rows = tree.root.findAll(n => typeof n.props.testID === 'string' && /^chain-row-\d+$/.test(n.props.testID));
+  const ids = [...new Set(rows.map(n => Number(n.props.testID.slice('chain-row-'.length))))].sort((a, b) => a - b);
+  expect(ids).toEqual([10, 324, 8453, 42161, 59144, 534352]);
+  expect(texts().join(' ')).not.toMatch(/Shape/);
+});
+
 it('starts at 20 with no chain chosen, and does not continue until one is', () => {
   expect(input().props.value).toBe('20');
   expect(button().props.disabled).toBe(true);
@@ -90,7 +97,7 @@ it('with a wallet, looks up every chain, preselects the newest score and says wh
     {chainId: 10, state: 'found', score: 300000, expirationTime: 200},
     {chainId: 42161, state: 'none'},
     {chainId: 59144, state: 'unchecked', reason: 'timeout'},
-    {chainId: 534352, state: 'none'}, {chainId: 360, state: 'none'}, {chainId: 324, state: 'none'},
+    {chainId: 534352, state: 'none'}, {chainId: 324, state: 'none'},
   ]);
   await act(async () => {tree = create(React.createElement(HumanPassportInputScreen));});
   expect(mockSurvey).toHaveBeenCalledWith(mockAccount, expect.any(Number), expect.any(Function));
