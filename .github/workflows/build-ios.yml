@@ -13,7 +13,10 @@ jobs:
     # build itself took seventeen minutes and succeeded — only Apple's
     # validation refused it, so nothing in the log before that line looks wrong.
     runs-on: macos-26
-    timeout-minutes: 30
+    # 45, not 30: run 41420053752 (2026-11-02) uploaded build 20 to TestFlight
+    # at minute 27, then the node_modules cache save ran past 30 and the run
+    # was cancelled -- a red run over a good upload. Earlier runs took 27-29.
+    timeout-minutes: 45
     steps:
       # proofport-app depends on three sibling packages from the OpenStoa repo
       # via `file:../openstoa/packages/*` (see package.json / metro.config.js).
