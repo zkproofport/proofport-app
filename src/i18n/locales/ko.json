@@ -533,6 +533,8 @@
         "chainChecking": "확인 중…",
         "chainFound": "점수 {{score}} 있음",
         "chainFoundBelow": "점수 {{score}} 있음 · 기준 {{min}} 미만",
+        "chainRefusedBelow": "이 체인의 점수는 {{min}} 미만이에요",
+        "chainTryAnother": "{{chain}}에는 쓸 수 있는 점수가 없어요. 다른 체인을 선택해 주세요.",
         "chainNone": "이 체인에는 점수가 없어요",
         "chainUnchecked": "확인하지 못했어요",
         "chainRequired": "점수가 기록된 체인을 선택해 주세요."

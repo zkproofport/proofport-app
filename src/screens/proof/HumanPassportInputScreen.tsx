@@ -21,7 +21,7 @@ import {useTranslation} from 'react-i18next';
 import {Button, Card} from '../../components/ui';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
-import {humanPassportScoreUnits} from '../../config/circuitIds';
+import {HUMAN_PASSPORT_CHAIN_IDS, humanPassportScoreUnits} from '../../config/circuitIds';
 import {useWallet} from '../../hooks/useWallet';
 import {preselectPassportChain, surveyHumanPassportChains, type ChainScoreState} from '../../utils/humanPassport';
 import {HumanPassportChainPicker} from '../../components/HumanPassportChainPicker';
@@ -49,6 +49,12 @@ export const HumanPassportInputScreen: React.FC = () => {
     setStates(null);
     // The threshold can still change here, so the newest score is preselected.
     surveyHumanPassportChains(account, Math.floor(Date.now() / 1000), line => console.log(line))
+      // A lookup that failed outright leaves every row "could not check",
+      // never "checking" forever, and nothing preselected.
+      .catch((e: unknown): ChainScoreState[] => {
+        const reason = e instanceof Error ? e.message : String(e);
+        return HUMAN_PASSPORT_CHAIN_IDS.map(chainId => ({chainId, state: 'unchecked', reason}));
+      })
       .then(found => {
         if (cancelled) return;
         setStates(Object.fromEntries(found.map(st => [st.chainId, st])));

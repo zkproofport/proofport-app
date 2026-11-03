@@ -65,22 +65,58 @@ import {deviceProfile, setActiveProofTimer, startProofTimer, timed, type ProofTi
 import {getProofProgress, resetProofProgress, updateProofProgress} from '../../utils/proofProgress';
 import {clearProofInFlight, markProofInFlight} from '../../utils/proofInFlight';
 import {claimGenerationScreen, markGenerationScreenBusy, markGenerationScreenIdle, releaseGenerationScreen} from '../../stores/generationScreenStore';
-import {markOpenRequestProving} from '../../utils/relayAnswer';
+import {markOpenRequestProving, unmarkOpenRequestProving} from '../../utils/relayAnswer';
 import {ProofProgressCard} from '../../components/ProofProgressCard';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 
 /**
- * A dApp's Human Passport request waiting for the person to choose the chain
- * their score is on: the wallet the gate returned, the request's threshold,
- * each chain's lookup (null while it runs) and the chosen chain.
+ * The chain picker on this screen: a dApp's Human Passport request before it
+ * is proved, or any Human Passport proof whose chosen chain was refused. The
+ * wallet the gate returned, the threshold, each chain's lookup (null while it
+ * runs), the chosen chain and the chains refused so far.
  */
 type PassportChainPick = {
   account: string;
   minScoreUnits: number;
   states: Record<number, ChainScoreState> | null;
   chainId: number | null;
+  /** Chains this wallet's lookup already refused: no usable score, or one below the threshold. */
+  refused: Record<number, PassportRefusal>;
+  /** The chain just refused, named above the rows. */
+  lastRefused: number | null;
 };
+
+type PassportRefusal = 'none' | 'below';
+
+const sameWallet = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/**
+ * Whether the person can still prove from another chain: one not refused yet
+ * holds a score meeting the threshold, or could not be checked (it may hold
+ * one). Otherwise the refusal is the answer.
+ */
+export function passportChainLeft(
+  states: readonly ChainScoreState[],
+  refused: Readonly<Record<number, PassportRefusal>>,
+  minScoreUnits: number,
+): boolean {
+  return states.some(st => !Object.prototype.hasOwnProperty.call(refused, st.chainId) &&
+    (st.state === 'unchecked' || (st.state === 'found' && st.score >= minScoreUnits)));
+}
+
+/**
+ * Whether the lookups say this wallet holds no score anywhere: every chain
+ * none (or refused as none), none unchecked, none with a score below the
+ * threshold. Only that is an answer about the WALLET; anything else is about
+ * the chain that was chosen.
+ */
+export function passportNoScoreAnywhere(
+  states: readonly ChainScoreState[],
+  refused: Readonly<Record<number, PassportRefusal>>,
+): boolean {
+  return states.every(st => st.state === 'none' || refused[st.chainId] === 'none');
+}
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
 
 /**
@@ -401,6 +437,10 @@ export const ProofGenerationScreen: React.FC = () => {
   const [passportPick, setPassportPick] = useState<PassportChainPick | null>(null);
   const passportChainRef = useRef<{account: string; chainId: number} | null>(null);
   const passportSurveyRef = useRef(0);
+  // The latest six-chain lookup and the chains refused since, per wallet: a
+  // refused chain sends the person back to the picker, not the wallet picker.
+  const passportStatesRef = useRef<{account: string; states: ChainScoreState[]} | null>(null);
+  const passportRefusedRef = useRef<{account: string; refused: Record<number, PassportRefusal>} | null>(null);
   const {logs, addLog, clearLogs, getLatestLogs} = useLogs();
   const {settings} = useSettings();
 
@@ -793,32 +833,62 @@ export const ProofGenerationScreen: React.FC = () => {
     });
   }, [flow, circuitId, addLog, t, failAttempt]);
 
-  /**
-   * Open the chain picker for `address`, and look up every chain at once to
-   * say what each holds. A later survey (another wallet, another opening)
-   * replaces this one's answer.
-   */
-  const openPassportPicker = useCallback((address: string, minScoreUnits: number) => {
-    const survey = ++passportSurveyRef.current;
-    passportChainRef.current = null;
-    setPassportPick({account: address, minScoreUnits, states: null, chainId: null});
-    addLog(`[HumanPassport] Looking up every chain for ${address}; the chain is the person's choice`);
-    surveyHumanPassportChains(address, Math.floor(Date.now() / 1000), addLog)
+  /** The chains this wallet's lookups refused so far (empty for a new wallet). */
+  const refusedFor = useCallback((address: string): Record<number, PassportRefusal> => {
+    const held = passportRefusedRef.current;
+    if (held && sameWallet(held.account, address)) return held.refused;
+    const fresh = {account: address, refused: {} as Record<number, PassportRefusal>};
+    passportRefusedRef.current = fresh;
+    return fresh.refused;
+  }, []);
+
+  /** Six-chain lookup for `address`; a failure reads as every chain unchecked, never as none. */
+  const surveyPassportChains = useCallback(async (address: string): Promise<ChainScoreState[]> => {
+    const found = await surveyHumanPassportChains(address, Math.floor(Date.now() / 1000), addLog)
       .catch((e: unknown): ChainScoreState[] => {
         const reason = e instanceof Error ? e.message : String(e);
         return HUMAN_PASSPORT_CHAIN_IDS.map(chainId => ({chainId, state: 'unchecked', reason}));
-      })
-      .then(found => {
-        if (passportSurveyRef.current !== survey) return;
-        for (const st of found) {
-          addLog(`[HumanPassport] chain ${st.chainId}: ${st.state}${st.state === 'found' ? ` score ${st.score / 1e4}` : st.state === 'unchecked' ? ` (${st.reason})` : ''}`);
-        }
-        const preselected = preselectPassportChain(found, minScoreUnits);
-        setPassportPick(pick => (pick && pick.account === address
-          ? {...pick, states: Object.fromEntries(found.map(st => [st.chainId, st])), chainId: pick.chainId ?? preselected}
-          : pick));
       });
+    for (const st of found) {
+      addLog(`[HumanPassport] chain ${st.chainId}: ${st.state}${st.state === 'found' ? ` score ${st.score / 1e4}` : st.state === 'unchecked' ? ` (${st.reason})` : ''}`);
+    }
+    passportStatesRef.current = {account: address, states: found};
+    return found;
   }, [addLog]);
+
+  /**
+   * Open the chain picker for `address`. With `states` (a lookup already
+   * made) the rows are filled at once; otherwise every chain is looked up and
+   * a later opening (another wallet) replaces this one's answer. Chains this
+   * wallet's lookups refused are marked and never preselected.
+   */
+  const openPassportPicker = useCallback((
+    address: string,
+    minScoreUnits: number,
+    known?: {states: ChainScoreState[]; lastRefused: number},
+  ) => {
+    const survey = ++passportSurveyRef.current;
+    passportChainRef.current = null;
+    const refused = {...refusedFor(address)};
+    const fill = (found: ChainScoreState[]) => ({
+      states: Object.fromEntries(found.map(st => [st.chainId, st])),
+      preselected: preselectPassportChain(found.filter(st => !Object.prototype.hasOwnProperty.call(refused, st.chainId)), minScoreUnits),
+    });
+    if (known) {
+      const {states, preselected} = fill(known.states);
+      setPassportPick({account: address, minScoreUnits, states, chainId: preselected, refused, lastRefused: known.lastRefused});
+      return;
+    }
+    setPassportPick({account: address, minScoreUnits, states: null, chainId: null, refused, lastRefused: null});
+    addLog(`[HumanPassport] Looking up every chain for ${address}; the chain is the person's choice`);
+    surveyPassportChains(address).then(found => {
+      if (passportSurveyRef.current !== survey) return;
+      const {states, preselected} = fill(found);
+      setPassportPick(pick => (pick && pick.account === address
+        ? {...pick, states, chainId: pick.chainId ?? preselected}
+        : pick));
+    });
+  }, [addLog, refusedFor, surveyPassportChains]);
 
   const handleGenerateProof = useCallback(async () => {
     // A relay request has one answer. Once it is sent, another attempt could
@@ -861,7 +931,7 @@ export const ProofGenerationScreen: React.FC = () => {
       // attempt below refuses it (E2004).
       if (isPassport && proofRequest) {
         const chosen = passportChainRef.current;
-        if (!chosen || chosen.account.toLowerCase() !== gatedAddress.toLowerCase()) {
+        if (!chosen || !sameWallet(chosen.account, gatedAddress)) {
           let minScoreUnits: number | null = null;
           try {
             minScoreUnits = humanPassportScoreUnits((proofRequest.inputs as {minScore?: unknown} | undefined)?.minScore);
@@ -1152,10 +1222,13 @@ export const ProofGenerationScreen: React.FC = () => {
           failAttempt({code: 'E2004', error: details});
           return;
         }
-        // The chain the person chose: on the Human Passport screen in the
-        // app, on this screen's picker for a dApp request. Never a chain
-        // assumed without asking.
-        const picked = proofRequest ? passportChainRef.current?.chainId : route.params?.passportInputs?.chainId;
+        // The chain the person chose: on this screen's picker (a dApp
+        // request, or after a chain was refused), else on the Human Passport
+        // screen in the app. Never a chain assumed without asking.
+        const fromPicker = passportChainRef.current && sameWallet(passportChainRef.current.account, walletAddress)
+          ? passportChainRef.current.chainId
+          : undefined;
+        const picked = proofRequest ? fromPicker : fromPicker ?? route.params?.passportInputs?.chainId;
         let chainId: number;
         try {
           chainId = humanPassportChain(picked as number).chainId;
@@ -1174,10 +1247,36 @@ export const ProofGenerationScreen: React.FC = () => {
         } catch (e) {
           const details = e instanceof Error ? e.message : String(e);
           const code: ErrorCode = e instanceof HumanPassportError ? e.code : 'E3001';
-          // No score (or too low) is an answer about this wallet; a lookup
-          // that did not finish is not, and must not read as "you have none".
-          if (code === 'E2021' || code === 'E2022') await recordLookupFailure(configName, walletAddress);
           addLog(details);
+          // No usable score (or one too low) on the CHOSEN chain is about
+          // that chain while another may still hold one: this try ends (and
+          // History says so), the request stays open, the wallet stays bound,
+          // and the person picks another chain. Only no score on any chain is
+          // an answer about the wallet. A lookup that did not finish is
+          // neither, and must not read as "you have none".
+          if (code === 'E2021' || code === 'E2022') {
+            const known = passportStatesRef.current;
+            const states = known && sameWallet(known.account, walletAddress)
+              ? known.states
+              : await surveyPassportChains(walletAddress);
+            const refused = refusedFor(walletAddress);
+            refused[chainId] = code === 'E2021' ? 'none' : 'below';
+            if (passportChainLeft(states, refused, minScoreUnits)) {
+              addLog(`[HumanPassport] ${humanPassportChain(chainId).name} refused (${code}); back to the chain picker`);
+              markHistoryFailed();
+              endAttemptTiming('failed');
+              // The request is still this screen's to answer: keep new reviews held.
+              if (proofRequest) {
+                markGenerationScreenBusy();
+                await unmarkOpenRequestProving(proofRequest.requestId);
+              }
+              proofStartedAt.current = null;
+              historyIdRef.current = null;
+              openPassportPicker(walletAddress, minScoreUnits, {states, lastRefused: chainId});
+              return;
+            }
+            if (passportNoScoreAnywhere(states, refused)) await recordLookupFailure(configName, walletAddress);
+          }
           failAttempt({
             code,
             error: details,
@@ -1392,6 +1491,7 @@ export const ProofGenerationScreen: React.FC = () => {
     generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateDojangProof, generatePassportProof,
     googleReady, microsoftReady, promptGoogleSignIn, promptMicrosoftSignIn,
     isCountry, isOidc, isGiwa, isDojang, isPassport, proofRequest, route.params, openPassportPicker,
+    surveyPassportChains, refusedFor, markHistoryFailed, endAttemptTiming,
     circuitId, canonical, flow, account, failAttempt, cancelAttempt, t]);
 
   /**
@@ -1593,6 +1693,8 @@ export const ProofGenerationScreen: React.FC = () => {
             states={passportPick.states}
             chainId={passportPick.chainId}
             minScoreUnits={passportPick.minScoreUnits}
+            refused={passportPick.refused}
+            lastRefused={passportPick.lastRefused}
             onSelect={id => setPassportPick(pick => (pick ? {...pick, chainId: id} : pick))}
           />
         )}

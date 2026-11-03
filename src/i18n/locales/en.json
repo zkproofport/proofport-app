@@ -533,6 +533,8 @@
         "chainChecking": "Checking…",
         "chainFound": "Score {{score}} found",
         "chainFoundBelow": "Score {{score}} found, below {{min}}",
+        "chainRefusedBelow": "Score below {{min}} on this chain",
+        "chainTryAnother": "{{chain}} has no score you can use. Choose another chain.",
         "chainNone": "No score on this chain",
         "chainUnchecked": "Could not check",
         "chainRequired": "Choose the chain your score is on."

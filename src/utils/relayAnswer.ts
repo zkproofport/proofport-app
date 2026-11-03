@@ -239,6 +239,24 @@ export function markOpenRequestProving(requestId: string): Promise<void> {
   ).then(() => undefined);
 }
 
+/**
+ * The proving that markOpenRequestProving noted stopped without an answer
+ * and the request is waiting on the person again (a Human Passport chain
+ * refused, back at the chain picker): a launch after this answers it as a
+ * plain cancel, not E2019. Only that marker is removed; an undelivered answer
+ * stays.
+ */
+export function unmarkOpenRequestProving(requestId: string): Promise<void> {
+  return mutateOpen(records =>
+    records.map(r => {
+      if (r.requestId !== requestId || r.pending?.status !== 'error' || r.pending.errorCode !== 'E2019') return r;
+      const rest: OpenRecord = {...r};
+      delete rest.pending;
+      return rest;
+    }),
+  ).then(() => undefined);
+}
+
 function forgetOpen(requestId: string): Promise<void> {
   return mutateOpen(records => records.filter(r => r.requestId !== requestId)).then(() => undefined);
 }

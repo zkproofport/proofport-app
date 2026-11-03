@@ -67,6 +67,7 @@ import {markProofInFlight, clearProofInFlight} from '../proofInFlight';
 import {reportInterruptedProof} from '../interruptedProof';
 import {
   markOpenRequestProving,
+  unmarkOpenRequestProving,
   rememberOpenRelayRequest,
   resetRelayAnswersForTests,
   answerRequestsLeftOpen,
@@ -236,6 +237,20 @@ describe('a proof the app died in is reported on the next launch', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     expect(await answerRequestsLeftOpen()).toBe(1);
     expect(postRelayCallback.mock.calls[0][0]).toMatchObject({requestId: 'req-1', status: 'error', errorCode: 'E2019'});
+  });
+
+  it('a request back at the Human Passport chain picker is answered cancelled, not E2019', async () => {
+    resetRelayAnswersForTests(Date.now());
+    const request = {requestId: 'req-2', circuit: 'human_passport_score' as const, callbackUrl: 'https://stg-relay.zkproofport.app/api/v1/proof/callback'};
+    await rememberOpenRelayRequest(request);
+    await markOpenRequestProving('req-2');
+    await unmarkOpenRequestProving('req-2');
+    resetRelayAnswersForTests(Date.now() + 1000);
+    const {postRelayCallback} = jest.requireMock('../deeplink');
+    postRelayCallback.mockClear();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    expect(await answerRequestsLeftOpen()).toBe(1);
+    expect(postRelayCallback.mock.calls[0][0]).toMatchObject({requestId: 'req-2', status: 'cancelled'});
   });
 });
 

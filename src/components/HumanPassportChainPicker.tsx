@@ -6,7 +6,9 @@
  * until one is. Used by the in-app threshold screen and by the proof screen
  * for a dApp request.
  *
- * With `minScoreUnits` (a dApp's threshold), a score below it says so.
+ * With `minScoreUnits` (a dApp's threshold), a score below it says so. A
+ * chain the wallet's lookup refused after it was chosen (`refused`) says why,
+ * and the one just refused is named above the rows.
  */
 import React from 'react';
 import {Text, StyleSheet, TouchableOpacity, View} from 'react-native';
@@ -24,16 +26,23 @@ export interface HumanPassportChainPickerProps {
   chainId: number | null;
   onSelect: (chainId: number) => void;
   minScoreUnits?: number;
+  refused?: Readonly<Record<number, 'none' | 'below'>>;
+  lastRefused?: number | null;
 }
 
 export const HumanPassportChainPicker: React.FC<HumanPassportChainPickerProps> = ({
-  account, states, chainId, onSelect, minScoreUnits,
+  account, states, chainId, onSelect, minScoreUnits, refused = {}, lastRefused = null,
 }) => {
   const {colors: themeColors} = useThemeColors();
   const {t} = useTranslation();
 
   const rowStatus = (id: number): string => {
     if (!account) return t('host.proof.humanPassport.chainConnectWallet');
+    if (refused[id] === 'none') return t('host.proof.humanPassport.chainNone');
+    if (refused[id] === 'below') {
+      if (minScoreUnits === undefined) throw new Error(`Chain ${id} was refused as below a threshold, but none was given.`);
+      return t('host.proof.humanPassport.chainRefusedBelow', {min: minScoreUnits / 1e4});
+    }
     if (!states) return t('host.proof.humanPassport.chainChecking');
     const st = states[id];
     if (!st) throw new Error(`No lookup state for Human Passport chain ${id}. Known: ${Object.keys(states).join(', ')}.`);
@@ -54,10 +63,15 @@ export const HumanPassportChainPicker: React.FC<HumanPassportChainPickerProps> =
       <Text style={{fontSize: 13, color: themeColors.text.tertiary, marginBottom: 8, lineHeight: 18}}>
         {t('host.proof.humanPassport.chainHint')}
       </Text>
+      {lastRefused !== null ? (
+        <Text style={{fontSize: 13, color: themeColors.warning[400], marginBottom: 4, lineHeight: 18}}>
+          {t('host.proof.humanPassport.chainTryAnother', {chain: humanPassportChain(lastRefused).name})}
+        </Text>
+      ) : null}
       {HUMAN_PASSPORT_CHAIN_IDS.map(id => {
         const selected = chainId === id;
         const st = states?.[id];
-        const meets = st?.state === 'found' && (minScoreUnits === undefined || st.score >= minScoreUnits);
+        const meets = !refused[id] && st?.state === 'found' && (minScoreUnits === undefined || st.score >= minScoreUnits);
         return (
           <TouchableOpacity
             key={id}

@@ -113,6 +113,16 @@ it('with a wallet, looks up every chain, preselects the newest score and says wh
   expect(mockNavigate).toHaveBeenCalledWith('ActionInput', {circuit: 'human_passport_score', passportInputs: {minScore: 20, chainId: 10}});
 });
 
+it('a lookup that failed outright says "could not check" on every row, never "checking" forever, and preselects nothing', async () => {
+  act(() => tree.unmount());
+  mockAccount = '0x1111111111111111111111111111111111111111';
+  mockSurvey.mockRejectedValue(new Error('offline'));
+  await act(async () => {tree = create(React.createElement(HumanPassportInputScreen));});
+  expect(texts().filter(x => x === 'Could not check')).toHaveLength(6);
+  expect(texts()).not.toContain('Checking…');
+  expect(button().props.disabled).toBe(true);
+});
+
 it.each([['0.0001', 0.0001], ['429496.7295', 429496.7295], [' 25.5 ', 25.5]])('continues with %j', (text, value) => {
   pickChain(8453);
   type(text);
