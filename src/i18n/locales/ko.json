@@ -365,7 +365,7 @@
           "signing": "요청에 서명"
         },
         "humanPassportTitle": "Human Passport 점수 증명",
-        "humanPassportDescription": "Base에 기록된 이 지갑의 Human Passport 점수가 요청한 점수 이상임을 영지식 증명으로 생성해요. 점수를 가진 지갑을 연결해 주세요."
+        "humanPassportDescription": "이 지갑의 Human Passport 점수가 요청한 점수 이상임을 영지식 증명으로 생성해요. 점수를 가진 지갑을 연결하고, 점수가 기록된 체인을 선택해 주세요."
       },
       "domain": {
         "heroLabel": "OIDC 도메인 인증",
@@ -532,6 +532,7 @@
         "chainConnectWallet": "지갑을 연결하면 확인할 수 있어요",
         "chainChecking": "확인 중…",
         "chainFound": "점수 {{score}} 있음",
+        "chainFoundBelow": "점수 {{score}} 있음 · 기준 {{min}} 미만",
         "chainNone": "이 체인에는 점수가 없어요",
         "chainUnchecked": "확인하지 못했어요",
         "chainRequired": "점수가 기록된 체인을 선택해 주세요."

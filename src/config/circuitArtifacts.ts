@@ -55,7 +55,7 @@
  * `<package>.srs`. `srsParts` says how many; circuitDownload.ts fetches,
  * checks and joins them.
  */
-import type {CircuitName} from './circuitIds';
+import {ALL_CIRCUIT_IDS, isCircuitId, type CircuitName} from './circuitIds';
 import {
   currentSignerPlatform,
   currentSignerVariant,
@@ -305,6 +305,21 @@ function ownRow(circuit: string): PerVariant | undefined {
 /** Whether `circuit` is read from a pinned per-platform source at all. */
 export function hasPinnedArtifactSource(circuit: string): boolean {
   return ownRow(circuit) !== undefined;
+}
+
+/**
+ * Whether `circuit` is proved by a different package on each statement
+ * signer (so its proof must say which made it): a row whose variants are
+ * different sources. False for a circuit with no row (read from main or the
+ * release tag) and for a signer-independent row (Human Passport: one package
+ * for every phone). An id that is not a circuit throws, naming the known ids.
+ */
+export function circuitHasPerSignerPackages(circuit: string): boolean {
+  if (!isCircuitId(circuit)) {
+    throw new Error(`Unknown circuit '${circuit}'. Known: ${ALL_CIRCUIT_IDS.join(', ')}.`);
+  }
+  const row = ownRow(circuit);
+  return row !== undefined && !signerIndependent(row);
 }
 
 /**

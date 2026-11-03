@@ -25,6 +25,8 @@ import {prepareCoinbaseKycStatement} from '../../appAttest/coinbaseKycStatement'
 import {__setAndroidChainKindForTests, knownAndroidChainKind} from '../../config/signerPlatform';
 import {GOOGLE_KEY_ATTESTATION_CA1} from '../../utils/androidKeyAttestation';
 import {proofSignerVariant, requireVerifierForVariant, verifierForProof} from '../../utils/proofSignerVariant';
+import {circuitHasPerSignerPackages} from '../../config/circuitArtifacts';
+import {ALL_CIRCUIT_IDS} from '../../config/circuitIds';
 import factory from '../../utils/__tests__/fixtures/androidFactoryVectors.json';
 import {ZKPROOFPORT_ANDROID_APP} from '../androidChainChecks';
 import {CHAIN_KIND_PROBE, ensureAndroidChainKind, signStatementOnAndroid} from '../androidSigner';
@@ -221,6 +223,29 @@ describe("the proof callback's signerVariant", () => {
   it('every other circuit is standard', () => {
     expect(proofSignerVariant('giwa_attestation', {signerVariant: 'android'})).toBe('standard');
     expect(proofSignerVariant('dojang_playground', {})).toBe('standard');
+  });
+
+  // TestFlight 1.4.6 (20), 2026-11-03: a dApp's Human Passport request proved
+  // and was then answered E2016 proof_package_unstated, because its pinned
+  // (but signer-independent) row was read as per-signer.
+  it('Human Passport has a pinned row but one package for every phone: standard, whatever the proof carries', () => {
+    expect(proofSignerVariant('human_passport_score', {})).toBe('standard');
+    expect(proofSignerVariant('human_passport_score', {signerVariant: 'android'})).toBe('standard');
+    expect(circuitHasPerSignerPackages('human_passport_score')).toBe(false);
+  });
+
+  it('which circuits are per-signer comes from the artifact table, and an unknown id is an error', () => {
+    const perSigner = ALL_CIRCUIT_IDS.filter((id: string) => circuitHasPerSignerPackages(id));
+    expect(perSigner.sort()).toEqual(['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation']);
+    for (const id of ['not_a_circuit', '', '__proto__', 'constructor', 'coinbase-kyc', 'HUMAN_PASSPORT_SCORE']) {
+      expect(() => circuitHasPerSignerPackages(id)).toThrow(/Unknown circuit .*Known: /);
+      expect(() => proofSignerVariant(id, {signerVariant: 'standard'})).toThrow(/Unknown circuit/);
+    }
+  });
+
+  it('a per-signer proof that does not say is the device-check reason proof_package_unstated (E2016)', () => {
+    const e = (() => { try { proofSignerVariant('coinbase_attestation', {}); } catch (x) { return x; } })() as {code?: string; reason?: string};
+    expect([e.code, e.reason]).toEqual(['E2016', 'proof_package_unstated']);
   });
 
   it('Coinbase Country v2 is per-signer too: its proof says which package made it, or is an error', () => {

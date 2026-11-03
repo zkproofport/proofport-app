@@ -29,6 +29,17 @@
  *   external   → the callback POST failing does not crash the screen and is
  *                logged
  *   integrity  → every step id any proof hook declares has a code
+ *   Human Passport dApp request (TestFlight 1.4.6 (20), 2026-11-03: proved,
+ *   then answered E2016 proof_package_unstated) → a proof is answered
+ *                completed / standard / the standard verifier; the chain
+ *                picker opens before anything is proved and nothing continues
+ *                without a chain; no score anywhere (nothing preselected),
+ *                only below the threshold (row says so, E2022), a lookup
+ *                error on one chain (row says so, still choosable), the whole
+ *                lookup failing, a chosen chain with no score (E2021), leaving
+ *                while choosing (cancelled), the request expiring while
+ *                choosing (E1003), a choice made for another wallet (asked
+ *                again), an invalid threshold (E2004, no chain asked)
  *   boundary / UTF-8 / very large / hostile → in relayAnswer.test.ts, where
  *                the payload is built; authz → N/A, no caller identity here
  */
@@ -54,7 +65,7 @@ const mockGetProvider = jest.fn();
 const mockFindAttestation = jest.fn();
 const mockFindDojang = jest.fn();
 const mockFindPassport = jest.fn();
-const mockResolveChain = jest.fn();
+const mockSurvey = jest.fn();
 const mockStatement = jest.fn();
 const mockPrepareOidcSigner = jest.fn();
 const mockOidcSigner = jest.fn();
@@ -72,7 +83,7 @@ const mockProofHook = () => ({proofSteps: mockSteps, parsedProof: mockParsedProo
 
 jest.mock('react-native', () => ({
   NativeModules: {}, AppState: {addEventListener: () => ({remove: () => {}})},
-  View: 'View', Text: 'Text', SafeAreaView: 'SafeAreaView', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
+  View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', SafeAreaView: 'SafeAreaView', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator',
   StyleSheet: {create: (styles: unknown) => styles, absoluteFill: {}, absoluteFillObject: {}}, Alert: {alert: jest.fn()},
   Animated: {View: 'AnimatedView', Value: class {interpolate() {return 0;}},
     timing: () => ({}), loop: () => ({start() {}, stop() {}})},
@@ -118,7 +129,8 @@ jest.mock('../../utils/humanPassport', () => {
   }
   return {
     findHumanPassportScore: (...args: unknown[]) => mockFindPassport(...args),
-    resolvePassportChain: (...args: unknown[]) => mockResolveChain(...args),
+    surveyHumanPassportChains: (...args: unknown[]) => mockSurvey(...args),
+    preselectPassportChain: jest.requireActual('../../utils/humanPassport').preselectPassportChain,
     HumanPassportError,
   };
 });
@@ -194,7 +206,7 @@ beforeEach(() => {
   mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
   mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
   mockFindPassport.mockResolvedValue({request: {recipient: ACCOUNT}, head: {score: 300000}});
-  mockResolveChain.mockResolvedValue(10);
+  mockSurvey.mockResolvedValue(SURVEY);
   mockStatement.mockResolvedValue({clientData: new Uint8Array(225), attestedAt: 1});
   mockPrepareOidcSigner.mockResolvedValue(mockOidcSigner);
   mockGenerate.mockResolvedValue(undefined);
@@ -215,6 +227,16 @@ afterEach(() => {
   errors.mockRestore();
   logs.mockRestore();
 });
+
+/** Six chains as the picker sees them: 10 holds 30 (newest meeting 20), 8453 a newer 15. */
+const SURVEY = [
+  {chainId: 8453, state: 'found', score: 150000, expirationTime: 9_000_000_000},
+  {chainId: 10, state: 'found', score: 300000, expirationTime: 8_000_000_000},
+  {chainId: 42161, state: 'none'},
+  {chainId: 59144, state: 'unchecked', reason: 'timeout'},
+  {chainId: 534352, state: 'none'},
+  {chainId: 324, state: 'none'},
+];
 
 /** Bodies the relay received, in order. */
 function answers(): Array<Record<string, unknown>> {
@@ -257,6 +279,26 @@ function expectOneError(code: string) {
   expect(answers()[0]).toMatchObject({status: 'error', errorCode: code});
   // The dApp gets the code the person was shown.
   expect(mockShowError).toHaveBeenCalledWith(code, expect.any(String));
+}
+
+function continueButton() {
+  return tree!.root.findAllByType('Button' as never)
+    .find(button => button.props.title === 'host.proof.humanPassport.continueButton');
+}
+
+function chainRow(id: number) {
+  return tree!.root.find(n => n.props.testID === `chain-row-${id}`);
+}
+
+function shownText(): string[] {
+  return tree!.root.findAllByType('Text' as never).map(n => [n.props.children].flat().join(''));
+}
+
+/** Choose a chain on the picker (or keep the preselected one) and continue. */
+async function chooseChain(id?: number) {
+  if (id !== undefined) await act(async () => {chainRow(id).props.onPress();});
+  await act(async () => {continueButton()!.props.onPress();});
+  await act(async () => {await jest.advanceTimersByTimeAsync(10);});
 }
 
 function retryButton() {
@@ -340,39 +382,36 @@ describe('every inline failure path answers once, with its code', () => {
       const {HumanPassportError} = jest.requireMock('../../utils/humanPassport');
       mockFindPassport.mockRejectedValue(new HumanPassportError(code, message));
       await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}));
+      await chooseChain();
       expectOneError(code);
       expect(mockGenerate).not.toHaveBeenCalled();
     });
 
-  it.each([['E2021'], ['E2022'], ['E3001']])('no chain holding a usable score (%s) answers once with it, nothing proved', async code => {
-    const {HumanPassportError} = jest.requireMock('../../utils/humanPassport');
-    mockResolveChain.mockRejectedValue(new HumanPassportError(code, 'no chain'));
-    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}));
-    expectOneError(code);
-    expect(mockFindPassport).not.toHaveBeenCalled();
-  });
-
-  it('an in-app proof uses the chain the person picked', async () => {
-    await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}), {passportInputs: {minScore: 20, chainId: 59144}});
-    expect(mockResolveChain).toHaveBeenCalledWith(ACCOUNT, 59144, 200000, expect.any(Number), expect.any(Function));
+  it('an in-app proof uses the chain the person picked on the threshold screen, and asks for none here', async () => {
+    await mount('human_passport_score', undefined, {passportInputs: {minScore: 20, chainId: 59144}});
+    await act(async () => {await tree!.root.findAllByType('Button' as never)[0].props.onPress();});
+    expect(mockSurvey).not.toHaveBeenCalled();
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 59144, 200000, expect.any(Number), expect.any(Function));
   });
 
   it('a Human Passport lookup that threw something else -> E3001', async () => {
     mockFindPassport.mockRejectedValue(new Error('socket hang up'));
     await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20}));
+    await chooseChain();
     expectOneError('E3001');
   });
 
-  it.each([[undefined], [0], ['20'], [20.00001]])('a Human Passport request with minScore %p -> E2004, nothing looked up', async minScore => {
+  it.each([[undefined], [0], ['20'], [20.00001]])('a Human Passport request with minScore %p -> E2004, no chain asked, nothing looked up', async minScore => {
     await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore}));
     expectOneError('E2004');
+    expect(mockSurvey).not.toHaveBeenCalled();
     expect(mockFindPassport).not.toHaveBeenCalled();
   });
 
-  it('a Human Passport request proves with the requested threshold in score units', async () => {
+  it('a Human Passport request proves with the requested threshold in score units, from the chosen chain', async () => {
     await mount('human_passport_score', request('human_passport_score', {scope: 's', minScore: 20.5}));
-    expect(mockResolveChain).toHaveBeenCalledWith(ACCOUNT, undefined, 205000, expect.any(Number), expect.any(Function));
-    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 10, 205000, expect.any(Number), expect.any(Function));
+    await chooseChain(534352);
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 534352, 205000, expect.any(Number), expect.any(Function));
     expect(mockGenerate).toHaveBeenCalledTimes(1);
     expect(mockGenerate.mock.calls[0][0]).toMatchObject({userAddress: ACCOUNT, minScoreUnits: 205000, scopeString: 's'});
     expect(answers()).toHaveLength(0);
@@ -506,6 +545,128 @@ describe('every inline failure path answers once, with its code', () => {
     await mount(circuit, {...request('coinbase_attestation'), requestId: 'req-unknown'});
     expectOneError('E2006');
     expect(mockGenerate).not.toHaveBeenCalled();
+  });
+});
+
+describe('a Human Passport dApp request', () => {
+  const hp = (inputs: Record<string, unknown> = {scope: 's', minScore: 20}) => request('human_passport_score', inputs);
+
+  it('a proof is answered completed, as the standard package, with the standard verifier -- never E2016', async () => {
+    await mount('human_passport_score', hp());
+    await chooseChain();
+    // The Human Passport hook's proof carries no signerVariant: one package for every phone.
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 195} as never;
+    await rerender();
+    expect(answers()).toEqual([expect.objectContaining({
+      status: 'completed', proof: '0xproof', signerVariant: 'standard',
+      verifierAddress: '0x2222222222222222222222222222222222222222', chainId: 1,
+    })]);
+    expect(mockShowError).not.toHaveBeenCalled();
+  });
+
+  it('the picker opens before anything is proved, says what each chain holds, and starts on the newest score meeting the threshold', async () => {
+    await mount('human_passport_score', hp());
+    expect(mockSurvey).toHaveBeenCalledWith(ACCOUNT, expect.any(Number), expect.any(Function));
+    expect(mockFindPassport).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(answers()).toHaveLength(0);
+    const shown = shownText();
+    expect(shown).toContain('host.proof.humanPassport.chainFound');
+    expect(shown).toContain('host.proof.humanPassport.chainFoundBelow');
+    expect(shown).toContain('host.proof.humanPassport.chainNone');
+    expect(shown).toContain('host.proof.humanPassport.chainUnchecked');
+    expect(chainRow(10).props.accessibilityState).toEqual({selected: true});
+    expect(chainRow(8453).props.accessibilityState).toEqual({selected: false});
+    await chooseChain();
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 10, 200000, expect.any(Number), expect.any(Function));
+    expect(continueButton()).toBeUndefined();
+  });
+
+  it('no score anywhere: nothing is preselected and nothing continues until a chain is chosen; a chain with none answers E2021', async () => {
+    const {HumanPassportError} = jest.requireMock('../../utils/humanPassport');
+    mockSurvey.mockResolvedValue(SURVEY.map(st => ({chainId: st.chainId, state: 'none'})));
+    mockFindPassport.mockRejectedValue(new HumanPassportError('E2021', 'No unexpired Human Passport score on Arbitrum One'));
+    await mount('human_passport_score', hp());
+    expect(continueButton()!.props.disabled).toBe(true);
+    expect(shownText()).toContain('host.proof.humanPassport.chainRequired');
+    await act(async () => {continueButton()!.props.onPress();});
+    expect(mockFindPassport).not.toHaveBeenCalled();
+    expect(answers()).toHaveLength(0);
+    await chooseChain(42161);
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 42161, 200000, expect.any(Number), expect.any(Function));
+    expectOneError('E2021');
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it('only a score below the threshold: its row says so, it starts selected, and continuing answers E2022', async () => {
+    const {HumanPassportError} = jest.requireMock('../../utils/humanPassport');
+    mockSurvey.mockResolvedValue([SURVEY[0], {chainId: 10, state: 'none'}, ...SURVEY.slice(2)]);
+    mockFindPassport.mockRejectedValue(new HumanPassportError('E2022', 'Score 15 on Base is below the requested 20'));
+    await mount('human_passport_score', hp());
+    expect(shownText()).toContain('host.proof.humanPassport.chainFoundBelow');
+    expect(shownText()).not.toContain('host.proof.humanPassport.chainFound');
+    expect(chainRow(8453).props.accessibilityState).toEqual({selected: true});
+    await chooseChain();
+    expectOneError('E2022');
+  });
+
+  it('a chain whose lookup did not finish can still be chosen, and is looked up again', async () => {
+    await mount('human_passport_score', hp());
+    await chooseChain(59144);
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 59144, 200000, expect.any(Number), expect.any(Function));
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+  });
+
+  it('a lookup that failed outright marks every chain unchecked and preselects nothing; the person still chooses', async () => {
+    mockSurvey.mockRejectedValue(new Error('offline'));
+    await mount('human_passport_score', hp());
+    expect(shownText().filter(text => text === 'host.proof.humanPassport.chainUnchecked')).toHaveLength(6);
+    expect(continueButton()!.props.disabled).toBe(true);
+    await chooseChain(324);
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 324, 200000, expect.any(Number), expect.any(Function));
+  });
+
+  it('while the lookup runs every row says so, and a chain chosen meanwhile is kept when the answer arrives', async () => {
+    let answer: (v: unknown) => void = () => {};
+    mockSurvey.mockImplementation(() => new Promise(r => {answer = r;}));
+    await mount('human_passport_score', hp());
+    expect(shownText().filter(text => text === 'host.proof.humanPassport.chainChecking')).toHaveLength(6);
+    await act(async () => {chainRow(42161).props.onPress();});
+    await act(async () => {answer(SURVEY);});
+    expect(chainRow(42161).props.accessibilityState).toEqual({selected: true});
+    await chooseChain();
+    expect(mockFindPassport).toHaveBeenCalledWith(ACCOUNT, 42161, 200000, expect.any(Number), expect.any(Function));
+  });
+
+  it('leaving while choosing answers cancelled once, and nothing is proved', async () => {
+    await mount('human_passport_score', hp());
+    act(() => tree!.unmount());
+    tree = null;
+    await act(async () => {await jest.advanceTimersByTimeAsync(10);});
+    expect(answers()).toEqual([expect.objectContaining({status: 'cancelled', requestId: 'req-human_passport_score'})]);
+    expect(mockFindPassport).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it('a request that expired while the chain was chosen is answered E1003, and nothing is looked up or proved', async () => {
+    await mount('human_passport_score', {...hp(), expiresAt: Date.now() + 5_000});
+    await act(async () => {await jest.advanceTimersByTimeAsync(6_000);});
+    await chooseChain();
+    expectOneError('E1003');
+    expect(mockFindPassport).not.toHaveBeenCalled();
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it('a chain chosen for one wallet is not used for another: the picker asks again', async () => {
+    const OTHER = '0x3333333333333333333333333333333333333333';
+    await mount('human_passport_score', hp());
+    mockRunGate.mockResolvedValue({address: OTHER});
+    await chooseChain(10);
+    expect(mockSurvey).toHaveBeenLastCalledWith(OTHER, expect.any(Number), expect.any(Function));
+    expect(mockFindPassport).not.toHaveBeenCalled();
+    expect(continueButton()).toBeDefined();
+    await chooseChain(8453);
+    expect(mockFindPassport).toHaveBeenCalledWith(OTHER, 8453, 200000, expect.any(Number), expect.any(Function));
   });
 });
 

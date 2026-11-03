@@ -164,8 +164,8 @@ MUTATIONS: list[Mutation] = [
         "pulls on-chain verification and ethers into the circuit-id door",
         path="src/config/circuitIds.ts",
         # The first of the file's three subpath imports, the id list itself.
-        old="  type CircuitSupportStatus,\n} from '@zkproofport-app/core/circuits';",
-        new="  type CircuitSupportStatus,\n} from '@zkproofport-app/core';",
+        old="  type HumanPassportChain,\n} from '@zkproofport-app/core/circuits';",
+        new="  type HumanPassportChain,\n} from '@zkproofport-app/core';",
         guard=SDK_GUARD,
         expect_case="dependency-free subpath that is imported",
     ),
@@ -204,7 +204,8 @@ MUTATIONS: list[Mutation] = [
         defect="a circuit with no verifier address ships and fails on-chain "
         "verification with an empty address",
         path="src/config/contracts.ts",
-        old="    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',\n  },\n"
+        # The last row of the staging block (Human Passport since 2026-10-30).
+        old="    human_passport_score: '0x39df92D9C603Fe6d229c7b00272A1E874a628acE',\n  },\n"
         "  production: {",
         new="  },\n  production: {",
         guard=SDK_GUARD,
@@ -215,8 +216,8 @@ MUTATIONS: list[Mutation] = [
         defect="a verifier address the app sends with every proof is not core's "
         "pinned one, so every dApp on core 0.2.0+ refuses the app's proofs",
         path="src/config/contracts.ts",
-        old="    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',\n  },\n  staging: {",
-        new="    dojang_playground: '0x3333333333333333333333333333333333333333',\n  },\n  staging: {",
+        old="    human_passport_score: '0x39df92D9C603Fe6d229c7b00272A1E874a628acE',\n  },\n  staging: {",
+        new="    human_passport_score: '0x3333333333333333333333333333333333333333',\n  },\n  staging: {",
         guard="src/config/__tests__/verifierAddressesComeFromCore.test.ts",
         expect_case="development: each address is core's pinned verifier",
     ),

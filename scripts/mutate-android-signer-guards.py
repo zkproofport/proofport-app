@@ -238,8 +238,8 @@ MUTATIONS: list[Mutation] = [
              "    if (res.status === 429) {",
              FACTORY_CHECK_TEST, "HTTP 503 not_configured -> E3008, naming it"),
     Mutation("callback-variant-defaults-to-standard", VARIANT,
-             "  throw new Error(`The ${circuit} proof does not say which package made it",
-             "  return 'standard';\n  throw new Error(`The ${circuit} proof does not say which package made it",
+             "  throw new AppAttestError(\n    'proof_package_unstated',",
+             "  return 'standard';\n  throw new AppAttestError(\n    'proof_package_unstated',",
              FACTORY_SIGN_TEST, "a per-signer proof that does not say is an error"),
     # --- Android verifiers ---
     Mutation("callback-sends-standard-address", SCREEN,

@@ -3,9 +3,10 @@
  *
  * Same pipeline as useDojangPlayground (load VK -> check the score -> sign ->
  * recover pubkey -> inputs -> prove -> parse). The score is the wallet's
- * Human Passport scoreV2 on Base, found by `findHumanPassportScore` before
- * this hook runs; this hook checks again that it names the connected wallet,
- * meets the threshold and is unexpired at the `now` the proof carries.
+ * Human Passport scoreV2 on the chain the person chose, found by
+ * `findHumanPassportScore` before this hook runs; this hook checks again that
+ * it names the connected wallet, meets the threshold and is unexpired at the
+ * `now` the proof carries.
  */
 import {useState, useCallback, useRef} from 'react';
 import {describeWalletError, signingFailure} from '../utils/walletError';

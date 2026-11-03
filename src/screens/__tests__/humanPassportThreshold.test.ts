@@ -29,7 +29,10 @@ jest.mock('../../components/ui', () => ({
   Button: (props: Record<string, unknown>) => require('react').createElement('Button', props),
 }));
 jest.mock('../../hooks/useWallet', () => ({useWallet: () => ({account: mockAccount})}));
-jest.mock('../../utils/humanPassport', () => ({surveyHumanPassportChains: (...a: unknown[]) => mockSurvey(...a)}));
+jest.mock('../../utils/humanPassport', () => ({
+  surveyHumanPassportChains: (...a: unknown[]) => mockSurvey(...a),
+  preselectPassportChain: jest.requireActual('../../utils/humanPassport').preselectPassportChain,
+}));
 jest.mock('@react-navigation/native', () => ({useNavigation: () => ({navigate: mockNavigate})}));
 jest.mock('../../context', () => ({useThemeColors: () => ({colors: mockDarkColors})}));
 jest.mock('react-i18next', () => ({

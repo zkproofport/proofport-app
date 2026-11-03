@@ -7,7 +7,7 @@
 import byChain from './fixtures/humanPassportRealIssuancesByChain.json';
 import real from './fixtures/humanPassportRealIssuances.json';
 import shapeOnly from './fixtures/humanPassportShapeOnlyIssuance.json';
-import {findHumanPassportScore, resolvePassportChain, surveyHumanPassportChains} from '../humanPassport';
+import {findHumanPassportScore, preselectPassportChain, surveyHumanPassportChains} from '../humanPassport';
 import {HUMAN_PASSPORT_ISSUER_LEAVES} from '../../config/circuitIds';
 
 jest.setTimeout(120_000);
@@ -27,5 +27,6 @@ it('a wallet whose only score is on Shape has no supported score', async () => {
   const wallet = shapeOnly['360'].attestation.recipient;
   const states = await surveyHumanPassportChains(wallet, now(), () => {});
   expect(states.map(s => [s.chainId, s.state])).toEqual([[8453, 'none'], [10, 'none'], [42161, 'none'], [59144, 'none'], [534352, 'none'], [324, 'none']]);
-  await expect(resolvePassportChain(wallet, undefined, 1, now(), () => {})).rejects.toMatchObject({code: 'E2021'});
+  // Nothing to start the picker on; a chain the person picks then answers E2021.
+  expect(preselectPassportChain(states, 1)).toBeNull();
 });

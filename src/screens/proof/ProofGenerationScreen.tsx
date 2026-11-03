@@ -23,8 +23,10 @@ import {
   type StepData,
 } from '../../components/ui';
 import {useCoinbaseKyc, useCoinbaseCountry, useOidcDomain, useGiwaKyc, useDojangPlayground, useHumanPassport, useGoogleAuth, useMicrosoftAuth, useWallet, useLogs, useDeepLink, useSettings} from '../../hooks';
-import {findHumanPassportScore, HumanPassportError, resolvePassportChain, type PassportIssuance} from '../../utils/humanPassport';
-import {humanPassportScoreUnits} from '../../config/circuitIds';
+import {findHumanPassportScore, HumanPassportError, preselectPassportChain, surveyHumanPassportChains, type ChainScoreState, type PassportIssuance} from '../../utils/humanPassport';
+import {HUMAN_PASSPORT_CHAIN_IDS, humanPassportChain, humanPassportScoreUnits} from '../../config/circuitIds';
+import {HumanPassportChainPicker} from '../../components/HumanPassportChainPicker';
+import {reviewBlockReason} from '../../utils/requestReview';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, nullifierForCircuit} from '../../utils';
 import type {TypedAction} from '../../utils/typedAction';
@@ -67,6 +69,18 @@ import {markOpenRequestProving} from '../../utils/relayAnswer';
 import {ProofProgressCard} from '../../components/ProofProgressCard';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
+
+/**
+ * A dApp's Human Passport request waiting for the person to choose the chain
+ * their score is on: the wallet the gate returned, the request's threshold,
+ * each chain's lookup (null while it runs) and the chosen chain.
+ */
+type PassportChainPick = {
+  account: string;
+  minScoreUnits: number;
+  states: Record<number, ChainScoreState> | null;
+  chainId: number | null;
+};
 type NavigationProp = NativeStackNavigationProp<ProofStackParamList, 'ProofGeneration'>;
 
 /**
@@ -380,6 +394,13 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // A dApp's Human Passport request proves from the chain the person chose
+  // (only they know where they recorded their score). The picker is open
+  // while `passportPick` is set; its Continue fills `passportChainRef` for
+  // that wallet and starts the attempt.
+  const [passportPick, setPassportPick] = useState<PassportChainPick | null>(null);
+  const passportChainRef = useRef<{account: string; chainId: number} | null>(null);
+  const passportSurveyRef = useRef(0);
   const {logs, addLog, clearLogs, getLatestLogs} = useLogs();
   const {settings} = useSettings();
 
@@ -686,9 +707,12 @@ export const ProofGenerationScreen: React.FC = () => {
       } catch (variantError) {
         const msg = variantError instanceof Error ? variantError.message : String(variantError);
         addLog(`Error: ${msg}`);
+        // A per-signer proof that does not name its package arrives as
+        // proof_package_unstated (E2016) from proofSignerVariant; anything
+        // else is not a device-check failure and is not labelled as one.
         failAttempt(variantError instanceof AppAttestError
           ? {code: variantError.code, error: msg, deviceCheckReason: variantError.reason}
-          : {code: 'E2016', error: msg, deviceCheckReason: 'proof_package_unstated'});
+          : {code: 'E2001', error: msg});
         return;
       }
       let nullifierHex = '0x' + '00'.repeat(32);
@@ -769,6 +793,33 @@ export const ProofGenerationScreen: React.FC = () => {
     });
   }, [flow, circuitId, addLog, t, failAttempt]);
 
+  /**
+   * Open the chain picker for `address`, and look up every chain at once to
+   * say what each holds. A later survey (another wallet, another opening)
+   * replaces this one's answer.
+   */
+  const openPassportPicker = useCallback((address: string, minScoreUnits: number) => {
+    const survey = ++passportSurveyRef.current;
+    passportChainRef.current = null;
+    setPassportPick({account: address, minScoreUnits, states: null, chainId: null});
+    addLog(`[HumanPassport] Looking up every chain for ${address}; the chain is the person's choice`);
+    surveyHumanPassportChains(address, Math.floor(Date.now() / 1000), addLog)
+      .catch((e: unknown): ChainScoreState[] => {
+        const reason = e instanceof Error ? e.message : String(e);
+        return HUMAN_PASSPORT_CHAIN_IDS.map(chainId => ({chainId, state: 'unchecked', reason}));
+      })
+      .then(found => {
+        if (passportSurveyRef.current !== survey) return;
+        for (const st of found) {
+          addLog(`[HumanPassport] chain ${st.chainId}: ${st.state}${st.state === 'found' ? ` score ${st.score / 1e4}` : st.state === 'unchecked' ? ` (${st.reason})` : ''}`);
+        }
+        const preselected = preselectPassportChain(found, minScoreUnits);
+        setPassportPick(pick => (pick && pick.account === address
+          ? {...pick, states: Object.fromEntries(found.map(st => [st.chainId, st])), chainId: pick.chainId ?? preselected}
+          : pick));
+      });
+  }, [addLog]);
+
   const handleGenerateProof = useCallback(async () => {
     // A relay request has one answer. Once it is sent, another attempt could
     // only produce a proof nobody receives — say so instead of starting one.
@@ -804,6 +855,25 @@ export const ProofGenerationScreen: React.FC = () => {
         return;
       }
       gatedAddress = gateResult.address;
+      // A dApp's Human Passport request: the person chooses the chain before
+      // anything is proved, and a choice made for another wallet is not
+      // reused. A threshold the circuit cannot carry asks for no chain -- the
+      // attempt below refuses it (E2004).
+      if (isPassport && proofRequest) {
+        const chosen = passportChainRef.current;
+        if (!chosen || chosen.account.toLowerCase() !== gatedAddress.toLowerCase()) {
+          let minScoreUnits: number | null = null;
+          try {
+            minScoreUnits = humanPassportScoreUnits((proofRequest.inputs as {minScore?: unknown} | undefined)?.minScore);
+          } catch {
+            minScoreUnits = null;
+          }
+          if (minScoreUnits !== null) {
+            openPassportPicker(gatedAddress, minScoreUnits);
+            return;
+          }
+        }
+      }
     }
 
     clearLogs();
@@ -1082,15 +1152,23 @@ export const ProofGenerationScreen: React.FC = () => {
           failAttempt({code: 'E2004', error: details});
           return;
         }
-        addLog(`=== Searching for a Human Passport score >= ${minScoreUnits / 1e4} ===`);
+        // The chain the person chose: on the Human Passport screen in the
+        // app, on this screen's picker for a dApp request. Never a chain
+        // assumed without asking.
+        const picked = proofRequest ? passportChainRef.current?.chainId : route.params?.passportInputs?.chainId;
+        let chainId: number;
+        try {
+          chainId = humanPassportChain(picked as number).chainId;
+        } catch (e) {
+          const details = `No Human Passport chain was chosen: ${e instanceof Error ? e.message : String(e)}`;
+          addLog(`[HumanPassport] ${details}`);
+          failAttempt({code: 'E2004', error: details});
+          return;
+        }
+        addLog(`=== Searching for a Human Passport score >= ${minScoreUnits / 1e4} on chain ${chainId} ===`);
         let issuance: PassportIssuance;
         try {
           const nowSeconds = Math.floor(Date.now() / 1000);
-          // The chain the person picked on the Human Passport screen; for a
-          // dApp request (no picker) the chain holding a score that meets the
-          // threshold -- never a chain assumed without looking.
-          const chainId = await timer.step('score chain', () =>
-            resolvePassportChain(walletAddress, route.params?.passportInputs?.chainId, minScoreUnits, nowSeconds, addLog));
           issuance = await timer.step('score lookup', () =>
             findHumanPassportScore(walletAddress, chainId, minScoreUnits, nowSeconds, addLog));
         } catch (e) {
@@ -1311,10 +1389,35 @@ export const ProofGenerationScreen: React.FC = () => {
       setIsSearching(false);
     }
   }, [runWalletGate, recordLookupFailure, addLog, clearLogs, getProvider,
-    generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateDojangProof,
+    generateKycProof, generateCountryProof, generateOidcProof, generateGiwaProof, generateDojangProof, generatePassportProof,
     googleReady, microsoftReady, promptGoogleSignIn, promptMicrosoftSignIn,
-    isCountry, isOidc, isGiwa, isDojang, proofRequest, route.params,
+    isCountry, isOidc, isGiwa, isDojang, isPassport, proofRequest, route.params, openPassportPicker,
     circuitId, canonical, flow, account, failAttempt, cancelAttempt, t]);
+
+  /**
+   * The picker's Continue: the chosen chain, for the wallet it was looked up
+   * for, then the attempt. A request that expired while the person chose is
+   * answered as expired (E1003) and nothing is proved.
+   */
+  const continueWithPassportChain = useCallback(() => {
+    const pick = passportPick;
+    if (!pick || pick.chainId === null) return;
+    passportSurveyRef.current += 1;
+    setPassportPick(null);
+    if (proofRequest && reviewBlockReason(proofRequest) === 'expired') {
+      const details = `Request ${proofRequest.requestId} expired before the chain was chosen`;
+      addLog(`[HumanPassport] ${details}`);
+      failAttempt({
+        code: 'E1003',
+        error: details,
+        inline: `[E1003] ${t('host.errors.E1003.description', {defaultValue: ErrorCodes.E1003.description})}`,
+      });
+      return;
+    }
+    passportChainRef.current = {account: pick.account, chainId: pick.chainId};
+    addLog(`[HumanPassport] Chain chosen: ${humanPassportChain(pick.chainId).name} (${pick.chainId})`);
+    handleGenerateProof();
+  }, [passportPick, proofRequest, addLog, failAttempt, t, handleGenerateProof]);
 
   // After the wallet gate opens a picker / reconnect prompt, it sets its
   // internal post-picker flag. When `account` then flips to a new wallet,
@@ -1419,6 +1522,14 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [hook.proofSteps, hasStepsStarted, isProcessing, logs]);
 
   const getButtonState = () => {
+    if (passportPick && !isProcessing) {
+      return {
+        title: t('host.proof.humanPassport.continueButton'),
+        onPress: continueWithPassportChain,
+        disabled: passportPick.chainId === null,
+        loading: false,
+      };
+    }
     if (isProcessing) {
       const activeIdx = userSteps.findIndex(s => s.status === 'active');
       const activeStep = activeIdx >= 0 ? userSteps[activeIdx] : null;
@@ -1475,6 +1586,16 @@ export const ProofGenerationScreen: React.FC = () => {
             {canonical ? t(CIRCUIT_TEXT[canonical].description) : ''}
           </Text>
         </Card>
+
+        {passportPick && (
+          <HumanPassportChainPicker
+            account={passportPick.account}
+            states={passportPick.states}
+            chainId={passportPick.chainId}
+            minScoreUnits={passportPick.minScoreUnits}
+            onSelect={id => setPassportPick(pick => (pick ? {...pick, chainId: id} : pick))}
+          />
+        )}
 
         {(hasStepsStarted || isProcessing) && (
           <Card style={styles.steps}>

@@ -1,16 +1,19 @@
 /**
- * Which chain a Human Passport proof is made from.
+ * Which chain a Human Passport proof is made from: always the one the person
+ * chose (the in-app threshold screen, or the proof screen's picker for a dApp
+ * request); nothing here picks a chain on its own.
  *
- * Matrix: the person's pick wins (and is checked, unknown ids throw by name,
- * nothing is looked up); with no pick every chain is looked up: none anywhere
- * -> E2021, only too-low scores -> E2022, nothing found but a lookup that did
- * not finish -> E3001 (never read as "none"), one chain meeting the threshold
- * -> it, several -> the newest. Shape (360) is not a chain the app accepts:
- * picked, it is refused by name with the known list; surveyed, it is never
- * asked, so a wallet whose only score is on Shape gets E2021.
+ * Matrix: a chosen chain is checked before any lookup (unknown ids, Shape
+ * (360), strings, NaN, null, empty -> refused by name with the known list);
+ * the survey asks all six chains at once and keeps found / none / unchecked
+ * apart, never asks Shape, does not count an expired attestation; the
+ * picker's starting row: none anywhere -> nothing, only scores below the
+ * threshold -> the newest of them (the row says it is below), several
+ * meeting it -> the newest meeting it even beside a newer one below it,
+ * an unchecked chain is never preselected, no threshold -> the newest score.
  */
 import real from './fixtures/humanPassportRealIssuances.json';
-import {resolvePassportChain, surveyHumanPassportChains, HumanPassportError} from '../humanPassport';
+import {findHumanPassportScore, preselectPassportChain, surveyHumanPassportChains, type ChainScoreState} from '../humanPassport';
 
 const WALLET = real.direct.attestation.recipient;
 const DATA = real.direct.attestation.data; // score 20.547
@@ -38,50 +41,46 @@ beforeEach(() => {
 
 const log = () => {};
 
-it.each([8453, 10, 42161, 59144, 534352, 324])('uses the picked chain %i without looking anything up', async id => {
-  expect(await resolvePassportChain(WALLET, id, 200000, NOW, log)).toBe(id);
-  expect(fetchMock).not.toHaveBeenCalled();
-});
-
-it.each([360, 1, 84532, 0, NaN, -1, 1.5, '8453', 'shape', 'Shape', 'SHAPE', '', null])('refuses a picked chain %p by name, listing the known chains, before any lookup', async id => {
-  await expect(resolvePassportChain(WALLET, id as never, 200000, NOW, log))
+it.each([360, 1, 84532, 0, NaN, -1, 1.5, '8453', 'shape', 'Shape', 'SHAPE', '', null, undefined])('refuses a chosen chain %p by name, listing the known chains, before any lookup', async id => {
+  await expect(findHumanPassportScore(WALLET, id as never, 200000, NOW, log))
     .rejects.toThrow(/Unknown Human Passport chain .*Known: 8453, 10, 42161, 59144, 534352, 324\./);
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
-it('a wallet whose only score is on Shape: Shape is never asked, and the answer is E2021', async () => {
-  await expect(resolvePassportChain(WALLET, undefined, 200000, NOW, log)).rejects.toMatchObject({code: 'E2021'});
+it('a wallet whose only score is on Shape: Shape is never asked, every chain says none, nothing is preselected', async () => {
+  const states = await surveyHumanPassportChains(WALLET, NOW, log);
   const hosts = fetchMock.mock.calls.map(c => new URL(c[0]).host).sort();
   expect(hosts).toEqual(['arbitrum.easscan.org', 'base.easscan.org', 'linea.easscan.org', 'optimism.easscan.org', 'scroll.easscan.org', 'zksync.easscan.org']);
+  expect(states.every(st => st.state === 'none')).toBe(true);
+  expect(preselectPassportChain(states, 200000)).toBeNull();
+  expect(preselectPassportChain(states)).toBeNull();
 });
 
-it('no score anywhere -> E2021', async () => {
-  await expect(resolvePassportChain(WALLET, undefined, 200000, NOW, log)).rejects.toMatchObject({code: 'E2021'});
-  expect(fetchMock).toHaveBeenCalledTimes(6);
-});
+describe('the chain the picker starts on', () => {
+  const found = (chainId: number, score: number, expirationTime: number): ChainScoreState => ({chainId, state: 'found', score, expirationTime});
+  const none = (chainId: number): ChainScoreState => ({chainId, state: 'none'});
+  const unchecked = (chainId: number): ChainScoreState => ({chainId, state: 'unchecked', reason: 'timeout'});
 
-it('only scores below the threshold -> E2022', async () => {
-  answers['optimism.easscan.org'] = {kind: 'scores', rows: [{expirationTime: NOW + 100}]};
-  await expect(resolvePassportChain(WALLET, undefined, 300000, NOW, log)).rejects.toMatchObject({code: 'E2022'});
-});
+  it('nothing anywhere, or only lookups that did not finish -> nothing preselected', () => {
+    expect(preselectPassportChain([], 200000)).toBeNull();
+    expect(preselectPassportChain([none(8453), unchecked(10), none(324)], 200000)).toBeNull();
+  });
 
-it('nothing found but one lookup did not finish -> E3001, not "none"', async () => {
-  answers['linea.easscan.org'] = {kind: 'fail'};
-  const err = await resolvePassportChain(WALLET, undefined, 200000, NOW, log).catch(e => e);
-  expect(err).toBeInstanceOf(HumanPassportError);
-  expect(err.code).toBe('E3001');
-});
+  it('only scores below the threshold -> the newest of them', () => {
+    expect(preselectPassportChain([found(8453, 150000, 100), found(10, 190000, 900), none(324)], 200000)).toBe(10);
+  });
 
-it('one chain meets the threshold -> that chain, even beside a failed lookup', async () => {
-  answers['scroll.easscan.org'] = {kind: 'scores', rows: [{expirationTime: NOW + 100}]};
-  answers['linea.easscan.org'] = {kind: 'fail'};
-  expect(await resolvePassportChain(WALLET, undefined, 200000, NOW, log)).toBe(534352);
-});
+  it('the newest score meeting the threshold wins over a newer one below it', () => {
+    expect(preselectPassportChain([found(8453, 150000, 999), found(10, 250000, 100), found(42161, 300000, 500)], 200000)).toBe(42161);
+  });
 
-it('several meet it -> the newest', async () => {
-  answers['base.easscan.org'] = {kind: 'scores', rows: [{expirationTime: NOW + 100}]};
-  answers['arbitrum.easscan.org'] = {kind: 'scores', rows: [{expirationTime: NOW + 900}]};
-  expect(await resolvePassportChain(WALLET, undefined, 200000, NOW, log)).toBe(42161);
+  it('exactly the threshold meets it', () => {
+    expect(preselectPassportChain([found(8453, 150000, 999), found(59144, 200000, 1)], 200000)).toBe(59144);
+  });
+
+  it('no threshold (the in-app screen, where it can still change) -> the newest score', () => {
+    expect(preselectPassportChain([found(8453, 150000, 999), found(10, 250000, 100)])).toBe(8453);
+  });
 });
 
 it('the survey keeps found, none and unchecked apart, for every chain', async () => {

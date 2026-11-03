@@ -308,6 +308,7 @@ async function scoresOnChain(wallet: string, chainId: number, nowSeconds: number
       take: 5
     ) { id txid recipient data expirationTime revoked }
   }`;
+  log(`[HumanPassport] Asking ${lookup.graphql} for scores on ${chain.name}`);
   const body = await postJson(lookup.graphql, {query, variables: {recipient, schemaId: chain.schema, now: nowSeconds}}, `The score lookup on ${chain.name}`);
   if (body.errors) throw new HumanPassportError('E3001', `The score lookup on ${chain.name} failed: ${String(body.errors[0]?.message)}`);
   return (body?.data?.attestations ?? [])
@@ -394,36 +395,21 @@ export async function surveyHumanPassportChains(
 }
 
 /**
- * The chain to prove from. The person's pick when there is one (it must be a
- * Human Passport chain); otherwise -- a dApp request, which has no picker --
- * every chain is looked up and the score that meets the threshold is used,
- * the newest when several do (each proves the same statement; the chain is
- * not in the proof). With none: E2022 when a score exists but is too low,
- * E3001 when a lookup did not finish (it might hold one), else E2021.
+ * The chain the picker starts on: the newest score that meets `minScoreUnits`
+ * when a threshold is given (a dApp request), else the newest score found.
+ * Null when no chain holds a score: nothing is selected without a score
+ * behind it, and the person chooses (a chain with none, or one that could not
+ * be checked, is still theirs to pick -- only they know where they recorded it).
  */
-export async function resolvePassportChain(
-  wallet: string,
-  picked: number | undefined,
-  minScoreUnits: number,
-  nowSeconds: number,
-  log: (m: string) => void,
-): Promise<number> {
-  if (picked !== undefined) return humanPassportChain(picked).chainId;
-  const states = await surveyHumanPassportChains(wallet, nowSeconds, log);
-  for (const st of states) {
-    log(`[HumanPassport] chain ${st.chainId}: ${st.state}${st.state === 'found' ? ` score ${st.score / 1e4}` : st.state === 'unchecked' ? ` (${st.reason})` : ''}`);
-  }
-  const meeting = states
-    .filter((st): st is Extract<ChainScoreState, {state: 'found'}> => st.state === 'found' && st.score >= minScoreUnits)
+export function preselectPassportChain(states: readonly ChainScoreState[], minScoreUnits?: number): number | null {
+  const found = states
+    .filter((st): st is Extract<ChainScoreState, {state: 'found'}> => st.state === 'found')
     .sort((a, b) => b.expirationTime - a.expirationTime);
-  if (meeting.length > 0) return meeting[0].chainId;
-  if (states.some(st => st.state === 'found')) {
-    throw new HumanPassportError('E2022', `No Human Passport score of at least ${minScoreUnits / 1e4} on any chain`);
+  if (minScoreUnits !== undefined) {
+    const meeting = found.find(st => st.score >= minScoreUnits);
+    if (meeting) return meeting.chainId;
   }
-  if (states.some(st => st.state === 'unchecked')) {
-    throw new HumanPassportError('E3001', 'The score lookup did not finish on every chain');
-  }
-  throw new HumanPassportError('E2021', `No unexpired Human Passport score on any chain for ${wallet}`);
+  return found.length > 0 ? found[0].chainId : null;
 }
 
 const bytes = (hex: string) => Array.from(ethers.utils.arrayify(hex)).map(b => b.toString());

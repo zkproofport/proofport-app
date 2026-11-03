@@ -365,7 +365,7 @@
           "signing": "Sign the request"
         },
         "humanPassportTitle": "Human Passport score",
-        "humanPassportDescription": "Generate a zero-knowledge proof that your wallet's Human Passport score on Base is at least the requested score. Connect the wallet that holds the score."
+        "humanPassportDescription": "Generate a zero-knowledge proof that your wallet's Human Passport score is at least the requested score. Connect the wallet that holds the score, then choose the chain it is recorded on."
       },
       "domain": {
         "heroLabel": "OIDC DOMAIN VERIFICATION",
@@ -532,6 +532,7 @@
         "chainConnectWallet": "Connect a wallet to check",
         "chainChecking": "Checking…",
         "chainFound": "Score {{score}} found",
+        "chainFoundBelow": "Score {{score}} found, below {{min}}",
         "chainNone": "No score on this chain",
         "chainUnchecked": "Could not check",
         "chainRequired": "Choose the chain your score is on."

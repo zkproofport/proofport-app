@@ -32,6 +32,7 @@ import {
   type HumanPassportInputParams,
   type PassportRequest,
 } from '../humanPassport';
+import {computeScope, nullifierForCircuit} from '../circuitHelpers';
 import {HUMAN_PASSPORT_CHAIN_IDS, HUMAN_PASSPORT_ISSUER, HUMAN_PASSPORT_ISSUER_LEAVES, HUMAN_PASSPORT_ISSUER_ROOT, humanPassportChain} from '../../config/circuitIds';
 
 const issuance = vector.issuance;
@@ -100,6 +101,18 @@ describe('prepareHumanPassportInputs', () => {
     expect(hex(96)).toBe(vector.signerListMerkleRoot);
     expect(hex(160)).toBe(vector.expectedNullifier);
   });
+
+  // The relay callback's `nullifier` is computed by the proof screen with
+  // nullifierForCircuit, not read from the proof; for a dApp's Human Passport
+  // request it must be the proof's own (offset 160), in either mode.
+  it.each([['action', {}], ['signal', {action: undefined, signalHash: new Uint8Array(32).fill(7)}]])(
+    'the nullifier the proof screen sends a dApp is the one in the proof (%s mode)', (_mode, over) => {
+      const built = prepareHumanPassportInputs(params(over as Partial<HumanPassportInputParams>));
+      const inProof = '0x' + built.slice(160, 192).map(b => Number(b).toString(16).padStart(2, '0')).join('');
+      const sent = ethers.utils.hexlify(nullifierForCircuit('human_passport_score', vector.userAddress, new Uint8Array(32).fill(9), computeScope(vector.scopeString)));
+      expect(sent).toBe(inProof);
+      expect(sent).toBe(vector.expectedNullifier);
+    });
 
   it('in signal mode sends the signal hash and a zero action pair', () => {
     const signal = new Uint8Array(32).fill(7);

@@ -380,7 +380,8 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
     giwa_attestation: GIWA_SEPOLIA,
     // The Playground faucet and the circuit's chain-id literal are GIWA Sepolia.
     dojang_playground: GIWA_SEPOLIA,
-    // Verified where Coinbase is (the score itself is always read on Base).
+    // Verified where Coinbase is. The score is read on the chain the person
+    // chose (one of Human Passport's six mainnets), not here.
     human_passport_score: coinbaseChain,
   });
 
