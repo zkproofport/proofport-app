@@ -1,33 +1,37 @@
 /** Real proof-only transport, verified scope metadata, and deadlines. Only HTTP and
  * native handoff/navigation are doubled; fixtures never leave this process. */
 import {ethers} from 'ethers';
-import {
-  COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT,
-  COINBASE_COUNTRY_PUBLIC_INPUT_LAYOUT,
-  OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT,
-} from '@zkproofport-app/core';
+import {OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT, oprfLayoutOf, reduceOprfName} from '@zkproofport-app/core';
 import type {ProofInputs} from '@openstoa/miniapp-bridge';
 import {requestTopicProof, TOPIC_PROOF_TIMEOUT_MS, TOPIC_PROOF_POLL_MS} from '../topicProofRelay';
 
 const scope = 'zkproofport-community:topic:alice';
 const input: ProofInputs = {circuit: 'coinbase_attestation', scope};
-const layouts = {
-  coinbase_attestation: COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT,
-  coinbase_country_attestation: COINBASE_COUNTRY_PUBLIC_INPUT_LAYOUT,
-  oidc_domain_attestation: OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT,
-};
+const keccakScope = (s: string) => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(s));
+// What each circuit's proof publishes as its scope (and the poll reports as
+// scopeHash): OIDC the 32 keccak bytes, a wallet credential circuit one field,
+// keccak mod p (core's reduceOprfName).
+function proofFields(circuit: ProofInputs['circuit'], resultScope: string): {publicInputs: string[]; scopeHash: string} {
+  if (circuit === 'oidc_domain_attestation') {
+    const layout = OIDC_DOMAIN_ATTESTATION_PUBLIC_INPUT_LAYOUT;
+    const publicInputs = Array.from({length: layout.NULLIFIER_END + 1}, () => '0x00');
+    ethers.utils.arrayify(keccakScope(resultScope))
+      .forEach((byte, index) => { publicInputs[layout.SCOPE_START + index] = ethers.utils.hexlify(byte); });
+    return {publicInputs, scopeHash: keccakScope(resultScope)};
+  }
+  const layout = oprfLayoutOf(circuit);
+  const publicInputs = Array.from({length: layout.count}, () => '0x00');
+  publicInputs[layout.scope] = reduceOprfName(resultScope);
+  return {publicInputs, scopeHash: reduceOprfName(resultScope)};
+}
 function result(circuit: ProofInputs['circuit'] = input.circuit, resultScope = scope) {
-  const layout = layouts[circuit];
-  const publicInputs = Array.from({length: layout.NULLIFIER_END + 1}, () => '0x00');
-  ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(resultScope)))
-    .forEach((byte, index) => { publicInputs[layout.SCOPE_START + index] = ethers.utils.hexlify(byte); });
-  return {status: 'completed', circuit, proof: '0xaabb', publicInputs, scopeHash: ethers.utils.keccak256(ethers.utils.toUtf8Bytes(resultScope))};
+  return {status: 'completed', circuit, proof: '0xaabb', ...proofFields(circuit, resultScope)};
 }
 const response = (body: unknown, status = 200) => ({ok: status >= 200 && status < 300, status, json: async () => body} as Response);
 function harness(inputs = input) {
   const fetchImpl = jest.fn(async (_url: string, init?: RequestInit) => response(init?.method === 'POST'
-    ? {requestId: 'request/id', deepLink: 'zkproofport://proof-request?test=1', scope, circuitType: inputs.circuit}
-    : result(inputs.circuit)));
+    ? {requestId: 'request/id', deepLink: 'zkproofport://proof-request?test=1', scope: inputs.scope, circuitType: inputs.circuit}
+    : result(inputs.circuit, inputs.scope)));
   return {
     baseUrl: 'https://openstoa.test',
     getToken: jest.fn(async () => 'session-token'),
@@ -116,6 +120,46 @@ it.each([
   const promise = requestTopicProof(input, deps).catch(error => error);
   expect(await settle(promise)).toMatchObject({kind: 'HOST_TOPIC_PROOF_REPORTED'});
   expect(deps.showError).toHaveBeenCalledWith(code);
+});
+
+describe('the scope is compared the way each circuit publishes it', () => {
+  // keccak256('topic:0') is above the BN254 modulus, so its field form differs.
+  const wide = 'topic:0';
+  it('the fixture scope really has two different forms', () => {
+    expect(reduceOprfName(wide)).not.toBe(keccakScope(wide));
+  });
+
+  it.each(['coinbase_attestation', 'coinbase_country_attestation'] as const)(
+    '%s: the reduced field form is accepted for a scope whose keccak exceeds the modulus', async circuit => {
+      const inputs = {circuit, scope: wide} as ProofInputs;
+      const deps = harness(inputs);
+      await expect(settle(requestTopicProof(inputs, deps))).resolves.toMatchObject({proof: '0xaabb'});
+      expect(deps.showError).not.toHaveBeenCalled();
+    });
+
+  it.each(['coinbase_attestation', 'coinbase_country_attestation'] as const)(
+    '%s: the plain keccak (another value for this scope) is refused as another scope', async circuit => {
+      const inputs = {circuit, scope: wide} as ProofInputs;
+      const deps = harness(inputs);
+      deps.fetchImpl.mockImplementation(async (_url: string, init?: RequestInit) => response(init?.method === 'POST'
+        ? {requestId: 'request/id', deepLink: 'zkproofport://proof-request?test=1', scope: wide, circuitType: circuit}
+        : {...result(circuit, wide), scopeHash: keccakScope(wide)}));
+      const outcome = settle(requestTopicProof(inputs, deps).catch(e => e));
+      expect(String(await outcome)).toMatch(/different scope/);
+      expect(deps.showError).toHaveBeenCalledWith('E2003');
+    });
+
+  it('oidc_domain_attestation: the 32-byte keccak is accepted and the reduced form refused', async () => {
+    const inputs = {circuit: 'oidc_domain_attestation', scope: wide, provider: 'google'} as ProofInputs;
+    const ok = harness(inputs);
+    await expect(settle(requestTopicProof(inputs, ok))).resolves.toMatchObject({proof: '0xaabb'});
+    const bad = harness(inputs);
+    bad.fetchImpl.mockImplementation(async (_url: string, init?: RequestInit) => response(init?.method === 'POST'
+      ? {requestId: 'request/id', deepLink: 'zkproofport://proof-request?test=1', scope: wide, circuitType: inputs.circuit}
+      : {...result(inputs.circuit, wide), scopeHash: reduceOprfName(wide)}));
+    const outcome = settle(requestTopicProof(inputs, bad).catch(e => e));
+    expect(String(await outcome)).toMatch(/different scope/);
+  });
 });
 
 it('returns quietly to the mini-app after cancellation', async () => {

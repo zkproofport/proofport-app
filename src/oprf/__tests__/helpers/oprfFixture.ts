@@ -3,7 +3,7 @@
  * fields (the circuits' own generators write them), or the shared vector
  * file's first evaluation.
  */
-import type {OprfCircuitInputs} from '../../core/client';
+import type {OprfCircuitInputs} from '@zkproofport-app/core';
 import vectors from '../fixtures/oprf-vectors.json';
 
 const NAMES = [

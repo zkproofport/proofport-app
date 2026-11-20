@@ -135,11 +135,36 @@ describe('the identifiers come from the published SDK', () => {
     expect(importersOf(/'@zkproofport-app\/core\//)).toEqual([
       path.join('config', 'circuitIds.ts'),
     ]);
-    // Core's root (on-chain verification): one module, the shared verifier
-    // every proof hook calls.
-    expect(importersOf(/'@zkproofport-app\/core'/)).toEqual([
+    // Core's root: the modules that use what only the root exports, by
+    // concern. None of them may take the circuit id list from it -- that is
+    // the one door above.
+    //  - on-chain verification: the shared verifier every proof hook calls
+    //  - the OPRF client, pinned key hashes and public-input layouts: src/oprf,
+    //    the four wallet builders (the OprfCircuitInputs type), the proof
+    //    screen (the relay answer's nullifier) and the OpenStoa topic relay
+    //  - signal_hash: utils/signalHash.ts
+    const rootImporters = importersOf(/'@zkproofport-app\/core'/);
+    expect([...rootImporters].sort()).toEqual([
+      path.join('openstoa-host', 'topicProofRelay.ts'),
+      path.join('oprf', 'circuitInputs.ts'),
+      path.join('oprf', 'config.ts'),
+      path.join('oprf', 'curve', 'babyjubjub.ts'),
+      path.join('oprf', 'device.ts'),
+      path.join('oprf', 'flow.ts'),
+      path.join('oprf', 'requestAuth.ts'),
+      path.join('oprf', 'requestNames.ts'),
+      path.join('oprf', 'shamir.ts'),
+      path.join('oprf', 'transport.ts'),
+      path.join('screens', 'proof', 'ProofGenerationScreen.tsx'),
+      path.join('utils', 'coinbaseKyc.ts'),
+      path.join('utils', 'dojangPlayground.ts'),
+      path.join('utils', 'giwaKyc.ts'),
+      path.join('utils', 'humanPassport.ts'),
       path.join('utils', 'proofVerification.ts'),
-    ]);
+      path.join('utils', 'signalHash.ts'),
+    ].sort());
+    const ID_LIST_EXPORTS = /\b(ALL_CIRCUIT_IDS|CIRCUIT_IDS|SUPPORTED_CIRCUIT_IDS|EXPERIMENTAL_CIRCUIT_IDS|PLANNED_CIRCUIT_IDS|isCircuitId|isSupportedCircuitId)\b[^;]*from '@zkproofport-app\/core'/;
+    expect(rootImporters.filter(f => ID_LIST_EXPORTS.test(codeOf(path.join(SRC, f))))).toEqual([]);
     // The customer SDK: none.
     expect(importersOf(/@zkproofport-app\/sdk/)).toEqual([]);
   });

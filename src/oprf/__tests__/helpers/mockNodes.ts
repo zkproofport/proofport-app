@@ -5,10 +5,9 @@
  * CBOR messages. Behaviours let a test take a node down, delay it, make it
  * refuse, or make it lie in a specific way.
  */
-import {GENERATOR, scalarMul, type Point} from '../../core/babyjubjub';
-import {R, mod} from '../../core/field';
-import {poseidon2T16} from '../../core/poseidon2';
-import {OPRF_DS_DLOG} from '../../core/client';
+import {OPRF_DS_DLOG, poseidon2T16} from '@zkproofport-app/core';
+import {GENERATOR, scalarMul, type Point} from '../../curve/babyjubjub';
+import {R, mod} from '../../curve/field';
 import {cborDecode, cborEncode, decodePoint, encodePoint, encodeScalar, type CborRead} from '../../wire';
 import {combinedNonces, lagrangeCoefficient} from '../../shamir';
 import type {NodeConnector, NodeEvent, NodeSession} from '../../transport';
@@ -151,7 +150,7 @@ export function mockNetwork(behaviours: NodeBehaviour[], opts: {secretKey?: bigi
 
 // b from combine_two_nonce_randomness, recomputed (shamir.ts keeps it private).
 import {blake3} from '../../blake3';
-import {bytesToBigInt} from '../../core/field';
+import {bytesToBigInt} from '../../curve/field';
 import {uuidBytes, type CombinedCommitments} from '../../wire';
 function nonceFactor(requestId: string, pk: Point, ch: CombinedCommitments): bigint {
   const parts = [

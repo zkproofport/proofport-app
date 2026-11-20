@@ -17,8 +17,10 @@
  * client, QR codes and the bb.js off-chain verifier (about 153 MB unpacked) —
  * none of which a phone that IS the prover uses. The dependency-free
  * `/circuits` subpath is imported rather than core's root, which carries
- * on-chain verification and needs ethers; `src/utils/proofVerification.ts` is
- * the one module that takes that root.
+ * on-chain verification and needs ethers (which this app has). The root is
+ * taken where its other exports are needed: on-chain verification
+ * (`src/utils/proofVerification.ts`), the OPRF client and pinned key hashes
+ * (`src/oprf/`), and signal_hash (`src/utils/signalHash.ts`).
  *
  * ## Identifiers vs. this app's data
  *

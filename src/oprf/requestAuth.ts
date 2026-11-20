@@ -15,7 +15,7 @@
  * take is the bare proof, 9,152 bytes.
  */
 import {ethers} from 'ethers';
-import {oprfRequestDigest, reduceOprfName} from './core/client';
+import {oprfRequestDigest, reduceOprfName} from '@zkproofport-app/core';
 
 export const REQUEST_AUTH_VERSION = 'request-auth-v1';
 export const REQUEST_AUTH_PUBLIC_INPUTS = 36;

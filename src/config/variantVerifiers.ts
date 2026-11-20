@@ -13,7 +13,12 @@
  * Coinbase Country v2 rows: circuits 744900e (Base Sepolia) and a5bf7ba
  * (Base), deployed 2026-10-30, pinned by core 0.4.0-beta.2.
  *
- * Rows (circuits e02e674, deployed 2026-10-28; @zkproofport-app/core
+ * Testnet rows: the bb 6.0.0 OPRF-nullifier contracts deployed 2026-11-20
+ * (circuits 954eb90 records), pinned by core 0.4.0-beta.9. Production rows
+ * are the bb 4.2 contracts core 0.4.0-beta.9 lists in AWAITING_REDEPLOY; they
+ * move with the production release.
+ *
+ * Earlier rows (circuits e02e674, deployed 2026-10-28; @zkproofport-app/core
  * 0.4.0-beta.1 pins all of them in PINNED_VARIANT_VERIFIERS, held to it by
  * verifierAddressesComeFromCore.test.ts; on-chain verification asks core for
  * the contract by signerVariant and passes these only as the claim):
@@ -45,14 +50,14 @@ const BASE = 8453;
 
 const TESTNET_ROWS: Readonly<Record<AndroidVerifierVariant, Readonly<Partial<Record<CircuitName, VariantVerifier>>>>> = Object.freeze({
   android: Object.freeze({
-    oidc_domain_attestation: Object.freeze({address: '0x64866bf6734ed43d34799C7949f5eCb35B7e7e44', chainId: BASE_SEPOLIA}),
-    coinbase_attestation: Object.freeze({address: '0x395B3bCC27E7E405ec909a81374243fD0b44aacc', chainId: BASE_SEPOLIA}),
-    coinbase_country_attestation: Object.freeze({address: '0x98013aBB7Ac83B6C985DCFBd5748Ad2AE04C8c12', chainId: BASE_SEPOLIA}),
+    oidc_domain_attestation: Object.freeze({address: '0x31feA05b9Fa197B591D66cFf0FEF5698e6A5D9C0', chainId: BASE_SEPOLIA}),
+    coinbase_attestation: Object.freeze({address: '0x551AF332B494658eCe6124C1a5c48202c0580E28', chainId: BASE_SEPOLIA}),
+    coinbase_country_attestation: Object.freeze({address: '0x8e86Cc23c908792AD4F2EB1Df9A485a518eeea0e', chainId: BASE_SEPOLIA}),
   }),
   android_factory: Object.freeze({
-    oidc_domain_attestation: Object.freeze({address: '0x9E47e3c2B30E840CFC4D6901bA3E28fC666B3135', chainId: BASE_SEPOLIA}),
-    coinbase_attestation: Object.freeze({address: '0xBFAf9390c36d14D596556e42eb52d984De040Aa1', chainId: BASE_SEPOLIA}),
-    coinbase_country_attestation: Object.freeze({address: '0xD7bfd6d7BcC6c627da12cfcDf39fCA6f64FdC0b9', chainId: BASE_SEPOLIA}),
+    oidc_domain_attestation: Object.freeze({address: '0xaef0AF1b129035B6CEEf40241fD75871D15A5f41', chainId: BASE_SEPOLIA}),
+    coinbase_attestation: Object.freeze({address: '0xE0982A6ECfFc0eF1bD43d1D8bFE8C5089f3fF5BD', chainId: BASE_SEPOLIA}),
+    coinbase_country_attestation: Object.freeze({address: '0x26D4Cfae6654C31d10D669C0EbC6428802ADF9d0', chainId: BASE_SEPOLIA}),
   }),
 });
 

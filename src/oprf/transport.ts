@@ -18,8 +18,8 @@
  * returned as such, so the screen can say "refused" rather than "offline".
  * Every wait has a deadline; nothing waits on a node forever.
  */
-import {isIdentity, type Point} from './core/babyjubjub';
-import {verifyOprfDlogEquality} from './core/client';
+import {verifyOprfDlogEquality} from '@zkproofport-app/core';
+import {isIdentity, type Point} from './curve/babyjubjub';
 import {combineCommitments, combineProofs} from './shamir';
 import {
   decodeOprfResponse,

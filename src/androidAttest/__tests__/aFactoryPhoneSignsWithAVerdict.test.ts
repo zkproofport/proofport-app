@@ -265,8 +265,8 @@ describe("the proof callback's signerVariant", () => {
 describe("the verifier an Android proof names", () => {
   it('is its package\'s own contract in development and staging, null for standard', () => {
     expect(verifierForProof('coinbase_attestation', 'standard', 'staging')).toBeNull();
-    expect(verifierForProof('coinbase_attestation', 'android_factory', 'staging')).toEqual({address: '0xBFAf9390c36d14D596556e42eb52d984De040Aa1', chainId: 84532});
-    expect(verifierForProof('oidc_domain_attestation', 'android', 'development')).toEqual({address: '0x64866bf6734ed43d34799C7949f5eCb35B7e7e44', chainId: 84532});
+    expect(verifierForProof('coinbase_attestation', 'android_factory', 'staging')).toEqual({address: '0xE0982A6ECfFc0eF1bD43d1D8bFE8C5089f3fF5BD', chainId: 84532});
+    expect(verifierForProof('oidc_domain_attestation', 'android', 'development')).toEqual({address: '0x31feA05b9Fa197B591D66cFf0FEF5698e6A5D9C0', chainId: 84532});
   });
 
   it('is its package\'s Base mainnet contract in production', () => {

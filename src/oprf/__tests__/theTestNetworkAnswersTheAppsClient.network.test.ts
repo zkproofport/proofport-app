@@ -17,9 +17,10 @@ import {ethers} from 'ethers';
 import {webcrypto} from 'crypto';
 import {obtainOprfInputs, oprfErrorCode} from '../flow';
 import {runDistributedOprf, webSocketConnector} from '../transport';
-import {OPRF_TEST_NETWORK, TEST_NETWORK_OPRF_KEY_HASH} from '../config';
+import {TACEO_TESTNET_OPRF_KEY_HASH as TEST_NETWORK_OPRF_KEY_HASH} from '@zkproofport-app/core';
+import {OPRF_TEST_NETWORK} from '../config';
 import {expectedRequestAuthPublicInputs, REQUEST_AUTH_PROOF_BYTES} from '../requestAuth';
-import {blindOprfQuery, oprfQuery, reduceOprfName} from '../core/client';
+import {blindOprfQuery, oprfQuery, reduceOprfName} from '@zkproofport-app/core';
 
 const run = process.env.OPRF_NETWORK_TEST === '1';
 (run ? describe : describe.skip)('the public test network (OPRF_NETWORK_TEST=1)', () => {

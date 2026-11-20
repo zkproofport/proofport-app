@@ -819,7 +819,7 @@ describe('success, leaving, retrying', () => {
     // Its package's own contract (development build: Base Sepolia), never the
     // iPhone circuit's address the config mock answers for the id.
     expect(answers()).toEqual([expect.objectContaining({
-      status: 'completed', signerVariant: 'android_factory', verifierAddress: '0xBFAf9390c36d14D596556e42eb52d984De040Aa1',
+      status: 'completed', signerVariant: 'android_factory', verifierAddress: '0xE0982A6ECfFc0eF1bD43d1D8bFE8C5089f3fF5BD',
     })]);
   });
 

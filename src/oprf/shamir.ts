@@ -11,10 +11,9 @@
  * output bytes reduced mod r). Held to that crate by
  * __tests__/fixtures/oprf-wire-vectors.json.
  */
-import {GENERATOR, IDENTITY, add, isIdentity, scalarMul, type Point} from './core/babyjubjub';
-import {R, bytesToBigInt, invMod, mod} from './core/field';
-import {poseidon2T16} from './core/poseidon2';
-import {OPRF_DS_DLOG} from './core/client';
+import {OPRF_DS_DLOG, poseidon2T16} from '@zkproofport-app/core';
+import {GENERATOR, IDENTITY, add, isIdentity, scalarMul, type Point} from './curve/babyjubjub';
+import {R, bytesToBigInt, invMod, mod} from './curve/field';
 import {blake3} from './blake3';
 import {encodePoint, uuidBytes, type CombinedCommitments, type NodeCommitments} from './wire';
 

@@ -28,6 +28,7 @@ import {
   HUMAN_PASSPORT_SCORE_PUBLIC_INPUT_LAYOUT,
   HUMAN_PASSPORT_NOW_MAX_AGE_SECONDS,
   checkHumanPassportAnchors,
+  checkOprfProof,
   SIGNER_ROOT_LAYOUTS,
   signerRootCheck,
   verifyProofOnChain,
@@ -40,6 +41,7 @@ import {
   getVerifierAddress,
 } from '../config/environment';
 import type {CircuitName} from '../config/circuitIds';
+import {isOprfCircuit, OPRF_ENVIRONMENT_OF} from '../oprf/config';
 import {circuitArtifactSource} from '../config/circuitArtifacts';
 import {wireSignerVariant, type WireSignerVariant} from '../config/signerPlatform';
 import {verifierForProof} from './proofSignerVariant';
@@ -271,13 +273,35 @@ async function askVerifier(
         const checked = await window.stillChecked(parsedProof.publicInputsHex);
         if (!checked.ok) return {valid: false, error: checked.error};
       }
+      // The OPRF key does not age: an old wallet credential proof must still
+      // carry this build's pinned key hash.
+      if (isOprfCircuit(circuit)) {
+        const oprf = checkOprfProof(circuit, parsedProof.publicInputsHex, {oprfEnvironment: oprfEnvironmentOfBuild()});
+        if (!oprf.ok) return {valid: false, error: oprf.error};
+      }
       const contract = getVerifierContract(provider, {address: pinned.address, chainId: claimed.chainId, abi: VERIFIER_ABI});
       return {valid: (await contract.verify(parsedProof.proofHex, parsedProof.publicInputsHex)) === true};
     } catch (e) {
       return {valid: false, error: e instanceof Error ? e.message : String(e)};
     }
   }
-  return verifyProofOnChain(circuit, parsedProof, provider, {chainId: claimed.chainId}, claimed, {signerVariant});
+  return verifyProofOnChain(circuit, parsedProof, provider, {chainId: claimed.chainId}, claimed, {
+    signerVariant,
+    oprfEnvironment: oprfEnvironmentOfBuild(),
+  });
+}
+
+/**
+ * core's name for this build's environment: which OPRF key a wallet credential
+ * proof must carry the hash of. core requires it for every OPRF circuit and
+ * refuses without it; an unknown build environment is an error, never a default.
+ */
+function oprfEnvironmentOfBuild(): string {
+  const env = getEnvironment();
+  if (!Object.prototype.hasOwnProperty.call(OPRF_ENVIRONMENT_OF, env)) {
+    throw new Error(`Unknown environment '${env}'. Known: ${Object.keys(OPRF_ENVIRONMENT_OF).join(', ')}.`);
+  }
+  return OPRF_ENVIRONMENT_OF[env];
 }
 
 export async function verifyProofOnChainWithCore(

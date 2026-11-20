@@ -28,7 +28,7 @@ import {HUMAN_PASSPORT_CHAIN_IDS, humanPassportChain, humanPassportScoreUnits} f
 import {HumanPassportChainPicker} from '../../components/HumanPassportChainPicker';
 import {reviewBlockReason} from '../../utils/requestReview';
 import {oprfNamesFor} from '../../oprf/requestNames';
-import {readOprfPublicInputs} from '../../oprf/config';
+import {readOprfPublicInputs} from '@zkproofport-app/core';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
 import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY} from '../../utils';
 import type {TypedAction} from '../../utils/typedAction';

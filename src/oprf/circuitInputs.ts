@@ -9,7 +9,7 @@
  * own: `oprf_public_key_x, oprf_public_key_y, oprf_beta, oprf_dlog_e,
  * oprf_dlog_s, oprf_response_x, oprf_response_y`.
  */
-import {reduceOprfName, type OprfCircuitInputs} from './core/client';
+import {reduceOprfName, type OprfCircuitInputs} from '@zkproofport-app/core';
 
 export const OPRF_PUBLIC_INPUT_NAMES = Object.freeze(['oprf_key_hash', 'domain', 'scope', 'nullifier'] as const);
 export const OPRF_PRIVATE_INPUT_NAMES = Object.freeze([

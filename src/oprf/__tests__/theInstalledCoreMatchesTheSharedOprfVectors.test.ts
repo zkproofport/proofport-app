@@ -1,7 +1,6 @@
 /**
- * The app's mirror of core's OPRF client (src/oprf/core/, copied from
- * proofport-app-sdk packages/core/src/oprf/) against
- * fixtures/oprf-vectors.json, a byte-identical copy of the SDK's
+ * The installed `@zkproofport-app/core` OPRF client (the one the app proves
+ * with) against fixtures/oprf-vectors.json, a byte-identical copy of the SDK's
  * src/__tests__/fixtures/oprf-vectors.json (Rust taceo-oprf-core /
  * taceo-poseidon2 / proofport-oprf, oprf-nr KATs, ethers' TypedDataEncoder,
  * and a recorded answer of the public test network).
@@ -10,8 +9,9 @@ import vectors from './fixtures/oprf-vectors.json';
 import {
   blindOprfQuery, finalizeOprf, oprfKeyHash, oprfNameError, oprfNullifier, oprfQuery, oprfRequestDigest,
   reduceOprfName, unblindOprfResponse, verifyOprfDlogEquality, OPRF_FORMAT_CHARACTERS,
-} from '../core/client';
-import {TEST_NETWORK_OPRF_KEY_HASH, TEST_NETWORK_OPRF_PUBLIC_KEY} from '../config';
+  TACEO_TESTNET_OPRF_KEY_HASH as TEST_NETWORK_OPRF_KEY_HASH, TACEO_TESTNET_OPRF_PUBLIC_KEY as TEST_NETWORK_OPRF_PUBLIC_KEY,
+} from '@zkproofport-app/core';
+import {pinnedOprfKeyHash} from '../config';
 
 describe('names', () => {
   it.each([...vectors.names, ...vectors.jsOnlyNames].map(n => [n.note, n]))('%s', (_note, n) => {
@@ -63,6 +63,7 @@ describe('the public test network', () => {
   });
   it('the app\'s pinned key hash is that key\'s hash', () => {
     expect(n.keyHash).toBe(TEST_NETWORK_OPRF_KEY_HASH);
+    expect(pinnedOprfKeyHash('staging', 'coinbase_attestation')).toBe(n.keyHash);
     expect(oprfKeyHash(TEST_NETWORK_OPRF_PUBLIC_KEY)).toBe(TEST_NETWORK_OPRF_KEY_HASH);
     expect(n.publicKey).toEqual(TEST_NETWORK_OPRF_PUBLIC_KEY);
   });

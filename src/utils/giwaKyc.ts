@@ -15,7 +15,7 @@ import {
   padArray,
   recoverTxSignerPubkey,
 } from './circuitHelpers';
-import type {OprfCircuitInputs} from '../oprf/core/client';
+import type {OprfCircuitInputs} from '@zkproofport-app/core';
 import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
 
 // On-chain attest target — must match GIWA_ATTESTER_CONTRACT inside the

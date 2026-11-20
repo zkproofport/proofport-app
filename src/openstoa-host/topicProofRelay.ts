@@ -1,6 +1,7 @@
 import type {ProofInputs, ProofResult} from '@openstoa/miniapp-bridge';
 import {CIRCUIT_IDS} from '../config/circuitIds';
 import {ethers} from 'ethers';
+import {reduceOprfName} from '@zkproofport-app/core';
 import {fetchWithDeadline, HOST_REQUEST_TIMEOUT_MS, HostRequestTimeoutError} from './fetchWithDeadline';
 
 export const TOPIC_PROOF_TIMEOUT_MS = 6 * 60 * 1000;
@@ -34,6 +35,29 @@ const SUPPORTED_CIRCUITS = new Set<string>([
   CIRCUIT_IDS.COINBASE_COUNTRY_ATTESTATION,
   CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION,
 ]);
+
+/**
+ * The scope value a circuit's proof publishes, which the poll reports as
+ * `scopeHash`. OIDC keeps the 32-byte keccak256 of the scope; a wallet
+ * credential circuit (OPRF nullifier) publishes it as one field, keccak256
+ * reduced mod the BN254 scalar field (core's reduceOprfName). The two differ
+ * whenever the keccak is at least the modulus -- most scopes -- so comparing
+ * the wrong one refuses a correct proof as "bound to a different scope".
+ */
+const keccakScope = (scope: string): string => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(scope));
+const PUBLISHED_SCOPE: Readonly<Record<string, (scope: string) => string>> = Object.freeze({
+  [CIRCUIT_IDS.OIDC_DOMAIN_ATTESTATION]: keccakScope,
+  [CIRCUIT_IDS.COINBASE_ATTESTATION]: reduceOprfName,
+  [CIRCUIT_IDS.COINBASE_COUNTRY_ATTESTATION]: reduceOprfName,
+});
+
+function publishedScope(circuit: string, scope: string): string {
+  const derive = Object.prototype.hasOwnProperty.call(PUBLISHED_SCOPE, circuit) ? PUBLISHED_SCOPE[circuit] : undefined;
+  if (!derive) {
+    throw new TopicProofError('E1002', `No scope rule for circuit '${circuit}'. Known: ${Object.keys(PUBLISHED_SCOPE).join(', ')}.`);
+  }
+  return derive(scope);
+}
 
 /**
  * The proof's package as the poll reports it (the relay result's
@@ -145,7 +169,7 @@ export async function requestTopicProof(inputs: ProofInputs, deps: TopicProofDep
           !data.publicInputs.every(field => typeof field === 'string' && /^0x[0-9a-f]{1,64}$/i.test(field))) {
         throw new TopicProofError('E1002', 'Malformed topic proof result');
       }
-      const expectedScope = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(inputs.scope));
+      const expectedScope = publishedScope(circuit, inputs.scope);
       // The poll endpoint derives scopeHash from the public inputs only after
       // verification. Keep circuit ABI decoding on that existing boundary.
       if (typeof data.scopeHash !== 'string' || data.scopeHash.toLowerCase() !== expectedScope.toLowerCase()) {

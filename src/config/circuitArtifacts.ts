@@ -79,9 +79,10 @@ import {
 } from './signerPlatform';
 
 /**
- * zkproofport/circuits 2181748 (branch toolchain-upgrade, 2026-11-20; the
- * ddf11f0 artifacts plus the request circuit and the bb 6 testnet verifier
- * records): oidc_domain_attestation with the provider-key statement, rebuilt with nargo
+ * zkproofport/circuits 3c1e4c6 = prerelease tag v3.0.0-rc.1 (circuits main,
+ * 2026-11-20): the 2181748 circuits rebuilt by CI (same bytecode and keys,
+ * no absolute paths in the json), with the request circuit and the bb 6
+ * testnet verifier records: oidc_domain_attestation with the provider-key statement, rebuilt with nargo
  * 1.0.0 / bb 6.0.0 and noir-bignum 0.10 (RSA signature limbs range-checked;
  * Barrett parameter 2^(2*2048+6), the shift rsaBarrett.ts uses), 2^20, 214
  * public inputs, checked against its target/SHA256SUMS and
@@ -89,7 +90,7 @@ import {
  * files no longer match this app's input builder or prover. The same commit
  * as OPRF_CIRCUITS_REF.
  */
-export const OIDC_SIGNATURE_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce2cb6';
+export const OIDC_SIGNATURE_CIRCUITS_REF = '3c1e4c68564a096573997964d838dccbc5834252';
 
 /**
  * The zkproofport/circuits commit carrying the CI-built Android packages
@@ -101,11 +102,11 @@ export const OIDC_SIGNATURE_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce
  * .srs in three parts. Testnet verifiers: circuits e02e674.
  */
 // Now read only by the OIDC Android rows (Coinbase KYC's Android rows moved
-// to OPRF_CIRCUITS_REF). Moved 2026-11-20 to ddf11f0, then 2181748 (branch
-// toolchain-upgrade): nargo 1.0.0 / bb 6.0.0, noir-bignum 0.10, both OIDC
+// to OPRF_CIRCUITS_REF). Moved 2026-11-20 to ddf11f0, then 2181748, then
+// 3c1e4c6 (tag v3.0.0-rc.1, the same artifacts CI-rebuilt): nargo 1.0.0 / bb 6.0.0, noir-bignum 0.10, both OIDC
 // Android packages 2^21 with the .srs in three parts; the same commit as
 // OIDC_SIGNATURE_CIRCUITS_REF and OPRF_CIRCUITS_REF.
-export const ANDROID_SIGNATURE_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce2cb6';
+export const ANDROID_SIGNATURE_CIRCUITS_REF = '3c1e4c68564a096573997964d838dccbc5834252';
 
 /**
  * The zkproofport/circuits commit carrying Coinbase Country v2's CI-built
@@ -160,7 +161,8 @@ export const LAB_CIRCUITS_REF = '9651df892c28fbeb9331ebc5358abfdf062c7c42';
  * proof (`oprf-request-auth`, package `oprf_request_auth`) and the
  * wallet credential circuits rebuilt with the OPRF nullifier
  * (circuits-dev.md, "OPRF nullifier in every wallet credential circuit").
- * 2181748 (branch toolchain-upgrade, 2026-11-20): nargo 1.0.0 / bb 6.0.0,
+ * 3c1e4c6 = prerelease tag v3.0.0-rc.1 (circuits main, 2026-11-20; 2181748's
+ * circuits rebuilt by CI, same bytecode and keys): nargo 1.0.0 / bb 6.0.0,
  * every wallet credential package rebuilt with the OPRF nullifier, each
  * checked against its target/SHA256SUMS and target/vk/SHA256SUMS, the
  * request circuit's artifacts (oprf-request-auth/target), and the bb 6.0.0
@@ -168,7 +170,7 @@ export const LAB_CIRCUITS_REF = '9651df892c28fbeb9331ebc5358abfdf062c7c42';
  * Sepolia. A full commit, never a branch. Mainnet records are still the
  * bb 4.2 contracts.
  */
-export const OPRF_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce2cb6';
+export const OPRF_CIRCUITS_REF = '3c1e4c68564a096573997964d838dccbc5834252';
 
 let oprfCircuitsRefForTests: string | null = null;
 /** OPRF_CIRCUITS_REF, or the commit a test set (rows read it through a getter). */

@@ -209,7 +209,8 @@ describe('the Laboratory circuits (not in any release tag)', () => {
 });
 
 describe('a verifier follows the circuit bytes', () => {
-  const giwa = '0xf6edb9d6114b2546b6e559997fdde08caeea83b3';
+  // The bb 6.0.0 GIWA Sepolia contract (circuits 954eb90 record), the app's fallback.
+  const giwa = '0xa272056866453f0182426a29b9ca6382d6c6a060';
   const oldGiwa = '0xeb9eb5452790cfe549ff83ceb3dbe1c432231492';
 
   // main answers with another address: reading it would be visible.
@@ -233,7 +234,7 @@ describe('a verifier follows the circuit bytes', () => {
     const fetchMock = broadcasts();
     mockDisk.set('@proofport/deployment/staging/coinbase_attestation', JSON.stringify({address: '0x0036B61dBFaB8f3CfEEF77dD5D45F7EFBFE2035c'}));
     expect(await fetchDeploymentAddress('coinbase_attestation', 'staging')).toBeNull();
-    expect(await getVerifierAddress('coinbase_attestation', 'staging')).toBe('0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6');
+    expect(await getVerifierAddress('coinbase_attestation', 'staging')).toBe('0xe78fCDc7562ce3afCEadaF29f4b8B96DC997C01A');
     expect(await getVerifierAddress('coinbase_attestation', 'production')).toBe('0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployCoinbaseAttestation'))).toBe(false);
   });
@@ -242,7 +243,7 @@ describe('a verifier follows the circuit bytes', () => {
     const fetchMock = broadcasts();
     mockDisk.set('@proofport/deployment/staging/oidc_domain_attestation', JSON.stringify({address: '0x003334A7C2ff15ee9ee845Ab88e152A2A3694167'}));
     expect(await fetchDeploymentAddress('oidc_domain_attestation', 'staging')).toBeNull();
-    expect(await getVerifierAddress('oidc_domain_attestation', 'staging')).toBe('0xeA5933ABc598401c89F63B3f13AE56A7E78984e8');
+    expect(await getVerifierAddress('oidc_domain_attestation', 'staging')).toBe('0x14a2241B0A24679825BeFAaa562d4A204262D84f');
     expect(await getVerifierAddress('oidc_domain_attestation', 'production')).toBe('0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35');
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('DeployOidcDomainAttestation'))).toBe(false);
   });

@@ -25,7 +25,7 @@ import {
   randomOprfBeta,
   reduceOprfName,
   type OprfCircuitInputs,
-} from './core/client';
+} from '@zkproofport-app/core';
 import {OprfUnavailableError, oprfNetworkFor, pinnedOprfKeyHash, isOprfCircuit, OPRF_CIRCUIT_IDS, type OprfNetwork} from './config';
 import {OprfNameRefusedError, type OprfRequestNames} from './requestNames';
 import {

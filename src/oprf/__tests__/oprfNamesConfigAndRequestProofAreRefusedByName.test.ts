@@ -1,22 +1,22 @@
 /**
  * Edge-case matrix rows for what the app refuses BEFORE the wallet or the
  * nodes are asked: the request's OPRF names (src/oprf/requestNames.ts), the
- * environment / circuit / key-hash table (src/oprf/config.ts), the deadline
- * and typed data (core mirror), points (off-curve, outside the subgroup,
+ * environment / circuit / key-hash lookup (src/oprf/config.ts over core's
+ * getPinnedOprfKeyHash), the deadline and typed data (installed core), points (off-curve, outside the subgroup,
  * identity), and the request-proof witness against the circuit's own
  * Prover.toml (circuits/oprf-request-auth, fixtures/request-auth-fixture.json).
  */
 import {ethers} from 'ethers';
 import {oprfNamesFor, IN_APP_OPRF_DOMAIN, OprfNameRefusedError, requesterDomainForDisplay} from '../requestNames';
 import {
-  OPRF_CIRCUIT_IDS, OPRF_KEY_HASHES, OPRF_NETWORKS, OPRF_PUBLIC_INPUT_LAYOUTS, OprfUnavailableError,
-  TEST_NETWORK_OPRF_KEY_HASH, oprfNetworkFor, pinnedOprfKeyHash, readOprfPublicInputs,
+  OPRF_CIRCUIT_IDS, OPRF_ENVIRONMENT_OF, OPRF_NETWORKS, OprfUnavailableError, oprfNetworkFor, pinnedOprfKeyHash,
 } from '../config';
 import {
+  OPRF_KEY_HASHES, OPRF_PUBLIC_INPUT_LAYOUTS, TACEO_TESTNET_OPRF_KEY_HASH as TEST_NETWORK_OPRF_KEY_HASH, readOprfPublicInputs,
   blindOprfQuery, finalizeOprf, oprfDeadlineError, oprfRequestTypedData, verifyOprfDlogEquality, unblindOprfResponse,
-} from '../core/client';
-import {GENERATOR, IDENTITY} from '../core/babyjubjub';
-import {P} from '../core/field';
+} from '@zkproofport-app/core';
+import {GENERATOR, IDENTITY} from '../curve/babyjubjub';
+import {P} from '../curve/field';
 import {expectedRequestAuthPublicInputs, requestAuthInputs, checkRequestAuthProof, REQUEST_AUTH_PROOF_BYTES} from '../requestAuth';
 import {oprfErrorCode} from '../flow';
 import {oprfPrivateInputs, oprfPublicInputs, oprfScopeBytesOf} from '../circuitInputs';
@@ -105,12 +105,13 @@ describe('the OPRF names of a request', () => {
 describe('environments, circuits and the pinned key', () => {
   it('production has no network and no key: refused by name, never the test network (E3011)', () => {
     expect(OPRF_NETWORKS.production).toBeNull();
-    expect(OPRF_KEY_HASHES.production).toBeNull();
+    expect(OPRF_KEY_HASHES[OPRF_ENVIRONMENT_OF.production]).toBeNull();
     expect(() => oprfNetworkFor('production')).toThrow(OprfUnavailableError);
     for (const c of OPRF_CIRCUIT_IDS) {
       let err: unknown;
       try { pinnedOprfKeyHash('production', c); } catch (e) { err = e; }
       expect(err).toBeInstanceOf(OprfUnavailableError);
+      expect((err as Error).message).toMatch(/'production' environment/);
       expect(oprfErrorCode(err)).toBe('E3011');
     }
   });
@@ -133,18 +134,18 @@ describe('environments, circuits and the pinned key', () => {
   });
 });
 
-describe('reading the OPRF values out of a proof', () => {
+describe('reading the OPRF values out of a proof (installed core, as ProofGenerationScreen reads the relay nullifier)', () => {
   const vec = (n: number) => Array.from({length: n}, (_, i) => '0x' + i.toString(16).padStart(64, '0'));
-  it.each(Object.entries(OPRF_PUBLIC_INPUT_LAYOUTS))('%s at its layout', (circuit, l) => {
+  it.each(OPRF_CIRCUIT_IDS.map(c => [c, OPRF_PUBLIC_INPUT_LAYOUTS[c]!] as const))('%s at its layout', (circuit, l) => {
     const got = readOprfPublicInputs(circuit, vec(l.count));
-    expect(BigInt(got.keyHash)).toBe(BigInt(l.keyHash));
+    expect(BigInt(got.oprfKeyHash)).toBe(BigInt(l.keyHash));
     expect(BigInt(got.nullifier)).toBe(BigInt(l.nullifier));
     expect([l.domain, l.scope]).toEqual([l.keyHash + 1, l.keyHash + 2]);
-    expect(() => readOprfPublicInputs(circuit, vec(l.count + 60))).toThrow(/publishes/);
-    expect(() => readOprfPublicInputs(circuit, vec(l.count - 1))).toThrow(/publishes/);
+    expect(() => readOprfPublicInputs(circuit, vec(l.count + 61))).toThrow(/public inputs; got/);
+    expect(() => readOprfPublicInputs(circuit, vec(l.count - 1))).toThrow(/public inputs; got/);
     const atP = vec(l.count);
     atP[l.nullifier] = '0x' + P.toString(16);
-    expect(() => readOprfPublicInputs(circuit, atP)).toThrow(/not a field element/);
+    expect(() => readOprfPublicInputs(circuit, atP)).toThrow(/not below the field modulus/);
   });
   it('an unknown circuit throws', () => {
     expect(() => readOprfPublicInputs('oidc_domain_attestation', vec(214))).toThrow(/has no OPRF nullifier/);

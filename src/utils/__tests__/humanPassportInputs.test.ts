@@ -32,8 +32,8 @@ import {
   type HumanPassportInputParams,
   type PassportRequest,
 } from '../humanPassport';
-import {readOprfPublicInputs} from '../../oprf/config';
-import type {OprfCircuitInputs} from '../../oprf/core/client';
+import {readOprfPublicInputs} from '@zkproofport-app/core';
+import type {OprfCircuitInputs} from '@zkproofport-app/core';
 
 /** The fixture's OPRF evaluation (its per-circuit test key), as the builder takes it. */
 const f32 = (v: string) => '0x' + BigInt(v).toString(16).padStart(64, '0');
@@ -123,7 +123,7 @@ describe('prepareHumanPassportInputs', () => {
       const read = readOprfPublicInputs('human_passport_score', publicInputs);
       expect(read.nullifier).toBe(f32(vector.expectedNullifier));
       expect(read.scope).toBe(f32(vector.oprf.scope));
-      expect(read.keyHash).toBe(f32(vector.oprf.keyHash));
+      expect(read.oprfKeyHash).toBe(f32(vector.oprf.keyHash));
     });
 
   it('in signal mode sends the signal hash and a zero action pair', () => {

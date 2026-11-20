@@ -10,9 +10,9 @@ import {
   encodeOprfRequest, encodePoint, decodeScalar, encodeScalar, uuidBytes, randomUuidV4,
 } from '../wire';
 import {combineCommitments, combineProofs, lagrangeCoefficient} from '../shamir';
-import {verifyOprfDlogEquality} from '../core/client';
-import {GENERATOR, IDENTITY, scalarMul} from '../core/babyjubjub';
-import {P, R} from '../core/field';
+import {verifyOprfDlogEquality} from '@zkproofport-app/core';
+import {GENERATOR, IDENTITY, scalarMul} from '../curve/babyjubjub';
+import {P, R} from '../curve/field';
 
 const hexToBytes = (h: string) => Uint8Array.from(Buffer.from(h, 'hex'));
 const hex = (b: Uint8Array) => Buffer.from(b).toString('hex');

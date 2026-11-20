@@ -14,8 +14,8 @@
  */
 import {ethers} from 'ethers';
 import {mockNetwork, type NodeBehaviour} from './helpers/mockNodes';
-import {oprfKeyHash, oprfQuery, reduceOprfName, OPRF_MAX_VALIDITY_SECONDS} from '../core/client';
-import {GENERATOR, scalarMul, isIdentity} from '../core/babyjubjub';
+import {oprfKeyHash, oprfQuery, reduceOprfName, OPRF_MAX_VALIDITY_SECONDS} from '@zkproofport-app/core';
+import {GENERATOR, scalarMul, isIdentity} from '../curve/babyjubjub';
 import {expectedRequestAuthPublicInputs, REQUEST_AUTH_PROOF_BYTES} from '../requestAuth';
 import {OPRF_PUBLIC_INPUT_NAMES} from '../circuitInputs';
 
@@ -72,7 +72,7 @@ function capturingProver(net: ReturnType<typeof mockNetwork>, d: OprfFlowDeps & 
   d.proveRequestAuth = async (inputs: string[]) => {
     const req = JSON.parse(d.signed[d.signed.length - 1]).message;
     // The witness's beta (last input) and the query give the blinded point.
-    const {blindOprfQuery} = jest.requireActual('../core/client');
+    const {blindOprfQuery} = jest.requireActual('@zkproofport-app/core');
     const q = oprfQuery({address: wallet.address, domain: reduceOprfName(req.domainName), scope: reduceOprfName(req.scopeName)});
     const a = blindOprfQuery(q, inputs[inputs.length - 1]);
     lastBlinded = {x: BigInt(a.x), y: BigInt(a.y)};

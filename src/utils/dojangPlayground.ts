@@ -31,7 +31,7 @@ import {
   hexToByteArray,
   padArray,
 } from './circuitHelpers';
-import type {OprfCircuitInputs} from '../oprf/core/client';
+import type {OprfCircuitInputs} from '@zkproofport-app/core';
 import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
 
 const CIRCUIT_ID = 'dojang_playground';

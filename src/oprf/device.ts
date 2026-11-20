@@ -6,7 +6,7 @@
  * attempt, before it builds its circuit inputs.
  */
 import {getEnvironment} from '../config/environment';
-import type {OprfCircuitInputs} from './core/client';
+import type {OprfCircuitInputs} from '@zkproofport-app/core';
 import {obtainOprfInputs, oprfErrorCode, OprfError} from './flow';
 import {oprfNetworkFor, pinnedOprfKeyHash} from './config';
 import type {ErrorCode} from '../constants/errorCodes';

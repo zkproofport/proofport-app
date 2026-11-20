@@ -16,6 +16,7 @@ import {
   COINBASE_ATTESTATION_PUBLIC_INPUT_COUNT as CORE_COINBASE_COUNT,
   OIDC_PUBLIC_INPUT_COUNT as CORE_OIDC_PUBLIC_INPUT_COUNT,
   PINNED_VARIANT_VERIFIERS,
+  AWAITING_REDEPLOY,
 } from '@zkproofport-app/core';
 import {ALL_CIRCUIT_IDS, type CircuitName} from '../circuitIds';
 import {CIRCUIT_NETWORKS, FALLBACK_VERIFIERS} from '../contracts';
@@ -33,6 +34,30 @@ const IN_CORE = ALL_CIRCUIT_IDS.filter(id => !(COUNTRY_PENDING && id === 'coinba
 
 const ENVS: Environment[] = ['development', 'staging', 'production'];
 
+/*
+ * What core says about the contract for a circuit on a chain: the address it
+ * pins, or -- for a contract built from a key that is no longer the circuit's
+ * -- the address it lists in AWAITING_REDEPLOY and refuses to verify on (the
+ * mainnet rows until the production release redeploys them). Production is
+ * the only environment allowed to name an awaiting contract; any other
+ * refusal from core is rethrown.
+ */
+function coreClaim(circuit: string, chainId: number, variant = 'standard'): {kind: 'pinned' | 'awaiting'; address: string} {
+  if (variant === 'standard') {
+    try {
+      return {kind: 'pinned', address: getPinnedVerifier(circuit, chainId).address};
+    } catch (e) {
+      if (!/awaits a redeploy/.test(String(e))) throw e;
+    }
+  } else {
+    const row = (PINNED_VARIANT_VERIFIERS as Record<string, Record<string, Record<number, {address: string}>>>)[variant]?.[circuit]?.[chainId];
+    if (row) return {kind: 'pinned', address: row.address};
+  }
+  const awaiting = AWAITING_REDEPLOY.filter(a => a.circuit === circuit && a.chainId === chainId && a.variant === variant);
+  if (awaiting.length !== 1) throw new Error(`core neither pins nor awaits ${variant} ${circuit} on ${chainId}`);
+  return {kind: 'awaiting', address: awaiting[0].previousAddress};
+}
+
 describe('every environment resolves every circuit through core', () => {
   it('core throws for a chain it pins nothing on, so the rows below cannot pass by a default', () => {
     expect(() => getPinnedVerifier('giwa_attestation', 84532)).toThrow(/84532/);
@@ -46,12 +71,20 @@ describe('every environment resolves every circuit through core', () => {
     }
   });
 
-  it.each(ENVS)('%s: each address is core\'s pinned verifier on the circuit\'s own chain', env => {
+  it.each(ENVS)('%s: each address is core\'s pinned verifier on the circuit\'s own chain (production: or the contract core awaits a redeploy of)', env => {
     for (const circuit of IN_CORE) {
       const chainId = CIRCUIT_NETWORKS[env][circuit].chainId;
-      expect(FALLBACK_VERIFIERS[env][circuit].toLowerCase()).toBe(
-        getPinnedVerifier(circuit, chainId).address,
-      );
+      const claim = coreClaim(circuit, chainId);
+      expect([circuit, FALLBACK_VERIFIERS[env][circuit].toLowerCase()]).toEqual([circuit, claim.address]);
+      if (env !== 'production') expect([circuit, claim.kind]).toEqual([circuit, 'pinned']);
+    }
+  });
+
+  it('testnet rows are pinned, never awaiting: every development / staging contract is one core verifies on', () => {
+    for (const env of ['development', 'staging'] as const) {
+      for (const circuit of IN_CORE) {
+        expect(coreClaim(circuit, CIRCUIT_NETWORKS[env][circuit].chainId).kind).toBe('pinned');
+      }
     }
   });
 
@@ -82,12 +115,12 @@ describe('Coinbase KYC: v2 everywhere, never a v1 contract', () => {
     '0x7fc2059a73cef2b572c8deee911c72963dcb4a8a', // 11155111
   ];
 
-  it("core's rows count 193 public inputs and are none of v1's contracts", () => {
-    expect(CORE_COINBASE_COUNT).toBe(193);
+  it("core's rows count 133 public inputs (OPRF nullifier) and are none of v1's contracts", () => {
+    expect(CORE_COINBASE_COUNT).toBe(133);
     for (const env of ENVS) {
       const a = FALLBACK_VERIFIERS[env].coinbase_attestation.toLowerCase();
       expect([env, V1.includes(a)]).toEqual([env, false]);
-      expect(a).toBe(getPinnedVerifier('coinbase_attestation', CIRCUIT_NETWORKS[env].coinbase_attestation.chainId).address);
+      expect(a).toBe(coreClaim('coinbase_attestation', CIRCUIT_NETWORKS[env].coinbase_attestation.chainId).address);
     }
   });
 
@@ -110,7 +143,7 @@ describe('Coinbase Country: v2 or nothing, never a v1 contract', () => {
     if (a === '') return;
     expect(a).toBe(ethers.utils.getAddress(a));
     expect(V1.includes(a.toLowerCase())).toBe(false);
-    expect(a.toLowerCase()).toBe(getPinnedVerifier('coinbase_country_attestation', CIRCUIT_NETWORKS[env].coinbase_country_attestation.chainId).address);
+    expect(a.toLowerCase()).toBe(coreClaim('coinbase_country_attestation', CIRCUIT_NETWORKS[env].coinbase_country_attestation.chainId).address);
   });
 
   it('is read from a pinned circuits ref', () => {
@@ -128,9 +161,9 @@ describe('OIDC v2: the app and core agree on the circuit', () => {
   it('development and staging name the provider-key-statement verifier, never an older OIDC contract', () => {
     for (const env of ['development', 'staging'] as const) {
       expect(CIRCUIT_NETWORKS[env].oidc_domain_attestation.chainId).toBe(84532);
-      // circuits 7e5c72d, broadcast/DeployOidcDomainAttestation.s.sol/84532.
-      expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation).toBe('0xeA5933ABc598401c89F63B3f13AE56A7E78984e8');
-      for (const old of ['0x003334a7c2ff15ee9ee845ab88e152a2a3694167', '0x5d9ece4f0276d12693f79659760a68011efef485']) {
+      // circuits 954eb90, broadcast/DeployOidcDomainAttestation.s.sol/84532 (bb 6.0.0).
+      expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation).toBe('0x14a2241B0A24679825BeFAaa562d4A204262D84f');
+      for (const old of ['0xea5933abc598401c89f63b3f13ae56a7e78984e8', '0x003334a7c2ff15ee9ee845ab88e152a2a3694167', '0x5d9ece4f0276d12693f79659760a68011efef485']) {
         expect(FALLBACK_VERIFIERS[env].oidc_domain_attestation.toLowerCase()).not.toBe(old);
       }
     }
@@ -164,8 +197,9 @@ describe('Android package verifiers', () => {
   const VARIANTS = ['android', 'android_factory'] as const;
   const CIRCUITS = ['oidc_domain_attestation', 'coinbase_attestation', 'coinbase_country_attestation'] as const;
   const EXPECTED: Record<string, Record<string, string>> = {
-    android: {oidc_domain_attestation: '0x64866bf6734ed43d34799c7949f5ecb35b7e7e44', coinbase_attestation: '0x395b3bcc27e7e405ec909a81374243fd0b44aacc', coinbase_country_attestation: '0x98013abb7ac83b6c985dcfbd5748ad2ae04c8c12'},
-    android_factory: {oidc_domain_attestation: '0x9e47e3c2b30e840cfc4d6901ba3e28fc666b3135', coinbase_attestation: '0xbfaf9390c36d14d596556e42eb52d984de040aa1', coinbase_country_attestation: '0xd7bfd6d7bcc6c627da12cfcdf39fca6f64fdc0b9'},
+    // bb 6.0.0 OPRF-era contracts, circuits 954eb90 records, pinned by core 0.4.0-beta.9.
+    android: {oidc_domain_attestation: '0x31fea05b9fa197b591d66cff0fef5698e6a5d9c0', coinbase_attestation: '0x551af332b494658ece6124c1a5c48202c0580e28', coinbase_country_attestation: '0x8e86cc23c908792ad4f2eb1df9a485a518eeea0e'},
+    android_factory: {oidc_domain_attestation: '0xaef0af1b129035b6ceef40241fd75871d15a5f41', coinbase_attestation: '0xe0982a6ecffc0ef1bd43d1d8bfe8c5089f3ff5bd', coinbase_country_attestation: '0x26d4cfae6654c31d10d669c0ebc6428802adf9d0'},
   };
 
   it.each(['development', 'staging'] as const)("%s: each variant's Base Sepolia contract, checksummed, never the standard address", env => {
@@ -209,14 +243,13 @@ describe('Android package verifiers', () => {
     expect(() => androidVerifierFor('__proto__', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
   });
 
-  it("every row is the published core's PINNED_VARIANT_VERIFIERS, on Base Sepolia and Base mainnet", () => {
+  it("every row is the published core's: pinned on Base Sepolia, awaiting a redeploy under the same address on Base mainnet", () => {
     for (const v of VARIANTS) {
       for (const c of CIRCUITS) {
-        const rows = PINNED_VARIANT_VERIFIERS[v][c];
-        expect([v, c, rows?.[84532]?.address]).toEqual([v, c, EXPECTED[v][c]]);
-        expect([v, c, rows?.[8453]?.address]).toEqual([v, c, MAINNET[v][c]]);
-        expect(androidVerifierFor(c, 'staging', v).address.toLowerCase()).toBe(rows?.[84532]?.address);
-        expect(androidVerifierFor(c, 'production', v).address.toLowerCase()).toBe(rows?.[8453]?.address);
+        expect([v, c, coreClaim(c, 84532, v)]).toEqual([v, c, {kind: 'pinned', address: EXPECTED[v][c]}]);
+        expect([v, c, coreClaim(c, 8453, v)]).toEqual([v, c, {kind: 'awaiting', address: MAINNET[v][c]}]);
+        expect(androidVerifierFor(c, 'staging', v).address.toLowerCase()).toBe(EXPECTED[v][c]);
+        expect(androidVerifierFor(c, 'production', v).address.toLowerCase()).toBe(MAINNET[v][c]);
       }
     }
   });

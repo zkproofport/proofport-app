@@ -8,6 +8,16 @@ rules the nodes apply, the refusal of production (no network, no key), the
 request's own domain on the review screen and at the proof screen. Each
 mutation below removes one of those and asserts the named test case goes red.
 
+Guards that live in `@zkproofport-app/core` are not mutated here. Since the
+app imports the OPRF client from the installed core (0.4.0-beta.9), the key
+hash comparison in `finalizeOprf`, the DLog challenge comparison, the subgroup
+check on the nodes' points and the name rules (length, Cc, Cf) are core's
+code inside node_modules; breaking them here would test a file the app does
+not own, and they are mutation-tested in proofport-app-sdk where they are
+written. The app still holds them to the shared vectors
+(src/oprf/__tests__/theInstalledCoreMatchesTheSharedOprfVectors.test.ts).
+Every guard below is app code.
+
 At every step it checks that (1) the substitution matched exactly once,
 (2) the named case is reported FAILED (a `✕` line), not merely present in the
 output, and (3) the file is restored byte-identical (sha256).
@@ -33,7 +43,6 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parent.parent
 
-CLIENT = "src/oprf/core/client.ts"
 CONFIG = "src/oprf/config.ts"
 NAMES = "src/oprf/requestNames.ts"
 TRANSPORT = "src/oprf/transport.ts"
@@ -42,7 +51,7 @@ SCREEN = "src/screens/proof/ProofGenerationScreen.tsx"
 MODAL = "src/components/ProofRequestModal.tsx"
 DEVICE = "src/oprf/device.ts"
 
-T_MIRROR = "src/oprf/__tests__/theAppsOprfMirrorMatchesTheSharedVectors.test.ts"
+T_CORE = "src/oprf/__tests__/theInstalledCoreMatchesTheSharedOprfVectors.test.ts"
 T_RULES = "src/oprf/__tests__/oprfNamesConfigAndRequestProofAreRefusedByName.test.ts"
 T_FLOW = "src/oprf/__tests__/theOprfFlowIsCheckedAtEveryStep.test.ts"
 T_SCREEN = "src/screens/__tests__/everyRelayRequestGetsOneAnswer.test.ts"
@@ -61,32 +70,16 @@ class Mutation:
 
 
 MUTATIONS: list[Mutation] = [
-    # The key hash: an answer under any key other than the pinned one.
+    # The app's environment -> core's environment, which picks the pinned row.
     Mutation(
-        name="key-hash-compare-removed",
-        path=CLIENT,
-        old="  if (args.expectedKeyHash !== undefined && toHex32(parseField(args.expectedKeyHash, 'expectedKeyHash')) !== keyHash) {",
-        new="  if (false) {",
-        guard=T_FLOW,
-        expect_case="a consistent answer under a key other than the pinned one is E2024",
-    ),
-    Mutation(
-        name="test-network-pin-changed",
+        name="staging-looks-up-core-production",
         path=CONFIG,
-        old="export const TEST_NETWORK_OPRF_KEY_HASH = '0x039ecd4ea1875bb5c7f7a1bfae692cab271e3f3f25df4e5ab691fcb17586e6d1';",
-        new="export const TEST_NETWORK_OPRF_KEY_HASH = '0x039ecd4ea1875bb5c7f7a1bfae692cab271e3f3f25df4e5ab691fcb17586e6d2';",
-        guard=T_MIRROR,
+        old="  staging: 'staging',\n  production: 'production',\n});",
+        new="  staging: 'production',\n  production: 'production',\n});",
+        guard=T_CORE,
         expect_case="the app's pinned key hash is that key's hash",
     ),
-    # The DLog proof: the core check, and the transport's own check before returning.
-    Mutation(
-        name="dlog-challenge-not-compared",
-        path=CLIENT,
-        old="  return challenge === e;",
-        new="  return true;",
-        guard=T_RULES,
-        expect_case="e + 1 does not verify",
-    ),
+    # The transport's own checks before it returns: the combined DLog proof, one key.
     Mutation(
         name="dlog-not-checked-after-combining",
         path=TRANSPORT,
@@ -96,14 +89,6 @@ MUTATIONS: list[Mutation] = [
         expect_case="a bad proof share is refused by the transport as bad-proof",
     ),
     Mutation(
-        name="dlog-subgroup-check-removed",
-        path=CLIENT,
-        old="  if (!isInSubgroup(q)) throw new Error(`${what} is not a point of BabyJubJub's prime-order subgroup.`);",
-        new="",
-        guard=T_RULES,
-        expect_case="a point of order 2 (outside the prime-order subgroup) is refused",
-    ),
-    Mutation(
         name="inconsistent-keys-accepted",
         path=TRANSPORT,
         old="    if (!chosen.every(c => c.resp.publicKey.x === publicKey.x && c.resp.publicKey.y === publicKey.y)) {",
@@ -111,31 +96,7 @@ MUTATIONS: list[Mutation] = [
         guard=T_FLOW,
         expect_case="nodes naming different keys are refused as inconsistent-keys",
     ),
-    # Name rules (the node's auth::check_name).
-    Mutation(
-        name="name-length-off-by-one",
-        path=CLIENT,
-        old="  if (bytes.length > OPRF_MAX_NAME_BYTES) return 'too-long';",
-        new="  if (bytes.length > OPRF_MAX_NAME_BYTES + 1) return 'too-long';",
-        guard=T_RULES,
-        expect_case="refuses a domain that is 257 ASCII bytes",
-    ),
-    Mutation(
-        name="format-characters-allowed",
-        path=CLIENT,
-        old="  if (codePoints.some(isFormat)) return 'format-character';",
-        new="",
-        guard=T_RULES,
-        expect_case="refuses a domain that is a right-to-left override",
-    ),
-    Mutation(
-        name="control-characters-allowed",
-        path=CLIENT,
-        old="  if (codePoints.some(isControl)) return 'control-character';",
-        new="",
-        guard=T_RULES,
-        expect_case="refuses a domain that is NUL",
-    ),
+    # Names: the app's refusal of a missing name, and the screen calling the check.
     Mutation(
         name="missing-domain-filled-in",
         path=NAMES,
@@ -162,10 +123,18 @@ MUTATIONS: list[Mutation] = [
         expect_case="production has no network and no key",
     ),
     Mutation(
-        name="production-pins-the-test-key",
+        name="production-looks-up-core-staging",
         path=CONFIG,
-        old="  staging: testNetworkKeys(),\n  production: null,",
-        new="  staging: testNetworkKeys(),\n  production: testNetworkKeys(),",
+        old="  staging: 'staging',\n  production: 'production',\n});",
+        new="  staging: 'staging',\n  production: 'staging',\n});",
+        guard=T_RULES,
+        expect_case="production has no network and no key",
+    ),
+    Mutation(
+        name="production-refusal-not-e3011",
+        path=CONFIG,
+        old="  if (OPRF_KEY_HASHES[coreEnv] === null) {",
+        new="  if (false) {",
         guard=T_RULES,
         expect_case="production has no network and no key",
     ),

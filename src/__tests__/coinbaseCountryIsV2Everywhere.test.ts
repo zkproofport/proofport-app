@@ -105,7 +105,7 @@ describe('the verifier', () => {
   // v1's contracts reject every v2 proof (other vk); a row naming one would
   // send proofs nobody can verify.
   const V1 = ['0x9DEea2189aE694D7a36f65Fb7d7Dbe9f75abDDcE', '0x8e89f11E65f219203f5bE9d6a69a4da084630C56', '0x0b3Af3DFc67dC65E0145c37ee00230139d579F64', '0x2EB64D21fB29f26cD58901767aD232841a945D46'].map(a => a.toLowerCase());
-  const V2 = {development: '0xC5363d7587bd580148373D0d8b7909Be423242CB', staging: '0xC5363d7587bd580148373D0d8b7909Be423242CB', production: '0x509DEE10cc1578361b450fED7475EA3BD69c6e8d'} as Record<string, string>;
+  const V2 = {development: '0xe88033179576869c8730160EcBfaa7e5b2c1A4a9', staging: '0xe88033179576869c8730160EcBfaa7e5b2c1A4a9', production: '0x509DEE10cc1578361b450fED7475EA3BD69c6e8d'} as Record<string, string>;
 
   it.each(['development', 'staging', 'production'])("%s: the row is v2's contract, never v1's", env => {
     const row = FALLBACK_VERIFIERS[env].coinbase_country_attestation;

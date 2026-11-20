@@ -16,9 +16,9 @@
  * in the prime-order subgroup, a scalar below the group order, a field below
  * p, and anything malformed is an error naming what, never a default.
  */
-import {A, D, isInSubgroup, type Point} from './core/babyjubjub';
-import {P, R, bytesToBigInt, invMod, legendre, mod, sqrtMod} from './core/field';
-import {utf8Bytes} from './core/keccak';
+import {ethers} from 'ethers';
+import {A, D, isInSubgroup, type Point} from './curve/babyjubjub';
+import {P, R, bytesToBigInt, invMod, legendre, mod, sqrtMod} from './curve/field';
 
 // ---- CBOR -------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ function head(major: number, n: number, out: number[]): void {
 function encodeInto(v: CborValue, out: number[]): void {
   if (typeof v === 'number') return head(0, v, out);
   if (typeof v === 'string') {
-    const b = utf8Bytes(v);
+    const b = ethers.utils.toUtf8Bytes(v);
     head(3, b.length, out);
     for (const x of b) out.push(x);
     return;

@@ -16,7 +16,7 @@
  * Both must pass the node's name rules (1-256 UTF-8 bytes, no Cc or Cf
  * character; core `oprfNameError`), checked before anything is signed.
  */
-import {oprfNameError, type OprfNameError} from './core/client';
+import {oprfNameError, type OprfNameError} from '@zkproofport-app/core';
 
 /** The domain of a proof the app makes for itself (no dApp request). */
 export const IN_APP_OPRF_DOMAIN = 'zkproofport.app';

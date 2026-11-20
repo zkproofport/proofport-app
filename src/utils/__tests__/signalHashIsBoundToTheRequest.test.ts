@@ -1,6 +1,6 @@
 /**
  * signal_hash without the wallet: keccak256(scope ++ circuitId ++ requestId)
- * (utils/signalHash.ts, a mirror of @zkproofport-app/core's computeSignalHash),
+ * (@zkproofport-app/core's computeSignalHash, re-exported by utils/signalHash.ts),
  * and the request binding around it.
  *
  * Matrix, written before the code:

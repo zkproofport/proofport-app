@@ -27,7 +27,7 @@ import {
   HUMAN_PASSPORT_SCORE_DECIMALS,
   humanPassportChain,
 } from '../config/circuitIds';
-import type {OprfCircuitInputs} from '../oprf/core/client';
+import type {OprfCircuitInputs} from '@zkproofport-app/core';
 import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
 
 export const HUMAN_PASSPORT_CIRCUIT = 'human_passport_score';

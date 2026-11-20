@@ -438,48 +438,35 @@ export const CIRCUIT_NETWORKS: Record<Environment, Record<CircuitName, NetworkCo
  */
 export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>> = {
   development: {
-    // Coinbase KYC v2, Base Sepolia, deployed 2026-10-28 by circuits
-    // scripts/deploy_verifier.sh coinbase-attestation-v2 base-sepolia
-    // (circuits e498841, broadcast/DeployCoinbaseAttestationV2.s.sol/84532,
-    // in tag v2.0.0-rc.1). Replaces the 2026-10-23 circuit's 0xF898db95...Bb12
-    // (circuits 33344e2), which rejects every final-v2 proof (other vk).
-    coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
-    // Coinbase Country v2, Base Sepolia, deployed 2026-10-30 (circuits 744900e,
-    // broadcast/DeployCoinbaseCountryAttestationV2.s.sol/84532), the contract
-    // core 0.4.0-beta.2 pins. v1's 0x9DEea218...DDcE rejects every v2 proof
-    // (other vk) and is never named here.
-    coinbase_country_attestation: '0xC5363d7587bd580148373D0d8b7909Be423242CB',
-    // OIDC with the provider-key statement (circuits 5081cfd), Base Sepolia,
-    // deployed 2026-10-28 (circuits 7e5c72d,
-    // broadcast/DeployOidcDomainAttestation.s.sol/84532), the contract core
-    // 0.4.0-beta.0 pins. The OIDC v2 verifier from before the statement
-    // (0x003334A7...4167) and v1's 0x5D9E...F485 reject every proof of this
-    // circuit (other vk).
-    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
-    // GIWA verifier on GIWA Sepolia, same address across env (testnet-only).
-    // Every testnet verifier was redeployed 2026-10-22 for the nargo
-    // 1.0.0-beta.19 / bb 4.2.0 toolchain (circuits/deployments/). The previous
-    // contracts are still live and still verify the OLD proofs, so an app left
-    // on an old address fails every new proof while looking like a proof
-    // problem.
-    giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
-    // Dojang Playground verifier on GIWA Sepolia, same address across env
-    // (testnet-only). circuits/deployments/91342/DojangPlayground.json.
-    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
-    // Human Passport score, Base Sepolia, deployed 2026-10-30
-    // (broadcast/DeployHumanPassportScore.s.sol/84532), the contract core pins.
-    human_passport_score: '0x39df92D9C603Fe6d229c7b00272A1E874a628acE',
+    // Every testnet row: the bb 6.0.0 / nargo 1.0.0 contracts with the OPRF
+    // nullifier, deployed 2026-11-20 (circuits 954eb90 broadcast records:
+    // DeployCoinbaseAttestationV2, DeployCoinbaseCountryAttestationV2,
+    // DeployOidcDomainAttestation, DeployHumanPassportScore on Base Sepolia
+    // 84532; DeployGiwaAttestation, DeployDojangPlayground on GIWA Sepolia
+    // 91342), the contracts @zkproofport-app/core 0.4.0-beta.9 pins. Every
+    // earlier contract (bb 4.2 and before) rejects every proof of these
+    // circuits (other vk) and is never named here.
+    coinbase_attestation: '0xe78fCDc7562ce3afCEadaF29f4b8B96DC997C01A',
+    coinbase_country_attestation: '0xe88033179576869c8730160EcBfaa7e5b2c1A4a9',
+    oidc_domain_attestation: '0x14a2241B0A24679825BeFAaa562d4A204262D84f',
+    // GIWA and Dojang Playground are testnet-only (GIWA Sepolia) in every build.
+    giwa_attestation: '0xA272056866453F0182426A29B9Ca6382d6C6a060',
+    dojang_playground: '0x400474E78a793289D091A5F556F78158956B5D01',
+    human_passport_score: '0x223e372553739678365486a3Ded05310B5BCbc0C',
   },
   staging: {
-    coinbase_attestation: '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6',
-    coinbase_country_attestation: '0xC5363d7587bd580148373D0d8b7909Be423242CB',
-    oidc_domain_attestation: '0xeA5933ABc598401c89F63B3f13AE56A7E78984e8',
-    giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
-    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
-    human_passport_score: '0x39df92D9C603Fe6d229c7b00272A1E874a628acE',
+    coinbase_attestation: '0xe78fCDc7562ce3afCEadaF29f4b8B96DC997C01A',
+    coinbase_country_attestation: '0xe88033179576869c8730160EcBfaa7e5b2c1A4a9',
+    oidc_domain_attestation: '0x14a2241B0A24679825BeFAaa562d4A204262D84f',
+    giwa_attestation: '0xA272056866453F0182426A29B9Ca6382d6C6a060',
+    dojang_playground: '0x400474E78a793289D091A5F556F78158956B5D01',
+    human_passport_score: '0x223e372553739678365486a3Ded05310B5BCbc0C',
   },
   production: {
-    // Base mainnet, nargo 1.0.0-beta.19 / bb 4.2.0-aztecnr-rc.2 contracts.
+    // Base mainnet, nargo 1.0.0-beta.19 / bb 4.2.0-aztecnr-rc.2 contracts. Core
+    // 0.4.0-beta.9 lists each of these four in AWAITING_REDEPLOY (built from a
+    // key that is no longer the circuit's) and refuses to verify on them; the
+    // rows move to the bb 6.0.0 mainnet contracts with the production release.
     // Coinbase KYC v2: circuits 1d41d85, broadcast/DeployCoinbaseAttestationV2.s.sol/8453
     // (the v1 contract 0xF7dED73E...5382 rejects every v2 proof).
     coinbase_attestation: '0x6FC22d3576FB70457d1529B3F70f711A3cBA7A7F',
@@ -490,8 +477,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // OIDC with the provider-key statement (circuits 5081cfd), deployed
     // 2026-10-29: circuits da21683, broadcast/DeployOidcDomainAttestation.s.sol/8453.
     oidc_domain_attestation: '0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35',
-    giwa_attestation: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
-    dojang_playground: '0xAD6C9bFA60F3ee618dee9DC2027a69C57f2aD816',
+    giwa_attestation: '0xA272056866453F0182426A29B9Ca6382d6C6a060',
+    dojang_playground: '0x400474E78a793289D091A5F556F78158956B5D01',
     // Human Passport score, Base mainnet, deployed 2026-10-30
     // (broadcast/DeployHumanPassportScore.s.sol/8453), the contract core pins.
     human_passport_score: '0x2d055c42a2B0c1024aC4aa83b4995fc8fD45662e',

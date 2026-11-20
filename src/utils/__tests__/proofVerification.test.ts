@@ -86,7 +86,7 @@ const parsed = {
  * The proof bytes are `proofBytes` long: 10,304 for the standard package,
  * 10,688 for the Android ones.
  */
-function coinbaseParsed(ageSeconds: number, opts: {root?: string; proofBytes?: number} = {}) {
+function coinbaseParsed(ageSeconds: number, opts: {root?: string; proofBytes?: number; keyHash?: string} = {}) {
   const core = jest.requireActual('@zkproofport-app/core');
   const L = core.COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT;
   const root: string = opts.root ?? core.COINBASE_SIGNER_SET.root;
@@ -96,6 +96,9 @@ function coinbaseParsed(ageSeconds: number, opts: {root?: string; proofBytes?: n
   }
   const t = Math.floor(Date.now() / 1000) - ageSeconds;
   inputs[L.ATTESTED_AT] = '0x' + t.toString(16).padStart(64, '0');
+  // The OPRF key the test network answers with: the key development and
+  // staging pin. Without it core refuses the proof before the contract.
+  inputs[core.oprfLayoutOf('coinbase_attestation').keyHash] = opts.keyHash ?? core.TACEO_TESTNET_OPRF_KEY_HASH;
   return {proofHex: '0x' + 'ab'.repeat(opts.proofBytes ?? 10304), publicInputsHex: inputs, numPublicInputs: inputs.length};
 }
 
@@ -143,7 +146,7 @@ describe('on-chain verification goes through @zkproofport-app/core', () => {
       // The contract is core's pinned one on the circuit's chain -- never the
       // address the app resolved, which is only handed over to be compared.
       expect(target).toEqual({chainId: NETWORKS[circuit].chainId});
-      expect(mockVerifyProofOnChain.mock.calls[0][5]).toEqual({signerVariant: 'standard'});
+      expect(mockVerifyProofOnChain.mock.calls[0][5]).toEqual({signerVariant: 'standard', oprfEnvironment: 'local'});
       expect(claimed).toEqual({
         verifierAddress: ADDRESSES[circuit],
         chainId: NETWORKS[circuit].chainId,
@@ -260,7 +263,7 @@ describe('Coinbase KYC v2 is checked on core\'s pinned contract, like every othe
   // core 0.4.0-beta.1 pins the v2 contracts; until then the app named its own
   // v2 address because core pinned v1's.
   it('the standard package: core picks the contract, the app only claims its own address', async () => {
-    const v2 = '0x1885aA2283DB21ad0fc63A2Df98efe92F31908E6';
+    const v2 = '0xe78fCDc7562ce3afCEadaF29f4b8B96DC997C01A';
     expect(v2.toLowerCase()).toBe(getPinnedVerifier('coinbase_attestation', 84532).address);
     mockGetVerifierAddress.mockResolvedValue(v2);
     mockGetNetworkConfigForCircuit.mockReturnValue(NETWORKS.coinbase_country_attestation);
@@ -271,7 +274,7 @@ describe('Coinbase KYC v2 is checked on core\'s pinned contract, like every othe
     expect(c).toBe('coinbase_attestation');
     expect(target).toEqual({chainId: 84532});
     expect(claimed).toEqual({verifierAddress: v2, chainId: 84532});
-    expect(options).toEqual({signerVariant: 'standard'});
+    expect(options).toEqual({signerVariant: 'standard', oprfEnvironment: 'local'});
   });
 
   it('with the real core, a build still naming the v1 contract is refused, never checked there', async () => {
@@ -413,7 +416,7 @@ describe('an Android proof is checked on its own package\'s contract', () => {
     // Naming the address instead makes core read the proof as the standard
     // package's and refuse an Android-length proof.
     expect(target).toEqual({chainId: 84532});
-    expect(options).toEqual({signerVariant: kind});
+    expect(options).toEqual({signerVariant: kind, oprfEnvironment: 'local'});
     expect(claim).toEqual({verifierAddress: want, chainId: 84532});
     expect(want.toLowerCase()).toBe(getPinnedVariantVerifier(circuit, kind, 84532).address);
     expect(mockGetVerifierAddress).not.toHaveBeenCalled();
@@ -427,7 +430,7 @@ describe('an Android proof is checked on its own package\'s contract', () => {
     await expect(verifyProofOnChainWithCore('coinbase_attestation', parsed, rep.r)).resolves.toBe(true);
     const [, , , target, claim, options] = mockVerifyProofOnChain.mock.calls[0];
     expect(target).toEqual({chainId: 8453});
-    expect(options).toEqual({signerVariant: 'android_factory'});
+    expect(options).toEqual({signerVariant: 'android_factory', oprfEnvironment: 'production'});
     expect(claim).toEqual({verifierAddress: '0x87d9a66CAcaC95b2Bc43bAc8E610c59ACB67c5E0', chainId: 8453});
     expect(mockGetVerifierAddress).not.toHaveBeenCalled();
   });
@@ -489,6 +492,32 @@ describe('a History proof older than the request window is asked of the contract
     expect(mockGetVerifierContract.mock.calls[0][1]).toMatchObject({address: getPinnedVerifier(circuit, 84532).address, chainId: 84532});
     expect(logs.some(l => new RegExp(`Proof made 13\\d\\ds ago \\(${CASES[circuit].input}\\), past the 900s`).test(l))).toBe(true);
     expect(statuses.at(-1)).toBe('Proof verified on-chain!');
+  });
+
+  // The OPRF key does not age: past the window the phone skips core's
+  // time check, never the key check.
+  it.each([
+    ['another key', '0x' + '11'.repeat(32)],
+    ['no key (zeros)', '0x' + '00'.repeat(32)],
+    ['the key with one bit flipped', core.TACEO_TESTNET_OPRF_KEY_HASH.replace(/1$/, '0')],
+  ])('an old Coinbase proof carrying %s is refused before the contract', async (_label, keyHash) => {
+    const {r, logs, statuses} = reporter();
+    await expect(verifyProofOnChainWithCore('coinbase_attestation', coinbaseParsed(3600, {keyHash}), r)).resolves.toBe(false);
+    expect(mockContractVerify).not.toHaveBeenCalled();
+    expect(logs.join('\n')).toMatch(/OPRF key hash/);
+    expect(statuses.at(-1)).toBe('Error: on-chain verification failed');
+  });
+
+  it('an old Coinbase proof in a production build is refused: production pins no OPRF key', async () => {
+    mockEnv = 'production';
+    try {
+      mockGetVerifierAddress.mockImplementation(async () => getPinnedVerifier('coinbase_attestation', 84532).address);
+      const {r} = reporter();
+      await expect(verifyProofOnChainWithCore('coinbase_attestation', coinbaseParsed(3600), r)).resolves.toBe(false);
+      expect(mockContractVerify).not.toHaveBeenCalled();
+    } finally {
+      mockEnv = 'development';
+    }
   });
 
   it.each(CIRCUITS)('%s: a contract that rejects it is still "invalid"', async circuit => {
@@ -597,7 +626,7 @@ describe('a History proof older than the request window is asked of the contract
     const oidc = oidcParsed(200).publicInputsHex;
     expect(proofAgeSeconds('oidc_domain_attestation', oidc, Math.floor(Date.now() / 1000))).toBeGreaterThanOrEqual(200);
     // OIDC's `now` is not where Coinbase keeps attested_at, and the reverse.
-    expect(REQUEST_WINDOWS.coinbase_attestation!.index).toBe(192);
+    expect(REQUEST_WINDOWS.coinbase_attestation!.index).toBe(132);
     expect(REQUEST_WINDOWS.oidc_domain_attestation!.index).toBe(NOW);
     for (const c of ['giwa_attestation', 'dojang_playground']) {
       expect(proofAgeSeconds(c, coinbase, 100)).toBeNull();
@@ -609,7 +638,7 @@ describe('a History proof older than the request window is asked of the contract
     bad[NOW] = 'not hex';
     expect(proofAgeSeconds('oidc_domain_attestation', bad, 100)).toBeNull();
     const badCoinbase = [...coinbase];
-    badCoinbase[192] = '0xzz';
+    badCoinbase[132] = '0xzz';
     expect(proofAgeSeconds('coinbase_attestation', badCoinbase, 100)).toBeNull();
   });
 
@@ -623,9 +652,9 @@ describe('a History proof older than the request window is asked of the contract
     expect(Object.entries(REQUEST_WINDOWS).filter(([, w]) => w).map(([c]) => c).sort()).toEqual(
       ['coinbase_attestation', 'coinbase_country_attestation', 'human_passport_score', 'oidc_domain_attestation'],
     );
-    // Human Passport: `now` is the last of its 195 inputs; past the window the
+    // Human Passport: `now` is the last of its 135 inputs (195 before the OPRF nullifier); past the window the
     // anchors (issuer root, scorer, threshold) are still checked.
-    expect(REQUEST_WINDOWS.human_passport_score!.index).toBe(194);
+    expect(REQUEST_WINDOWS.human_passport_score!.index).toBe(134);
     expect(REQUEST_WINDOWS.human_passport_score!.maxAgeSeconds).toBe(core.HUMAN_PASSPORT_NOW_MAX_AGE_SECONDS);
     expect(REQUEST_WINDOWS.human_passport_score!.stillChecked).toBe(core.checkHumanPassportAnchors);
     expect(REQUEST_WINDOWS.coinbase_attestation!.maxAgeSeconds).toBe(core.COINBASE_ATTESTED_AT_MAX_AGE_SECONDS);
