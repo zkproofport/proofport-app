@@ -38,6 +38,7 @@ jest.mock('react-native', () => ({NativeModules: {}, Platform: mockPlatform}));
 import {
   ANDROID_SIGNATURE_CIRCUITS_REF,
   OPRF_CIRCUITS_REF,
+  __setOprfCircuitsRefForTests,
   artifactSourceFor,
   circuitArtifactSource,
   circuitFilesDecidableNow,
@@ -160,12 +161,25 @@ describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s'
 });
 
 describe('the OPRF circuits ref', () => {
-  it('is empty until the OPRF circuits are pushed, and every Coinbase KYC download ends at an error naming it', async () => {
-    expect(OPRF_CIRCUITS_REF).toBe('');
+  it('is a full 40-hex commit, and every Android Coinbase KYC download is read from it', async () => {
+    expect(OPRF_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
     for (const kind of ['android', 'android_factory'] as const) {
       mockPlatform.OS = 'android';
       __setAndroidChainKindForTests(kind);
-      await expect(circuitBaseUrl('coinbase_attestation', 'staging')).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+      await expect(circuitBaseUrl('coinbase_attestation', 'staging')).resolves.toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${OPRF_CIRCUITS_REF}`);
+    }
+  });
+
+  it('when empty, every Android Coinbase KYC download ends at an error naming it', async () => {
+    __setOprfCircuitsRefForTests('');
+    try {
+      for (const kind of ['android', 'android_factory'] as const) {
+        mockPlatform.OS = 'android';
+        __setAndroidChainKindForTests(kind);
+        await expect(circuitBaseUrl('coinbase_attestation', 'staging')).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+      }
+    } finally {
+      __setOprfCircuitsRefForTests(null);
     }
   });
 });
@@ -215,9 +229,10 @@ describe('every other circuit', () => {
       expect(circuitArtifactSource(id)).toBeUndefined();
       expect(circuitFilesDecidableNow(id)).toBe(true);
     }
-    // Signer-independent: the download fails at the (empty) OPRF ref, not at the platform.
-    await expect(downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {})).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
-    expect(mockDownloads).toHaveLength(0);
+    // Signer-independent: the download goes to the OPRF ref without reading
+    // the platform (which is 'web' here and would throw if asked).
+    await downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {});
+    expect(mockDownloads[0]).toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${OPRF_CIRCUITS_REF}/giwa-attestation/target/giwa_attestation.json`);
   });
 });
 

@@ -1,7 +1,7 @@
 {
   "source": {
-    "circuitsCommit": "9651df892c28fbeb9331ebc5358abfdf062c7c42",
-    "circuitsWorkingTreeChanged": true,
+    "circuitsCommit": "ddf11f03d6f0af70e42cea35b93f53f9c614ea85",
+    "circuitsWorkingTreeChanged": false,
     "chainJsSha256": "927a08199beae7cab80b8bdc4ac679817a7cbd841c986313d998180d82cac3c2"
   },
   "oidc_domain_attestation": {

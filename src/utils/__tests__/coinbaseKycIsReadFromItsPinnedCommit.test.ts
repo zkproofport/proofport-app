@@ -38,7 +38,8 @@ jest.mock('react-native-fs', () => ({
 import {__setOprfCircuitsRefForTests, circuitArtifactSource, coinbaseKycArtifact, OPRF_CIRCUITS_REF} from '../../config/circuitArtifacts';
 
 // Coinbase KYC v2 (and every wallet credential circuit) reads OPRF_CIRCUITS_REF
-// since the OPRF nullifier: empty until pushed. These cases run with a test commit.
+// since the OPRF nullifier. These cases run with a test commit, so they hold
+// the download paths independently of the value the app pins.
 const OPRF_REF = 'c0ffee'.repeat(6) + 'c0ff';
 __setOprfCircuitsRefForTests(OPRF_REF);
 const LAB_CIRCUITS_REF = OPRF_REF;
@@ -54,13 +55,16 @@ beforeEach(() => {
 });
 
 describe('coinbase_attestation (v2)', () => {
-  it('is pinned to OPRF_CIRCUITS_REF (a full commit once filled; empty today, refused by name)', () => {
+  it('is pinned to OPRF_CIRCUITS_REF, a full commit', () => {
     expect(coinbaseKycArtifact().refName).toBe('OPRF_CIRCUITS_REF');
     expect(coinbaseKycArtifact().ref).toBe(OPRF_REF);
     __setOprfCircuitsRefForTests(null);
-    expect(coinbaseKycArtifact().ref).toBe(OPRF_CIRCUITS_REF);
-    expect(OPRF_CIRCUITS_REF).toBe('');
-    __setOprfCircuitsRefForTests(OPRF_REF);
+    try {
+      expect(coinbaseKycArtifact().ref).toBe(OPRF_CIRCUITS_REF);
+      expect(OPRF_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
+    } finally {
+      __setOprfCircuitsRefForTests(OPRF_REF);
+    }
   });
 
   it.each(['development', 'staging', 'production'])('downloads from that commit in a %s build, stored as coinbase_attestation', async env => {

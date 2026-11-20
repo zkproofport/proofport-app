@@ -2,8 +2,8 @@
  * src/oprf/device.ts and the request circuit's download entry: a build with
  * no OPRF network is refused before anything is fetched (E3011); cached
  * credential files from before the OPRF change are refused by name (E2002);
- * the request circuit is downloaded like a pinned credential circuit, and
- * while OPRF_CIRCUITS_REF is empty every attempt ends at an error naming it.
+ * the request circuit is downloaded like a pinned credential circuit from
+ * OPRF_CIRCUITS_REF, and an empty ref ends every attempt at an error naming it.
  */
 let mockEnv = 'staging';
 jest.mock('../../config/environment', () => ({getEnvironment: () => mockEnv}));
@@ -18,7 +18,7 @@ import {OprfError} from '../flow';
 import {OprfUnavailableError} from '../config';
 import {REQUEST_AUTH_ABI} from '../requestAuth';
 import {OPRF_PRIVATE_INPUT_NAMES} from '../circuitInputs';
-import {artifactSourceFor, isAuxiliaryCircuitId, OPRF_CIRCUITS_REF} from '../../config/circuitArtifacts';
+import {__setOprfCircuitsRefForTests, artifactSourceFor, isAuxiliaryCircuitId, OPRF_CIRCUITS_REF} from '../../config/circuitArtifacts';
 import {circuitBaseUrl, circuitDataVersion} from '../../utils/circuitDownload';
 
 describe('a build without an OPRF network', () => {
@@ -89,9 +89,18 @@ describe('the request circuit\'s download entry', () => {
     expect(circuitDataVersion(REQUEST_AUTH_CIRCUIT)).toBe(1);
   });
 
-  it.each(['development', 'staging', 'production'] as const)('in %s ends at an error naming OPRF_CIRCUITS_REF while it is empty', async env => {
-    expect(OPRF_CIRCUITS_REF).toBe('');
-    await expect(circuitBaseUrl(REQUEST_AUTH_CIRCUIT, env)).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+  it.each(['development', 'staging', 'production'] as const)('in %s is read from OPRF_CIRCUITS_REF, the full commit carrying the OPRF circuits', async env => {
+    expect(OPRF_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
+    await expect(circuitBaseUrl(REQUEST_AUTH_CIRCUIT, env)).resolves.toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${OPRF_CIRCUITS_REF}`);
+  });
+
+  it.each(['development', 'staging', 'production'] as const)('in %s ends at an error naming OPRF_CIRCUITS_REF when it is empty', async env => {
+    __setOprfCircuitsRefForTests('');
+    try {
+      await expect(circuitBaseUrl(REQUEST_AUTH_CIRCUIT, env)).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+    } finally {
+      __setOprfCircuitsRefForTests(null);
+    }
   });
 
   it('an id that is neither a circuit nor an auxiliary circuit is still an error naming both lists', async () => {

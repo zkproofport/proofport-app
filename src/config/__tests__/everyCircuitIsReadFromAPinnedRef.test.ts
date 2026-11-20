@@ -102,8 +102,8 @@ describe('the pin', () => {
   });
 
   // Since the OPRF nullifier the Laboratory files (and their verifier
-  // records) come from OPRF_CIRCUITS_REF, empty until those circuits are
-  // pushed: every read ends at an error naming it.
+  // records) come from OPRF_CIRCUITS_REF; an empty one ends every read at an
+  // error naming it.
   it.each(LAB)('%s has one row for every phone, read from OPRF_CIRCUITS_REF', id => {
     const row = CIRCUIT_ARTIFACT_SOURCES[id];
     expect(row).toBeDefined();
@@ -164,10 +164,24 @@ describe('every circuit, every variant, every environment', () => {
     }
   });
 
-  it.each(ENVS)('%s: GIWA and Dojang download nothing while OPRF_CIRCUITS_REF is empty -- never main, never LAB_CIRCUITS_REF', async env => {
-    const fetchMock = github();
+  it.each(ENVS)('%s: GIWA and Dojang files are read from OPRF_CIRCUITS_REF -- never main, never LAB_CIRCUITS_REF', async env => {
+    github();
+    expect(artifacts.OPRF_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
+    expect(artifacts.OPRF_CIRCUITS_REF).not.toBe(LAB_CIRCUITS_REF);
     for (const id of LAB) {
-      await expect(downloadCircuitFiles(id, env, undefined, () => {})).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+      await expect(circuitBaseUrl(id, env)).resolves.toBe(`${RAW}/${artifacts.OPRF_CIRCUITS_REF}`);
+    }
+  });
+
+  it.each(ENVS)('%s: GIWA and Dojang download nothing when OPRF_CIRCUITS_REF is empty -- never main, never LAB_CIRCUITS_REF', async env => {
+    const fetchMock = github();
+    artifacts.__setOprfCircuitsRefForTests('');
+    try {
+      for (const id of LAB) {
+        await expect(downloadCircuitFiles(id, env, undefined, () => {})).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+      }
+    } finally {
+      artifacts.__setOprfCircuitsRefForTests(null);
     }
     expect(mockDownloads).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -175,12 +189,22 @@ describe('every circuit, every variant, every environment', () => {
 });
 
 describe('verifier records follow the pinned files', () => {
-  it.each(ENVS)('%s: a GIWA / Dojang verifier record is read from the files\' ref -- an error naming OPRF_CIRCUITS_REF while it is empty, never main or LAB_CIRCUITS_REF', async env => {
+  it.each(ENVS)('%s: a GIWA / Dojang verifier record is read from the files\' ref (OPRF_CIRCUITS_REF), never main or LAB_CIRCUITS_REF', async env => {
     const fetchMock = github();
     for (const id of LAB) {
-      expect(() => circuitsRef(id, env)).toThrow(/OPRF_CIRCUITS_REF is empty/);
+      expect(circuitsRef(id, env)).toBe(artifacts.OPRF_CIRCUITS_REF);
+      expect(circuitsRef(id, env)).not.toBe(LAB_CIRCUITS_REF);
     }
     expect(fetchMock.mock.calls.map(([u]) => String(u)).filter(u => u.includes('/main/'))).toEqual([]);
+  });
+
+  it.each(ENVS)('%s: a GIWA / Dojang verifier record is an error naming OPRF_CIRCUITS_REF when it is empty', env => {
+    artifacts.__setOprfCircuitsRefForTests('');
+    try {
+      for (const id of LAB) expect(() => circuitsRef(id, env)).toThrow(/OPRF_CIRCUITS_REF is empty/);
+    } finally {
+      artifacts.__setOprfCircuitsRefForTests(null);
+    }
   });
 });
 
@@ -243,8 +267,14 @@ describe('a ref that is not a commit or a tag is refused, naming its constant', 
   });
 
   it('a branch-shaped Laboratory ref fails the record ref too, not only the download', () => {
-    // signerIndependentArtifactRef runs the same check; exercised on the real rows (empty OPRF ref today).
-    for (const id of LAB) expect(() => signerIndependentArtifactRef(id)).toThrow(/OPRF_CIRCUITS_REF is empty/);
+    // signerIndependentArtifactRef runs the same check as the download.
+    for (const id of LAB) expect(signerIndependentArtifactRef(id)).toBe(artifacts.OPRF_CIRCUITS_REF);
+    artifacts.__setOprfCircuitsRefForTests('main');
+    try {
+      for (const id of LAB) expect(() => signerIndependentArtifactRef(id)).toThrow(/OPRF_CIRCUITS_REF is 'main'/);
+    } finally {
+      artifacts.__setOprfCircuitsRefForTests(null);
+    }
   });
 });
 

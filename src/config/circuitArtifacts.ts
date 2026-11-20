@@ -42,8 +42,8 @@
  * OIDC domain (`oidc_domain_attestation`) with the provider-key statement
  * (circuits fix list item 12): same directory and Nargo name as before, but
  * ten private inputs follow `signature_limbs` (the statement signer), so the
- * files come from the circuits commit carrying the CI-built artifacts:
- * 5081cfd on branch `oidc-signature` (not in any tag or main yet), checked
+ * files come from the circuits commit OIDC_SIGNATURE_CIRCUITS_REF names,
+ * checked
  * against its target/SHA256SUMS and target/vk/SHA256SUMS. A commit, not the
  * branch: a branch moves under an installed app. useOidcDomain also refuses a
  * file set whose ABI is not this circuit's (requireOidcAbi), which the
@@ -79,12 +79,16 @@ import {
 } from './signerPlatform';
 
 /**
- * zkproofport/circuits 5081cfd (branch oidc-signature, 2026-10-28): CI-built
- * oidc_domain_attestation with the provider-key statement -- nargo
- * 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2, 2^20 (.srs 67,109,076 bytes), 214
- * public inputs.
+ * zkproofport/circuits ddf11f0 (branch toolchain-upgrade, 2026-11-20):
+ * oidc_domain_attestation with the provider-key statement, rebuilt with nargo
+ * 1.0.0 / bb 6.0.0 and noir-bignum 0.10 (RSA signature limbs range-checked;
+ * Barrett parameter 2^(2*2048+6), the shift rsaBarrett.ts uses), 2^20, 214
+ * public inputs, checked against its target/SHA256SUMS and
+ * target/vk/SHA256SUMS. Was 5081cfd (beta.19 / bb 4.2, Barrett +4): those
+ * files no longer match this app's input builder or prover. The same commit
+ * as OPRF_CIRCUITS_REF.
  */
-export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f10670';
+export const OIDC_SIGNATURE_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614ea85';
 
 /**
  * The zkproofport/circuits commit carrying the CI-built Android packages
@@ -95,7 +99,12 @@ export const OIDC_SIGNATURE_CIRCUITS_REF = '5081cfda1ed00cfe9ec0aa20180338dc45f1
  * circuits b37468e; nargo 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2, all four 2^21,
  * .srs in three parts. Testnet verifiers: circuits e02e674.
  */
-export const ANDROID_SIGNATURE_CIRCUITS_REF = '8fad8daa4fc7cdb3315deb4a40cd6a263229a455';
+// Now read only by the OIDC Android rows (Coinbase KYC's Android rows moved
+// to OPRF_CIRCUITS_REF). Moved 2026-11-20 to ddf11f0 (branch
+// toolchain-upgrade): nargo 1.0.0 / bb 6.0.0, noir-bignum 0.10, both OIDC
+// Android packages 2^21 with the .srs in three parts; the same commit as
+// OIDC_SIGNATURE_CIRCUITS_REF and OPRF_CIRCUITS_REF.
+export const ANDROID_SIGNATURE_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614ea85';
 
 /**
  * The zkproofport/circuits commit carrying Coinbase Country v2's CI-built
@@ -150,11 +159,13 @@ export const LAB_CIRCUITS_REF = '9651df892c28fbeb9331ebc5358abfdf062c7c42';
  * proof (`oprf-request-auth-poc`, package `oprf_request_auth_poc`) and the
  * wallet credential circuits rebuilt with the OPRF nullifier
  * (circuits-dev.md, "OPRF nullifier in every wallet credential circuit").
- * EMPTY until those are pushed: every download of the request circuit ends
- * at requireArtifactRef's error naming this constant. A full commit, never a
- * branch.
+ * ddf11f0 (branch toolchain-upgrade, 2026-11-20): nargo 1.0.0 / bb 6.0.0,
+ * every wallet credential package rebuilt with the OPRF nullifier, each
+ * checked against its target/SHA256SUMS and target/vk/SHA256SUMS. A full
+ * commit, never a branch. Verifier broadcast records read from it are still
+ * the bb 4.2 contracts until the bb 6 verifiers are deployed and recorded.
  */
-export const OPRF_CIRCUITS_REF = '';
+export const OPRF_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614ea85';
 
 let oprfCircuitsRefForTests: string | null = null;
 /** OPRF_CIRCUITS_REF, or the commit a test set (rows read it through a getter). */

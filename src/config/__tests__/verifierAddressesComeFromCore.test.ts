@@ -222,19 +222,37 @@ describe('Android package verifiers', () => {
   });
 
   const coreSource = path.join(PARENT, 'proofport-app-sdk', 'packages', 'core', 'src', 'pinnedVerifiers.generated.ts');
-  (fs.existsSync(coreSource) ? it : it.skip)("the OIDC rows are core's PINNED_VARIANT_VERIFIERS on Base Sepolia (core source beside this app)", () => {
+  // The source beside this app may be ahead of the published core: after a
+  // circuit rebuild its generator moves every verifier built from another key
+  // out of PINNED_VARIANT_VERIFIERS into AWAITING_REDEPLOY, under the same
+  // address, until the redeploy is recorded. Either way the address is the
+  // one this app pins; any other address in either place is a failure.
+  (fs.existsSync(coreSource) ? it : it.skip)("the OIDC rows are core's PINNED_VARIANT_VERIFIERS, or its AWAITING_REDEPLOY entry for the same contract (core source beside this app)", () => {
     const text: string = fs.readFileSync(coreSource, 'utf8');
     const start = text.indexOf('export const PINNED_VARIANT_VERIFIERS');
     expect(start).toBeGreaterThan(-1);
     const block = text.slice(start);
-    for (const v of VARIANTS) {
+    const awaiting = (v: string, chainId: number): string | undefined =>
+      new RegExp(`circuit: 'oidc_domain_attestation', variant: '${v}', chainId: ${chainId}, previousAddress: '(0x[0-9a-f]{40})'`).exec(text)?.[1];
+    const pinned = (v: string, chainId: number): string | undefined => {
       const vAt = block.indexOf(`  ${v}: Object.freeze({`);
-      expect(vAt).toBeGreaterThan(-1);
-      const oidcAt = block.indexOf('oidc_domain_attestation:', vAt);
-      const row = /84532: Object\.freeze\(\{ address: '(0x[0-9a-f]{40})'/.exec(block.slice(oidcAt));
-      expect([v, row?.[1]]).toEqual([v, EXPECTED[v].oidc_domain_attestation]);
-      const main = /8453: Object\.freeze\(\{ address: '(0x[0-9a-f]{40})'/.exec(block.slice(oidcAt));
-      expect([v, main?.[1]]).toEqual([v, MAINNET[v].oidc_domain_attestation]);
+      if (vAt < 0) return undefined;
+      const vEnd = block.indexOf('\n  }),', vAt);
+      const variantBlock = block.slice(vAt, vEnd < 0 ? undefined : vEnd);
+      const oidcAt = variantBlock.indexOf('oidc_domain_attestation:');
+      if (oidcAt < 0) return undefined;
+      const rowEnd = variantBlock.indexOf('\n    }),', oidcAt);
+      const row = variantBlock.slice(oidcAt, rowEnd < 0 ? undefined : rowEnd);
+      return new RegExp(`\\b${chainId}: Object\\.freeze\\(\\{ address: '(0x[0-9a-f]{40})'`).exec(row)?.[1];
+    };
+    for (const v of VARIANTS) {
+      for (const [chainId, expected] of [[84532, EXPECTED[v].oidc_domain_attestation], [8453, MAINNET[v].oidc_domain_attestation]] as const) {
+        const p = pinned(v, chainId);
+        const a = awaiting(v, chainId);
+        expect([v, chainId, p === undefined && a === undefined]).toEqual([v, chainId, false]);
+        if (p !== undefined) expect([v, chainId, 'pinned', p]).toEqual([v, chainId, 'pinned', expected]);
+        if (a !== undefined) expect([v, chainId, 'awaiting', a]).toEqual([v, chainId, 'awaiting', expected]);
+      }
     }
   });
 
