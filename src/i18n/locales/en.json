@@ -589,7 +589,9 @@
           "items": "{{count}} items",
           "entries": "{{count}} fields",
           "item": "Item {{index}}"
-        }
+        },
+        "oprfDomain": "Domain",
+        "oprfScope": "Purpose"
       },
       "presentation": {
         "fields": {
@@ -873,6 +875,26 @@
       "E2023": {
         "title": "Human Passport Score Too Large",
         "description": "Your Human Passport score carries more stamp data than this proof can hold, so no proof was generated."
+      },
+      "E1010": {
+        "title": "Requester Not Named",
+        "description": "This proof request does not name the app that asked for it in a form that can be used, so no proof was generated. Start a new request from that app."
+      },
+      "E2024": {
+        "title": "Private Identifier Check Failed",
+        "description": "The private identifier for this proof did not pass its check, so no proof was generated. Please try again."
+      },
+      "E3010": {
+        "title": "Private Identifier Unreachable",
+        "description": "The private identifier for this proof could not be obtained. Check your connection and try again. Nothing was generated."
+      },
+      "E3011": {
+        "title": "Proof Unavailable",
+        "description": "This proof cannot be generated in this version of ZKProofport."
+      },
+      "E3012": {
+        "title": "Private Identifier Refused",
+        "description": "The request for this proof's private identifier was refused, so no proof was generated. Start the request again."
       }
     },
     "browser": {

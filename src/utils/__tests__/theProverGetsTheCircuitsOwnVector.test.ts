@@ -20,8 +20,7 @@ function coinbaseInputs(): AttesterCircuitInputs {
   return {
     signal_hash: run(32, 'S'),
     signer_list_merkle_root: run(32, 'M'),
-    scope: run(32, 'C'),
-    nullifier: run(32, 'N'),
+    oprf_public: ['K', 'D', 'C', 'N'],
     user_address: run(20, 'A'),
     user_signature: run(64, 'G'),
     user_pubkey_x: run(32, 'X'),
@@ -33,6 +32,7 @@ function coinbaseInputs(): AttesterCircuitInputs {
     coinbase_signer_merkle_proof: run(256, 'R'),
     coinbase_signer_leaf_index: '0',
     merkle_proof_depth: '3',
+    oprf_private: run(7, 'O'),
   };
 }
 
@@ -47,8 +47,9 @@ describe('the prover gets the circuit’s own vector', () => {
     const v = flattenCircuitInputs(coinbaseInputs());
     expect(v.slice(0, 32).every(x => x === 'S')).toBe(true);
     expect(v.slice(32, 64).every(x => x === 'M')).toBe(true);
-    expect(v.slice(64, 96).every(x => x === 'C')).toBe(true);
-    expect(v.slice(96, 128).every(x => x === 'N')).toBe(true);
+    // The four OPRF Fields where scope + nullifier (64 bytes) were; the seven private OPRF values last.
+    expect(v.slice(64, 68)).toEqual(['K', 'D', 'C', 'N']);
+    expect(v.slice(-7).every(x => x === 'O')).toBe(true);
   });
 
   it('puts the action’s two hashes between the signal hash and the Merkle root', () => {
@@ -57,8 +58,7 @@ describe('the prover gets the circuit’s own vector', () => {
     expect(v.slice(32, 64).every(x => x === 'D')).toBe(true);  // domain separator
     expect(v.slice(64, 96).every(x => x === 'H')).toBe(true);  // action hash
     expect(v.slice(96, 128).every(x => x === 'M')).toBe(true); // then the root
-    expect(v.slice(128, 160).every(x => x === 'C')).toBe(true);
-    expect(v.slice(160, 192).every(x => x === 'N')).toBe(true);
+    expect(v.slice(128, 132)).toEqual(['K', 'D', 'C', 'N']);
   });
 
   it('makes the action vector exactly 64 longer, which is the two hashes', () => {
@@ -67,13 +67,16 @@ describe('the prover gets the circuit’s own vector', () => {
     );
   });
 
-  it('matches where the SDK reads scope and nullifier back out', () => {
-    // With the two hashes in place, scope sits at 128–159 and the nullifier
-    // at 160–191. If the writer and the reader ever disagree, a proof verifies
-    // and its scope check fails for reasons nobody can see.
+  it('matches where the SDK reads the OPRF values back out (GIWA: key hash 128, domain 129, scope 130, nullifier 131)', () => {
+    // If the writer and the reader ever disagree, a proof verifies and its
+    // scope check fails for reasons nobody can see.
     const v = flattenCircuitInputs(actionInputs());
-    expect(v.slice(128, 160).every(x => x === 'C')).toBe(true);
-    expect(v.slice(160, 192).every(x => x === 'N')).toBe(true);
+    expect([v[128], v[129], v[130], v[131]]).toEqual(['K', 'D', 'C', 'N']);
+  });
+
+  it('refuses an OPRF part of the wrong length', () => {
+    expect(() => flattenCircuitInputs({...coinbaseInputs(), oprf_public: ['K', 'D', 'C']})).toThrow(/oprf_public must hold 4/);
+    expect(() => flattenCircuitInputs({...coinbaseInputs(), oprf_private: new Array(6).fill('O')})).toThrow(/oprf_private must hold 7/);
   });
 
   it('refuses half an action rather than building a shorter vector', () => {

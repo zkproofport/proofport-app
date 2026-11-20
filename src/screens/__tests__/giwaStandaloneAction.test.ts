@@ -162,6 +162,8 @@ describe('GIWA wallet request', () => {
     await act(async () => hook.generateProofWithSteps({
       userAddress: '0x2222222222222222222222222222222222222222',
       rawTransaction: 'validated-by-fixture', signerIndex: 0, scopeString: 'standalone-test',
+      requestId: '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f',
+      oprfDomain: 'zkproofport.app',
       action: {
         domain: {name: 'MyVault', version: '1', chainId: 91342, verifyingContract: '0x0000000000000000000000000000000000000000'},
         types: {Deposit: [{name: 'amount', type: 'uint256'}, {name: 'nonce', type: 'uint256'}]},

@@ -166,15 +166,18 @@ interface RequestWindow {
 
 export const REQUEST_WINDOWS: Readonly<Record<CircuitName, RequestWindow | null>> = Object.freeze({
   // attested_at (input 192): when the statement's signer saw the attestation
-  // unrevoked. The signer-list root is still compared with Coinbase's.
+  // unrevoked. The signer-list root is still compared with Coinbase's. Read
+  // from core: the installed core (0.4.0-beta.8) still has the 193-input
+  // layout, so a proof from the OPRF circuit (133 inputs, attested_at 132) is
+  // checked correctly only after a core release that carries it.
   coinbase_attestation: {
     input: 'attested_at',
     index: COINBASE_ATTESTATION_PUBLIC_INPUT_LAYOUT.ATTESTED_AT,
     maxAgeSeconds: COINBASE_ATTESTED_AT_MAX_AGE_SECONDS,
     stillChecked: signerRootCheck(SIGNER_ROOT_LAYOUTS.coinbase_attestation),
   },
-  // Coinbase Country v2: attested_at is input 214 (215 inputs: Coinbase KYC
-  // v2's first 128, then the country list 128-149, scope, nullifier); the
+  // Coinbase Country v2: attested_at is input 154 (155 inputs: Coinbase KYC
+  // v2's first 128, then the country list 128-149, the four OPRF values); the
   // signer-list root sits at 96 as in KYC v2. Written from the circuit's
   // layout (circuits coinbase-country-attestation-v2/src/main.nr) until core
   // publishes it, then read from core like the KYC row.
@@ -196,8 +199,10 @@ export const REQUEST_WINDOWS: Readonly<Record<CircuitName, RequestWindow | null>
   },
   giwa_attestation: null,
   dojang_playground: null,
-  // now (input 194): the time the score was unexpired at; the issuer root,
-  // scorer and threshold are still checked when the contract is asked directly.
+  // now (input 194; 134 in the OPRF circuit, read from core once a core
+  // release carries that layout): the time the score was unexpired at; the
+  // issuer root, scorer and threshold are still checked when the contract is
+  // asked directly.
   human_passport_score: {
     input: 'now',
     index: HUMAN_PASSPORT_SCORE_PUBLIC_INPUT_LAYOUT.NOW,

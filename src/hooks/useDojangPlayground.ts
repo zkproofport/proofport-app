@@ -38,6 +38,8 @@ import type {TypedAction} from '../config/circuitIds';
 import {
   type CircuitName,
 } from '../config';
+import {signalHashBytes} from '../utils/signalHash';
+import {assertOprfAvailable, oprfInputsForProof, oprfStepCode} from '../oprf/device';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 import type {EthereumProvider, ParsedProofData} from './useGiwaKyc';
@@ -53,6 +55,14 @@ export interface DojangPlaygroundProofInputs {
   /** The issuance's exact signed bytes, from findDojangPlaygroundIssuance. */
   rawTransaction: string;
   scopeString: string;
+  /**
+   * The id of the request this proof answers: the relay request's id, or the
+   * one minted for an in-app proof. It is in signal_hash's preimage
+   * (utils/signalHash.ts), so the requester can check the proof answers it.
+   */
+  requestId: string;
+  /** The OPRF domain (src/oprf/requestNames.ts); with `scopeString` it keys the nullifier. */
+  oprfDomain: string;
   /** Optional EIP-712 action; with one, `signal_hash` goes out as zeros. */
   action?: TypedAction;
 }
@@ -80,6 +90,7 @@ const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'signal', label: 'Compute deterministic signal hash', status: 'pending'},
   {id: 'sign', label: 'Sign with wallet', status: 'pending'},
   {id: 'pubkey', label: 'Recover public key', status: 'pending'},
+  {id: 'scope', label: 'Obtain the private nullifier', status: 'pending'},
   {id: 'inputs', label: 'Prepare circuit inputs', status: 'pending'},
   {id: 'storage', label: 'Check storage availability', status: 'pending'},
   {id: 'proof', label: 'Generate ZK proof', status: 'pending'},
@@ -131,6 +142,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         updateStep('vk', {status: 'in_progress'});
+        assertOprfAvailable(CIRCUIT_NAME);
         const vkStart = Date.now();
         const currentVk = await loadVkFromAssets(CIRCUIT_NAME, addLog);
         setVk(currentVk);
@@ -148,14 +160,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
           currentSignalHash = new Uint8Array(32);
           addLog('[Signal] Action bound -- signal_hash goes out as zeros');
         } else {
-          currentSignalHash = ethers.utils.arrayify(
-            ethers.utils.keccak256(
-              ethers.utils.solidityPack(
-                ['address', 'string', 'string'],
-                [inputs.userAddress, inputs.scopeString, CIRCUIT_NAME],
-              ),
-            ),
-          );
+          currentSignalHash = signalHashBytes({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId});
         }
         setSignalHash(currentSignalHash);
         updateStep('signal', {status: 'completed', detail: ethers.utils.hexlify(currentSignalHash)});
@@ -200,6 +205,19 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         }
         updateStep('pubkey', {status: 'completed', detail: recovered});
 
+        // The OPRF nullifier (the wallet signs the OPRF request).
+        updateStep('scope', {status: 'in_progress'});
+        const oprf = await oprfInputsForProof({
+          circuit: CIRCUIT_NAME,
+          address: inputs.userAddress,
+          from,
+          domainName: inputs.oprfDomain,
+          scopeName: inputs.scopeString,
+          ethereum,
+          log: addLog,
+        });
+        updateStep('scope', {status: 'completed', detail: `nullifier ${oprf.nullifier.slice(0, 18)}...`});
+
         updateStep('inputs', {status: 'in_progress'});
         const flatInputs = flattenDojangPlaygroundInputs(
           prepareDojangPlaygroundInputs({
@@ -208,7 +226,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
             userSignature,
             userPubkey,
             rawTransaction: inputs.rawTransaction,
-            scopeString: inputs.scopeString,
+            oprf,
             action: signed.publicHashes,
           }),
         );
@@ -255,7 +273,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         addLog(`Error: ${errorMessage}`);
         setStatus('Error generating proof');
         setProofSteps(prev =>
-          prev.map(step => (step.status === 'in_progress' ? {...step, status: 'error', detail: errorMessage} : step)),
+          prev.map(step => (step.status === 'in_progress' ? {...step, status: 'error', detail: errorMessage, ...oprfStepCode(error)} : step)),
         );
       } finally {
         setIsLoading(false);

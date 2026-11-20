@@ -13,7 +13,9 @@ export {};
 /* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs');
 const path = require('path');
-const {CIRCUIT_ARTIFACT_SOURCES, COUNTRY_V2_CIRCUITS_REF, coinbaseCountryArtifact, requireArtifactRef} = require('../config/circuitArtifacts');
+const {CIRCUIT_ARTIFACT_SOURCES, OPRF_CIRCUITS_REF, coinbaseCountryArtifact, requireArtifactRef} = require('../config/circuitArtifacts');
+// Coinbase Country v2 reads OPRF_CIRCUITS_REF since the OPRF nullifier (was COUNTRY_V2_CIRCUITS_REF).
+const COUNTRY_V2_CIRCUITS_REF = OPRF_CIRCUITS_REF;
 const {BROADCAST_PATHS, CIRCUIT_DATA_VERSIONS, FALLBACK_VERIFIERS} = require('../config/contracts');
 const {CIRCUIT_ACTION_BINDING, circuitActionBinding} = require('../config/circuitIds');
 const {CIRCUIT_ACTION_BINDING: CORE_BINDING} = require('@zkproofport-app/core/circuits');
@@ -68,12 +70,12 @@ describe('the proof screen', () => {
 });
 
 describe('the files', () => {
-  it('come from one pinned ref per platform, 215 public inputs each, never v1\'s directory', () => {
+  it('come from one pinned ref per platform, 155 public inputs each, never v1\'s directory', () => {
     const row = CIRCUIT_ARTIFACT_SOURCES.coinbase_country_attestation;
     expect(Object.keys(row).sort()).toEqual(['android', 'android_factory', 'app_attest']);
     for (const v of Object.keys(row)) {
       expect(row[v].ref).toBe(COUNTRY_V2_CIRCUITS_REF);
-      expect(row[v].publicInputCount).toBe(215);
+      expect(row[v].publicInputCount).toBe(155);
       expect(row[v].basePath).toMatch(/^coinbase-country-attestation-v2(-android(-factory)?)?\/target$/);
       expect(row[v].remoteFileName).toMatch(/^coinbase_country_attestation_v2(_android(_factory)?)?$/);
     }
@@ -87,7 +89,7 @@ describe('the files', () => {
     for (const v of ['app_attest', 'android', 'android_factory']) {
       const source = coinbaseCountryArtifact(v);
       if (COUNTRY_V2_CIRCUITS_REF === '') {
-        expect(() => requireArtifactRef(source)).toThrow(/COUNTRY_V2_CIRCUITS_REF/);
+        expect(() => requireArtifactRef(source)).toThrow(/OPRF_CIRCUITS_REF/);
       } else {
         expect(requireArtifactRef(source)).toBe(COUNTRY_V2_CIRCUITS_REF);
       }

@@ -29,6 +29,7 @@ import vectors from '../../utils/__tests__/fixtures/androidChainVectors.json';
 import {isAndroidSignerInputs, isAndroidStatementWitness} from '../androidSignerInputs';
 import {ANDROID_CIRCUIT_TRUST} from '../androidSigner';
 import {__setAndroidChainKindForTests, knownAndroidChainKind} from '../../config/signerPlatform';
+const REQUEST_ID = '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f';
 
 const TEGU = (vectors.cases as unknown as Record<string, {chain: string[]}>)['tegu-sdk36-sb-ec-2026-root'].chain;
 const TRUST = {
@@ -86,7 +87,7 @@ describe('Coinbase KYC v2 on Android', () => {
   it('signs the 225-byte clientData with the Android key, at attested_at, and never asks App Attest', async () => {
     const android = fakeAndroid();
     const w = await prepareCoinbaseKycStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {android: {native: android.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus, now: () => NOW}},
     );
     expect(isAndroidStatementWitness(w)).toBe(true);
@@ -94,7 +95,7 @@ describe('Coinbase KYC v2 on Android', () => {
     expect(w.attestedAt).toBe(NOW);
     expect(w.clientData).toHaveLength(225);
     expect(android.signed).toEqual([w.clientData]);
-    expect(ethers.utils.hexlify(w.clientData.slice(161, 193))).toBe(coinbaseRequestDigest(WALLET, 'scope').toLowerCase());
+    expect(ethers.utils.hexlify(w.clientData.slice(161, 193))).toBe(coinbaseRequestDigest(WALLET, 'scope', REQUEST_ID).toLowerCase());
     expect(isAndroidSignerInputs(w.signer)).toBe(true);
     expect(fetchStatus).toHaveBeenCalledTimes(1);
     const appAttest = rn.NativeModules.AppAttest as ReturnType<typeof appAttestSpy>;
@@ -106,7 +107,7 @@ describe('Coinbase KYC v2 on Android', () => {
     const android = fakeAndroid();
     fetchStatus.mockResolvedValueOnce({uid: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: true});
     expect(await codeOf(prepareCoinbaseKycStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {android: {native: android.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus, now: () => NOW}},
     ))).toBe('E2011');
     expect(android.signed).toEqual([]);
@@ -115,14 +116,14 @@ describe('Coinbase KYC v2 on Android', () => {
   it('with the real trust anchors, a chain for another app is E2015 -- not E2010', async () => {
     rn.NativeModules.AndroidKeyAttestation = fakeAndroid().native;
     expect(await codeOf(prepareCoinbaseKycStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {revocation: {fetchStatus, now: () => NOW}},
     ))).toBe('E2015');
   });
 
   it('a build without the native module is E2015, before any lookup', async () => {
     expect(await codeOf(prepareCoinbaseKycStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {revocation: {fetchStatus, now: () => NOW}},
     ))).toBe('E2015');
     expect(fetchStatus).not.toHaveBeenCalled();
@@ -134,7 +135,7 @@ describe('Coinbase KYC v2 on Android', () => {
     const android = fakeAndroid();
     rn.NativeModules.AndroidKeyAttestation = android.native;
     expect(await codeOf(prepareCoinbaseKycStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {revocation: {fetchStatus, now: () => NOW}},
     ))).toBe('E2009');
     expect(android.native.attestAndSign).not.toHaveBeenCalled();

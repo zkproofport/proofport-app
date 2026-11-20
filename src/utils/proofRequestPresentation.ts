@@ -88,7 +88,8 @@ export function getProofRequestPresentation(request: Pick<ProofRequest, 'circuit
   if (Object.prototype.hasOwnProperty.call(inputs, 'userAddress')) {
     conditions.push({label: t(PREFIX + 'fields.userAddress'), value: suppliedValue(inputs.userAddress, t)});
   }
-  const presentedFields = new Set<string>([...definition.fields, 'userAddress']);
+  // oprfDomain is shown beside the requester's name (ProofRequestModal), with the scope.
+  const presentedFields = new Set<string>([...definition.fields, 'userAddress', 'oprfDomain']);
   for (const [field, value] of Object.entries(inputs)) {
     if (presentedFields.has(field) || TECHNICAL_FIELDS.has(field)) continue;
     // Extra keys are request data, not supported predicates. Keep the exact

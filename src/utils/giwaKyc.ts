@@ -10,13 +10,13 @@ import {
   AttesterCircuitInputs,
   SimpleMerkleTree,
   bytesToNoirInput,
-  computeScope,
-  computeWalletNullifier,
   extractPubkeyCoordinates,
   hexToByteArray,
   padArray,
   recoverTxSignerPubkey,
 } from './circuitHelpers';
+import type {OprfCircuitInputs} from '../oprf/core/client';
+import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
 
 // On-chain attest target — must match GIWA_ATTESTER_CONTRACT inside the
 // giwa_attestation Noir circuit (circuits/giwa-attestation/src/main.nr).
@@ -90,14 +90,6 @@ export interface GiwaActionHashes {
 
 const ZERO_32 = new Array(32).fill(0);
 
-/**
- * The circuit's own name, hashed into the nullifier's secret preimage.
- *
- * It is a literal inside `giwa-attestation/src/main.nr` as well. The two must
- * agree or the proof fails with "Nullifier mismatch" and nothing points here.
- */
-const CIRCUIT_ID = 'giwa_attestation';
-
 export function prepareGiwaCircuitInputs(
   signalHash: Uint8Array,
   userAddress: string,
@@ -105,7 +97,8 @@ export function prepareGiwaCircuitInputs(
   userPubkey: string,
   rawTransaction: string,
   attesterSignerIndex: number,
-  scopeString: string,
+  /** The OPRF evaluation for this proof (src/oprf/flow.ts). */
+  oprf: OprfCircuitInputs,
   action?: GiwaActionHashes,
 ): AttesterCircuitInputs {
   const merkleTree = new SimpleMerkleTree(GIWA_AUTHORIZED_SIGNERS);
@@ -139,24 +132,13 @@ export function prepareGiwaCircuitInputs(
     }
   }
 
-  const scopeBytes = computeScope(scopeString);
-  /*
-   * The wallet and a constant, never `signal_hash`.
-   *
-   * The circuit stopped deriving its nullifier from `signal_hash` on
-   * 2026-09-22: that value is a public input nothing constrains, so one wallet
-   * could produce as many nullifiers as it liked for one scope. Both sides now
-   * hash the address with keccak256("giwa_attestation").
-   */
-  const nullifierBytes = computeWalletNullifier(userAddress, CIRCUIT_ID, scopeBytes);
-
   /*
    * The two modes, as the circuit sees them. There is no null in a circuit, so
    * "absent" is 32 zero bytes, and the circuit refuses a request that fills
    * both sides: with an action, `signal_hash` MUST be empty.
    *
    * Both hashes are always emitted -- zeros when no action -- because the
-   * vector is positional and 192 entries long either way. Leaving them out
+   * vector is positional and 132 public entries long either way. Leaving them out
    * would build the 128-entry vector of a different circuit, which the prover
    * rejects with a message naming none of this.
    */
@@ -169,8 +151,7 @@ export function prepareGiwaCircuitInputs(
     ),
     action_hash: bytesToNoirInput(action ? hexToByteArray(action.actionHash) : ZERO_32),
     signer_list_merkle_root: bytesToNoirInput(hexToByteArray(merkleRoot)),
-    scope: bytesToNoirInput(Array.from(scopeBytes)),
-    nullifier: bytesToNoirInput(Array.from(nullifierBytes)),
+    oprf_public: oprfPublicInputs(oprf),
     user_address: bytesToNoirInput(hexToByteArray(userAddress)),
     user_signature: bytesToNoirInput(userSigBytes),
     user_pubkey_x: bytesToNoirInput(hexToByteArray(userPubkeyCoords.x)),
@@ -186,5 +167,6 @@ export function prepareGiwaCircuitInputs(
     coinbase_signer_merkle_proof: paddedProof,
     coinbase_signer_leaf_index: leafIndex.toString(),
     merkle_proof_depth: depth.toString(),
+    oprf_private: oprfPrivateInputs(oprf),
   };
 }

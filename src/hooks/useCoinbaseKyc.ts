@@ -26,8 +26,9 @@ import {coinbaseKycArtifact} from '../config/circuitArtifacts';
 import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../appAttest/constants';
 import type {TypedAction} from '../config/circuitIds';
 import {signedDigestOf} from '../utils/signedAction';
-import {computeScope} from '../utils/circuitHelpers';
-import {coinbaseSignalHash} from '../utils/coinbaseSignal';
+import {assertOprfAvailable, oprfInputsForProof, oprfStepCode} from '../oprf/device';
+import {oprfScopeFieldBytes} from '../oprf/circuitInputs';
+import {signalHashBytes} from '../utils/signalHash';
 import {
   flattenCoinbaseAndroidInputs,
   flattenCoinbaseAppAttestInputs,
@@ -51,10 +52,8 @@ import {AppAttestError} from '../appAttest/appAttestError';
 import {requireVerifierForVariant} from '../utils/proofSignerVariant';
 import type {Step} from '../components';
 
-// The circuit this hook proves. The same id is hashed into the deterministic
-// signal_hash (`coinbaseSignalHash` in utils/coinbaseKyc.ts), which the shipped
-// circuit's nullifier is derived from: changing it changes every nullifier and
-// breaks duplicate detection in ZKProofportNullifierRegistry.
+// The circuit this hook proves. The same id is hashed into signal_hash
+// (utils/signalHash.ts) with the scope and the request id.
 const CIRCUIT_NAME = 'coinbase_attestation';
 
 /**
@@ -126,6 +125,14 @@ export interface CoinbaseKycProofInputs {
   rawTransaction: string;
   signerIndex: number;
   scopeString: string;  // dApp scope identifier (REQUIRED)
+  /**
+   * The id of the request this proof answers: the relay request's id, or the
+   * one minted for an in-app proof. It is in signal_hash's preimage
+   * (utils/signalHash.ts), so the requester can check the proof answers it.
+   */
+  requestId: string;
+  /** The OPRF domain (src/oprf/requestNames.ts); with `scopeString` it keys the nullifier. */
+  oprfDomain: string;
   /**
    * Required: Coinbase KYC v2 proves that this app, on a device whose
    * hardware vouches for it (App Attest on iPhone, Android key attestation
@@ -296,6 +303,9 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         // the cause.
         const circuitName = circuitFor(inputs.circuit);
         _cachedCircuitName = circuitName;
+        // No OPRF network or key for this build (production today): refused
+        // before anything is fetched or signed.
+        assertOprfAvailable(circuitName);
         const statement = inputs.appAttest;
         if (!statement?.witness) {
           throw new Error('Coinbase KYC v2 needs a device statement; none was made for this request.');
@@ -362,16 +372,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         addLog('Step 3: Computing deterministic signal hash...');
         addLog('[Signal] Computing deterministic signal hash...');
 
-        // Deterministic signal_hash = keccak256(userAddress + scopeString + circuitName)
-        // This ensures the same wallet + scope + circuit always produces the same nullifier,
-        // enabling on-chain duplicate detection in ZKProofportNullifierRegistry.
-        // With an action there is no signal hash: the
-        // circuit refuses a request that carries both.
+        // signal_hash = keccak256(scope ++ circuit ++ requestId) -- no wallet
+        // address: it is public (utils/signalHash.ts). With an action there is
+        // no signal hash: the circuit refuses a request that carries both.
         const action = statement.action;
         if (action) {
           currentSignalHash = new Uint8Array(32);
         } else {
-          currentSignalHash = coinbaseSignalHash(inputs.userAddress, inputs.scopeString);
+          currentSignalHash = signalHashBytes({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId});
         }
         setSignalHash(currentSignalHash);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
@@ -478,10 +486,19 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         });
         addLog(`Public key recovered: ${userPubkey.slice(0, 20)}...`);
 
-        // Step 6: Compute scope and nullifier
+        // Step 6: the OPRF nullifier (the wallet signs the OPRF request)
         updateStep('scope', {status: 'in_progress'});
-        addLog('Step 6: Computing scope and nullifier...');
-        updateStep('scope', {status: 'completed'});
+        addLog('Step 6: Obtaining the OPRF nullifier...');
+        const oprf = await oprfInputsForProof({
+          circuit: circuitName,
+          address: inputs.userAddress,
+          from,
+          domainName: inputs.oprfDomain,
+          scopeName: inputs.scopeString,
+          ethereum,
+          log: addLog,
+        });
+        updateStep('scope', {status: 'completed', detail: `nullifier ${oprf.nullifier.slice(0, 18)}...`});
 
         // Step 7: Prepare circuit inputs
         updateStep('inputs', {status: 'in_progress'});
@@ -495,17 +512,14 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           userPubkey,
           inputs.rawTransaction,
           signerIndex,
-          inputs.scopeString,  // NEW: scope string for nullifier
-          // Circuits derive their nullifiers differently, so the circuit is
-          // named rather than assumed.
-          circuitName,
+          oprf,
         );
         const flatInputs = BUILD_FLAT_INPUTS[signerVariant](
           circuitInputs,
           {
             circuit: CIRCUIT_NAME,
             userAddress: inputs.userAddress,
-            scope: computeScope(inputs.scopeString),
+            scope: oprfScopeFieldBytes(oprf),
             signedDigest: signedDigestOf(signed),
             publicHashes: signed.publicHashes,
           },
@@ -635,7 +649,7 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
           const active = prev.some(step => step.status === 'in_progress');
           return prev.map((step, i) =>
             (active ? step.status === 'in_progress' : i === 0)
-              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {}), ...(deviceCheckReason ? {deviceCheckReason} : {})}
+              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {}), ...(deviceCheckReason ? {deviceCheckReason} : {}), ...(code ? {} : oprfStepCode(error))}
               : step,
           );
         });

@@ -27,7 +27,8 @@ import {
   HUMAN_PASSPORT_SCORE_DECIMALS,
   humanPassportChain,
 } from '../config/circuitIds';
-import {computeScope, computeWalletNullifier} from './circuitHelpers';
+import type {OprfCircuitInputs} from '../oprf/core/client';
+import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
 
 export const HUMAN_PASSPORT_CIRCUIT = 'human_passport_score';
 
@@ -442,7 +443,8 @@ export interface HumanPassportInputParams {
   userAddress: string;
   userSignature: string; // 65-byte hex
   userPubkey: string; // 0x04 || x || y
-  scopeString: string;
+  /** The OPRF evaluation for this proof (src/oprf/flow.ts). */
+  oprf: OprfCircuitInputs;
   minScoreUnits: number;
   nowSeconds: number;
   issuance: Pick<PassportIssuance, 'request' | 'issuerSignature' | 'issuerPubkey' | 'leafIndex' | 'domainSeparator'> & {head: Pick<ScoreHead, 'scorerId'>};
@@ -450,7 +452,7 @@ export interface HumanPassportInputParams {
   issuerLeaves: readonly string[];
 }
 
-/** The circuit's flat input vector, in `fn main`'s parameter order (11,164 values). */
+/** The circuit's flat input vector, in `fn main`'s parameter order (11,111 values: 11,164 before the OPRF nullifier, -60 +7). */
 export function prepareHumanPassportInputs(p: HumanPassportInputParams): string[] {
   const r = p.issuance.request;
   if (!Number.isInteger(p.minScoreUnits) || p.minScoreUnits < 1 || p.minScoreUnits > 0xffffffff) {
@@ -464,8 +466,6 @@ export function prepareHumanPassportInputs(p: HumanPassportInputParams): string[
     throw new Error(`Score data is ${data.length} bytes; the proof holds ${HUMAN_PASSPORT_MAX_DATA_BYTES}`);
   }
   const {root, proof} = merklePath(p.issuerLeaves, p.issuance.leafIndex);
-  const scope = computeScope(p.scopeString);
-  const nullifier = computeWalletNullifier(p.userAddress, HUMAN_PASSPORT_CIRCUIT, scope);
   const sig = ethers.utils.splitSignature(p.userSignature);
   const userKey = ethers.utils.arrayify(p.userPubkey);
   const issuerKey = ethers.utils.arrayify(p.issuance.issuerPubkey);
@@ -480,8 +480,7 @@ export function prepareHumanPassportInputs(p: HumanPassportInputParams): string[
     ...(p.action ? bytes(p.action.domainSeparator) : ZERO32),
     ...(p.action ? bytes(p.action.actionHash) : ZERO32),
     ...bytes(root),
-    ...Array.from(scope).map(String),
-    ...Array.from(nullifier).map(String),
+    ...oprfPublicInputs(p.oprf),
     p.minScoreUnits.toString(),
     p.issuance.head.scorerId.toString(),
     p.nowSeconds.toString(),
@@ -505,8 +504,9 @@ export function prepareHumanPassportInputs(p: HumanPassportInputParams): string[
     ...paddedProof,
     p.issuance.leafIndex.toString(),
     proof.length.toString(),
+    ...oprfPrivateInputs(p.oprf),
   ];
-  if (out.length !== 11164) throw new Error(`Built ${out.length} inputs; human_passport_score takes 11164`);
+  if (out.length !== 11111) throw new Error(`Built ${out.length} inputs; human_passport_score takes 11111`);
   return out;
 }
 

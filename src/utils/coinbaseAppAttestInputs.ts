@@ -59,7 +59,7 @@ import {
 } from '../androidAttest/androidSignerInputs';
 import {appSignerInputs} from '../appAttest/appSignerInputs';
 import {coinbaseStatementKind, type CoinbaseStatementCircuit} from '../appAttest/coinbaseStatementKinds';
-import {bytesToNoirInput, nullifierForCircuit, type AttesterCircuitInputs} from './circuitHelpers';
+import {bytesToNoirInput, type AttesterCircuitInputs} from './circuitHelpers';
 
 const ZERO32 = new Array(32).fill(0);
 
@@ -70,8 +70,8 @@ export interface CoinbaseAppAttestInputs {
   signer_list_merkle_root: string[];
   /** Coinbase Country v2 only: 20 bytes, 1 length, 1 inclusion flag. */
   country?: {country_list: string[]; country_list_length: string; is_included: string};
-  scope: string[];
-  nullifier: string[];
+  /** oprf_key_hash, domain, scope, nullifier: one Field each, where scope + nullifier (64 bytes) were. */
+  oprf_public: string[];
   attested_at: string;
 
   user_address: string[];
@@ -97,6 +97,8 @@ export interface CoinbaseAppAttestInputs {
   att_client_data_hash: string[];
   assertion_auth_data: string[];
   assertion_auth_data_len: string;
+  /** The seven OPRF private inputs, after every other parameter. */
+  oprf_private: string[];
 }
 
 function fixed(bytes: Uint8Array, length: number, what: string): string[] {
@@ -124,6 +126,7 @@ type CoinbaseCommonInputs = Omit<
   CoinbaseAppAttestInputs,
   | 'signer_kind' | 'statement_sig' | 'credential_tbs' | 'credential_tbs_len' | 'credential_sig'
   | 'att_auth_data' | 'att_auth_data_len' | 'att_client_data_hash' | 'assertion_auth_data' | 'assertion_auth_data_len'
+  | 'oprf_private'
 >;
 
 export interface CoinbaseStatementRequest {
@@ -133,6 +136,11 @@ export interface CoinbaseStatementRequest {
    */
   circuit: CoinbaseStatementCircuit;
   userAddress: string;
+  /**
+   * The scope FIELD's 32 bytes big-endian (keccak256(scope) mod p,
+   * src/oprf/circuitInputs.ts `oprfScopeFieldBytes`): what the statement binds
+   * at clientData offset 193, and the circuit's public `scope`.
+   */
   scope: Uint8Array;
   /** The digest the wallet signed. */
   signedDigest: string;
@@ -155,8 +163,8 @@ export interface CountryListRequest {
 }
 
 /** Coinbase Country v2's public input count and where attested_at sits (circuits coinbase-country-attestation-v2). */
-export const COUNTRY_V2_PUBLIC_INPUT_COUNT = 215;
-export const COUNTRY_V2_ATTESTED_AT_INDEX = 214;
+export const COUNTRY_V2_PUBLIC_INPUT_COUNT = 155;
+export const COUNTRY_V2_ATTESTED_AT_INDEX = 154;
 
 /** The public list's capacity in the circuit. */
 export const COUNTRY_LIST_MAX = 10;
@@ -281,7 +289,12 @@ function coinbaseCommonInputs(
     ? fixed(ethers.utils.arrayify(request.publicHashes.actionHash), 32, 'action_hash')
     : bytesToNoirInput(ZERO32);
 
-  const nullifier = nullifierForCircuit(kind.circuit, request.userAddress, new Uint8Array(32), request.scope);
+  // The scope the statement binds must be the one the OPRF evaluation used:
+  // the circuit checks both against its one public `scope`.
+  const oprfScope = coinbase.oprf_public?.[2];
+  if (typeof oprfScope !== 'string' || BigInt(oprfScope) !== BigInt(ethers.utils.hexlify(request.scope))) {
+    throw new Error(`The statement binds scope ${ethers.utils.hexlify(request.scope)}, the OPRF evaluation used ${String(oprfScope)}`);
+  }
 
   return {
     signal_hash: signal,
@@ -289,8 +302,7 @@ function coinbaseCommonInputs(
     action_hash: action,
     signer_list_merkle_root: coinbase.signer_list_merkle_root,
     ...(country ? {country} : {}),
-    scope: fixed(request.scope, 32, 'scope'),
-    nullifier: bytesToNoirInput(Array.from(nullifier)),
+    oprf_public: coinbase.oprf_public,
     attested_at: String(statement.attestedAt),
 
     user_address: coinbase.user_address,
@@ -339,7 +351,13 @@ export function prepareCoinbaseAppAttestInputs(
     att_client_data_hash: hexOfBytes(signer.att_client_data_hash),
     assertion_auth_data: hexOfBytes(signer.assertion_auth_data),
     assertion_auth_data_len: String(signer.assertion_auth_data_len),
+    oprf_private: sevenOprf(coinbase.oprf_private),
   };
+}
+
+function sevenOprf(v: string[]): string[] {
+  if (!Array.isArray(v) || v.length !== 7) throw new Error(`The Coinbase half carries ${Array.isArray(v) ? v.length : 'no'} OPRF private inputs; the circuit takes 7`);
+  return v;
 }
 
 /**
@@ -350,17 +368,23 @@ export function prepareCoinbaseAppAttestInputs(
  */
 export interface CoinbaseAndroidInputs extends CoinbaseCommonInputs {
   signer: AnyAndroidSignerInputs;
+  oprf_private: string[];
 }
 
-/** Everything up to client_data: 193 public and 996 private values, on every Coinbase KYC v2 circuit. */
-const COINBASE_COMMON_FLAT_COUNT = 1189;
+/**
+ * Everything up to client_data: 133 public and 996 private values, on every
+ * Coinbase KYC v2 circuit (193 public before the OPRF nullifier). The seven
+ * OPRF private inputs follow the signer, at the very end.
+ */
+const COINBASE_COMMON_FLAT_COUNT = 1129;
+const OPRF_PRIVATE_COUNT = 7;
 /** Coinbase Country v2: 22 more public values (the list) and 2 more statement bytes. */
 const COUNTRY_COMMON_FLAT_COUNT = COINBASE_COMMON_FLAT_COUNT + 24;
-export const COUNTRY_ANDROID_FLAT_INPUT_COUNT = COUNTRY_COMMON_FLAT_COUNT + ANDROID_SIGNER_FLAT_COUNT;
-export const COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT = COUNTRY_COMMON_FLAT_COUNT + ANDROID_FACTORY_SIGNER_FLAT_COUNT;
-export const COINBASE_ANDROID_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_SIGNER_FLAT_COUNT;
-/** `coinbase_attestation_v2_android_factory`: the common inputs, then the factory signer. */
-export const COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_FACTORY_SIGNER_FLAT_COUNT;
+export const COUNTRY_ANDROID_FLAT_INPUT_COUNT = COUNTRY_COMMON_FLAT_COUNT + ANDROID_SIGNER_FLAT_COUNT + OPRF_PRIVATE_COUNT;
+export const COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT = COUNTRY_COMMON_FLAT_COUNT + ANDROID_FACTORY_SIGNER_FLAT_COUNT + OPRF_PRIVATE_COUNT;
+export const COINBASE_ANDROID_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_SIGNER_FLAT_COUNT + OPRF_PRIVATE_COUNT;
+/** `coinbase_attestation_v2_android_factory`: the common inputs, then the factory signer, then the OPRF values. */
+export const COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT = COINBASE_COMMON_FLAT_COUNT + ANDROID_FACTORY_SIGNER_FLAT_COUNT + OPRF_PRIVATE_COUNT;
 
 export function prepareCoinbaseAndroidInputs(
   coinbase: AttesterCircuitInputs,
@@ -373,7 +397,7 @@ export function prepareCoinbaseAndroidInputs(
   if (witness.signer.variant !== witness.variant) {
     throw new Error(`The Android statement is ${witness.variant} but its signer inputs are ${witness.signer.variant}`);
   }
-  return {...coinbaseCommonInputs(coinbase, request, witness), signer: witness.signer};
+  return {...coinbaseCommonInputs(coinbase, request, witness), signer: witness.signer, oprf_private: sevenOprf(coinbase.oprf_private)};
 }
 
 export function flattenCoinbaseAndroidInputs(i: CoinbaseAndroidInputs): string[] {
@@ -385,6 +409,7 @@ export function flattenCoinbaseAndroidInputs(i: CoinbaseAndroidInputs): string[]
       n => String(n),
       v => v.toString(),
     ),
+    ...sevenOprf(i.oprf_private),
   ];
   const expected = i.country
     ? (isAndroidSignerInputs(i.signer) ? COUNTRY_ANDROID_FLAT_INPUT_COUNT : COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT)
@@ -402,8 +427,7 @@ function flattenCommon(i: CoinbaseCommonInputs): string[] {
     ...i.action_hash,
     ...i.signer_list_merkle_root,
     ...(i.country ? [...i.country.country_list, i.country.country_list_length, i.country.is_included] : []),
-    ...i.scope,
-    ...i.nullifier,
+    ...i.oprf_public,
     i.attested_at,
     ...i.user_address,
     ...i.user_signature,
@@ -420,7 +444,7 @@ function flattenCommon(i: CoinbaseCommonInputs): string[] {
   ];
 }
 
-/** `fn main`'s order. The first 193 values (215 for Country) are the public inputs. */
+/** `fn main`'s order. The first 133 values (155 for Country) are the public inputs. */
 export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): string[] {
   return [
     ...flattenCommon(i),
@@ -434,5 +458,6 @@ export function flattenCoinbaseAppAttestInputs(i: CoinbaseAppAttestInputs): stri
     ...i.att_client_data_hash,
     ...i.assertion_auth_data,
     i.assertion_auth_data_len,
+    ...sevenOprf(i.oprf_private),
   ];
 }

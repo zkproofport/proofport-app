@@ -3,7 +3,7 @@
  * against real Base issuances.
  *
  * Matrix:
- *   vector     the builder's 11,164 values equal the vector the circuit
+ *   vector     the builder's 11,111 values equal the vector the circuit
  *              accepted (circuits scripts/human-passport/export-app-vector.js),
  *              in action mode; signal mode zeroes the action pair instead
  *   recovery   the issuer key is recovered from the request digest, and
@@ -32,7 +32,18 @@ import {
   type HumanPassportInputParams,
   type PassportRequest,
 } from '../humanPassport';
-import {computeScope, nullifierForCircuit} from '../circuitHelpers';
+import {readOprfPublicInputs} from '../../oprf/config';
+import type {OprfCircuitInputs} from '../../oprf/core/client';
+
+/** The fixture's OPRF evaluation (its per-circuit test key), as the builder takes it. */
+const f32 = (v: string) => '0x' + BigInt(v).toString(16).padStart(64, '0');
+const fixtureOprf: OprfCircuitInputs = {
+  oprf_key_hash: f32(vector.oprf.keyHash), domain: f32(vector.oprf.domain), scope: f32(vector.oprf.scope),
+  nullifier: f32(vector.expectedNullifier),
+  oprf_public_key_x: f32(vector.oprf.publicKey.x), oprf_public_key_y: f32(vector.oprf.publicKey.y),
+  oprf_beta: f32(vector.oprf.beta), oprf_dlog_e: f32(vector.oprf.dlogE), oprf_dlog_s: f32(vector.oprf.dlogS),
+  oprf_response_x: f32(vector.oprf.response.x), oprf_response_y: f32(vector.oprf.response.y),
+};
 import {HUMAN_PASSPORT_CHAIN_IDS, HUMAN_PASSPORT_ISSUER, HUMAN_PASSPORT_ISSUER_LEAVES, HUMAN_PASSPORT_ISSUER_ROOT, humanPassportChain} from '../../config/circuitIds';
 
 const issuance = vector.issuance;
@@ -71,7 +82,7 @@ function params(over: Partial<HumanPassportInputParams> = {}): HumanPassportInpu
     userAddress: vector.userAddress,
     userSignature: vector.userSignatureRS + '1b',
     userPubkey: vector.userPubkey,
-    scopeString: vector.scopeString,
+    oprf: fixtureOprf,
     minScoreUnits: vector.minScoreUnits,
     nowSeconds: vector.now,
     issuance: {
@@ -90,7 +101,7 @@ function params(over: Partial<HumanPassportInputParams> = {}): HumanPassportInpu
 describe('prepareHumanPassportInputs', () => {
   it('builds exactly the vector the circuit accepted', () => {
     const built = prepareHumanPassportInputs(params());
-    expect(built).toHaveLength(11164);
+    expect(built).toHaveLength(11111);
     const firstDiff = built.findIndex((v, i) => BigInt(v) !== BigInt(vector.expectedFlat[i]));
     expect(firstDiff).toBe(-1);
   });
@@ -99,19 +110,20 @@ describe('prepareHumanPassportInputs', () => {
     const built = prepareHumanPassportInputs(params());
     const hex = (from: number) => '0x' + built.slice(from, from + 32).map(b => Number(b).toString(16).padStart(2, '0')).join('');
     expect(hex(96)).toBe(vector.signerListMerkleRoot);
-    expect(hex(160)).toBe(vector.expectedNullifier);
+    expect(f32(built[131])).toBe(f32(vector.expectedNullifier));
   });
 
-  // The relay callback's `nullifier` is computed by the proof screen with
-  // nullifierForCircuit, not read from the proof; for a dApp's Human Passport
-  // request it must be the proof's own (offset 160), in either mode.
+  // The relay callback's `nullifier` is read from the proof's public inputs
+  // by the circuit's layout (readOprfPublicInputs, index 131 of 135), in
+  // either mode: it must be the one the builder put there.
   it.each([['action', {}], ['signal', {action: undefined, signalHash: new Uint8Array(32).fill(7)}]])(
     'the nullifier the proof screen sends a dApp is the one in the proof (%s mode)', (_mode, over) => {
       const built = prepareHumanPassportInputs(params(over as Partial<HumanPassportInputParams>));
-      const inProof = '0x' + built.slice(160, 192).map(b => Number(b).toString(16).padStart(2, '0')).join('');
-      const sent = ethers.utils.hexlify(nullifierForCircuit('human_passport_score', vector.userAddress, new Uint8Array(32).fill(9), computeScope(vector.scopeString)));
-      expect(sent).toBe(inProof);
-      expect(sent).toBe(vector.expectedNullifier);
+      const publicInputs = built.slice(0, 135).map(v => f32(/^0x/.test(v) ? v : '0x' + BigInt(v).toString(16)));
+      const read = readOprfPublicInputs('human_passport_score', publicInputs);
+      expect(read.nullifier).toBe(f32(vector.expectedNullifier));
+      expect(read.scope).toBe(f32(vector.oprf.scope));
+      expect(read.keyHash).toBe(f32(vector.oprf.keyHash));
     });
 
   it('in signal mode sends the signal hash and a zero action pair', () => {
@@ -129,7 +141,7 @@ describe('prepareHumanPassportInputs', () => {
 
   it('holds 10,240 data bytes and refuses 10,241', () => {
     const at = (n: number) => params({issuance: {...params().issuance, request: {...request, data: '0x' + '01'.repeat(n)}}});
-    expect(prepareHumanPassportInputs(at(10240))).toHaveLength(11164);
+    expect(prepareHumanPassportInputs(at(10240))).toHaveLength(11111);
     expect(() => prepareHumanPassportInputs(at(10241))).toThrow(/10240/);
   });
 

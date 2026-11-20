@@ -43,9 +43,10 @@ import {ANDROID_CIRCUIT_TRUST} from '../../androidAttest/androidSigner';
 import {isAndroidStatementWitness} from '../../androidAttest/androidSignerInputs';
 import {GOOGLE_KEY_ATTESTATION_CA1} from '../../utils/androidKeyAttestation';
 import {__setAndroidChainKindForTests} from '../../config/signerPlatform';
-import {computeScope} from '../../utils/circuitHelpers';
-import {coinbaseSignalHashFor} from '../../utils/coinbaseSignal';
+import {oprfScopeBytesOf} from '../../oprf/circuitInputs';
+import {computeSignalHash} from '../../utils/signalHash';
 import vectors from '../../utils/__tests__/fixtures/androidChainVectors.json';
+const REQUEST_ID = '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f';
 
 const WALLET = '0xD6C714247037E5201B7e3dEC97a3ab59a9d2F739';
 const UID = '0xed8abaf1eb40dd475fdc94acfb422f3c38c26872c74db237da7179b0e8f46dae';
@@ -71,7 +72,7 @@ const settle = (p: Promise<unknown>) => p.then(() => 'ok', codeOf);
 
 const fields = (o: Record<string, unknown> = {}) => ({
   wallet: WALLET, attestedAt: NOW, schemaUid: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER,
-  attestationUid: UID, revoked: false, requestDigest: '0x' + '44'.repeat(32), scope: computeScope('scope'), country: 'KR', ...o,
+  attestationUid: UID, revoked: false, requestDigest: '0x' + '44'.repeat(32), scope: oprfScopeBytesOf('scope'), country: 'KR', ...o,
 });
 
 describe('the statement kinds', () => {
@@ -195,7 +196,7 @@ describe('the lookup half', () => {
     return {
       fetchStatus,
       run: () => revocationClientData(
-        {circuit: 'coinbase_country_attestation', wallet: WALLET, attestationUid: UID, requestDigest: '0x' + '44'.repeat(32), scope: computeScope('scope'), transactionCountry: 'KR', ...o} as never,
+        {circuit: 'coinbase_country_attestation', wallet: WALLET, attestationUid: UID, requestDigest: '0x' + '44'.repeat(32), scope: oprfScopeBytesOf('scope'), transactionCountry: 'KR', ...o} as never,
         {fetchStatus: fetchStatus as never, now: () => NOW, log: () => {}},
       ),
     };
@@ -241,7 +242,7 @@ describe('the lookup half', () => {
   it('is a mistake in the app to give KYC a transaction country', async () => {
     const fetchStatus = jest.fn();
     const p = revocationClientData(
-      {circuit: 'coinbase_attestation', wallet: WALLET, attestationUid: UID, requestDigest: '0x' + '44'.repeat(32), scope: computeScope('scope'), transactionCountry: 'KR'},
+      {circuit: 'coinbase_attestation', wallet: WALLET, attestationUid: UID, requestDigest: '0x' + '44'.repeat(32), scope: oprfScopeBytesOf('scope'), transactionCountry: 'KR'},
       {fetchStatus: fetchStatus as never, now: () => NOW, log: () => {}},
     );
     expect(await settle(p)).toMatch(/carries no country/);
@@ -316,19 +317,22 @@ describe('the statement on an Android phone', () => {
     const a = android();
     const fetchStatus = jest.fn(async () => record());
     const w = await prepareCoinbaseCountryStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', action: act as never, transactionCountry: 'KR', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, action: act as never, transactionCountry: 'KR', log: () => {}},
       {platform: 'android', android: {native: a.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus: fetchStatus as never, now: () => NOW}},
     );
     expect(isAndroidStatementWitness(w)).toBe(true);
     expect(w.clientData).toHaveLength(227);
     expect(a.signed).toEqual([w.clientData]);
-    const digest = coinbaseRequestDigestFor('coinbase_country_attestation', WALLET, 'scope', act as never);
+    const digest = coinbaseRequestDigestFor('coinbase_country_attestation', WALLET, 'scope', REQUEST_ID, act as never);
     expect(ethers.utils.hexlify(w.clientData.slice(161, 193))).toBe(digest.toLowerCase());
     if (!act) {
       // The signal hash names the circuit: never Coinbase KYC's digest.
-      expect(digest).not.toBe(coinbaseRequestDigest(WALLET, 'scope'));
-      expect(ethers.utils.hexlify(coinbaseSignalHashFor('coinbase_country_attestation', WALLET, 'scope')))
-        .toBe(ethers.utils.solidityKeccak256(['address', 'string', 'string'], [WALLET, 'scope', 'coinbase_country_attestation']));
+      expect(digest).not.toBe(coinbaseRequestDigest(WALLET, 'scope', REQUEST_ID));
+      // ...and never the wallet: scope, circuit and request id only.
+      expect(computeSignalHash({scope: 'scope', circuitId: 'coinbase_country_attestation', requestId: REQUEST_ID}))
+        .toBe(ethers.utils.solidityKeccak256(['string', 'string', 'string'], ['scope', 'coinbase_country_attestation', REQUEST_ID]));
+      const anotherWallet = '0x' + '77'.repeat(20);
+      expect(coinbaseRequestDigestFor('coinbase_country_attestation', anotherWallet, 'scope', REQUEST_ID)).toBe(digest);
     }
   });
 
@@ -339,7 +343,7 @@ describe('the statement on an Android phone', () => {
   ])('signs nothing for a %s record', async (_l, status, expected) => {
     const a = android();
     const p = prepareCoinbaseCountryStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', transactionCountry: 'KR', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, transactionCountry: 'KR', log: () => {}},
       {platform: 'android', android: {native: a.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus: (async () => status) as never, now: () => NOW}},
     );
     expect(await settle(p)).toBe(expected);
@@ -349,7 +353,7 @@ describe('the statement on an Android phone', () => {
   it("leaves Coinbase KYC's statement at 225 bytes on the same phone", async () => {
     const a = android();
     const w = await prepareCoinbaseKycStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {platform: 'android', android: {native: a.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus: (async () => record({schemaId: COINBASE_KYC_SCHEMA_UID, data: '0x'})) as never, now: () => NOW}},
     );
     expect(w.clientData).toHaveLength(225);
@@ -358,7 +362,7 @@ describe('the statement on an Android phone', () => {
 
   it('an unknown platform is an error by name, never a signer', async () => {
     await expect(prepareCoinbaseCountryStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', transactionCountry: 'KR', log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, transactionCountry: 'KR', log: () => {}},
       {platform: 'web' as never},
     )).rejects.toThrow(/No Coinbase KYC statement signer for 'web'/);
   });

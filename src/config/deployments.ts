@@ -4,10 +4,16 @@
  * Fetches Foundry broadcast JSON from GitHub to get deployed verifier
  * addresses. Uses AsyncStorage for offline cache.
  *
- * Which circuits ref is read, per environment (`circuitsRef`):
- *   - development / staging: branch `main` (CIRCUITS_BRANCH)
- *   - production: exactly CIRCUITS_RELEASE_TAG, fixed in this build
- *   - Laboratory circuits (MAIN_BRANCH_CIRCUIT_IDS): `main` in every build
+ * Which circuits ref is read (`circuitsRef`):
+ *   - a circuit whose pinned row in circuitArtifacts.ts is one source for
+ *     every phone (the Laboratory circuits: LAB_CIRCUITS_REF): that exact
+ *     commit, in every build -- the record that belongs to its files
+ *   - any other circuit: development / staging `main` (CIRCUITS_BRANCH),
+ *     production exactly CIRCUITS_RELEASE_TAG. Only GIWA and the Dojang
+ *     Playground have a broadcast path today, so no record is read there.
+ *
+ * Until 2026-11-17 the Laboratory circuits read `main` in every build, so a
+ * redeploy recorded on circuits main reached every installed app.
  *
  * Nothing asks GitHub which release is "latest". Until 2026-10-27 production
  * did, so publishing a circuits tag switched every installed app's circuits
@@ -21,13 +27,12 @@ import {
   BROADCAST_PATHS,
   CIRCUITS_WITH_BROADCAST,
   CIRCUIT_NETWORKS,
-  CIRCUIT_DATA_VERSIONS,
   FALLBACK_VERIFIERS,
   STATIC_CONFIGS,
   GITHUB_RAW,
-  CIRCUITS_BRANCH,
 } from './contracts';
-import {MAIN_BRANCH_CIRCUIT_IDS} from './circuitIds';
+import {ALL_CIRCUIT_IDS, MAIN_BRANCH_CIRCUIT_IDS, isCircuitId} from './circuitIds';
+import {signerIndependentArtifactRef} from './circuitArtifacts';
 import type {CircuitName, Environment} from './contracts';
 
 const CACHE_PREFIX = '@proofport/deployment';
@@ -85,7 +90,17 @@ export function isCircuitsReleaseMissingError(e: unknown): e is CircuitsReleaseM
  * is never paired with a verifier from another ref.
  */
 export function circuitsRef(circuit: CircuitName, env: Environment): string {
-  if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) return CIRCUITS_BRANCH;
+  if (!isCircuitId(circuit)) {
+    throw new Error(`Unknown circuit '${circuit}'. Known: ${ALL_CIRCUIT_IDS.join(', ')}.`);
+  }
+  const pinned = signerIndependentArtifactRef(circuit);
+  if (pinned !== undefined) return pinned;
+  if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) {
+    throw new Error(
+      `Laboratory circuit '${circuit}' has no pinned row in CIRCUIT_ARTIFACT_SOURCES ` +
+        '(src/config/circuitArtifacts.ts, LAB_CIRCUITS_REF). Its verifier record is never read from a branch.',
+    );
+  }
   return environmentCircuitsRef(env);
 }
 
@@ -105,13 +120,10 @@ function isReleaseRef(env: Environment, ref: string): boolean {
 }
 
 function cacheKey(env: Environment, circuit: CircuitName): string {
-  // Experimental circuit bytes and verifiers change together on main. A
-  // cache from an earlier circuit must not override the current verifier.
-  if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) {
-    return `${CACHE_PREFIX}/${env}/${circuit}/v${CIRCUIT_DATA_VERSIONS[circuit]}`;
-  }
   // Keyed by the ref, so an address cached by an app version pinned to another
-  // circuits tag is never read back by this one.
+  // circuits ref is never read back by this one. The Laboratory circuits were
+  // keyed by CIRCUIT_DATA_VERSIONS while they read `main` (`<id>/v<n>`); those
+  // entries are simply never read again.
   return `${CACHE_PREFIX}/${env}/${circuit}@${circuitsRef(circuit, env)}`;
 }
 

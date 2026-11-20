@@ -27,8 +27,10 @@ import {findHumanPassportScore, HumanPassportError, preselectPassportChain, surv
 import {HUMAN_PASSPORT_CHAIN_IDS, humanPassportChain, humanPassportScoreUnits} from '../../config/circuitIds';
 import {HumanPassportChainPicker} from '../../components/HumanPassportChainPicker';
 import {reviewBlockReason} from '../../utils/requestReview';
+import {oprfNamesFor} from '../../oprf/requestNames';
+import {readOprfPublicInputs} from '../../oprf/config';
 import {useCircuitWalletGate} from '../../hooks/useCircuitWalletGate';
-import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY, computeScope, nullifierForCircuit} from '../../utils';
+import {findAttestationTransaction, findGiwaAttestationTransaction, findDojangPlaygroundIssuance, DojangIssuanceError, SELECTOR_ATTEST_ACCOUNT, SELECTOR_ATTEST_COUNTRY} from '../../utils';
 import type {TypedAction} from '../../utils/typedAction';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
@@ -56,6 +58,7 @@ import {countryRequestRefusal} from '../../utils/coinbaseAppAttestInputs';
 import {proofSignerVariant, verifierForProof} from '../../utils/proofSignerVariant';
 
 import {newStandaloneRequestId} from '../../oidc/oidcNonce';
+import {signalHashRequestIdError} from '../../utils/signalHash';
 import {prepareOidcAppSigner, type ProviderKeySigner} from '../../oidc/oidcAppSigner';
 import {oidcBindingFor, signInBound, signInProviderFor, type OidcBinding, type OidcSignInProvider} from '../../oidc/oidcSignIn';
 import {proofLogEnabled, proofLogText} from '../../utils/proofLog';
@@ -755,20 +758,19 @@ export const ProofGenerationScreen: React.FC = () => {
           : {code: 'E2001', error: msg});
         return;
       }
+      // The nullifier the proof publishes (the OPRF one, a Field), read from
+      // its public inputs by the circuit's layout. OIDC's sits in its own
+      // public inputs and is not sent separately.
       let nullifierHex = '0x' + '00'.repeat(32);
-      if (isOidc) {
-        // OIDC: nullifier is embedded in public inputs (circuit computes it)
-        // No separate computation needed
-      } else {
-        const inputs = proofRequest.inputs as CoinbaseKycInputs | undefined;
-        const scope = inputs?.scope || 'proofport:default';
-        const scopeBytes = computeScope(scope);
-        // By the circuit's own rule: GIWA and Dojang Playground hash the wallet
-        // with the circuit id, the Coinbase pair hash it with signal_hash.
-        const nullifierBytes = signalHash
-          ? nullifierForCircuit(resolved, account || '', signalHash, scopeBytes)
-          : new Uint8Array(32);
-        nullifierHex = ethers.utils.hexlify(nullifierBytes);
+      if (!isOidc) {
+        try {
+          nullifierHex = readOprfPublicInputs(resolved, parsedProof.publicInputsHex).nullifier;
+        } catch (layoutError) {
+          const msg = layoutError instanceof Error ? layoutError.message : String(layoutError);
+          addLog(`Error: ${msg}`);
+          failAttempt({code: 'E2001', error: msg});
+          return;
+        }
       }
 
       const circuitNet = getNetworkConfigForCircuit(resolved);
@@ -960,6 +962,48 @@ export const ProofGenerationScreen: React.FC = () => {
         : 'in-app'}, started ${new Date(proofStartedAt.current).toISOString()}`,
     );
 
+    // Which request this proof answers, fixed once per attempt before History
+    // records it: the relay request's id, or one minted here for an in-app
+    // proof. The OIDC nonce and every wallet circuit's signal_hash
+    // (utils/signalHash.ts) name this same id, so the requester (or History,
+    // for an in-app proof) can check the proof against it.
+    let attemptRequestId: string;
+    try {
+      attemptRequestId = proofRequest ? proofRequest.requestId : newStandaloneRequestId();
+    } catch (e) {
+      const details = e instanceof Error ? e.message : String(e);
+      proofStartedAt.current = null;
+      setIsSearching(false);
+      addLog(`[Request] ${details}`);
+      failAttempt({code: 'E2001', error: details});
+      return;
+    }
+    if (!isOidc) {
+      const idError = signalHashRequestIdError(attemptRequestId);
+      if (idError) {
+        proofStartedAt.current = null;
+        setIsSearching(false);
+        addLog(`[Request] ${idError}`);
+        failAttempt({code: 'E1002', error: `Request ${JSON.stringify(attemptRequestId)}: ${idError}`});
+        return;
+      }
+    }
+
+    // The OPRF names every wallet credential proof is keyed by: the dApp's
+    // `oprfDomain` (an in-app proof: the app's own) and the scope. Checked
+    // before the device statement or any wallet signature (E1010); a request
+    // that names no domain is refused, never given a shared one.
+    const oprfDomainFor = (scope: string): string | null => {
+      try {
+        return oprfNamesFor(proofRequest ? {inputs: proofRequest.inputs} : null, scope).domainName;
+      } catch (e) {
+        const details = e instanceof Error ? e.message : String(e);
+        addLog(`[OPRF] ${details}`);
+        failAttempt({code: 'E1010', error: details});
+        return null;
+      }
+    };
+
     // OIDC: which request this proof answers, fixed before History records
     // it. A route carries a dApp request or an in-app DomainInput, never both.
     const oidcInputs = (proofRequest ? proofRequest.inputs : route.params?.domainInput) as
@@ -970,7 +1014,7 @@ export const ProofGenerationScreen: React.FC = () => {
     if (isOidc) {
       try {
         oidcSignInWith = signInProviderFor(oidcInputs?.provider);
-        oidcBinding = oidcBindingFor(oidcInputs?.scope, proofRequest?.requestId, newStandaloneRequestId);
+        oidcBinding = oidcBindingFor(oidcInputs?.scope, proofRequest?.requestId, () => attemptRequestId);
       } catch (e) {
         const details = e instanceof Error ? e.message : String(e);
         proofStartedAt.current = null;
@@ -1040,9 +1084,9 @@ export const ProofGenerationScreen: React.FC = () => {
           verifierAddress: getVerifierAddressSync(configName),
           source: proofRequest ? 'deeplink' : 'manual',
           dappName: proofRequest?.dappName,
-          // An in-app OIDC proof has no relay id; the one minted for its nonce
-          // is kept so the proof can be checked against it later.
-          requestId: proofRequest ? proofRequest.requestId : oidcBinding?.requestId,
+          // An in-app proof has no relay id; the one minted for its nonce or
+          // signal_hash is kept so the proof can be checked against it later.
+          requestId: attemptRequestId,
           review: savedReview,
           // The text History shows, stored so History never looks it up.
           // Built from the SANITISED snapshot, never the raw inputs: those
@@ -1191,11 +1235,15 @@ export const ProofGenerationScreen: React.FC = () => {
         // A deep link must carry its scope (validateProofRequest refuses one
         // without); the Laboratory names its own.
         const scopeStr = route.params?.scope ?? deep?.scope ?? 'proofport:dojang-playground';
+        const oprfDomain = oprfDomainFor(scopeStr);
+        if (oprfDomain === null) return;
         await generateDojangProof(
           {
             userAddress: walletAddress,
             rawTransaction: issuance.rawTransaction,
             scopeString: scopeStr,
+            requestId: attemptRequestId,
+            oprfDomain,
             action: route.params?.action ?? deep?.action,
           },
           {
@@ -1292,12 +1340,16 @@ export const ProofGenerationScreen: React.FC = () => {
           return;
         }
         const scopeStr = route.params?.scope ?? deep?.scope ?? 'proofport:human-passport';
+        const oprfDomain = oprfDomainFor(scopeStr);
+        if (oprfDomain === null) return;
         await generatePassportProof(
           {
             userAddress: walletAddress,
             issuance,
             minScoreUnits,
             scopeString: scopeStr,
+            requestId: attemptRequestId,
+            oprfDomain,
             action: route.params?.action ?? deep?.action,
           },
           {
@@ -1352,6 +1404,8 @@ export const ProofGenerationScreen: React.FC = () => {
         const manual = route.params?.countryInputs;
         const deep = proofRequest?.inputs as CoinbaseCountryInputs | undefined;
         const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
+        const oprfDomain = oprfDomainFor(scopeStr);
+        if (oprfDomain === null) return;
         const countryList = manual?.countryList || deep?.countryList;
         const isIncluded = manual?.isIncluded ?? deep?.isIncluded;
         // Optional EIP-712 action: from the action screen (after the country
@@ -1395,6 +1449,7 @@ export const ProofGenerationScreen: React.FC = () => {
           walletAddress,
           attestationUid: txResult.attestation.id,
           scopeString: scopeStr,
+          requestId: attemptRequestId,
           action,
           transactionCountry,
           log: addLog,
@@ -1409,6 +1464,8 @@ export const ProofGenerationScreen: React.FC = () => {
             countryList,
             isIncluded,
             scopeString: scopeStr,
+            requestId: attemptRequestId,
+            oprfDomain,
             appAttest: {witness: countryWitness, action},
           },
           ethereum, addLog,
@@ -1416,6 +1473,8 @@ export const ProofGenerationScreen: React.FC = () => {
       } else if (isGiwa) {
         const deep = proofRequest?.inputs as CoinbaseKycInputs | undefined;
         const scopeStr = deep?.scope || 'proofport:giwa-poc';
+        const oprfDomain = oprfDomainFor(scopeStr);
+        if (oprfDomain === null) return;
 
         await generateGiwaProof(
           {
@@ -1423,6 +1482,8 @@ export const ProofGenerationScreen: React.FC = () => {
             rawTransaction: txResult.rawTransaction,
             signerIndex: 0,
             scopeString: scopeStr,
+            requestId: attemptRequestId,
+            oprfDomain,
             // Optional: the GIWA circuit signs the typed action when one
             // arrives and its signal hash when none does. Passing it is what makes the request's action reach the
             // wallet screen instead of being dropped on the way.
@@ -1435,6 +1496,8 @@ export const ProofGenerationScreen: React.FC = () => {
       } else {
         const deep = proofRequest?.inputs as CoinbaseKycInputs | undefined;
         const scopeStr = route.params?.scope || deep?.scope || 'proofport:default';
+        const oprfDomain = oprfDomainFor(scopeStr);
+        if (oprfDomain === null) return;
 
         // Optional EIP-712 action: from the Coinbase action screen, or from
         // the dApp's request. Coinbase KYC v2 signs it instead of the signal
@@ -1455,6 +1518,7 @@ export const ProofGenerationScreen: React.FC = () => {
           walletAddress,
           attestationUid: txResult.attestation.id,
           scopeString: scopeStr,
+          requestId: attemptRequestId,
           action,
           log: addLog,
         }));
@@ -1469,6 +1533,8 @@ export const ProofGenerationScreen: React.FC = () => {
             rawTransaction: txResult.rawTransaction,
             signerIndex: 0,
             scopeString: scopeStr,
+            requestId: attemptRequestId,
+            oprfDomain,
             appAttest: {witness: appAttestWitness, action},
           },
           ethereum, addLog,

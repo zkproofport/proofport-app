@@ -27,12 +27,12 @@ import {ethers} from 'ethers';
 import {getNetworkConfigForCircuit} from '../config/environment';
 import {
   bytesToNoirInput,
-  computeScope,
-  computeWalletNullifier,
   extractPubkeyCoordinates,
   hexToByteArray,
   padArray,
 } from './circuitHelpers';
+import type {OprfCircuitInputs} from '../oprf/core/client';
+import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
 
 const CIRCUIT_ID = 'dojang_playground';
 
@@ -402,14 +402,16 @@ export interface DojangPlaygroundCircuitInputs {
   signal_hash: string[];
   domain_separator: string[];
   action_hash: string[];
-  scope: string[];
-  nullifier: string[];
+  /** oprf_key_hash, domain, scope, nullifier: one Field each. */
+  oprf_public: string[];
   user_address: string[];
   user_signature: string[];
   user_pubkey_x: string[];
   user_pubkey_y: string[];
   raw_transaction: string[];
   tx_length: string;
+  /** The seven OPRF private inputs, last. */
+  oprf_private: string[];
 }
 
 /** The EIP-712 hashes a request carries when it binds an action. */
@@ -426,10 +428,11 @@ export function prepareDojangPlaygroundInputs(params: {
   userSignature: string;
   userPubkey: string;
   rawTransaction: string;
-  scopeString: string;
+  /** The OPRF evaluation for this proof (src/oprf/flow.ts). */
+  oprf: OprfCircuitInputs;
   action?: DojangActionHashes;
 }): DojangPlaygroundCircuitInputs {
-  const {signalHash, userAddress, userSignature, userPubkey, rawTransaction, scopeString, action} = params;
+  const {signalHash, userAddress, userSignature, userPubkey, rawTransaction, oprf, action} = params;
   const txBytes = hexToByteArray(rawTransaction);
   if (txBytes.length > DOJANG_PLAYGROUND_MAX_TX_LEN) {
     throw new Error(
@@ -438,10 +441,6 @@ export function prepareDojangPlaygroundInputs(params: {
   }
   const sig = ethers.utils.splitSignature(userSignature);
   const pub = extractPubkeyCoordinates(userPubkey);
-  const scopeBytes = computeScope(scopeString);
-  // keccak(keccak(user_address ++ keccak("dojang_playground")) ++ scope), as
-  // verify_wallet_nullifier recomputes it with the tag compiled in.
-  const nullifierBytes = computeWalletNullifier(userAddress, CIRCUIT_ID, scopeBytes);
 
   // Absent is 32 zero bytes, and the two modes are exclusive: with an action
   // `signal_hash` MUST be zero, without one the EIP-712 pair must be.
@@ -449,33 +448,33 @@ export function prepareDojangPlaygroundInputs(params: {
     signal_hash: bytesToNoirInput(action ? ZERO_32 : Array.from(signalHash)),
     domain_separator: bytesToNoirInput(action ? hexToByteArray(action.domainSeparator) : ZERO_32),
     action_hash: bytesToNoirInput(action ? hexToByteArray(action.actionHash) : ZERO_32),
-    scope: bytesToNoirInput(Array.from(scopeBytes)),
-    nullifier: bytesToNoirInput(Array.from(nullifierBytes)),
+    oprf_public: oprfPublicInputs(oprf),
     user_address: bytesToNoirInput(hexToByteArray(userAddress)),
     user_signature: bytesToNoirInput([...hexToByteArray(sig.r), ...hexToByteArray(sig.s)]),
     user_pubkey_x: bytesToNoirInput(hexToByteArray(pub.x)),
     user_pubkey_y: bytesToNoirInput(hexToByteArray(pub.y)),
     raw_transaction: bytesToNoirInput(padArray(txBytes, DOJANG_PLAYGROUND_MAX_TX_LEN)),
     tx_length: txBytes.length.toString(),
+    oprf_private: oprfPrivateInputs(oprf),
   };
 }
 
 /**
  * Positional, in the ABI's order: bb reads the vector with no field names, so
- * this order IS the contract. 5 x 32 public, then 20 + 64 + 32 + 32 + 300 + 1.
+ * this order IS the contract. 3 x 32 + 4 public, then 20 + 64 + 32 + 32 + 300 + 1 + 7.
  */
 export function flattenDojangPlaygroundInputs(inputs: DojangPlaygroundCircuitInputs): string[] {
   return [
     ...inputs.signal_hash,
     ...inputs.domain_separator,
     ...inputs.action_hash,
-    ...inputs.scope,
-    ...inputs.nullifier,
+    ...inputs.oprf_public,
     ...inputs.user_address,
     ...inputs.user_signature,
     ...inputs.user_pubkey_x,
     ...inputs.user_pubkey_y,
     ...inputs.raw_transaction,
     inputs.tx_length,
+    ...inputs.oprf_private,
   ];
 }

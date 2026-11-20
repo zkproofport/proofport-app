@@ -1,7 +1,22 @@
 /**
- * Where a circuit's compiled files come from when it is NOT the build at the
- * ref every other official circuit is read from (`main` in development and
- * staging, `CIRCUITS_RELEASE_TAG` in production).
+ * Where every circuit's compiled files come from: one row per circuit id, each
+ * naming an exact zkproofport/circuits ref -- a full commit or a version tag,
+ * never a branch -- read in EVERY environment. A branch (`main`) moves under
+ * an installed app, so changing it would silently change what that app
+ * downloads, with only the cache version standing in the way.
+ *
+ * Every id in the circuit list has a row (held by
+ * src/config/__tests__/everyCircuitIsReadFromAPinnedRef.test.ts). The
+ * per-environment ref in contracts.ts (`main` in development and staging,
+ * `CIRCUITS_RELEASE_TAG` in production) is reached only by a circuit with no
+ * row here, and today there is none. A Laboratory circuit with no row is an
+ * error naming it, never `main`.
+ *
+ * At the circuits 1.0.0 release every ref here moves: the Coinbase KYC iPhone
+ * row, ANDROID_SIGNATURE_CIRCUITS_REF, COUNTRY_V2_CIRCUITS_REF,
+ * OIDC_SIGNATURE_CIRCUITS_REF, HUMAN_PASSPORT_CIRCUITS_REF and
+ * LAB_CIRCUITS_REF (app-dev.md "Noir 1.0.0 / bb 6.0.0 prover", "At release
+ * time").
  *
  * Coinbase KYC v2 (`coinbase_attestation`: revocation bound by an Apple App
  * Attest statement, optional EIP-712 action, wallet + circuit-tag nullifier)
@@ -106,7 +121,60 @@ export const COUNTRY_V2_CIRCUITS_REF = '75bec01f877aa8a500974dc65321b0455c677654
  */
 export const HUMAN_PASSPORT_CIRCUITS_REF = '197104cb01d7987d29e9c89fe8d242a2cf87537b';
 
-/** The .srs size of a 2^21 circuit (bb 4.2.0-aztecnr-rc.2), split for GitHub. */
+/**
+ * The zkproofport/circuits commit the Laboratory circuits (GIWA KYC and the
+ * Dojang Playground: MAIN_BRANCH_CIRCUIT_IDS) read their files AND their
+ * verifier broadcast records from, in every environment.
+ *
+ * 9651df8 is circuits `main` as of 2026-11-17 (its last change to these files:
+ * 30b2749, 2026-10-27, nargo 1.0.0-beta.19 / bb 4.2.0-aztecnr-rc.2; the
+ * GIWA Sepolia broadcasts: 2ef5613, verifiers 0xF6Ed...83b3 / 0xAD6C...d816).
+ * Chosen so nothing changes for anyone: every file an installed app fetched
+ * from `main` that day -- giwa_attestation / dojang_playground .json, .srs,
+ * vk, both SHA256SUMS, both run-latest.json -- was downloaded from `main` and
+ * from this commit and compared byte for byte (sha256 equal), and main's
+ * bytes pass this commit's SHA256SUMS. Until 2026-11-17 these two circuits
+ * read `main` itself, so a push to circuits main changed what every installed
+ * app downloaded.
+ *
+ * THE ONE PLACE TO MOVE at the circuits 1.0.0 release, to the commit or tag
+ * carrying the 1.0.0 GIWA / Dojang files and their redeployed verifiers'
+ * broadcasts. Moving it changes the download base URL, which by itself
+ * replaces the files on every phone (cacheInvalidation); the verifier cache is
+ * keyed by it too.
+ */
+export const LAB_CIRCUITS_REF = '9651df892c28fbeb9331ebc5358abfdf062c7c42';
+
+/**
+ * The zkproofport/circuits commit carrying the OPRF circuits: the request
+ * proof (`oprf-request-auth-poc`, package `oprf_request_auth_poc`) and the
+ * wallet credential circuits rebuilt with the OPRF nullifier
+ * (circuits-dev.md, "OPRF nullifier in every wallet credential circuit").
+ * EMPTY until those are pushed: every download of the request circuit ends
+ * at requireArtifactRef's error naming this constant. A full commit, never a
+ * branch.
+ */
+export const OPRF_CIRCUITS_REF = '';
+
+let oprfCircuitsRefForTests: string | null = null;
+/** OPRF_CIRCUITS_REF, or the commit a test set (rows read it through a getter). */
+function oprfCircuitsRef(): string {
+  return oprfCircuitsRefForTests ?? OPRF_CIRCUITS_REF;
+}
+/**
+ * Test seam: download and verifier-record tests exercise the pinned-ref paths
+ * as they will run once OPRF_CIRCUITS_REF is filled. `null` restores the real
+ * (empty) constant. Never called by app code.
+ */
+export function __setOprfCircuitsRefForTests(ref: string | null): void {
+  oprfCircuitsRefForTests = ref;
+}
+
+/**
+ * The .srs size of a 2^21 circuit, split for GitHub. The same bytes under bb
+ * 4.2.0-aztecnr-rc.2 and bb 6.0.0 (2^21 + 1 G1 points of the same published
+ * reference string; checked 2026-11-17 on the 1.0.0 builds).
+ */
 export const SRS_2_21_BYTES = 134_217_940;
 /** Upper bound on one published .srs part. */
 export const SRS_PART_MAX_BYTES = 64 * 1024 * 1024;
@@ -139,98 +207,109 @@ export interface CircuitArtifactSource {
 
 type PerVariant = Readonly<Record<StatementSignerVariant, CircuitArtifactSource>>;
 
+/*
+ * OPRF nullifier (2026-11-20): every wallet credential row (Coinbase KYC and
+ * Country v2 on every signer, Human Passport, GIWA, the Dojang Playground)
+ * now reads OPRF_CIRCUITS_REF with the new public-input counts (KYC 193 ->
+ * 133, Country 215 -> 155, HP 195 -> 135, GIWA 192 -> 132, Dojang 160 -> 100)
+ * and a bumped dataVersion, so a phone holding the keccak-nullifier files
+ * replaces them. The rows' older comments below describe the files they
+ * replaced. OIDC is unchanged.
+ */
 export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerVariant>>> = Object.freeze({
   coinbase_attestation: Object.freeze({
     // v2.0.0-rc.1 = circuits b0ca9fe: nargo 1.0.0-beta.19, bb 4.2.0-aztecnr-rc.2,
     // 2^20 (.srs 67,109,076 bytes), 193 public inputs.
     app_attest: Object.freeze({
       variant: 'app_attest',
-      ref: 'v2.0.0-rc.1',
-      refName: "coinbase_attestation's app_attest row",
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
       basePath: 'coinbase-attestation-v2/target',
       vkPath: 'coinbase-attestation-v2/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'coinbase_attestation_v2',
-      dataVersion: 2,
-      publicInputCount: 193,
+      dataVersion: 8,
+      publicInputCount: 133,
       srsParts: null,
     }),
     // 2^21, 193 public inputs (the same as the iPhone circuit's). dataVersion
-    // 3 is distinct from the iPhone files' 2 even though a phone only ever
-    // holds one platform's files: the version names the file set.
+    // 6 is distinct from the iPhone files' 5 even though a phone only ever
+    // holds one platform's files: the version names the file set. Every row
+    // here moved past its old numbers for Noir 1.0.0 / bb 6.0.0.
     android: Object.freeze({
       variant: 'android',
-      ref: ANDROID_SIGNATURE_CIRCUITS_REF,
-      refName: 'ANDROID_SIGNATURE_CIRCUITS_REF',
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
       basePath: 'coinbase-attestation-v2-android/target',
       vkPath: 'coinbase-attestation-v2-android/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'coinbase_attestation_v2_android',
-      dataVersion: 3,
-      publicInputCount: 193,
+      dataVersion: 9,
+      publicInputCount: 133,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
     // A factory-provisioned phone (Google's RSA root) with a Play Integrity
     // verdict: 2^21, the same 193 public inputs.
     android_factory: Object.freeze({
       variant: 'android_factory',
-      ref: ANDROID_SIGNATURE_CIRCUITS_REF,
-      refName: 'ANDROID_SIGNATURE_CIRCUITS_REF',
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
       basePath: 'coinbase-attestation-v2-android-factory/target',
       vkPath: 'coinbase-attestation-v2-android-factory/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'coinbase_attestation_v2_android_factory',
-      dataVersion: 4,
-      publicInputCount: 193,
+      dataVersion: 10,
+      publicInputCount: 133,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
   }),
   // Coinbase Country v2 (statement-bound revocation, optional EIP-712 action,
   // wallet + circuit-tag nullifier; circuits-dev.md "Decisions, 2026-10-23"):
-  // 215 public inputs on every package. dataVersion 3-5 replace v1's
-  // CIRCUIT_DATA_VERSIONS 2, and differ from each other: the version names
-  // the file set.
+  // 215 public inputs on every package. dataVersion 6-8 (3-5 before Noir
+  // 1.0.0 / bb 6.0.0; v1 was CIRCUIT_DATA_VERSIONS 2) differ from each other:
+  // the version names the file set.
   coinbase_country_attestation: Object.freeze({
     app_attest: Object.freeze({
       variant: 'app_attest',
-      ref: COUNTRY_V2_CIRCUITS_REF,
-      refName: 'COUNTRY_V2_CIRCUITS_REF',
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
       basePath: 'coinbase-country-attestation-v2/target',
       vkPath: 'coinbase-country-attestation-v2/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'coinbase_country_attestation_v2',
-      dataVersion: 3,
-      publicInputCount: 215,
+      dataVersion: 9,
+      publicInputCount: 155,
       srsParts: null,
     }),
     android: Object.freeze({
       variant: 'android',
-      ref: COUNTRY_V2_CIRCUITS_REF,
-      refName: 'COUNTRY_V2_CIRCUITS_REF',
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
       basePath: 'coinbase-country-attestation-v2-android/target',
       vkPath: 'coinbase-country-attestation-v2-android/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'coinbase_country_attestation_v2_android',
-      dataVersion: 4,
-      publicInputCount: 215,
+      dataVersion: 10,
+      publicInputCount: 155,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
     android_factory: Object.freeze({
       variant: 'android_factory',
-      ref: COUNTRY_V2_CIRCUITS_REF,
-      refName: 'COUNTRY_V2_CIRCUITS_REF',
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
       basePath: 'coinbase-country-attestation-v2-android-factory/target',
       vkPath: 'coinbase-country-attestation-v2-android-factory/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'coinbase_country_attestation_v2_android_factory',
-      dataVersion: 5,
-      publicInputCount: 215,
+      dataVersion: 11,
+      publicInputCount: 155,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
   }),
   oidc_domain_attestation: Object.freeze({
-    // dataVersion 6 = CIRCUIT_DATA_VERSIONS.oidc_domain_attestation: the files
-    // from v5 (circuits main, no signer) are deleted and fetched again.
+    // dataVersion 9 = CIRCUIT_DATA_VERSIONS.oidc_domain_attestation (6 before
+    // the Noir 1.0.0 / bb 6.0.0 toolchain; v5, circuits main with no signer,
+    // before that).
     app_attest: Object.freeze({
       variant: 'app_attest',
       ref: OIDC_SIGNATURE_CIRCUITS_REF,
@@ -239,7 +318,7 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
       vkPath: 'oidc-domain-attestation/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'oidc_domain_attestation',
-      dataVersion: 6,
+      dataVersion: 9,
       publicInputCount: 214,
       srsParts: null,
     }),
@@ -252,7 +331,7 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
       vkPath: 'oidc-domain-attestation-android/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'oidc_domain_attestation_android',
-      dataVersion: 7,
+      dataVersion: 10,
       publicInputCount: 214,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
@@ -264,28 +343,102 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
       vkPath: 'oidc-domain-attestation-android-factory/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'oidc_domain_attestation_android_factory',
-      dataVersion: 8,
+      dataVersion: 11,
       publicInputCount: 214,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     }),
   }),
   human_passport_score: (() => {
-    // dataVersion 1 = CIRCUIT_DATA_VERSIONS.human_passport_score.
+    // dataVersion 2 = CIRCUIT_DATA_VERSIONS.human_passport_score (1 before
+    // the Noir 1.0.0 / bb 6.0.0 toolchain).
     const source: CircuitArtifactSource = Object.freeze({
       variant: 'app_attest',
-      ref: HUMAN_PASSPORT_CIRCUITS_REF,
-      refName: 'HUMAN_PASSPORT_CIRCUITS_REF',
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
       basePath: 'human-passport-score/target',
       vkPath: 'human-passport-score/target/vk',
       vkFileName: 'vk',
       remoteFileName: 'human_passport_score',
-      dataVersion: 1,
-      publicInputCount: 195,
+      dataVersion: 3,
+      publicInputCount: 135,
       srsParts: Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
     });
     return Object.freeze({app_attest: source, android: source, android_factory: source});
   })(),
+  // The Laboratory circuits: one package for every phone (no device
+  // statement), read from LAB_CIRCUITS_REF. dataVersion = the id's
+  // CIRCUIT_DATA_VERSIONS entry. Public inputs counted from each file's ABI at
+  // that commit (192 / 160).
+  giwa_attestation: laboratoryRow({
+    basePath: 'giwa-attestation/target',
+    remoteFileName: 'giwa_attestation',
+    dataVersion: 5,
+    publicInputCount: 132,
+    oprf: true,
+  }),
+  dojang_playground: laboratoryRow({
+    basePath: 'dojang-playground/target',
+    remoteFileName: 'dojang_playground',
+    dataVersion: 4,
+    publicInputCount: 100,
+    oprf: true,
+  }),
 });
+
+
+/**
+ * Circuits the app proves that are not credentials: no circuit id, no
+ * verifier, no History row. Downloaded, cached and checked like a pinned
+ * credential circuit (circuitDownload.ts asks circuitArtifactSource), under
+ * their own id.
+ */
+export const AUXILIARY_CIRCUIT_IDS = Object.freeze(['oprf_request_auth'] as const);
+export type AuxiliaryCircuitId = (typeof AUXILIARY_CIRCUIT_IDS)[number];
+
+export function isAuxiliaryCircuitId(id: unknown): id is AuxiliaryCircuitId {
+  return typeof id === 'string' && (AUXILIARY_CIRCUIT_IDS as readonly string[]).includes(id);
+}
+
+const AUXILIARY_CIRCUIT_SOURCES: Readonly<Record<AuxiliaryCircuitId, PerVariant>> = Object.freeze({
+  // circuits/oprf-request-auth-poc: 69,184 gates, 2^17, 36 public inputs
+  // (digest 32, domain, scope, blinded query x, y), 9,152-byte proofs
+  // (proofport-oprf/README.md, REQUEST-VERIFIER.md). dataVersion 1: first set.
+  oprf_request_auth: (() => {
+    const source: CircuitArtifactSource = Object.freeze({
+      variant: 'app_attest',
+      get ref() { return oprfCircuitsRef(); },
+      refName: 'OPRF_CIRCUITS_REF',
+      basePath: 'oprf-request-auth-poc/target',
+      vkPath: 'oprf-request-auth-poc/target/vk',
+      vkFileName: 'vk',
+      remoteFileName: 'oprf_request_auth_poc',
+      dataVersion: 1,
+      publicInputCount: 36,
+      srsParts: null,
+    });
+    return Object.freeze({app_attest: source, android: source, android_factory: source});
+  })(),
+});
+
+/** A signer-independent row read from LAB_CIRCUITS_REF; one .srs file. */
+function laboratoryRow(p: {basePath: string; remoteFileName: string; dataVersion: number; publicInputCount: number; oprf: boolean}): PerVariant {
+  // `oprf`: the files carry the OPRF nullifier and are read from
+  // OPRF_CIRCUITS_REF; the verifier broadcast records stay on LAB_CIRCUITS_REF
+  // until the redeployed verifiers' records are published with them.
+  const source: CircuitArtifactSource = Object.freeze({
+    variant: 'app_attest',
+    get ref() { return p.oprf ? oprfCircuitsRef() : LAB_CIRCUITS_REF; },
+    refName: p.oprf ? 'OPRF_CIRCUITS_REF' : 'LAB_CIRCUITS_REF',
+    basePath: p.basePath,
+    vkPath: `${p.basePath}/vk`,
+    vkFileName: 'vk',
+    remoteFileName: p.remoteFileName,
+    dataVersion: p.dataVersion,
+    publicInputCount: p.publicInputCount,
+    srsParts: null,
+  });
+  return Object.freeze({app_attest: source, android: source, android_factory: source});
+}
 
 /**
  * A circuit whose files do not depend on the statement signer: every
@@ -297,6 +450,7 @@ function signerIndependent(row: PerVariant): boolean {
 }
 
 function ownRow(circuit: string): PerVariant | undefined {
+  if (isAuxiliaryCircuitId(circuit)) return AUXILIARY_CIRCUIT_SOURCES[circuit];
   return Object.prototype.hasOwnProperty.call(CIRCUIT_ARTIFACT_SOURCES, circuit)
     ? CIRCUIT_ARTIFACT_SOURCES[circuit as CircuitName]
     : undefined;
@@ -310,8 +464,8 @@ export function hasPinnedArtifactSource(circuit: string): boolean {
 /**
  * Whether `circuit` is proved by a different package on each statement
  * signer (so its proof must say which made it): a row whose variants are
- * different sources. False for a circuit with no row (read from main or the
- * release tag) and for a signer-independent row (Human Passport: one package
+ * different sources. False for a circuit with no row (read from the
+ * environment's ref) and for a signer-independent row (Human Passport: one package
  * for every phone). An id that is not a circuit throws, naming the known ids.
  */
 export function circuitHasPerSignerPackages(circuit: string): boolean {
@@ -324,7 +478,7 @@ export function circuitHasPerSignerPackages(circuit: string): boolean {
 
 /**
  * The pinned source for `circuit` on `variant`; undefined for a circuit with
- * no row (it is read from main or the release tag). A row without that
+ * no row (it is read from the environment's ref in contracts.ts). A row without that
  * variant throws, naming it: the other platform's files would load, and fail
  * in the prover with nothing pointing here.
  */
@@ -360,10 +514,14 @@ export function circuitFilesDecidableNow(circuit: string): boolean {
   return currentSignerPlatform() === 'ios' || knownAndroidChainKind() !== null;
 }
 
+/** A full commit, or a version tag (`v2.0.0`, `v2.0.0-rc.1`). Never a branch name. */
+const PINNED_REF_SHAPE = /^(?:[0-9a-f]{40}|v\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$/;
+
 /**
  * The ref a source's files are read from. An Android row must name a full
  * commit; until ANDROID_SIGNATURE_CIRCUITS_REF is filled in, this is the
- * error every Android download of these circuits ends at.
+ * error every Android download of these circuits ends at. Any other row names
+ * a full commit or a version tag; a branch name (`main`) is an error.
  */
 export function requireArtifactRef(source: CircuitArtifactSource): string {
   if (source.variant !== 'app_attest' && !/^[0-9a-f]{40}$/.test(source.ref)) {
@@ -373,7 +531,27 @@ export function requireArtifactRef(source: CircuitArtifactSource): string {
     );
   }
   if (source.ref === '') throw new Error(`${source.refName} is empty (src/config/circuitArtifacts.ts).`);
+  if (!PINNED_REF_SHAPE.test(source.ref)) {
+    throw new Error(
+      `${source.refName} is '${source.ref}', which is not a full 40-hex zkproofport/circuits commit or a vX.Y.Z[-pre] tag: ` +
+        `a branch moves under an installed app (src/config/circuitArtifacts.ts).`,
+    );
+  }
   return source.ref;
+}
+
+/**
+ * The ref a circuit's verifier broadcast record is read from, when the record
+ * belongs to its pinned files: a row that is the same source on every signer
+ * (Laboratory circuits, Human Passport). Undefined for a circuit with no row
+ * and for a per-signer row (whose records the app does not read: their
+ * BROADCAST_PATHS entries are null). Throws, naming the constant, for an
+ * empty or branch-shaped ref.
+ */
+export function signerIndependentArtifactRef(circuit: string): string | undefined {
+  const row = ownRow(circuit);
+  if (!row || !signerIndependent(row)) return undefined;
+  return requireArtifactRef(row.app_attest);
 }
 
 /** Coinbase Country v2's source on this phone. Required: the app proves only v2 for this id. */

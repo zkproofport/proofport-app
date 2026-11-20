@@ -53,6 +53,7 @@ import {
   isAndroidSignerInputs,
 } from '../androidAttest/androidSignerInputs';
 import type {StatementSignerVariant} from '../config/signerPlatform';
+import {rsaBarrettParam} from './rsaBarrett';
 import {
   fetchLiveProviderKeys,
   liveKeyForKid,
@@ -503,7 +504,7 @@ export async function prepareOidcInputs(
   const signatureBytes = base64urlToBytes(signatureB64url);
   const signatureBigInt = bytesToBigInt(signatureBytes);
   const modulusBigInt = bytesToBigInt(modulus);
-  const redcParam = (1n << (2n * 2048n + 4n)) / modulusBigInt;
+  const redcParam = rsaBarrettParam(modulusBigInt, 2048n);
 
   const pubkeyLimbs = splitBigIntToChunks(modulusBigInt, 120, 18).map(v =>
     v.toString(),

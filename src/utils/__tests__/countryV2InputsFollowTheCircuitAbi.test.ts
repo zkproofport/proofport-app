@@ -5,8 +5,8 @@
  * refuses before the device statement and the wallet signature.
  *
  * bb reads the vector positionally: every parameter at its own offset, the
- * 215 public inputs in the circuit's order (Coinbase KYC v2's first 128, the
- * country list 128-149, scope, nullifier, attested_at 214), and the total.
+ * 155 public inputs in the circuit's order (Coinbase KYC v2's first 128, the
+ * country list 128-149, the four OPRF values 150-153, attested_at 154), and the total.
  */
 jest.mock('react-native', () => ({NativeModules: {}, Platform: {OS: 'ios'}}));
 jest.mock('@react-native-async-storage/async-storage', () => ({__esModule: true, default: {}}));
@@ -17,7 +17,9 @@ import vectors from './fixtures/androidChainVectors.json';
 import {androidChainInputs, GOOGLE_KEY_ATTESTATION_CA1} from '../androidKeyAttestation';
 import {buildCoinbaseClientData, COINBASE_ATTESTER} from '../../appAttest/clientData';
 import {COINBASE_COUNTRY_SCHEMA_UID} from '../../appAttest/coinbaseStatementKinds';
-import {bytesToNoirInput, computeScope, computeWalletNullifier, type AttesterCircuitInputs} from '../circuitHelpers';
+import {bytesToNoirInput, type AttesterCircuitInputs} from '../circuitHelpers';
+import {oprfPrivateInputs, oprfPublicInputs, oprfScopeBytesOf, oprfScopeFieldBytes} from '../../oprf/circuitInputs';
+import {vectorOprf} from '../../oprf/__tests__/helpers/oprfFixture';
 import {
   COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT,
   COUNTRY_ANDROID_FLAT_INPUT_COUNT,
@@ -61,7 +63,7 @@ const WALLET = '0xD6C714247037E5201B7e3dEC97a3ab59a9d2F739';
 const ATTESTER = '0x357458739F90461b99789350868CD7CF330Dd7EE';
 
 describe('the fixture', () => {
-  it('records the three packages, from a circuits commit, with 215 public inputs each', () => {
+  it('records the three packages, from a circuits commit, with 155 public inputs each', () => {
     expect(abis.source.circuitsCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(abis.source.circuitsWorkingTreeChanged).toBe(false);
     for (const v of VARIANTS) {
@@ -74,8 +76,13 @@ describe('the fixture', () => {
       expect(at.country_list).toEqual([128, 20]);
       expect(at.country_list_length).toEqual([148, 1]);
       expect(at.is_included).toEqual([149, 1]);
-      expect(at.scope).toEqual([150, 32]);
-      expect(at.nullifier).toEqual([182, 32]);
+      expect(at.oprf_key_hash).toEqual([150, 1]);
+      expect(at.domain).toEqual([151, 1]);
+      expect(at.scope).toEqual([152, 1]);
+      expect(at.nullifier).toEqual([153, 1]);
+      expect(abi.parameters.slice(-7).map(p => p.name)).toEqual([
+        'oprf_public_key_x', 'oprf_public_key_y', 'oprf_beta', 'oprf_dlog_e', 'oprf_dlog_s', 'oprf_response_x', 'oprf_response_y',
+      ]);
       expect(at.client_data[1]).toBe(227);
     }
   });
@@ -146,14 +153,16 @@ describe('a request the circuit would refuse is refused first', () => {
 });
 
 describe('the vectors', () => {
-  const scope = computeScope('proofport');
+  const oprf = vectorOprf();
+  const scope = oprfScopeFieldBytes(oprf);
   const digest = '0x' + '5a'.repeat(32);
   const attestedAt = 1793000000;
   // A Coinbase half with a recognisable value per field (the builder does not
   // check the transaction; the hook does, before).
   const fill = (n: number, base: number) => bytesToNoirInput(Array.from({length: n}, (_v, i) => (base + i) % 256));
   const coinbase: AttesterCircuitInputs = {
-    signal_hash: fill(32, 1), signer_list_merkle_root: fill(32, 40), scope: fill(32, 0), nullifier: fill(32, 0),
+    signal_hash: fill(32, 1), signer_list_merkle_root: fill(32, 40), oprf_public: oprfPublicInputs(oprf),
+    oprf_private: oprfPrivateInputs(oprf),
     user_address: bytesToNoirInput(Array.from(ethers.utils.arrayify(WALLET))), user_signature: fill(64, 80),
     user_pubkey_x: fill(32, 90), user_pubkey_y: fill(32, 120), raw_transaction: fill(300, 7), tx_length: '149',
     coinbase_attester_pubkey_x: fill(32, 150), coinbase_attester_pubkey_y: fill(32, 180),
@@ -183,22 +192,24 @@ describe('the vectors', () => {
     expect(slice('country_list')).toEqual(bytesToNoirInput([85, 83, 75, 82, ...new Array(16).fill(0)]));
     expect(slice('country_list_length')).toEqual(['2']);
     expect(slice('is_included')).toEqual(['1']);
-    expect(slice('scope')).toEqual(bytesToNoirInput(Array.from(scope)));
-    expect(slice('nullifier')).toEqual(bytesToNoirInput(Array.from(computeWalletNullifier(WALLET, 'coinbase_country_attestation', scope))));
+    expect(slice('oprf_key_hash')).toEqual([oprf.oprf_key_hash]);
+    expect(slice('domain')).toEqual([oprf.domain]);
+    expect(slice('scope')).toEqual([oprf.scope]);
+    expect(slice('nullifier')).toEqual([oprf.nullifier]);
+    expect(flat.slice(-7)).toEqual(oprfPrivateInputs(oprf));
     expect(slice('attested_at')).toEqual([String(attestedAt)]);
     expect(slice('raw_transaction')).toEqual(coinbase.raw_transaction);
     expect(slice('merkle_proof_depth')).toEqual(['2']);
     expect(slice('client_data')).toEqual(bytesToNoirInput(Array.from(clientData)));
   }
 
-  it('iPhone / server package: every parameter at its offset, 2,793 values', () => {
+  it('iPhone / server package: every parameter at its offset, 2,740 values', () => {
     const abi = abis.app_attest as Abi;
     const at = layout(abi);
     const inputs: CoinbaseAppAttestInputs = {
       signal_hash: coinbase.signal_hash, domain_separator: bytesToNoirInput(new Array(32).fill(0)),
       action_hash: bytesToNoirInput(new Array(32).fill(0)), signer_list_merkle_root: coinbase.signer_list_merkle_root,
-      country: countryListInputs(country), scope: bytesToNoirInput(Array.from(scope)),
-      nullifier: bytesToNoirInput(Array.from(computeWalletNullifier(WALLET, 'coinbase_country_attestation', scope))),
+      country: countryListInputs(country), oprf_public: oprfPublicInputs(oprf),
       attested_at: String(attestedAt), user_address: coinbase.user_address, user_signature: coinbase.user_signature,
       user_pubkey_x: coinbase.user_pubkey_x, user_pubkey_y: coinbase.user_pubkey_y, raw_transaction: coinbase.raw_transaction,
       tx_length: coinbase.tx_length, coinbase_attester_pubkey_x: coinbase.coinbase_attester_pubkey_x,
@@ -207,24 +218,25 @@ describe('the vectors', () => {
       client_data: bytesToNoirInput(Array.from(clientData)), signer_kind: '1', statement_sig: fill(64, 200),
       credential_tbs: fill(1000, 3), credential_tbs_len: '852', credential_sig: fill(96, 9), att_auth_data: fill(256, 11),
       att_auth_data_len: '164', att_client_data_hash: fill(32, 13), assertion_auth_data: fill(128, 17), assertion_auth_data_len: '37',
+      oprf_private: oprfPrivateInputs(oprf),
     };
     const flat = flattenCoinbaseAppAttestInputs(inputs);
     expect(flat).toHaveLength(total(abi));
-    expect(total(abi)).toBe(2793);
+    expect(total(abi)).toBe(2740);
     checkPublicAndCommon(flat, abi);
     expect(flat.slice(at.signer_kind[0], at.signer_kind[0] + 1)).toEqual(['1']);
-    expect(flat.slice(at.assertion_auth_data_len[0])).toEqual(['37']);
+    expect(flat.slice(at.assertion_auth_data_len[0], at.assertion_auth_data_len[0] + 1)).toEqual(['37']);
   });
 
-  it('Android package: the builder puts every common parameter at its offset, 4,505 values', () => {
+  it('Android package: the builder puts every common parameter at its offset, 4,452 values', () => {
     const abi = abis.android as Abi;
     const flat = flattenCoinbaseAndroidInputs(prepareCoinbaseAndroidInputs(coinbase, request, {variant: 'android', clientData, attestedAt, signer: teguSigner()}));
     expect(flat).toHaveLength(total(abi));
-    expect(COUNTRY_ANDROID_FLAT_INPUT_COUNT).toBe(4505);
+    expect(COUNTRY_ANDROID_FLAT_INPUT_COUNT).toBe(4452);
     checkPublicAndCommon(flat, abi);
   });
 
-  it('factory package: the same common parameters, then the factory signer, 5,090 values', () => {
+  it('factory package: the same common parameters, then the factory signer, 5,037 values', () => {
     /* eslint-disable-next-line @typescript-eslint/no-var-requires */
     const factory = require('./fixtures/androidFactoryVectors.json');
     const s = factory.synthetic;
@@ -246,7 +258,7 @@ describe('the vectors', () => {
     const abi = abis.android_factory as Abi;
     const flat = flattenCoinbaseAndroidInputs(prepareCoinbaseAndroidInputs(coinbase, request, {variant: 'android_factory', clientData, attestedAt, signer}));
     expect(flat).toHaveLength(total(abi));
-    expect(COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT).toBe(5090);
+    expect(COUNTRY_ANDROID_FACTORY_FLAT_INPUT_COUNT).toBe(5037);
     checkPublicAndCommon(flat, abi);
   });
 
@@ -265,7 +277,7 @@ describe('the vectors', () => {
       ['without the country list', {country: undefined}, /needs the country list/],
       ['for another wallet', {userAddress: '0x' + '33'.repeat(20)}, /clientData names wallet/],
       ['binding another request', {signedDigest: '0x' + '44'.repeat(32)}, /clientData binds request/],
-      ['for another scope', {scope: computeScope('another')}, /clientData binds another scope/],
+      ['for another scope', {scope: oprfScopeBytesOf('another')}, /clientData binds another scope/],
       ['a list the circuit refuses', {country: {...country, countryList: ['US']}}, /not in the inclusion list/],
     ])('%s', (_l, over, msg) => {
       expect(() => prepareCoinbaseAndroidInputs(coinbase, {...request, ...over} as never, w())).toThrow(msg);

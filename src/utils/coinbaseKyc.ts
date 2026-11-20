@@ -13,13 +13,13 @@ import {
   AttesterCircuitInputs,
   SimpleMerkleTree,
   bytesToNoirInput,
-  nullifierForCircuit,
-  computeScope,
   extractPubkeyCoordinates,
   hexToByteArray,
   padArray,
   recoverTxSignerPubkey,
 } from './circuitHelpers';
+import type {OprfCircuitInputs} from '../oprf/core/client';
+import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
 
 const attestationConfig = getAttestationConfig();
 export const AUTHORIZED_SIGNERS = attestationConfig.authorizedSigners;
@@ -79,15 +79,8 @@ export function prepareCircuitInputs(
   userPubkey: string,
   rawTransaction: string,
   coinbaseSignerIndex: number,
-  scopeString: string,
-  /**
-   * Which circuit this vector is for.
-   *
-   * Required, and with no default: the nullifier formula differs per circuit,
-   * and guessing produces a proof that fails with "Nullifier mismatch" and
-   * nothing pointing here.
-   */
-  circuitId: string,
+  /** The OPRF evaluation for this proof (src/oprf/flow.ts): key hash, domain, scope, nullifier and the seven private values. */
+  oprf: OprfCircuitInputs,
 ): AttesterCircuitInputs {
   const merkleTree = new SimpleMerkleTree(AUTHORIZED_SIGNERS);
   const merkleRoot = merkleTree.getRoot();
@@ -116,14 +109,10 @@ export function prepareCircuitInputs(
     }
   }
 
-  const scopeBytes = computeScope(scopeString);
-  const nullifierBytes = nullifierForCircuit(circuitId, userAddress, signalHash, scopeBytes);
-
   return {
     signal_hash: bytesToNoirInput(Array.from(signalHash)),
     signer_list_merkle_root: bytesToNoirInput(hexToByteArray(merkleRoot)),
-    scope: bytesToNoirInput(Array.from(scopeBytes)),
-    nullifier: bytesToNoirInput(Array.from(nullifierBytes)),
+    oprf_public: oprfPublicInputs(oprf),
     user_address: bytesToNoirInput(hexToByteArray(userAddress)),
     user_signature: bytesToNoirInput(userSigBytes),
     user_pubkey_x: bytesToNoirInput(hexToByteArray(userPubkeyCoords.x)),
@@ -135,5 +124,6 @@ export function prepareCircuitInputs(
     coinbase_signer_merkle_proof: paddedProof,
     coinbase_signer_leaf_index: leafIndex.toString(),
     merkle_proof_depth: depth.toString(),
+    oprf_private: oprfPrivateInputs(oprf),
   };
 }

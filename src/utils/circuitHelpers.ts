@@ -177,108 +177,13 @@ export function recoverTxSignerPubkey(rawTx: string): string {
   return ethers.utils.recoverPublicKey(unsignedTxHash, signature);
 }
 
-export function computeScope(scopeString: string): Uint8Array {
-  const scopeHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(scopeString));
-  return ethers.utils.arrayify(scopeHash);
-}
-
-function computeUserSecret(userAddressBytes: Uint8Array, signalHashBytes: Uint8Array): Uint8Array {
-  const preimage = ethers.utils.concat([userAddressBytes, signalHashBytes]);
-  return ethers.utils.arrayify(ethers.utils.keccak256(preimage));
-}
-
-export function computeNullifier(
-  userAddress: string,
-  signalHash: Uint8Array,
-  scopeBytes: Uint8Array,
-): Uint8Array {
-  const userAddressBytes = ethers.utils.arrayify(userAddress);
-  const userSecret = computeUserSecret(userAddressBytes, signalHash);
-  const preimage = ethers.utils.concat([userSecret, scopeBytes]);
-  return ethers.utils.arrayify(ethers.utils.keccak256(preimage));
-}
-
-/**
- * The nullifier for a circuit whose secret material is the WALLET and a
- * constant compiled into that circuit -- not `signal_hash`.
- *
- * `computeNullifier` above matches the Coinbase-shaped circuits, which hash
- * the address together with `signal_hash`. That value is a public input those
- * circuits never constrain, so the one-per-person property they are built on
- * rests on every caller choosing to compute the same hash. `giwa_attestation`
- * stopped doing that on 2026-09-22: its preimage is the address and
- * keccak256(circuit id), and the circuit holds that hash as a literal, so
- * there is nothing for a prover to vary.
- *
- * The id goes in so the same wallet proving two different things produces two
- * unrelated nullifiers, which is what `signal_hash` used to carry.
- *
- * MUST equal what the circuit recomputes. If these disagree the proof simply
- * fails, with "Nullifier mismatch" and nothing pointing here.
+/*
+ * The keccak nullifier helpers (computeScope, computeNullifier,
+ * computeWalletNullifier, nullifierForCircuit) were removed 2026-11-20: every
+ * wallet credential circuit now takes its nullifier from the OPRF
+ * (src/oprf/, circuits-dev.md "OPRF nullifier in every wallet credential
+ * circuit"), and its scope is keccak256(string) mod p, a Field.
  */
-/**
- * Which nullifier formula a circuit uses.
- *
- * A table because the answer differs per circuit and the wrong one does not
- * misbehave -- it produces a proof that fails with "Nullifier mismatch",
- * pointing at nothing. `giwa_attestation` moved to the wallet-and-constant
- * formula when it gained its optional action: its `signal_hash` is zero in
- * action mode, so a nullifier taken from it would give one wallet two
- * identities in one scope.
- *
- * Mirrors NULLIFIER_FROM_WALLET_AND_TAG in proofport-ai; both must match
- * coinbase-libs/src/nullifier.nr, which is the only one that decides.
- */
-const NULLIFIER_FROM_WALLET_AND_TAG: Readonly<Record<string, false | {tag: string}>> = Object.freeze({
-  // v2 (App Attest, optional action): the wallet + keccak256("coinbase_attestation")
-  // rule, as the circuit computes it (coinbase-attestation-v2/src/main.nr,
-  // CIRCUIT_TAG). Nullifiers of the v1 circuit (signal_hash rule) do not
-  // carry over; decided 2026-10-23 (circuits-dev.md, "Decisions").
-  coinbase_attestation: {tag: 'coinbase_attestation'},
-  // Coinbase Country v2 (coinbase-country-v2-libs CIRCUIT_TAG): the same rule
-  // with its own tag; v1's signal_hash nullifiers do not carry over.
-  coinbase_country_attestation: {tag: 'coinbase_country_attestation'},
-  giwa_attestation: {tag: 'giwa_attestation'},
-  dojang_playground: {tag: 'dojang_playground'},
-  // human-passport-score/src/main.nr CIRCUIT_TAG = keccak256("human_passport_score").
-  human_passport_score: {tag: 'human_passport_score'},
-});
-
-/** The nullifier this circuit expects, by its own rule. No default. */
-export function nullifierForCircuit(
-  circuitId: string,
-  userAddress: string,
-  signalHash: Uint8Array,
-  scopeBytes: Uint8Array,
-): Uint8Array {
-  if (!Object.prototype.hasOwnProperty.call(NULLIFIER_FROM_WALLET_AND_TAG, circuitId)) {
-    throw new Error(
-      `No nullifier rule for circuit '${circuitId}'. Add it to NULLIFIER_FROM_WALLET_AND_TAG in circuitHelpers.ts.`,
-    );
-  }
-  const rule = NULLIFIER_FROM_WALLET_AND_TAG[circuitId];
-  return rule
-    ? computeWalletNullifier(userAddress, rule.tag, scopeBytes)
-    : computeNullifier(userAddress, signalHash, scopeBytes);
-}
-
-export function computeWalletNullifier(
-  userAddress: string,
-  circuitId: string,
-  scopeBytes: Uint8Array,
-): Uint8Array {
-  const circuitTag = ethers.utils.arrayify(
-    ethers.utils.keccak256(ethers.utils.toUtf8Bytes(circuitId)),
-  );
-  const userSecret = ethers.utils.arrayify(
-    ethers.utils.keccak256(
-      ethers.utils.concat([ethers.utils.arrayify(userAddress), circuitTag]),
-    ),
-  );
-  return ethers.utils.arrayify(
-    ethers.utils.keccak256(ethers.utils.concat([userSecret, scopeBytes])),
-  );
-}
 
 /**
  * Circuit-agnostic input shape for attester circuits (Coinbase, GIWA, …).
@@ -305,8 +210,8 @@ export interface AttesterCircuitInputs {
   domain_separator?: string[];
   action_hash?: string[];
   signer_list_merkle_root: string[];
-  scope: string[];
-  nullifier: string[];
+  /** oprf_key_hash, domain, scope, nullifier: one Field each (src/oprf/circuitInputs.ts). */
+  oprf_public: string[];
 
   // Private inputs
   user_address: string[];
@@ -320,6 +225,8 @@ export interface AttesterCircuitInputs {
   coinbase_signer_merkle_proof: string[];
   coinbase_signer_leaf_index: string;
   merkle_proof_depth: string;
+  /** The seven OPRF private inputs, after the circuit's own. */
+  oprf_private: string[];
 }
 
 export function flattenCircuitInputs(inputs: AttesterCircuitInputs): string[] {
@@ -340,8 +247,7 @@ export function flattenCircuitInputs(inputs: AttesterCircuitInputs): string[] {
     ...inputs.signal_hash,
     ...actionHashes,
     ...inputs.signer_list_merkle_root,
-    ...inputs.scope,
-    ...inputs.nullifier,
+    ...requireLength(inputs.oprf_public, 4, 'oprf_public'),
     ...inputs.user_address,
     ...inputs.user_signature,
     ...inputs.user_pubkey_x,
@@ -353,5 +259,13 @@ export function flattenCircuitInputs(inputs: AttesterCircuitInputs): string[] {
     ...inputs.coinbase_signer_merkle_proof,
     inputs.coinbase_signer_leaf_index,
     inputs.merkle_proof_depth,
+    ...requireLength(inputs.oprf_private, 7, 'oprf_private'),
   ];
+}
+
+function requireLength(values: string[], n: number, what: string): string[] {
+  if (!Array.isArray(values) || values.length !== n) {
+    throw new Error(`${what} must hold ${n} values; got ${Array.isArray(values) ? values.length : typeof values}.`);
+  }
+  return values;
 }

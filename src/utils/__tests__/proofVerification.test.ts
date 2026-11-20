@@ -599,9 +599,11 @@ describe('a History proof older than the request window is asked of the contract
     // OIDC's `now` is not where Coinbase keeps attested_at, and the reverse.
     expect(REQUEST_WINDOWS.coinbase_attestation!.index).toBe(192);
     expect(REQUEST_WINDOWS.oidc_domain_attestation!.index).toBe(NOW);
-    for (const c of ['coinbase_country_attestation', 'giwa_attestation', 'dojang_playground']) {
+    for (const c of ['giwa_attestation', 'dojang_playground']) {
       expect(proofAgeSeconds(c, coinbase, 100)).toBeNull();
     }
+    // Country v2's attested_at (154 of 155 since the OPRF nullifier) is past a 100-input vector.
+    expect(proofAgeSeconds('coinbase_country_attestation', coinbase.slice(0, 100), 100)).toBeNull();
     expect(proofAgeSeconds('oidc_domain_attestation', [], 100)).toBeNull();
     const bad = Array(214).fill('0x00');
     bad[NOW] = 'not hex';
@@ -627,8 +629,8 @@ describe('a History proof older than the request window is asked of the contract
     expect(REQUEST_WINDOWS.human_passport_score!.maxAgeSeconds).toBe(core.HUMAN_PASSPORT_NOW_MAX_AGE_SECONDS);
     expect(REQUEST_WINDOWS.human_passport_score!.stillChecked).toBe(core.checkHumanPassportAnchors);
     expect(REQUEST_WINDOWS.coinbase_attestation!.maxAgeSeconds).toBe(core.COINBASE_ATTESTED_AT_MAX_AGE_SECONDS);
-    // Coinbase Country v2: attested_at is the last of its 215 inputs, the same window as KYC's.
-    expect(REQUEST_WINDOWS.coinbase_country_attestation!.index).toBe(214);
+    // Coinbase Country v2: attested_at is the last of its 155 inputs (215 before the OPRF nullifier), the same window as KYC's.
+    expect(REQUEST_WINDOWS.coinbase_country_attestation!.index).toBe(154);
     expect(REQUEST_WINDOWS.coinbase_country_attestation!.maxAgeSeconds).toBe(core.COINBASE_ATTESTED_AT_MAX_AGE_SECONDS);
     expect(REQUEST_WINDOWS.oidc_domain_attestation!.maxAgeSeconds).toBe(core.OIDC_NOW_MAX_AGE_SECONDS);
   });

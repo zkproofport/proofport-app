@@ -52,7 +52,7 @@ export interface ClientDataFields {
   revoked: boolean;
   /** The 32 bytes the wallet signed (EIP-191 over signal_hash, or the EIP-712 digest). */
   requestDigest: string;
-  /** keccak256(scope string), 32 bytes. */
+  /** keccak256(scope string) mod p (the circuit's scope Field), 32 bytes big-endian. */
   scope: Uint8Array | string;
   /**
    * Country v2 only, and required there: the two uppercase ASCII letters of

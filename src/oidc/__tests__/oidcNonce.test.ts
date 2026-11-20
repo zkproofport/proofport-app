@@ -12,7 +12,6 @@ import {
   isCanonicalRequestId,
   newStandaloneRequestId,
 } from '../oidcNonce';
-import {computeScope} from '../../utils/circuitHelpers';
 import {ethers} from 'ethers';
 import {jwt, rawJwt} from './jwt';
 
@@ -32,7 +31,8 @@ describe('deriveOidcNonce', () => {
   it('is keccak(tag || the proof scope hash || requestId), 87 bytes, lowercase hex without 0x', () => {
     const preimage = ethers.utils.concat([
       ethers.utils.toUtf8Bytes(OIDC_NONCE_DOMAIN),
-      computeScope('proofport:default'),
+      // keccak256(scope), unreduced: the OIDC circuit's scope is 32 bytes, not a Field.
+      ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.toUtf8Bytes('proofport:default'))),
       ethers.utils.toUtf8Bytes(RID),
     ]);
     expect(preimage.length).toBe(87);

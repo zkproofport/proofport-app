@@ -40,6 +40,8 @@ import type {TypedAction} from '../config/circuitIds';
 import {
   type CircuitName,
 } from '../config';
+import {signalHashBytes} from '../utils/signalHash';
+import {assertOprfAvailable, oprfInputsForProof, oprfStepCode} from '../oprf/device';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
 
@@ -54,6 +56,18 @@ export interface GiwaKycProofInputs {
   rawTransaction: string;
   signerIndex: number;
   scopeString: string;
+  /**
+   * The id of the request this proof answers: the relay request's id, or the
+   * one minted for an in-app proof. It is in signal_hash's preimage
+   * (utils/signalHash.ts), so the requester can check the proof answers it.
+   */
+  requestId: string;
+  /**
+   * The OPRF domain: the requesting dApp's `oprfDomain`, or the in-app
+   * domain (src/oprf/requestNames.ts). With `scopeString` it keys the
+   * nullifier.
+   */
+  oprfDomain: string;
   /**
    * The EIP-712 action this proof authorizes, when a dapp sent one.
    *
@@ -120,7 +134,7 @@ const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'signal', label: 'Compute deterministic signal hash', status: 'pending'},
   {id: 'sign', label: 'Sign with wallet', status: 'pending'},
   {id: 'pubkey', label: 'Recover public key', status: 'pending'},
-  {id: 'scope', label: 'Compute scope and nullifier', status: 'pending'},
+  {id: 'scope', label: 'Obtain the private nullifier', status: 'pending'},
   {id: 'inputs', label: 'Prepare circuit inputs', status: 'pending'},
   {id: 'storage', label: 'Check storage availability', status: 'pending'},
   {id: 'proof', label: 'Generate ZK proof', status: 'pending'},
@@ -202,6 +216,9 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
 
         // Step 1: VK
         updateStep('vk', {status: 'in_progress'});
+        // No OPRF network or key for this build (production today): refused
+        // before anything is fetched or signed.
+        assertOprfAvailable(CIRCUIT_NAME);
         addLog('Step 1: Loading verification key...');
         const vkStartTime = Date.now();
         currentVk = await loadVkFromAssets(CIRCUIT_NAME, addLog);
@@ -243,11 +260,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           currentSignalHash = new Uint8Array(32);
           addLog('[Signal] Action bound -- signal_hash goes out as zeros');
         } else {
-          const signalPreimage = ethers.utils.solidityPack(
-            ['address', 'string', 'string'],
-            [inputs.userAddress, inputs.scopeString, CIRCUIT_NAME],
-          );
-          currentSignalHash = ethers.utils.arrayify(ethers.utils.keccak256(signalPreimage));
+          currentSignalHash = signalHashBytes({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId});
         }
         setSignalHash(currentSignalHash);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
@@ -317,9 +330,18 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           detail: `${userPubkey.slice(0, 20)}...`,
         });
 
-        // Step 6: scope + nullifier
+        // Step 6: the OPRF nullifier (the wallet signs the OPRF request)
         updateStep('scope', {status: 'in_progress'});
-        updateStep('scope', {status: 'completed'});
+        const oprf = await oprfInputsForProof({
+          circuit: CIRCUIT_NAME,
+          address: inputs.userAddress,
+          from,
+          domainName: inputs.oprfDomain,
+          scopeName: inputs.scopeString,
+          ethereum,
+          log: addLog,
+        });
+        updateStep('scope', {status: 'completed', detail: `nullifier ${oprf.nullifier.slice(0, 18)}...`});
 
         // Step 7: prepare circuit inputs (GIWA version)
         updateStep('inputs', {status: 'in_progress'});
@@ -330,7 +352,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           userPubkey,
           inputs.rawTransaction,
           signerIndex,
-          inputs.scopeString,
+          oprf,
           signed.publicHashes,
         );
         const flatInputs = flattenCircuitInputs(circuitInputs);
@@ -399,7 +421,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         setProofSteps(prev =>
           prev.map(step =>
             step.status === 'in_progress'
-              ? {...step, status: 'error', detail: errorMessage}
+              ? {...step, status: 'error', detail: errorMessage, ...oprfStepCode(error)}
               : step,
           ),
         );

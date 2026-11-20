@@ -7,9 +7,11 @@
  * newly published circuits tag switched every installed app to new circuits
  * and verifiers -- apps whose input builders predate them included. Decided
  * 2026-10-27: each app version pins one exact tag (CIRCUITS_RELEASE_TAG) for
- * the official circuits; development and staging read `main`; the Laboratory
- * circuits read `main` everywhere. A pinned tag that does not answer is an
- * error naming the tag, never a fallback to `main` or another release.
+ * the official circuits; development and staging read `main`. Since
+ * 2026-11-17 the Laboratory circuits read the exact commit LAB_CIRCUITS_REF
+ * everywhere, not `main` (everyCircuitIsReadFromAPinnedRef.test.ts). A pinned
+ * tag that does not answer is an error naming the tag, never a fallback to
+ * `main` or another release.
  *
  * Before that, the resolver ended with `if (!tag) return GITHUB_RAW('main')`,
  * which paired a circuit from main with a release's verifier address; the
@@ -61,7 +63,12 @@ const {
 } = require('../deployments');
 const {circuitBaseUrl} = require('../../utils/circuitDownload');
 const {CIRCUITS_RELEASE_TAG, CIRCUITS_WITH_BROADCAST, FALLBACK_VERIFIERS, STATIC_CONFIGS} = require('../contracts');
-const {COUNTRY_V2_CIRCUITS_REF} = require('../circuitArtifacts');
+// Coinbase Country v2 and the Laboratory circuits (files and verifier
+// records) read OPRF_CIRCUITS_REF since the OPRF nullifier. It is empty until
+// those circuits are pushed (everyCircuitIsReadFromAPinnedRef.test.ts holds
+// that); these cases run the pinned-ref paths with a test commit in its place.
+const OPRF_REF = 'c0ffee'.repeat(6) + 'c0ff';
+require('../circuitArtifacts').__setOprfCircuitsRefForTests(OPRF_REF);
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 /** Every URL fetched; answers from `records` (path after RAW), 404 otherwise. */
@@ -111,20 +118,20 @@ describe('one exact circuits tag per app version', () => {
     async env => {
       const fetchMock = github();
       const url = await circuitBaseUrl('coinbase_country_attestation', env).catch((e: Error) => e);
-      if (COUNTRY_V2_CIRCUITS_REF === '') {
+      if (OPRF_REF === '') {
         expect(url).toBeInstanceOf(Error);
-        expect((url as Error).message).toBe('COUNTRY_V2_CIRCUITS_REF is empty (src/config/circuitArtifacts.ts).');
+        expect((url as Error).message).toBe('OPRF_CIRCUITS_REF is empty (src/config/circuitArtifacts.ts).');
       } else {
-        expect(url).toBe(`${RAW}/${COUNTRY_V2_CIRCUITS_REF}`);
+        expect(url).toBe(`${RAW}/${OPRF_REF}`);
       }
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
 
-  it('a whole production sync touches only the tag and main, never the API', async () => {
+  it('a whole production sync touches only pinned refs, never main or the API', async () => {
     const fetchMock = github({
       ...releaseRecords(),
-      '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
+      [`/${OPRF_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     });
     await syncDeployments('production').catch(() => undefined);
     const urls = urlsOf(fetchMock);
@@ -134,10 +141,10 @@ describe('one exact circuits tag per app version', () => {
     expect(urls).toHaveLength(CIRCUITS_WITH_BROADCAST.length);
     for (const u of urls) {
       expect(u).not.toMatch(/api\.github\.com|releases/);
-      expect(u.startsWith(`${RAW}/${TAG}/`) || u.startsWith(`${RAW}/main/`)).toBe(true);
+      expect(u.startsWith(`${RAW}/${TAG}/`) || u.startsWith(`${RAW}/${OPRF_REF}/`)).toBe(true);
     }
-    // The official circuits never read main in production.
-    expect(urls.filter(u => u.startsWith(`${RAW}/main/`) && /Coinbase|Oidc/.test(u))).toEqual([]);
+    // No circuit reads main in production.
+    expect(urls.filter(u => u.includes('/main/'))).toEqual([]);
   });
 
   it('a "latest" tag remembered by an older app version changes nothing', async () => {
@@ -165,7 +172,7 @@ describe('one exact circuits tag per app version', () => {
 describe('the pinned tag is missing', () => {
   it('cannot stop a production sync: no circuit reads a record at the tag', async () => {
     const giwa = '0xf6edb9d6114b2546b6e559997fdde08caeea83b3';
-    const fetchMock = github({'/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': giwa});
+    const fetchMock = github({[`/${OPRF_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: giwa});
     await expect(syncDeployments('production')).resolves.toBeDefined();
     expect(urlsOf(fetchMock).filter(u => u.startsWith(`${RAW}/${TAG}/`))).toEqual([]);
     expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBe(giwa);
@@ -179,11 +186,11 @@ describe('the pinned tag is missing', () => {
 });
 
 describe('development and staging', () => {
-  it.each(['development', 'staging'] as const)('%s reads main and never asks GitHub for a tag', async env => {
+  it.each(['development', 'staging'] as const)('%s keeps main for a circuit with no row, but the Laboratory circuits read their pinned commit', async env => {
     const fetchMock = github();
     expect(resolveCircuitBaseUrl(env)).toBe(`${RAW}/main`);
     for (const circuit of ['giwa_attestation', 'dojang_playground']) {
-      expect(await circuitBaseUrl(circuit, env)).toBe(`${RAW}/main`);
+      expect(await circuitBaseUrl(circuit, env)).toBe(`${RAW}/${OPRF_REF}`);
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -193,10 +200,10 @@ describe('development and staging', () => {
   });
 });
 
-describe('the circuits that live only on main', () => {
-  it.each(['giwa_attestation', 'dojang_playground'])('%s reads main on a production build, with no tag involved', async circuit => {
+describe('the Laboratory circuits (not in any release tag)', () => {
+  it.each(['giwa_attestation', 'dojang_playground'])('%s reads OPRF_REF on a production build, with no tag or main involved', async circuit => {
     const fetchMock = github({}, {offline: true});
-    expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/main`);
+    expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/${OPRF_REF}`);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -205,17 +212,21 @@ describe('a verifier follows the circuit bytes', () => {
   const giwa = '0xf6edb9d6114b2546b6e559997fdde08caeea83b3';
   const oldGiwa = '0xeb9eb5452790cfe549ff83ceb3dbe1c432231492';
 
+  // main answers with another address: reading it would be visible.
+  const mainGiwa = '0x3333333333333333333333333333333333333333';
   function broadcasts(currentGiwa = giwa) {
     return github({
-      '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': currentGiwa,
+      [`/${OPRF_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: currentGiwa,
+      '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': mainGiwa,
       [`/${TAG}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: oldGiwa,
     });
   }
 
-  it.each(['development', 'staging', 'production'])('%s resolves GIWA to the current main verifier', async env => {
+  it.each(['development', 'staging', 'production'])('%s resolves GIWA to the verifier recorded at the pinned commit, not main', async env => {
     const fetchMock = broadcasts();
     expect(await fetchDeploymentAddress('giwa_attestation', env)).toBe(giwa);
-    expect(urlsOf(fetchMock).every(url => url.includes('/main/broadcast/'))).toBe(true);
+    expect(urlsOf(fetchMock).length).toBeGreaterThan(0);
+    expect(urlsOf(fetchMock).every(url => url.includes(`/${OPRF_REF}/broadcast/`))).toBe(true);
   });
 
   it('reads Coinbase KYC v2 from its configured address, never a broadcast or an old cache', async () => {
@@ -273,11 +284,11 @@ describe('a circuit cache version is never guessed', () => {
     }
   });
 
-  it('OIDC is at v6, the provider-key-statement circuit, in both tables', () => {
+  it('OIDC is at v9, the provider-key-statement circuit on Noir 1.0.0 / bb 6.0.0, in both tables', () => {
     const {circuitArtifactSource} = require('../circuitArtifacts');
-    expect(CIRCUIT_DATA_VERSIONS.oidc_domain_attestation).toBe(6);
-    expect(circuitArtifactSource('oidc_domain_attestation')?.dataVersion).toBe(6);
-    expect(circuitDataVersion('oidc_domain_attestation')).toBe(6);
+    expect(CIRCUIT_DATA_VERSIONS.oidc_domain_attestation).toBe(9);
+    expect(circuitArtifactSource('oidc_domain_attestation')?.dataVersion).toBe(9);
+    expect(circuitDataVersion('oidc_domain_attestation')).toBe(9);
   });
 
   it('throws on an unknown circuit instead of answering 0', () => {
@@ -358,6 +369,7 @@ describe('OIDC files come from the pinned circuits commit', () => {
     ['main, v5 (the circuit before the statement)', `${RAW}/main`, 5],
     ['the release tag, v5', `${RAW}/${TAG}`, 5],
     ['the pinned commit but v5', `${RAW}/5081cfda1ed00cfe9ec0aa20180338dc45f10670`, 5],
+    ['the pinned commit at v6 (nargo 1.0.0-beta.19 / bb 4.2 files)', `${RAW}/5081cfda1ed00cfe9ec0aa20180338dc45f10670`, 6],
   ])('replaces OIDC files cached from %s', async (_l, baseUrl, dataVersion) => {
     expect(cacheNeedsInvalidation({
       stored: {baseUrl, downloadedAt: 0, dataVersion},
@@ -367,9 +379,9 @@ describe('OIDC files come from the pinned circuits commit', () => {
     })).toBe(true);
   });
 
-  it('keeps OIDC files from the pinned commit at v6', async () => {
+  it('keeps OIDC files from the pinned commit at v9', async () => {
     expect(cacheNeedsInvalidation({
-      stored: {baseUrl: `${RAW}/${OIDC_SIGNATURE_CIRCUITS_REF}`, downloadedAt: 0, dataVersion: 6},
+      stored: {baseUrl: `${RAW}/${OIDC_SIGNATURE_CIRCUITS_REF}`, downloadedAt: 0, dataVersion: 9},
       expectedVersion: circuitDataVersion('oidc_domain_attestation'),
       currentBaseUrl: await circuitBaseUrl('oidc_domain_attestation', 'production'),
       hasCachedFiles: true,

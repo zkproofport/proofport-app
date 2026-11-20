@@ -79,6 +79,8 @@ const mockNavigate = {navigate: jest.fn()};
 const mockT = (key: string, opts?: {defaultValue?: string}) => opts?.defaultValue ?? key;
 const ACCOUNT = '0x1111111111111111111111111111111111111111';
 let mockSteps: Step[] = [];
+/** A full public-input vector: the screen reads the proof's OPRF nullifier by the circuit's layout. */
+const publicInputsOf = (n: number) => Array.from({length: n}, (_v, i) => '0x' + (i + 1).toString(16).padStart(64, '0'));
 let mockParsedProof: {proofHex: string; publicInputsHex: string[]; numPublicInputs: number; signerVariant: string} | null = null;
 let mockAuthReady = true;
 const CALLBACK = 'https://relay.zkproofport.app/api/v1/proof/callback';
@@ -124,8 +126,6 @@ jest.mock('../../utils', () => {
     findDojangPlaygroundIssuance: (...args: unknown[]) => mockFindDojang(...args),
     DojangIssuanceError,
     SELECTOR_ATTEST_ACCOUNT: '0x1', SELECTOR_ATTEST_COUNTRY: '0x2',
-    computeScope: () => new Uint8Array(32),
-    nullifierForCircuit: () => new Uint8Array(32),
   };
 });
 jest.mock('../../utils/humanPassport', () => {
@@ -179,7 +179,10 @@ import {deriveOidcNonce} from '../../oidc/oidcNonce';
 import {jwt} from '../../oidc/__tests__/jwt';
 
 function request(circuit: ProofRequest['circuit'], inputs: Record<string, unknown> = {scope: 'scope'}): ProofRequest {
-  return {requestId: `req-${circuit}`, circuit, callbackUrl: CALLBACK, createdAt: 1, inputs} as ProofRequest;
+  // ASCII letters, digits and '-' only: the id is in signal_hash's preimage (utils/signalHash.ts).
+  // A wallet credential request names its OPRF domain (the dApp's); OIDC's does not.
+  const withDomain = circuit === 'oidc_domain_attestation' ? inputs : {oprfDomain: 'dapp.example', ...inputs};
+  return {requestId: `req-${circuit.replace(/_/g, '-')}`, circuit, callbackUrl: CALLBACK, createdAt: 1, inputs: withDomain} as ProofRequest;
 }
 
 /** The relay mints uuidv4 request ids; an OIDC request's nonce is derived from one. */
@@ -429,6 +432,27 @@ describe('every inline failure path answers once, with its code', () => {
     expectOneError('E4001');
   });
 
+  // The OPRF domain is the dApp's own (src/oprf/requestNames.ts): a request
+  // without a usable one is answered E1010 before any statement or signature.
+  it.each([
+    ['coinbase_attestation', {scope: 's', oprfDomain: undefined}],
+    ['coinbase_attestation', {scope: 's', oprfDomain: ''}],
+    ['coinbase_attestation', {scope: 's', oprfDomain: 'evil\u202Eppa.com'}],
+    ['coinbase_attestation', {scope: 'x'.repeat(257)}],
+    ['giwa_attestation', {scope: 's', oprfDomain: null}],
+    ['dojang_playground', {scope: 's', oprfDomain: 'a'.repeat(257)}],
+  ])('%s with an unusable OPRF name %p -> E1010, nothing signed', async (circuit, inputs) => {
+    await mount(circuit, {...request(circuit as ProofRequest['circuit']), inputs} as ProofRequest);
+    expectOneError('E1010');
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  it('the hook gets the request\'s own OPRF domain, unchanged', async () => {
+    await mount('giwa_attestation', request('giwa_attestation', {scope: 's', oprfDomain: 'Vote.Example'}));
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    expect(mockGenerate.mock.calls[0][0]).toMatchObject({oprfDomain: 'Vote.Example', scopeString: 's'});
+  });
+
   it('missing country inputs -> E2004', async () => {
     await mount('coinbase_country_attestation', request('coinbase_country_attestation', {scope: 's'}));
     expectOneError('E2004');
@@ -547,6 +571,16 @@ describe('every inline failure path answers once, with its code', () => {
     expect(mockMsSignIn).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['an underscore', 'req_1'],
+    ['a space', 'req 1'],
+    ['129 characters', 'x'.repeat(129)],
+  ])('a wallet-circuit request id with %s -> E1002 before any lookup or signature', async (_label, requestId) => {
+    await mount('coinbase_attestation', {...request('coinbase_attestation'), requestId});
+    expectOneError('E1002');
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
   it.each(['not_a_circuit', 'mdl_kr_age', 'mdl-kr-age'])('an unknown circuit (%s) is refused on arrival -> E2006', async circuit => {
     await mount(circuit, {...request('coinbase_attestation'), requestId: 'req-unknown'});
     expectOneError('E2006');
@@ -561,7 +595,7 @@ describe('a Human Passport dApp request', () => {
     await mount('human_passport_score', hp());
     await chooseChain();
     // The Human Passport hook's proof carries no signerVariant: one package for every phone.
-    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 195} as never;
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: publicInputsOf(135), numPublicInputs: 135} as never;
     await rerender();
     expect(answers()).toEqual([expect.objectContaining({
       status: 'completed', proof: '0xproof', signerVariant: 'standard',
@@ -653,7 +687,7 @@ describe('a Human Passport dApp request', () => {
     act(() => tree!.unmount());
     tree = null;
     await act(async () => {await jest.advanceTimersByTimeAsync(10);});
-    expect(answers()).toEqual([expect.objectContaining({status: 'cancelled', requestId: 'req-human_passport_score'})]);
+    expect(answers()).toEqual([expect.objectContaining({status: 'cancelled', requestId: 'req-human-passport-score'})]);
     expect(mockFindPassport).not.toHaveBeenCalled();
     expect(mockGenerate).not.toHaveBeenCalled();
   });
@@ -748,7 +782,7 @@ describe('a chosen Human Passport chain that is refused', () => {
     mockFindPassport.mockRejectedValueOnce(refuse('E2021', 42161));
     await mount('human_passport_score', hp());
     await chooseChain(42161);
-    expect(unmark).toHaveBeenCalledWith('req-human_passport_score');
+    expect(unmark).toHaveBeenCalledWith('req-human-passport-score');
     unmark.mockRestore();
   });
 
@@ -780,7 +814,7 @@ describe('a chosen Human Passport chain that is refused', () => {
 describe('success, leaving, retrying', () => {
   it('a factory-phone proof tells the relay which package made it', async () => {
     await mount('coinbase_attestation', request('coinbase_attestation'));
-    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'android_factory'};
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: publicInputsOf(133), numPublicInputs: 133, signerVariant: 'android_factory'};
     await rerender();
     // Its package's own contract (development build: Base Sepolia), never the
     // iPhone circuit's address the config mock answers for the id.
@@ -791,14 +825,14 @@ describe('success, leaving, retrying', () => {
 
   it('a Coinbase KYC proof that does not say which package made it answers E2016, never completed', async () => {
     await mount('coinbase_attestation', request('coinbase_attestation'));
-    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1} as never;
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: publicInputsOf(133), numPublicInputs: 133} as never;
     await rerender();
     expectOneError('E2016');
   });
 
   it('a proof answers completed once; leaving afterwards sends nothing', async () => {
     await mount('coinbase_attestation', request('coinbase_attestation'));
-    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'standard'};
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: publicInputsOf(133), numPublicInputs: 133, signerVariant: 'standard'};
     await rerender();
     expect(answers()).toEqual([expect.objectContaining({status: 'completed', proof: '0xproof', signerVariant: 'standard'})]);
     act(() => tree!.unmount());
@@ -815,7 +849,7 @@ describe('success, leaving, retrying', () => {
     act(() => tree!.unmount());
     tree = null;
     await act(async () => {await jest.advanceTimersByTimeAsync(10);});
-    expect(answers()).toEqual([expect.objectContaining({status: 'cancelled', requestId: 'req-coinbase_attestation'})]);
+    expect(answers()).toEqual([expect.objectContaining({status: 'cancelled', requestId: 'req-coinbase-attestation'})]);
   });
 
   it('leaving after an error sends nothing more', async () => {
@@ -837,7 +871,7 @@ describe('success, leaving, retrying', () => {
     expect(mockFindAttestation).toHaveBeenCalledTimes(1);
     expect(mockGenerate).not.toHaveBeenCalled();
     expect(answers()).toHaveLength(1);
-    expect(mockShowError).toHaveBeenLastCalledWith('E1007', expect.stringContaining('req-coinbase_attestation'));
+    expect(mockShowError).toHaveBeenLastCalledWith('E1007', expect.stringContaining('req-coinbase-attestation'));
   });
 
   it('a standalone proof that fails answers nobody, but still shows the error', async () => {
@@ -878,7 +912,7 @@ describe('the screen says when it stops holding a new request\'s review', () => 
 
   it('idle once a proof is made', async () => {
     await mount('coinbase_attestation', request('coinbase_attestation'));
-    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1, signerVariant: 'standard'};
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: publicInputsOf(133), numPublicInputs: 133, signerVariant: 'standard'};
     await rerender();
     expect(store.isGenerationScreenIdle()).toBe(true);
   });
@@ -1013,7 +1047,7 @@ describe('Coinbase KYC v2 App Attest statement on a relay request', () => {
 
   it('a proof that does not say its package answers E2016 with its own reason', async () => {
     await mount('coinbase_attestation', request('coinbase_attestation'));
-    mockParsedProof = {proofHex: '0xproof', publicInputsHex: ['0x01'], numPublicInputs: 1} as never;
+    mockParsedProof = {proofHex: '0xproof', publicInputsHex: publicInputsOf(133), numPublicInputs: 133} as never;
     await rerender();
     expectOneError('E2016');
     expect(String(answers()[0].error)).toMatch(/\[reason: proof_package_unstated\]$/);

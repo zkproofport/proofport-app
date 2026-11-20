@@ -26,8 +26,9 @@ import {coinbaseCountryArtifact} from '../config/circuitArtifacts';
 import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../appAttest/constants';
 import type {TypedAction} from '../config/circuitIds';
 import {signedDigestOf} from '../utils/signedAction';
-import {computeScope} from '../utils/circuitHelpers';
-import {coinbaseSignalHashFor} from '../utils/coinbaseSignal';
+import {assertOprfAvailable, oprfInputsForProof, oprfStepCode} from '../oprf/device';
+import {oprfScopeFieldBytes} from '../oprf/circuitInputs';
+import {signalHashBytes} from '../utils/signalHash';
 import {attestedCountryOfTx} from '../utils/attestCountryTx';
 import {
   flattenCoinbaseAndroidInputs,
@@ -134,6 +135,14 @@ export interface CoinbaseCountryInputs {
   /** true: the attested country must be in the list; false: must not be. */
   isIncluded: boolean;
   scopeString: string;  // dApp scope identifier (REQUIRED)
+  /**
+   * The id of the request this proof answers: the relay request's id, or the
+   * one minted for an in-app proof. It is in signal_hash's preimage
+   * (utils/signalHash.ts), so the requester can check the proof answers it.
+   */
+  requestId: string;
+  /** The OPRF domain (src/oprf/requestNames.ts); with `scopeString` it keys the nullifier. */
+  oprfDomain: string;
   /**
    * Required: Coinbase Country v2 proves that this app, on a device whose
    * hardware vouches for it (App Attest on iPhone, Android key attestation
@@ -300,6 +309,9 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         // the cause.
         const circuitName = circuitFor(inputs.circuit);
         _cachedCircuitName = circuitName;
+        // No OPRF network or key for this build (production today): refused
+        // before anything is fetched or signed.
+        assertOprfAvailable(circuitName);
         const statement = inputs.appAttest;
         if (!statement?.witness) {
           throw new Error('Coinbase Country v2 needs a device statement; none was made for this request.');
@@ -383,16 +395,14 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         addLog('Step 3: Computing deterministic signal hash...');
         addLog('[Signal] Computing deterministic signal hash...');
 
-        // Deterministic signal_hash = keccak256(userAddress + scopeString + circuitName)
-        // This ensures the same wallet + scope + circuit always produces the same nullifier,
-        // enabling on-chain duplicate detection in ZKProofportNullifierRegistry.
-        // With an action there is no signal hash: the
-        // circuit refuses a request that carries both.
+        // signal_hash = keccak256(scope ++ circuit ++ requestId) -- no wallet
+        // address: it is public (utils/signalHash.ts). With an action there is
+        // no signal hash: the circuit refuses a request that carries both.
         const action = statement.action;
         if (action) {
           currentSignalHash = new Uint8Array(32);
         } else {
-          currentSignalHash = coinbaseSignalHashFor(CIRCUIT_NAME, inputs.userAddress, inputs.scopeString);
+          currentSignalHash = signalHashBytes({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId});
         }
         setSignalHash(currentSignalHash);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
@@ -499,10 +509,19 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         });
         addLog(`Public key recovered: ${userPubkey.slice(0, 20)}...`);
 
-        // Step 6: Compute scope and nullifier
+        // Step 6: the OPRF nullifier (the wallet signs the OPRF request)
         updateStep('scope', {status: 'in_progress'});
-        addLog('Step 6: Computing scope and nullifier...');
-        updateStep('scope', {status: 'completed'});
+        addLog('Step 6: Obtaining the OPRF nullifier...');
+        const oprf = await oprfInputsForProof({
+          circuit: circuitName,
+          address: inputs.userAddress,
+          from,
+          domainName: inputs.oprfDomain,
+          scopeName: inputs.scopeString,
+          ethereum,
+          log: addLog,
+        });
+        updateStep('scope', {status: 'completed', detail: `nullifier ${oprf.nullifier.slice(0, 18)}...`});
 
         // Step 7: Prepare circuit inputs
         updateStep('inputs', {status: 'in_progress'});
@@ -516,17 +535,14 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
           userPubkey,
           inputs.rawTransaction,
           signerIndex,
-          inputs.scopeString,  // NEW: scope string for nullifier
-          // Circuits derive their nullifiers differently, so the circuit is
-          // named rather than assumed.
-          circuitName,
+          oprf,
         );
         const flatInputs = BUILD_FLAT_INPUTS[signerVariant](
           circuitInputs,
           {
             circuit: CIRCUIT_NAME,
             userAddress: inputs.userAddress,
-            scope: computeScope(inputs.scopeString),
+            scope: oprfScopeFieldBytes(oprf),
             signedDigest: signedDigestOf(signed),
             publicHashes: signed.publicHashes,
             country,
@@ -657,7 +673,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
           const active = prev.some(step => step.status === 'in_progress');
           return prev.map((step, i) =>
             (active ? step.status === 'in_progress' : i === 0)
-              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {}), ...(deviceCheckReason ? {deviceCheckReason} : {})}
+              ? {...step, status: 'error', detail: errorMessage, ...(code ? {code} : {}), ...(deviceCheckReason ? {deviceCheckReason} : {}), ...(code ? {} : oprfStepCode(error))}
               : step,
           );
         });

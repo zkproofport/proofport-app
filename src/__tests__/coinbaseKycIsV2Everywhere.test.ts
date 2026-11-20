@@ -22,7 +22,6 @@ const fs = require('fs');
 const path = require('path');
 const {ethers} = require('ethers');
 const {settingsStore} = require('../stores/settingsStore');
-const {computeScope, computeWalletNullifier, nullifierForCircuit} = require('../utils/circuitHelpers');
 const {APP_ATTEST_ERROR_CODE} = require('../appAttest/appAttestError');
 const {ErrorCodes} = require('../constants/errorCodes');
 const {BROADCAST_PATHS, FALLBACK_VERIFIERS} = require('../config/contracts');
@@ -74,7 +73,7 @@ describe('no switch', () => {
       else if (!/prototype/i.test(fs.readFileSync(full, 'utf8'))) continue;
       else offenders.push(dir);
     }
-    for (const f of ['utils/coinbaseAppAttestInputs.ts', 'utils/coinbaseSignal.ts', 'utils/circuitDownload.ts']) {
+    for (const f of ['utils/coinbaseAppAttestInputs.ts', 'utils/signalHash.ts', 'utils/circuitDownload.ts']) {
       if (/prototype/i.test(fs.readFileSync(path.join(SRC, f), 'utf8').replace(/Object\.prototype/g, ''))) offenders.push(f);
     }
     expect(offenders).toEqual([]);
@@ -151,30 +150,20 @@ describe('the codes it raises', () => {
 });
 
 describe('the nullifier', () => {
-  const wallet = '0x5a7D0f4ecc8bBFDE105ab34c1a5d1A2f4372580F';
-  const scope = computeScope('proofport');
-
-  it('is the wallet + keccak256("coinbase_attestation") + scope rule', () => {
-    const n = nullifierForCircuit('coinbase_attestation', wallet, new Uint8Array(32), scope);
-    expect(ethers.utils.hexlify(n)).toBe(ethers.utils.hexlify(computeWalletNullifier(wallet, 'coinbase_attestation', scope)));
+  // Since 2026-11-17 the nullifier is the OPRF's (src/oprf/): query =
+  // Poseidon2(DS, wallet, domain, scope), no circuit id. Two proof types are
+  // kept apart only by their KEYS; the public test network has one key for
+  // every type (src/oprf/config.ts), so there a KYC and a Country proof with
+  // the same domain and scope carry the same nullifier.
+  const {pinnedOprfKeyHash} = require('../oprf/config');
+  it('KYC and Country pin a key hash each; on the test network it is the same key', () => {
+    expect(pinnedOprfKeyHash('staging', 'coinbase_attestation')).toBe(pinnedOprfKeyHash('staging', 'coinbase_country_attestation'));
   });
-
-  it('does not depend on signal_hash (an action proof and a signal proof share it)', () => {
-    const a = nullifierForCircuit('coinbase_attestation', wallet, new Uint8Array(32).fill(1), scope);
-    const b = nullifierForCircuit('coinbase_attestation', wallet, new Uint8Array(32), scope);
-    expect(ethers.utils.hexlify(a)).toBe(ethers.utils.hexlify(b));
-  });
-
-  it('gives Coinbase Country v2 its own tag, so the two circuits never share a nullifier', () => {
-    const a = nullifierForCircuit('coinbase_country_attestation', wallet, new Uint8Array(32).fill(1), scope);
-    const b = nullifierForCircuit('coinbase_country_attestation', wallet, new Uint8Array(32).fill(2), scope);
-    expect(ethers.utils.hexlify(a)).toBe(ethers.utils.hexlify(b));
-    expect(ethers.utils.hexlify(a)).toBe(ethers.utils.hexlify(computeWalletNullifier(wallet, 'coinbase_country_attestation', scope)));
-    expect(ethers.utils.hexlify(a)).not.toBe(ethers.utils.hexlify(nullifierForCircuit('coinbase_attestation', wallet, new Uint8Array(32), scope)));
-  });
-
-  it.each(['__proto__', 'constructor', 'coinbase_app_attest_poc'])('refuses %s instead of picking a rule', id => {
-    expect(() => nullifierForCircuit(id, wallet, new Uint8Array(32), scope)).toThrow(/No nullifier rule/);
+  it('no keccak nullifier helper is left to compute one beside the OPRF', () => {
+    const helpers = require('../utils/circuitHelpers');
+    expect(helpers.nullifierForCircuit).toBeUndefined();
+    expect(helpers.computeWalletNullifier).toBeUndefined();
+    expect(helpers.computeScope).toBeUndefined();
   });
 });
 

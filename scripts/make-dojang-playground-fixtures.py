@@ -49,12 +49,15 @@ REFUSED = ['tx_wrong_contract', 'tx_wrong_selector', 'tx_extra_calldata', 'tx_wr
 
 
 def read_toml(path: Path) -> dict:
-    """The flat subset generate-prover-toml.js writes: name = [0x.., ..] or name = int."""
+    """The flat subset generate-prover-toml.js writes: name = [0x.., ..], name = int,
+    or name = "0x.." (a Field: the OPRF values since 2026-11-17, kept as hex)."""
     text = path.read_text()
     out = {}
-    for m in re.finditer(r'^(\w+)\s*=\s*(\[[^\]]*\]|\d+)', text, re.M):
+    for m in re.finditer(r'^(\w+)\s*=\s*(\[[^\]]*\]|\d+|"0x[0-9a-fA-F]+")', text, re.M):
         name, value = m.group(1), m.group(2)
-        if value.startswith('['):
+        if value.startswith('"'):
+            out[name] = value.strip('"').lower()
+        elif value.startswith('['):
             out[name] = '0x' + ''.join(b[2:] for b in re.findall(r'0x[0-9a-fA-F]{2}', value)).lower()
         else:
             out[name] = int(value)

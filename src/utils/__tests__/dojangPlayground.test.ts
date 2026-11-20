@@ -15,6 +15,8 @@ jest.mock('react-native', () => ({NativeModules: {}}));
 
 import {ethers} from 'ethers';
 import fixture from './fixtures/dojangPlayground.json';
+import {oprfFromToml, vectorOprf} from '../../oprf/__tests__/helpers/oprfFixture';
+import {oprfPrivateInputs, oprfPublicInputs} from '../../oprf/circuitInputs';
 import {
   DOJANG_PLAYGROUND_FAUCET,
   DojangIssuanceError,
@@ -150,13 +152,15 @@ describe('the inputs equal what generate-prover-toml.js wrote', () => {
       userSignature: signature,
       userPubkey: pubkey,
       rawTransaction: rawTransactionFromRpc(EIP1559_TX).raw,
-      scopeString: 'dojang-playground-scope',
+      oprf: oprfFromToml(e),
     });
-    for (const field of ['signal_hash', 'domain_separator', 'action_hash', 'scope', 'nullifier', 'user_address',
+    for (const field of ['signal_hash', 'domain_separator', 'action_hash', 'user_address',
       'user_signature', 'user_pubkey_x', 'user_pubkey_y', 'raw_transaction'] as const) {
       expect([field, inputs[field]]).toEqual([field, bytes(e[field])]);
     }
     expect(inputs.tx_length).toBe(String(e.tx_length));
+    expect(inputs.oprf_public).toEqual(oprfPublicInputs(oprfFromToml(e)));
+    expect(inputs.oprf_private).toEqual(oprfPrivateInputs(oprfFromToml(e)));
   });
 
   it('legacy issuance, EIP-712 action mode (Prover.toml)', () => {
@@ -170,47 +174,51 @@ describe('the inputs equal what generate-prover-toml.js wrote', () => {
       userSignature: signature,
       userPubkey: pubkey,
       rawTransaction: rawTransactionFromRpc(LEGACY_TX).raw,
-      scopeString: 'dojang-playground-scope',
+      oprf: oprfFromToml(e),
       action: {domainSeparator: e.domain_separator, actionHash: e.action_hash},
     });
-    for (const field of ['signal_hash', 'domain_separator', 'action_hash', 'scope', 'nullifier', 'user_address',
+    for (const field of ['signal_hash', 'domain_separator', 'action_hash', 'user_address',
       'user_signature', 'user_pubkey_x', 'user_pubkey_y', 'raw_transaction'] as const) {
       expect([field, inputs[field]]).toEqual([field, bytes(e[field])]);
     }
     expect(inputs.tx_length).toBe(String(e.tx_length));
+    expect(inputs.oprf_public).toEqual(oprfPublicInputs(oprfFromToml(e)));
+    expect(inputs.oprf_private).toEqual(oprfPrivateInputs(oprfFromToml(e)));
   });
 
-  it('flattens in fn main order: 160 public fields, then 20 + 64 + 32 + 32 + 300 + 1', () => {
+  it('flattens in fn main order: 100 public fields, then 20 + 64 + 32 + 32 + 300 + 1 + 7', () => {
     const e = EIP1559.expected;
     const {signature, pubkey} = signatureFor(e, ethers.utils.hashMessage(ethers.utils.arrayify(e.signal_hash)));
     const flat = flattenDojangPlaygroundInputs(prepareDojangPlaygroundInputs({
       signalHash: ethers.utils.arrayify(e.signal_hash), userAddress: WALLET, userSignature: signature,
-      userPubkey: pubkey, rawTransaction: e.raw, scopeString: 'dojang-playground-scope',
+      userPubkey: pubkey, rawTransaction: e.raw, oprf: oprfFromToml(e),
     }));
-    expect(flat).toHaveLength(609);
-    const order = ['signal_hash', 'domain_separator', 'action_hash', 'scope', 'nullifier', 'user_address',
-      'user_signature', 'user_pubkey_x', 'user_pubkey_y', 'raw_transaction'] as const;
-    expect(flat.slice(0, 608)).toEqual(order.flatMap(f => bytes(e[f])));
-    expect(flat[608]).toBe(String(e.tx_length));
+    expect(flat).toHaveLength(556);
+    const head = ['signal_hash', 'domain_separator', 'action_hash'] as const;
+    const tail = ['user_address', 'user_signature', 'user_pubkey_x', 'user_pubkey_y', 'raw_transaction'] as const;
+    expect(flat.slice(0, 96)).toEqual(head.flatMap(f => bytes(e[f])));
+    expect(flat.slice(96, 100)).toEqual([e.oprf_key_hash, e.domain, e.scope, e.nullifier].map(v => '0x' + BigInt(v).toString(16).padStart(64, '0')));
+    expect(flat.slice(100, 548)).toEqual(tail.flatMap(f => bytes(e[f])));
+    expect(flat[548]).toBe(String(e.tx_length));
+    expect(flat.slice(549)).toEqual(oprfPrivateInputs(oprfFromToml(e)));
   });
 
   it('takes exactly 300 bytes and refuses 301', () => {
     const base = {signalHash: new Uint8Array(32), userAddress: WALLET, userSignature: '0x' + '11'.repeat(64) + '1b',
-      userPubkey: '0x04' + '22'.repeat(64), scopeString: 's'};
+      userPubkey: '0x04' + '22'.repeat(64), oprf: vectorOprf()};
     const at300 = prepareDojangPlaygroundInputs({...base, rawTransaction: '0x' + 'aa'.repeat(300)});
     expect(at300.tx_length).toBe('300');
     expect(at300.raw_transaction.every(b => b === '0xaa')).toBe(true);
     expect(() => prepareDojangPlaygroundInputs({...base, rawTransaction: '0x' + 'aa'.repeat(301)})).toThrow(/at most 300/);
   });
 
-  it('the nullifier is per wallet and scope, not per signal', () => {
+  it('the nullifier is the OPRF evaluation\'s, whatever the signal', () => {
     const base = {userAddress: WALLET, userSignature: '0x' + '11'.repeat(64) + '1b', userPubkey: '0x04' + '22'.repeat(64),
-      rawTransaction: EIP1559.expected.raw, scopeString: 'dojang-playground-scope'};
+      rawTransaction: EIP1559.expected.raw, oprf: vectorOprf()};
     const a = prepareDojangPlaygroundInputs({...base, signalHash: new Uint8Array(32).fill(1)});
     const b = prepareDojangPlaygroundInputs({...base, signalHash: new Uint8Array(32).fill(2)});
-    const c = prepareDojangPlaygroundInputs({...base, signalHash: new Uint8Array(32).fill(1), scopeString: 'other'});
-    expect(a.nullifier).toEqual(b.nullifier);
-    expect(a.nullifier).not.toEqual(c.nullifier);
+    expect(a.oprf_public[3]).toBe(vectorOprf().nullifier);
+    expect(a.oprf_public).toEqual(b.oprf_public);
   });
 });
 

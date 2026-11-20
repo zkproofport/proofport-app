@@ -23,7 +23,9 @@ import {
   flattenCoinbaseAppAttestInputs,
   prepareCoinbaseAppAttestInputs,
 } from '../../utils/coinbaseAppAttestInputs';
-import {bytesToNoirInput, computeScope, type AttesterCircuitInputs} from '../../utils/circuitHelpers';
+import {bytesToNoirInput, type AttesterCircuitInputs} from '../../utils/circuitHelpers';
+import {oprfScopeBytesOf, oprfPrivateInputs, oprfPublicInputs} from '../../oprf/circuitInputs';
+import {oprfFromToml} from '../../oprf/__tests__/helpers/oprfFixture';
 import {coinbaseKycArtifact} from '../../config/circuitArtifacts';
 import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../constants';
 import type {TypedAction} from '../../config/circuitIds';
@@ -36,11 +38,25 @@ const bytesOf = (h: string) => ethers.utils.arrayify(h);
 const str = (v: string | string[]) => v as string;
 
 const wallet = ethers.utils.getAddress(str(toml('action').user_address));
+/*
+ * The request the fixture's wallet signed: since 2026-11-17 signal_hash is
+ * keccak256(scope ++ circuit ++ requestId) with no wallet (utils/signalHash.ts).
+ * A vector without a requestId was exported under the old rule and cannot match.
+ */
+const fixtureRequestId = (vector as unknown as {requestId?: string}).requestId;
+if (typeof fixtureRequestId !== 'string') {
+  throw new Error(
+    'generateProverTomlVector.json predates the address-free signal_hash: regenerate the circuits fixtures ' +
+      '(circuits scripts/coinbase-attestation-v2/make-fixtures.sh) and re-export it with export-app-vector.js, ' +
+      'which must carry requestId.',
+  );
+}
+const REQUEST_ID = fixtureRequestId;
 const action: TypedAction = {
   domain: vector.eip712.domain,
   types: vector.eip712.types,
   primaryType: vector.eip712.primaryType,
-  message: {member: wallet, nonce: vector.eip712.messageNonce},
+  message: (vector.eip712 as unknown as {message: Record<string, unknown>}).message,
 } as TypedAction;
 const actionOf = (m: Mode) => (m === 'action' ? action : undefined);
 
@@ -53,28 +69,31 @@ function clientDataFor(m: Mode, overrides: Partial<Parameters<typeof buildClient
     attester: COINBASE_ATTESTER,
     attestationUid: ethers.utils.hexlify(cd.slice(128, 160)),
     revoked: false,
-    requestDigest: coinbaseRequestDigest(wallet, vector.scopeString, actionOf(m)),
-    scope: computeScope(vector.scopeString),
+    requestDigest: coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID, actionOf(m)),
+    scope: oprfScopeBytesOf(vector.scopeString),
     ...overrides,
   });
 }
 
 describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
+  it('binds the scope FIELD (keccak256 mod p) the circuit publishes', () => {
+    expect(BigInt(ethers.utils.hexlify(oprfScopeBytesOf(vector.scopeString)))).toBe(BigInt(str(toml(m).scope)));
+  });
+
   it('builds the same 225 clientData bytes the circuit fixture carries', () => {
     const built = clientDataFor(m);
     expect(built.length).toBe(CLIENT_DATA_LEN);
     expect(ethers.utils.hexlify(built)).toBe(str(toml(m).client_data));
   });
 
-  it('builds the same 2,769-value vector, in fn main order, as the app signer kind', () => {
+  it('builds the same 2,716-value vector, in fn main order, as the app signer kind', () => {
     expect(toml(m).signer_kind).toBe('1');
     const t = toml(m);
     const b = (k: string) => bytesToNoirInput(Array.from(bytesOf(str(t[k]))));
     const coinbase: AttesterCircuitInputs = {
       signal_hash: b('signal_hash'),
       signer_list_merkle_root: b('signer_list_merkle_root'),
-      scope: b('scope'),
-      nullifier: bytesToNoirInput(new Array(32).fill(0)), // replaced by the builder's own rule
+      oprf_public: oprfPublicInputs(oprfFromToml(t)),
       user_address: b('user_address'),
       user_signature: b('user_signature'),
       user_pubkey_x: b('user_pubkey_x'),
@@ -86,6 +105,7 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
       coinbase_signer_merkle_proof: (t.coinbase_signer_merkle_proof as string[]).flatMap(r => bytesToNoirInput(Array.from(bytesOf(r)))),
       coinbase_signer_leaf_index: str(t.coinbase_signer_leaf_index),
       merkle_proof_depth: str(t.merkle_proof_depth),
+      oprf_private: oprfPrivateInputs(oprfFromToml(t)),
     };
     const cut = (k: string, lenKey: string) => bytesOf(str(t[k])).slice(0, Number(t[lenKey]));
     const flat = flattenCoinbaseAppAttestInputs(
@@ -94,8 +114,8 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
         {
           circuit: 'coinbase_attestation',
           userAddress: wallet,
-          scope: computeScope(vector.scopeString),
-          signedDigest: coinbaseRequestDigest(wallet, vector.scopeString, actionOf(m)),
+          scope: oprfScopeBytesOf(vector.scopeString),
+          signedDigest: coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID, actionOf(m)),
           publicHashes: m === 'action'
             ? {domainSeparator: str(t.domain_separator), actionHash: str(t.action_hash)}
             : undefined,
@@ -130,22 +150,24 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
       const v = t[p.name];
       if (Array.isArray(v)) return v.flatMap(r => Array.from(bytesOf(r)).map(BigInt));
       if (v === 'true' || v === 'false') return [v === 'true' ? 1n : 0n];
-      if (/^0x/.test(v)) return Array.from(bytesOf(v)).map(BigInt);
+      // A Field (the OPRF values) is one value; a byte array is its bytes.
+      if (/^0x/.test(v)) return p.fields === 1 ? [BigInt(v)] : Array.from(bytesOf(v)).map(BigInt);
       return [BigInt(v)];
     });
-    expect(expected.length).toBe(2769);
+    expect(expected.length).toBe(2716);
     expect(flat.length).toBe(expected.length);
     expect(flat.map(x => BigInt(x))).toEqual(expected);
   });
 });
 
 describe('what the circuit makes public', () => {
-  it('is 193 field elements, which is what the app checks after proving', () => {
+  it('is 133 field elements, which is what the app checks after proving', () => {
     const pub = vector.abi.filter(p => p.visibility === 'public');
     expect(pub.map(p => p.name)).toEqual([
-      'signal_hash', 'domain_separator', 'action_hash', 'signer_list_merkle_root', 'scope', 'nullifier',
-      'attested_at',
+      'signal_hash', 'domain_separator', 'action_hash', 'signer_list_merkle_root',
+      'oprf_key_hash', 'domain', 'scope', 'nullifier', 'attested_at',
     ]);
+    expect(pub.reduce((n, p) => n + p.fields, 0)).toBe(133);
     expect(pub.reduce((n, p) => n + p.fields, 0)).toBe(coinbaseKycArtifact().publicInputCount);
   });
 });
@@ -199,8 +221,8 @@ describe('the vector builder refuses a statement for another proof', () => {
       assertion: {authenticatorData: new Uint8Array(37), signature: new Uint8Array(64), counter: 1},
     },
   });
-  const digest = coinbaseRequestDigest(wallet, vector.scopeString);
-  const scope = computeScope(vector.scopeString);
+  const digest = coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID);
+  const scope = oprfScopeBytesOf(vector.scopeString);
 
   it('names another wallet', () => {
     const {coinbase, witness} = base();
@@ -216,7 +238,7 @@ describe('the vector builder refuses a statement for another proof', () => {
 
   it('binds another scope', () => {
     const {coinbase, witness} = base();
-    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {circuit: 'coinbase_attestation', userAddress: wallet, scope: computeScope('another'), signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
+    expect(() => prepareCoinbaseAppAttestInputs(coinbase, {circuit: 'coinbase_attestation', userAddress: wallet, scope: oprfScopeBytesOf('another'), signedDigest: digest, pinnedCaKeyHash: PINNED}, witness))
       .toThrow(/another scope/);
   });
 

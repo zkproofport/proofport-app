@@ -19,7 +19,9 @@ import vectors from '../../utils/__tests__/fixtures/androidChainVectors.json';
 import iosVector from '../../appAttest/__tests__/fixtures/generateProverTomlVector.json';
 import {coinbaseRequestDigest} from '../../appAttest/coinbaseKycStatement';
 import {androidChainInputs, GOOGLE_KEY_ATTESTATION_CA1} from '../../utils/androidKeyAttestation';
-import {bytesToNoirInput, computeScope, type AttesterCircuitInputs} from '../../utils/circuitHelpers';
+import {bytesToNoirInput, type AttesterCircuitInputs} from '../../utils/circuitHelpers';
+import {oprfPrivateInputs, oprfPublicInputs, oprfScopeBytesOf} from '../../oprf/circuitInputs';
+import {oprfFromToml} from '../../oprf/__tests__/helpers/oprfFixture';
 import {
   COINBASE_ANDROID_FLAT_INPUT_COUNT,
   flattenCoinbaseAndroidInputs,
@@ -171,8 +173,7 @@ describe('coinbase_attestation_v2_android', () => {
   const coinbase: AttesterCircuitInputs = {
     signal_hash: b('signal_hash'),
     signer_list_merkle_root: b('signer_list_merkle_root'),
-    scope: b('scope'),
-    nullifier: b('nullifier'),
+    oprf_public: oprfPublicInputs(oprfFromToml(t)),
     user_address: b('user_address'),
     user_signature: b('user_signature'),
     user_pubkey_x: b('user_pubkey_x'),
@@ -184,12 +185,18 @@ describe('coinbase_attestation_v2_android', () => {
     coinbase_signer_merkle_proof: (t.coinbase_signer_merkle_proof as string[]).flatMap(r => bytesToNoirInput(Array.from(bytesOf(r)))),
     coinbase_signer_leaf_index: str(t.coinbase_signer_leaf_index),
     merkle_proof_depth: str(t.merkle_proof_depth),
+    oprf_private: oprfPrivateInputs(oprfFromToml(t)),
   };
   const request = {
     circuit: 'coinbase_attestation' as const,
     userAddress: wallet,
-    scope: computeScope((iosVector as unknown as {scopeString: string}).scopeString),
-    signedDigest: coinbaseRequestDigest(wallet, (iosVector as unknown as {scopeString: string}).scopeString),
+    scope: oprfScopeBytesOf((iosVector as unknown as {scopeString: string}).scopeString),
+    // The iPhone vector's request (its own test refuses a vector without one).
+    signedDigest: coinbaseRequestDigest(
+      wallet,
+      (iosVector as unknown as {scopeString: string}).scopeString,
+      String((iosVector as unknown as {requestId?: string}).requestId),
+    ),
   };
   const clientData = bytesOf(str(t.client_data));
   const attestedAt = Number(t.attested_at);
@@ -197,8 +204,9 @@ describe('coinbase_attestation_v2_android', () => {
   it('takes the iPhone parameters up to client_data, then the Android signer', () => {
     const names = abi.parameters.map(p => p.name);
     const cut = names.indexOf('client_data') + 1;
-    expect(names.slice(cut)).toEqual([...ANDROID_SIGNER_ABI_PARAMETERS]);
-    expect(publicCount(abi)).toBe(193);
+    expect(names.slice(cut, -7)).toEqual([...ANDROID_SIGNER_ABI_PARAMETERS]);
+    expect(names.slice(-7)).toEqual(['oprf_public_key_x', 'oprf_public_key_y', 'oprf_beta', 'oprf_dlog_e', 'oprf_dlog_s', 'oprf_response_x', 'oprf_response_y']);
+    expect(publicCount(abi)).toBe(133);
     expect(total(abi)).toBe(COINBASE_ANDROID_FLAT_INPUT_COUNT);
   });
 
@@ -237,7 +245,7 @@ describe('coinbase_attestation_v2_android', () => {
     const w = {variant: 'android' as const, clientData, attestedAt, signer: androidSigner()};
     expect(() => prepareCoinbaseAndroidInputs(coinbase, {...request, userAddress: '0x' + '33'.repeat(20)}, w)).toThrow(/clientData names wallet/);
     expect(() => prepareCoinbaseAndroidInputs(coinbase, {...request, signedDigest: '0x' + '44'.repeat(32)}, w)).toThrow(/clientData binds request/);
-    expect(() => prepareCoinbaseAndroidInputs(coinbase, {...request, scope: computeScope('another')}, w)).toThrow(/clientData binds another scope/);
+    expect(() => prepareCoinbaseAndroidInputs(coinbase, {...request, scope: oprfScopeBytesOf('another')}, w)).toThrow(/clientData binds another scope/);
     expect(() => prepareCoinbaseAndroidInputs(coinbase, request, {...w, signer: {} as never})).toThrow(/no Android signer inputs/);
   });
 });
@@ -287,12 +295,12 @@ describe('the factory packages', () => {
     expect(() => requireOidcAbi(abi.parameters.map(p => p.name), 'android')).toThrow(/this app builds/);
   });
 
-  it('coinbase_attestation_v2_android_factory takes the common inputs, then the factory signer, 5,066 values', () => {
+  it('coinbase_attestation_v2_android_factory takes the common inputs, the factory signer, then the OPRF values, 5,013 values', () => {
     const abi = abis.coinbase_attestation_factory as Abi;
     const names = abi.parameters.map(p => p.name);
-    expect(names.slice(names.indexOf('client_data') + 1)).toEqual([...ANDROID_FACTORY_SIGNER_ABI_PARAMETERS]);
+    expect(names.slice(names.indexOf('client_data') + 1, -7)).toEqual([...ANDROID_FACTORY_SIGNER_ABI_PARAMETERS]);
     expect(total(abi)).toBe(COINBASE_ANDROID_FACTORY_FLAT_INPUT_COUNT);
-    expect(publicCount(abi)).toBe(193);
+    expect(publicCount(abi)).toBe(133);
   });
 
   it('the OIDC factory vector puts every signer value at its ABI offset (decimals)', () => {

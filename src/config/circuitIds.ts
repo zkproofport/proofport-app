@@ -196,10 +196,15 @@ export function circuitActionBinding(circuit: string): CircuitActionBinding {
 export type {TypedAction} from '@zkproofport-app/core/typedAction';
 
 /**
- * Circuits whose files live only on `main`, not in a release tag.
+ * The Laboratory circuits: not in any circuits release tag.
+ *
+ * The name is historical. Until 2026-11-17 these were read from circuits
+ * `main` in every build; they now read the exact commit LAB_CIRCUITS_REF
+ * (src/config/circuitArtifacts.ts), and one of them with no pinned row there
+ * is an error, never `main`.
  *
  * Two questions the app asks separately — which circuits to prefetch at
- * startup, and which to fetch from `main` rather than a release tag — have the
+ * startup, and which to keep out of the release tag — have the
  * same answer, so the answer lives here once.
  *
  * The SDK's `supported` / `experimental` / `planned` split is what decides it:

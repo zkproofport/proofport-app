@@ -20,6 +20,7 @@ import RNFS from 'react-native-fs';
 import {noirProofStatus, startNoirProof, takeNoirProof} from 'mopro-ffi';
 import type {ProofTimer} from './proofTiming';
 import {updateProofProgress} from './proofProgress';
+import {keepProverFilesOutOfBackup} from './circuitBackup';
 
 /** Where barretenberg keeps its polynomial files while proving. */
 export function proverTempDir(): string {
@@ -112,6 +113,11 @@ export async function proveOffThread(req: ProveRequest): Promise<ArrayBuffer> {
     lowMemory = false;
     log(`[Prover] No prover directory (${e instanceof Error ? e.message : String(e)}); proving in memory`);
   }
+
+  // The prover writes its shared reference string beside the .srs
+  // (sharedSrs.ts); on iOS the directory holding the .srs is flagged out of
+  // backups first (circuitBackup.ts), which covers that file too.
+  await keepProverFilesOutOfBackup(req.srsPath, log);
 
   const options = {lowMemoryMode: lowMemory, tempDir: lowMemory ? tempDir : undefined, threads: undefined};
   timer.note(`prover options lowMemory=${lowMemory} threads=all`);

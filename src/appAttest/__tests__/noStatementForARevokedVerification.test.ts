@@ -24,6 +24,7 @@ import {
 import type {AppAttestNative} from '../nativeAppAttest';
 import * as crypto from 'crypto';
 import {AAGUID, cbor, ecKey, sha256, syntheticDevice, verifyP1363} from './syntheticAppAttest';
+const REQUEST_ID = '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f';
 
 const WALLET = '0x5a7D0f4ecc8bBFDE105ab34c1a5d1A2f4372580F';
 const UID = '0x' + 'ab'.repeat(32);
@@ -60,7 +61,7 @@ function harness(opts: {supported?: boolean; development?: boolean} = {}) {
   };
   const run = (s: Partial<AttestationStatus> | Error, scopeString = 'proofport') =>
     prepareCoinbaseKycStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString, log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString, requestId: REQUEST_ID, log: () => {}},
       {
         native,
         keyDeps: {storage, pinnedCaKeyHash: '0x' + Buffer.from(sha256(ca.x, ca.y)).toString('hex')},
@@ -71,7 +72,7 @@ function harness(opts: {supported?: boolean; development?: boolean} = {}) {
   // (data = "KR") and the transaction's country.
   const runCountry = (s: Partial<AttestationStatus>, transactionCountry = 'KR') =>
     prepareCoinbaseCountryStatement(
-      {walletAddress: WALLET, attestationUid: UID, scopeString: 'proofport', transactionCountry, log: () => {}},
+      {walletAddress: WALLET, attestationUid: UID, scopeString: 'proofport', requestId: REQUEST_ID, transactionCountry, log: () => {}},
       {
         native,
         keyDeps: {storage, pinnedCaKeyHash: '0x' + Buffer.from(sha256(ca.x, ca.y)).toString('hex')},
@@ -140,7 +141,7 @@ describe('the revocation statement', () => {
     expect(ethers.utils.getAddress(ethers.utils.hexlify(cd.slice(48, 68)))).toBe(WALLET);
     expect(cd[160]).toBe(0);
     expect(ethers.utils.hexlify(cd.slice(128, 160))).toBe(UID);
-    expect(ethers.utils.hexlify(cd.slice(161, 193))).toBe(coinbaseRequestDigest(WALLET, 'proofport'));
+    expect(ethers.utils.hexlify(cd.slice(161, 193))).toBe(coinbaseRequestDigest(WALLET, 'proofport', REQUEST_ID));
     const nonce = sha256(witness.assertion.authenticatorData, sha256(cd));
     expect(verifyP1363(h.device.cred, nonce, witness.assertion.signature)).toBe(true);
   });
@@ -156,7 +157,7 @@ describe('the Coinbase Country v2 statement on iPhone', () => {
     expect(cd).toHaveLength(227);
     expect(ethers.utils.hexlify(cd.slice(16, 48))).toBe(ethers.utils.keccak256(ethers.utils.toUtf8Bytes('coinbase_country_attestation')));
     expect(String.fromCharCode(cd[225], cd[226])).toBe('KR');
-    expect(ethers.utils.hexlify(cd.slice(161, 193))).toBe(coinbaseRequestDigestFor('coinbase_country_attestation', WALLET, 'proofport'));
+    expect(ethers.utils.hexlify(cd.slice(161, 193))).toBe(coinbaseRequestDigestFor('coinbase_country_attestation', WALLET, 'proofport', REQUEST_ID));
     const nonce = sha256(witness.assertion.authenticatorData, sha256(cd));
     expect(verifyP1363(h.device.cred, nonce, witness.assertion.signature)).toBe(true);
   });

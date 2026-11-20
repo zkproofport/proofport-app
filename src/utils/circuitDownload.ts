@@ -7,12 +7,14 @@ import {
 } from './circuitIntegrity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {environmentCircuitsRef, resolveCircuitBaseUrl} from '../config/deployments';
-import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, CIRCUITS_BRANCH, STATIC_CONFIGS} from '../config/contracts';
+import {CIRCUIT_FILE_PATHS, CIRCUIT_DATA_VERSIONS, GITHUB_RAW, STATIC_CONFIGS} from '../config/contracts';
 import type {CircuitFilePaths, CircuitName, Environment} from '../config/contracts';
-import {MAIN_BRANCH_CIRCUIT_IDS} from '../config/circuitIds';
-import {circuitArtifactSource, requireArtifactRef, SRS_PART_MAX_BYTES, type CircuitArtifactSource} from '../config/circuitArtifacts';
+import {ALL_CIRCUIT_IDS, MAIN_BRANCH_CIRCUIT_IDS, isCircuitId} from '../config/circuitIds';
+import {AUXILIARY_CIRCUIT_IDS, circuitArtifactSource, isAuxiliaryCircuitId, requireArtifactRef, SRS_PART_MAX_BYTES, type CircuitArtifactSource} from '../config/circuitArtifacts';
 import {cacheNeedsInvalidation} from './cacheInvalidation';
 import {appendFileBytes, readFileRange} from './fileRange';
+import {SHARED_SRS_DIR_NAME} from './sharedSrs';
+import {excludeFromBackup} from './circuitBackup';
 
 const CIRCUIT_EXTENSIONS = ['json', 'srs', 'vk'] as const;
 
@@ -139,10 +141,7 @@ async function copyBundledCircuitFile(
   const sourcePath = getBundledAssetPath(circuitName, extension);
   const destPath = getCircuitFilePath(circuitName, extension);
 
-  const circuitDir = getCircuitDirectory();
-  if (!(await RNFS.exists(circuitDir))) {
-    await RNFS.mkdir(circuitDir);
-  }
+  await ensureCircuitDirectory(log);
 
   const sourceExists = await RNFS.exists(sourcePath);
 
@@ -179,10 +178,13 @@ function isPinnedRelease(env: Environment): boolean {
 /**
  * Which ref THIS circuit reads from. One answer, three readers.
  *
- * Circuits that are not officially supported -- the experimental and planned
- * ones (GIWA, the Dojang Playground) -- exist only on main, never in
- * a release tag, so they are always fetched from main regardless of
- * environment. Asking for the derived list rather than naming them is what
+ * Every circuit has a pinned row in circuitArtifacts.ts -- an exact commit or
+ * tag, the same in every environment -- and that row answers. The Laboratory
+ * circuits (experimental and planned: GIWA, the Dojang Playground) are not in
+ * any release tag; they read LAB_CIRCUITS_REF. Until 2026-11-17 they read
+ * `main` itself, so a push to circuits main changed what every installed app
+ * downloaded; a Laboratory circuit without a row is now an error naming it,
+ * never `main`. Asking for the derived list rather than naming them is what
  * stops the next circuit from being forgotten here; one experimental circuit
  * was, for exactly as long as it sat in neither of two lists.
  *
@@ -199,13 +201,20 @@ export async function circuitBaseUrl(
   circuitName: string,
   env: Environment,
 ): Promise<string> {
+  // An id that is not a circuit is an error, never the environment's ref.
+  if (!isCircuitId(circuitName) && !isAuxiliaryCircuitId(circuitName)) {
+    throw new Error(`Unknown circuit '${circuitName}'. Known: ${[...ALL_CIRCUIT_IDS, ...AUXILIARY_CIRCUIT_IDS].join(', ')}.`);
+  }
   const pinned = circuitArtifactSource(circuitName);
   if (pinned) {
     // Throws, naming the constant, for an Android row whose commit is not set.
     return GITHUB_RAW(requireArtifactRef(pinned));
   }
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
-    return GITHUB_RAW(CIRCUITS_BRANCH);
+    throw new Error(
+      `Laboratory circuit '${circuitName}' has no pinned row in CIRCUIT_ARTIFACT_SOURCES ` +
+        '(src/config/circuitArtifacts.ts, LAB_CIRCUITS_REF). It is never read from a branch.',
+    );
   }
   return resolveCircuitBaseUrl(env);
 }
@@ -385,8 +394,15 @@ function httpFailureReason(circuitName: string, fileName: string, url: string, s
   return reason;
 }
 
-async function ensureCircuitDirectory(): Promise<void> {
+/**
+ * Create `Documents/circuits/` if needed and, on iOS, flag it excluded from
+ * backup (circuitBackup.ts) -- every call, so an existing directory gets the
+ * flag too. A flag that cannot be set is logged; creating the directory is
+ * still required and its failure still throws.
+ */
+export async function ensureCircuitDirectory(addLog?: (msg: string) => void): Promise<void> {
   const circuitDir = getCircuitDirectory();
+  await excludeFromBackup(circuitDir, addLog || console.log);
   if (!(await RNFS.exists(circuitDir))) {
     await RNFS.mkdir(circuitDir);
   }
@@ -404,7 +420,7 @@ async function downloadCircuitFileFromGitHub(
   const url = await getCircuitFileUrl(circuitName, extension, env);
   const destPath = getCircuitFilePath(circuitName, extension);
 
-  await ensureCircuitDirectory();
+  await ensureCircuitDirectory(log);
 
   log(`Downloading ${fileName}...`);
   return withRetries(fileName, log, () =>
@@ -515,7 +531,7 @@ async function downloadSplitSrs(
     throw new Error(`${circuitName}: srsParts is ${partCount}; it must be a positive integer (src/config/circuitArtifacts.ts).`);
   }
 
-  await ensureCircuitDirectory();
+  await ensureCircuitDirectory(log);
   const removeUnverified = async () => {
     await RNFS.unlink(joinPath).catch(() => {});
     await RNFS.unlink(destPath).catch(() => {});
@@ -784,6 +800,9 @@ async function downloadCircuitFilesNow(
   const log = addLog || console.log;
 
   log(`=== Downloading circuit files for ${circuitName} ===`);
+  // Also reached when every file is cached, so the flag is renewed before
+  // each proof's files are used.
+  await ensureCircuitDirectory(log);
 
   const needsInvalidation = await shouldInvalidateCache(circuitName, env);
   if (needsInvalidation) {
@@ -866,26 +885,37 @@ export async function deleteAllCircuitFiles(
   }
 }
 
+/** The prover's shared reference string, inside the circuits directory (sharedSrs.ts). */
+export function getSharedSrsDirectory(): string {
+  return `${getCircuitDirectory()}/${SHARED_SRS_DIR_NAME}`;
+}
+
+/**
+ * Files and bytes the circuits directory holds: every circuit's files and
+ * the prover's shared reference string (`bn254-crs/`, up to 128 MiB), which
+ * deleteAllCircuitFiles removes with them.
+ */
 export async function getDownloadedCircuitsSize(): Promise<{
   files: number;
   bytes: number;
   sizeMB: string;
 }> {
-  const circuitDir = getCircuitDirectory();
   let totalFiles = 0;
   let totalBytes = 0;
 
-  try {
-    if (await RNFS.exists(circuitDir)) {
-      const files = await RNFS.readDir(circuitDir);
-      for (const file of files) {
-        if (file.isFile()) {
-          totalFiles++;
-          totalBytes += file.size;
+  for (const dir of [getCircuitDirectory(), getSharedSrsDirectory()]) {
+    try {
+      if (await RNFS.exists(dir)) {
+        const files = await RNFS.readDir(dir);
+        for (const file of files) {
+          if (file.isFile()) {
+            totalFiles++;
+            totalBytes += Number(file.size);
+          }
         }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   return {
     files: totalFiles,

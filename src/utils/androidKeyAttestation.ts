@@ -34,6 +34,7 @@ import {ethers} from 'ethers';
 import {ANDROID_ATTEST_ERROR_CODE, refuseWith} from '../appAttest/appAttestError';
 import type {DeviceCheckReason} from '../appAttest/deviceCheckReasons';
 import {N_P256, N_P384} from '../appAttest/constants';
+import {rsaBarrettParam} from './rsaBarrett';
 import {bytesEqual, children, DerError, ecdsaDerToLowS, hexToBytes, OID, parseCertificate, parseTbs, readTlv, toHex} from '../appAttest/der';
 
 /** 1.2.840.113549.1.1, the RSA (PKCS #1) family: factory-provisioning roots sign with these. */
@@ -281,11 +282,11 @@ export function limbs120(v: bigint, count: number): bigint[] {
   return out;
 }
 
-/** Modulus and Barrett parameter floor(2^(2*4096+4) / n) as limbs (chain.js rsa4096Params). */
+/** Modulus and Barrett parameter floor(2^(2*4096+6) / n) as limbs (chain.js rsa4096Params; see rsaBarrett.ts). */
 export function rsa4096Params(modulusHex: string): {modulus: bigint[]; redc: bigint[]} {
   const n = BigInt('0x' + modulusHex);
   if (n >> 4095n !== 1n) throw new Error('not a 4096-bit modulus');
-  return {modulus: limbs120(n, RSA4096_LIMBS), redc: limbs120((1n << (2n * 4096n + 4n)) / n, RSA4096_LIMBS)};
+  return {modulus: limbs120(n, RSA4096_LIMBS), redc: limbs120(rsaBarrettParam(n, 4096n), RSA4096_LIMBS)};
 }
 
 const OID_RSA_ENCRYPTION = '2a864886f70d010101';

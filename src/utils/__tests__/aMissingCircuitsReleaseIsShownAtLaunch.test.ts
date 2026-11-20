@@ -36,7 +36,13 @@ jest.mock('react-native', () => ({Platform: {OS: 'ios'}}));
 import {syncDeploymentsAtLaunch} from '../launchDeploymentSync';
 import {CircuitsReleaseMissingError} from '../../config/deployments';
 import {downloadCircuitFiles} from '../circuitDownload';
-import {COUNTRY_V2_CIRCUITS_REF} from '../../config/circuitArtifacts';
+import {__setOprfCircuitsRefForTests} from '../../config/circuitArtifacts';
+
+// Every wallet credential circuit reads OPRF_CIRCUITS_REF since the OPRF
+// nullifier (empty until pushed); these cases run with a test commit there.
+const OPRF_REF = 'c0ffee'.repeat(6) + 'c0ff';
+__setOprfCircuitsRefForTests(OPRF_REF);
+const COUNTRY_V2_CIRCUITS_REF = OPRF_REF;
 
 describe('the launch sync', () => {
   it('shows E3007 with the tag when the pinned release is missing', async () => {
@@ -95,26 +101,24 @@ describe('a circuit download from the pinned release', () => {
     },
   );
 
-  it('a 404 for Coinbase KYC v2 names its pinned pre-release tag, never CIRCUITS_RELEASE_TAG', async () => {
+  it('a 404 for Coinbase KYC v2 names its pinned ref, never CIRCUITS_RELEASE_TAG', async () => {
     mockStatus = 404;
     const err = await downloadCircuitFiles('coinbase_attestation', 'production', undefined, () => {}).catch((e: Error) => e);
-    expect((err as Error).message).toContain('/circuits/v2.0.0-rc.1/');
-    expect((err as Error).message).toContain('circuits ref v2.0.0-rc.1 (src/config/circuitArtifacts.ts) does not contain this file');
+    expect((err as Error).message).toContain(`/circuits/${OPRF_REF}/`);
+    expect((err as Error).message).toContain(`circuits ref ${OPRF_REF} (src/config/circuitArtifacts.ts) does not contain this file`);
     expect((err as Error).message).not.toContain('CIRCUITS_RELEASE_TAG');
     expect(mockFiles.has('/docs/circuits/coinbase_attestation.json')).toBe(false);
   });
 
-  it('a 404 on main in staging is reported plainly, not as a missing release', async () => {
+  // GIWA and the Dojang Playground read LAB_CIRCUITS_REF (circuitArtifacts.ts)
+  // in every environment since 2026-11-17, not main.
+  it.each(['staging', 'production'] as const)('a 404 for a Laboratory circuit in %s names its pinned commit, never main or the release', async env => {
     mockStatus = 404;
-    const err = await downloadCircuitFiles('giwa_attestation', 'staging', undefined, () => {}).catch((e: Error) => e);
-    expect((err as Error).message).toContain('HTTP 404 from https://raw.githubusercontent.com/zkproofport/circuits/main/');
-    expect((err as Error).message).not.toContain('CIRCUITS_RELEASE_TAG');
-  });
-
-  it('a Laboratory circuit in production reads main, not the tag', async () => {
-    mockStatus = 404;
-    const err = await downloadCircuitFiles('giwa_attestation', 'production', undefined, () => {}).catch((e: Error) => e);
-    expect((err as Error).message).toContain('/circuits/main/');
+    const err = await downloadCircuitFiles('giwa_attestation', env, undefined, () => {}).catch((e: Error) => e);
+    const ref = OPRF_REF;
+    expect((err as Error).message).toContain(`HTTP 404 from https://raw.githubusercontent.com/zkproofport/circuits/${ref}/`);
+    expect((err as Error).message).toContain(`circuits ref ${ref} (src/config/circuitArtifacts.ts) does not contain this file`);
+    expect((err as Error).message).not.toContain('/circuits/main/');
     expect((err as Error).message).not.toContain('CIRCUITS_RELEASE_TAG');
   });
 });

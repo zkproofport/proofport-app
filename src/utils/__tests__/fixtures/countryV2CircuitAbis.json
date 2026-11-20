@@ -1,12 +1,12 @@
 {
   "source": {
-    "circuitsCommit": "75bec01f877aa8a500974dc65321b0455c677654",
-    "circuitsWorkingTreeChanged": false
+    "circuitsCommit": "9651df892c28fbeb9331ebc5358abfdf062c7c42",
+    "circuitsWorkingTreeChanged": true
   },
   "app_attest": {
     "package": "coinbase_country_attestation_v2",
-    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "d6e7eae3bb6e25806ce2f83c1e0bff48abd60aed6fa48d37d8fd076f64e34ca8",
+    "noirVersion": "1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c",
+    "jsonSha256": "cef3de939967117ccb770452862a0bb072d3b96f03fe4d66499b1e47be9d3ade",
     "parameters": [
       {
         "name": "signal_hash",
@@ -44,14 +44,24 @@
         "size": 1
       },
       {
+        "name": "oprf_key_hash",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "domain",
+        "visibility": "public",
+        "size": 1
+      },
+      {
         "name": "scope",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "nullifier",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "attested_at",
@@ -167,13 +177,48 @@
         "name": "assertion_auth_data_len",
         "visibility": "private",
         "size": 1
+      },
+      {
+        "name": "oprf_public_key_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_public_key_y",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_beta",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_e",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_s",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_y",
+        "visibility": "private",
+        "size": 1
       }
     ]
   },
   "android": {
     "package": "coinbase_country_attestation_v2_android",
-    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "1fe65925b510b251f13a7e847f35d092292aa62b91b2825d0333426c3a77c3c3",
+    "noirVersion": "1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c",
+    "jsonSha256": "0eaf23c85e2e1201f7e3f81092bad6b47064821882a2a9a8fdf34a61f7eaead4",
     "parameters": [
       {
         "name": "signal_hash",
@@ -211,14 +256,24 @@
         "size": 1
       },
       {
+        "name": "oprf_key_hash",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "domain",
+        "visibility": "public",
+        "size": 1
+      },
+      {
         "name": "scope",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "nullifier",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "attested_at",
@@ -349,13 +404,48 @@
         "name": "leaf_sig",
         "visibility": "private",
         "size": 64
+      },
+      {
+        "name": "oprf_public_key_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_public_key_y",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_beta",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_e",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_s",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_y",
+        "visibility": "private",
+        "size": 1
       }
     ]
   },
   "android_factory": {
     "package": "coinbase_country_attestation_v2_android_factory",
-    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "f5aeae850abd12c246bd60816dab7105e4ceb8f63d88f85699abcd948069e1e7",
+    "noirVersion": "1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c",
+    "jsonSha256": "b209d206f7236bc3bfa3610aa53f78edcb1475f125543b366c737b8b8c3a617d",
     "parameters": [
       {
         "name": "signal_hash",
@@ -393,14 +483,24 @@
         "size": 1
       },
       {
+        "name": "oprf_key_hash",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "domain",
+        "visibility": "public",
+        "size": 1
+      },
+      {
         "name": "scope",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "nullifier",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "attested_at",
@@ -546,6 +646,41 @@
         "name": "play_integrity_key",
         "visibility": "private",
         "size": 64
+      },
+      {
+        "name": "oprf_public_key_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_public_key_y",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_beta",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_e",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_s",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_y",
+        "visibility": "private",
+        "size": 1
       }
     ]
   }

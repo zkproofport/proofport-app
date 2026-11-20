@@ -76,6 +76,7 @@ jest.mock('../context', () => ({
   useThemeColors: () => ({colors: jest.requireActual('../theme').darkColors}),
 }));
 jest.mock('../utils/interruptedProof', () => ({reportInterruptedProof: async () => false}));
+jest.mock('../utils/circuitDownload', () => ({ensureCircuitDirectory: async () => {}}));
 jest.mock('../utils/errorBridge', () => ({showGlobalError: (...args: unknown[]) => mockError(...args)}));
 jest.mock('../utils/deepLinkBridge', () => ({registerDeepLinkHandler: (handler: typeof mockHandler) => {mockHandler = handler;}}));
 jest.mock('../hooks', () => ({useAppStateReset: ({onReset}: {onReset: () => void}) => {mockReset = onReset;}}));

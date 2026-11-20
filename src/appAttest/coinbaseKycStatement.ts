@@ -13,14 +13,14 @@
  * Runs before the wallet is asked to sign, so a phone that cannot sign or a
  * revoked verification is told so without a signature prompt first. That is
  * possible because the digest the wallet will sign is known in advance: the
- * signal hash is deterministic, and an EIP-712 action's digest is fixed by
- * the action.
+ * signal hash is fixed by the scope, circuit and request id, and an EIP-712
+ * action's digest is fixed by the action.
  */
 import {ethers} from 'ethers';
 import type {TypedAction} from '../config/circuitIds';
 import {currentSignerPlatform, type SignerPlatform} from '../config/signerPlatform';
-import {computeScope} from '../utils/circuitHelpers';
-import {coinbaseSignalHashFor} from '../utils/coinbaseSignal';
+import {oprfScopeBytesOf} from '../oprf/circuitInputs';
+import {signalHashBytes} from '../utils/signalHash';
 import type {CoinbaseStatementCircuit} from './coinbaseStatementKinds';
 import {signedDigestOf, whatTheWalletSigns} from '../utils/signedAction';
 import {
@@ -51,23 +51,35 @@ export interface CoinbaseKycStatementRequest {
   walletAddress: string;
   attestationUid: string;
   scopeString: string;
+  /** The request id the wallet's signal_hash names; the hook must be given the same one. */
+  requestId: string;
   action?: TypedAction;
   log: (msg: string) => void;
 }
 
 /** The digest the wallet will sign for this Coinbase KYC request -- the clientData's offset 161. */
-export function coinbaseRequestDigest(walletAddress: string, scopeString: string, action?: TypedAction): string {
-  return coinbaseRequestDigestFor('coinbase_attestation', walletAddress, scopeString, action);
+export function coinbaseRequestDigest(
+  walletAddress: string,
+  scopeString: string,
+  requestId: string,
+  action?: TypedAction,
+): string {
+  return coinbaseRequestDigestFor('coinbase_attestation', walletAddress, scopeString, requestId, action);
 }
 
-/** The same for either Coinbase circuit: the signal hash names the circuit. */
+/**
+ * The same for either Coinbase circuit: the signal hash names the circuit,
+ * the scope and the request -- never the wallet. `walletAddress` is unused by
+ * the digest; it stays in the signature so callers name the signer.
+ */
 export function coinbaseRequestDigestFor(
   circuit: CoinbaseStatementCircuit,
   walletAddress: string,
   scopeString: string,
+  requestId: string,
   action?: TypedAction,
 ): string {
-  const signal = action ? new Uint8Array(32) : coinbaseSignalHashFor(circuit, walletAddress, scopeString);
+  const signal = action ? new Uint8Array(32) : signalHashBytes({scope: scopeString, circuitId: circuit, requestId});
   return signedDigestOf(whatTheWalletSigns(ethers.utils.hexlify(signal), action));
 }
 
@@ -155,8 +167,9 @@ async function prepareCoinbaseStatement(
       circuit,
       wallet: req.walletAddress,
       attestationUid: req.attestationUid,
-      requestDigest: coinbaseRequestDigestFor(circuit, req.walletAddress, req.scopeString, req.action),
-      scope: computeScope(req.scopeString),
+      requestDigest: coinbaseRequestDigestFor(circuit, req.walletAddress, req.scopeString, req.requestId, req.action),
+      // The scope FIELD (keccak256 mod p) the circuit publishes since the OPRF nullifier.
+      scope: oprfScopeBytesOf(req.scopeString),
       ...(req.transactionCountry !== undefined ? {transactionCountry: req.transactionCountry} : {}),
     },
     req,

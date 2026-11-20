@@ -4,6 +4,7 @@ import {Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image} from
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {normalizeReturnScheme, type ProofRequest} from '../utils/deeplink';
 import {isCircuitId} from '../config/circuitIds';
+import {isOprfCircuit} from '../oprf/config';
 import {useProofUiColors} from '../theme/proofUi';
 import {deliveryHost, reviewBlockReason} from '../utils/requestReview';
 import {getProofRequestPresentation} from '../utils/proofRequestPresentation';
@@ -54,6 +55,7 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
   const detailsExpanded = detailsFor === request;
   const returnTarget = normalizeReturnScheme(request.returnScheme);
   const inputs = request.inputs as {action?: unknown};
+  const oprfInputs = request.inputs as {oprfDomain?: unknown; scope?: unknown} | undefined;
   const action = inputs?.action;
   const primary = {color: colors.text};
   const secondary = {color: colors.secondary};
@@ -117,6 +119,16 @@ export const ProofRequestModal: React.FC<ProofRequestModalProps> = ({
                   </View>}
                 <View style={styles.requesterBody}>
                   <Text selectable style={[styles.requester, secondary]}>{requesterName}</Text>
+                  {/* The OPRF domain and scope the nullifier is keyed by, as the request
+                      carries them: dApp-supplied public values, shown as plain text. */}
+                  {isOprfCircuit(request.circuit) && <View testID="request-oprf-names" style={styles.oprfNames}>
+                    <Text testID="request-oprf-domain" selectable lineBreakStrategyIOS="hangul-word" style={[styles.oprfName, primary]}>
+                      <Text style={secondary}>{t('host.proofRequest.review.oprfDomain')}  </Text>{formatReviewScalar(oprfInputs?.oprfDomain, t)}
+                    </Text>
+                    <Text testID="request-oprf-scope" selectable lineBreakStrategyIOS="hangul-word" style={[styles.oprfName, primary]}>
+                      <Text style={secondary}>{t('host.proofRequest.review.oprfScope')}  </Text>{formatReviewScalar(oprfInputs?.scope, t)}
+                    </Text>
+                  </View>}
                   {request.dappName !== undefined && typeof request.dappName !== 'string'
                     && <ReadonlyValue label="dappName" value={request.dappName} />}
                   <Text lineBreakStrategyIOS="hangul-word" style={[styles.requestTitle, primary]}>{presentation?.title ?? t('host.proofRequest.review.unsupported')}</Text>
@@ -224,6 +236,8 @@ const styles = StyleSheet.create({
   initial: {fontSize: 24, lineHeight: 32, fontWeight: '600'},
   requesterBody: {flex: 1, gap: 5},
   requester: {fontSize: 12, lineHeight: 17},
+  oprfNames: {gap: 2},
+  oprfName: {fontSize: 14, lineHeight: 20, fontWeight: '600'},
   requestTitle: {fontSize: 20, lineHeight: 29, fontWeight: '700'},
   message: {fontSize: 13, lineHeight: 20},
   inset: {paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderWidth: 1},

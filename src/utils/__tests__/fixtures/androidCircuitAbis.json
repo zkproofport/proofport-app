@@ -1,13 +1,13 @@
 {
   "source": {
-    "circuitsCommit": "c0d974d780295838f513c05a3d25220f43011936",
+    "circuitsCommit": "9651df892c28fbeb9331ebc5358abfdf062c7c42",
     "circuitsWorkingTreeChanged": true,
-    "chainJsSha256": "dd018a6577ba2386bc9906d4027f3712f98d469f67264e91cbc97ed9881d6273"
+    "chainJsSha256": "927a08199beae7cab80b8bdc4ac679817a7cbd841c986313d998180d82cac3c2"
   },
   "oidc_domain_attestation": {
     "package": "oidc_domain_attestation_android",
-    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "b1355319b2fd81325b6cc1d3286890ef52a9f119f84b8d77f9d75dca37863273",
+    "noirVersion": "1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c",
+    "jsonSha256": "f1f23c6dfd6c1776d36b467c65abc835bb986177d8a3710a6aafc49e698a5f69",
     "parameters": [
       {
         "name": "pubkey_modulus_limbs",
@@ -153,8 +153,8 @@
   },
   "coinbase_attestation": {
     "package": "coinbase_attestation_v2_android",
-    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "5ca4110d99ec258d5b1ffec1073c95c2ec6a7a0f00267ccf88089eff9273c4f0",
+    "noirVersion": "1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c",
+    "jsonSha256": "73c59ed1a819b28d25d72581e6a2a4b79e5b893be69e6e2ce90892ae36a60bbf",
     "parameters": [
       {
         "name": "signal_hash",
@@ -177,14 +177,24 @@
         "size": 32
       },
       {
+        "name": "oprf_key_hash",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "domain",
+        "visibility": "public",
+        "size": 1
+      },
+      {
         "name": "scope",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "nullifier",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "attested_at",
@@ -315,13 +325,48 @@
         "name": "leaf_sig",
         "visibility": "private",
         "size": 64
+      },
+      {
+        "name": "oprf_public_key_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_public_key_y",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_beta",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_e",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_s",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_y",
+        "visibility": "private",
+        "size": 1
       }
     ]
   },
   "oidc_domain_attestation_factory": {
     "package": "oidc_domain_attestation_android_factory",
-    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "fb321834fc621f40c0187c4cc16bb2e72612c872db16d9c83c9d6d8b6bb4852b",
+    "noirVersion": "1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c",
+    "jsonSha256": "30cd7433e4e354906f1faa83f2f979b4b3952f3d4aad61e5309536998c1656a2",
     "parameters": [
       {
         "name": "pubkey_modulus_limbs",
@@ -482,8 +527,8 @@
   },
   "coinbase_attestation_factory": {
     "package": "coinbase_attestation_v2_android_factory",
-    "noirVersion": "1.0.0-beta.19+74d6be658e1ad252f87943292ba09bdd4da80bd4",
-    "jsonSha256": "15cbd4fb5b4b504a02fd09de21baba68338ae771d48d8558a731c676153531a3",
+    "noirVersion": "1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c",
+    "jsonSha256": "a242c9380216bc0c0148747958c7cdd9ec78b0b9eed84022847c51842b3318de",
     "parameters": [
       {
         "name": "signal_hash",
@@ -506,14 +551,24 @@
         "size": 32
       },
       {
+        "name": "oprf_key_hash",
+        "visibility": "public",
+        "size": 1
+      },
+      {
+        "name": "domain",
+        "visibility": "public",
+        "size": 1
+      },
+      {
         "name": "scope",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "nullifier",
         "visibility": "public",
-        "size": 32
+        "size": 1
       },
       {
         "name": "attested_at",
@@ -659,6 +714,41 @@
         "name": "play_integrity_key",
         "visibility": "private",
         "size": 64
+      },
+      {
+        "name": "oprf_public_key_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_public_key_y",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_beta",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_e",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_dlog_s",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_x",
+        "visibility": "private",
+        "size": 1
+      },
+      {
+        "name": "oprf_response_y",
+        "visibility": "private",
+        "size": 1
       }
     ]
   }

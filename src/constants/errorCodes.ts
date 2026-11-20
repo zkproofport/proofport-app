@@ -64,6 +64,15 @@ export const ErrorCodes = {
       'This version of ZKProofport is no longer supported. Update the app, then start the request again.',
   },
 
+  // The request names no usable OPRF domain (the requesting app) or scope
+  // (src/oprf/requestNames.ts): refused before anything is signed.
+  E1010: {
+    code: 'E1010',
+    title: "Requester Not Named",
+    description:
+      "This proof request does not name the app that asked for it in a form that can be used, so no proof was generated. Start a new request from that app.",
+  },
+
   // Proof generation errors
   E2001: {
     code: 'E2001',
@@ -214,6 +223,15 @@ export const ErrorCodes = {
       'Your Human Passport score carries more stamp data than this proof can hold, so no proof was generated.',
   },
 
+  // The OPRF nodes' answer did not check out (Chaum-Pedersen proof, pinned
+  // key hash, points): src/oprf/flow.ts.
+  E2024: {
+    code: 'E2024',
+    title: "Private Identifier Check Failed",
+    description:
+      "The private identifier for this proof did not pass its check, so no proof was generated. Please try again.",
+  },
+
   // Network errors
   E3001: {
     code: 'E3001',
@@ -274,6 +292,28 @@ export const ErrorCodes = {
     title: "Couldn't Open the Store",
     description:
       'The app store could not be opened. Open the App Store or Google Play yourself and update ZKProofport.',
+  },
+
+  // OPRF nodes: too few answered in time (E3010, passing: retry), no network
+  // or key for this build's environment (E3011, production today), the
+  // nodes refused the request (E3012). src/oprf/flow.ts.
+  E3010: {
+    code: 'E3010',
+    title: "Private Identifier Unreachable",
+    description:
+      "The private identifier for this proof could not be obtained. Check your connection and try again. Nothing was generated.",
+  },
+  E3011: {
+    code: 'E3011',
+    title: "Proof Unavailable",
+    description:
+      "This proof cannot be generated in this version of ZKProofport.",
+  },
+  E3012: {
+    code: 'E3012',
+    title: "Private Identifier Refused",
+    description:
+      "The request for this proof's private identifier was refused, so no proof was generated. Start the request again.",
   },
 
   // Wallet errors

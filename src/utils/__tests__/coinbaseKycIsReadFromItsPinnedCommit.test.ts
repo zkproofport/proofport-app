@@ -35,7 +35,13 @@ jest.mock('react-native-fs', () => ({
   },
 }));
 
-import {circuitArtifactSource, coinbaseKycArtifact} from '../../config/circuitArtifacts';
+import {__setOprfCircuitsRefForTests, circuitArtifactSource, coinbaseKycArtifact, OPRF_CIRCUITS_REF} from '../../config/circuitArtifacts';
+
+// Coinbase KYC v2 (and every wallet credential circuit) reads OPRF_CIRCUITS_REF
+// since the OPRF nullifier: empty until pushed. These cases run with a test commit.
+const OPRF_REF = 'c0ffee'.repeat(6) + 'c0ff';
+__setOprfCircuitsRefForTests(OPRF_REF);
+const LAB_CIRCUITS_REF = OPRF_REF;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {downloadCircuitFiles, circuitBaseUrl, circuitDataVersion} = require('../circuitDownload');
 
@@ -48,11 +54,13 @@ beforeEach(() => {
 });
 
 describe('coinbase_attestation (v2)', () => {
-  it('is pinned to a circuits pre-release tag, never a branch', () => {
-    // v2.0.0-rc.1 is a GitHub pre-release on circuits commit b0ca9fe. A branch
-    // name (main, coinbase-app-attest-poc) would move under installed apps.
-    expect(coinbaseKycArtifact().ref).toMatch(/^v\d+\.\d+\.\d+-rc\.\d+$/);
-    expect(coinbaseKycArtifact().ref).toBe('v2.0.0-rc.1');
+  it('is pinned to OPRF_CIRCUITS_REF (a full commit once filled; empty today, refused by name)', () => {
+    expect(coinbaseKycArtifact().refName).toBe('OPRF_CIRCUITS_REF');
+    expect(coinbaseKycArtifact().ref).toBe(OPRF_REF);
+    __setOprfCircuitsRefForTests(null);
+    expect(coinbaseKycArtifact().ref).toBe(OPRF_CIRCUITS_REF);
+    expect(OPRF_CIRCUITS_REF).toBe('');
+    __setOprfCircuitsRefForTests(OPRF_REF);
   });
 
   it.each(['development', 'staging', 'production'])('downloads from that commit in a %s build, stored as coinbase_attestation', async env => {
@@ -84,10 +92,10 @@ describe('coinbase_attestation (v2)', () => {
     expect(circuitDataVersion('coinbase_attestation')).toBe(coinbaseKycArtifact().dataVersion);
   });
 
-  it('leaves every other circuit on main / its release', async () => {
+  it('leaves every other circuit on its own pinned ref, never main', async () => {
     expect(circuitArtifactSource('__proto__')).toBeUndefined();
     await downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {});
-    expect(mockDownloads[0].fromUrl).toBe('https://raw.githubusercontent.com/zkproofport/circuits/main/giwa-attestation/target/giwa_attestation.json');
+    expect(mockDownloads[0].fromUrl).toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${LAB_CIRCUITS_REF}/giwa-attestation/target/giwa_attestation.json`);
   });
 });
 

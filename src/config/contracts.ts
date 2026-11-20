@@ -64,7 +64,9 @@ export interface StaticConfig {
    * - development / staging: the branch `CIRCUITS_BRANCH` (`main`), on purpose:
    *   test builds follow the circuits as they are developed.
    * - production: exactly `CIRCUITS_RELEASE_TAG`, fixed at build time.
-   * The Laboratory circuits read `main` in every build (MAIN_BRANCH_CIRCUIT_IDS).
+   * Reached only by a circuit with no pinned row in circuitArtifacts.ts, and
+   * every circuit has one today (each row's exact ref is read in every
+   * environment; the Laboratory circuits' is LAB_CIRCUITS_REF).
    */
   circuitsSource:
     | {type: 'branch'; branch: string}
@@ -80,9 +82,10 @@ export const AUTHORIZED_SIGNERS = [
 
 const GITHUB_REPO = 'zkproofport/circuits';
 /**
- * The circuits branch that development and staging builds, and the main-only
- * circuits in every build, read from. Named once so a build can be pointed at
- * another branch -- a toolchain change, say -- by changing one line.
+ * The circuits branch that development and staging builds read from for a
+ * circuit with no pinned row in circuitArtifacts.ts (none today). No circuit
+ * reads it in a production build, and the Laboratory circuits no longer read
+ * it anywhere (LAB_CIRCUITS_REF, since 2026-11-17).
  */
 export const CIRCUITS_BRANCH = 'main';
 
@@ -99,10 +102,13 @@ export const CIRCUITS_BRANCH = 'main';
  * Now a new circuit set reaches users only with a new app version that names
  * it here.
  *
- * `v2.0.0` is the tag planned for the OIDC v2 / beta.19 circuit set. It does
- * not exist yet; a production build made before it is published fails at
- * launch (E3007) and at circuit download (E3005) naming this tag. It never
- * falls back to `main` or to another release.
+ * `v2.0.0` is the OIDC v2 / beta.19 circuit set, published 2026-10-29 as a
+ * GitHub pre-release (circuits 2a06942). Its files and verifiers are the
+ * nargo 1.0.0-beta.19 / bb 4.2 ones: a build with the Noir 1.0.0 / bb 6.0.0
+ * prover needs a tag carrying the 1.0.0 files and the redeployed verifiers'
+ * broadcast records (app-dev.md "Noir 1.0.0 / bb 6.0.0 prover"). A tag that
+ * does not exist fails at launch (E3007) and at circuit download (E3005)
+ * naming it; it never falls back to `main` or to another release.
  */
 export const CIRCUITS_RELEASE_TAG = 'v2.0.0';
 const GITHUB_RAW = (ref: string) =>
@@ -302,14 +308,28 @@ export const CIRCUIT_FILE_PATHS: Record<CircuitName, CircuitFilePaths | null> =
  * Only bump the circuit that actually changed.
  */
 export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
-  // Every circuit bumped together for the nargo 1.0.0-beta.19 / bb 4.2.0
-  // toolchain: the bytecode, keys and reference strings all changed, and a
-  // device holding the old files would hand beta.8 bytecode to the new prover.
-  coinbase_attestation: 2,
+  // Every circuit bumped together again for the Noir 1.0.0 / bb 6.0.0
+  // toolchain (mopro/vendor/noir-rs): every key differs, and a device holding
+  // beta.19 / bb 4.2 files would hand them to the new prover. The pinned rows
+  // in circuitArtifacts.ts carry their own versions, bumped the same day (GIWA
+  // and the Dojang Playground's rows carry these two). Every circuit's files
+  // now come from a pinned ref, and moving a ref replaces cached files by
+  // itself (the stored base URL names the ref); these numbers keep a file set
+  // cached under the old toolchain from being reused when the ref has not
+  // moved yet.
+  //
+  // v2: nargo 1.0.0-beta.19 / bb 4.2.0 (every circuit bumped together).
+  // v5: Noir 1.0.0 / bb 6.0.0, above the Android rows' 3 and 4. Read from
+  // the pinned ref in circuitArtifacts.ts, whose iPhone row carries the same
+  // version.
+  // v8: OPRF nullifier (133 public inputs), OPRF_CIRCUITS_REF.
+  coinbase_attestation: 8,
   // v3: Coinbase Country v2 (215 public inputs, device statement); read from
   // the pinned ref in circuitArtifacts.ts, whose iPhone row carries the same
   // version. v1's files (version 2) are deleted and fetched again.
-  coinbase_country_attestation: 3,
+  // v6: Noir 1.0.0 / bb 6.0.0, above the old Android rows' 4 and 5.
+  // v9: OPRF nullifier (155 public inputs), OPRF_CIRCUITS_REF.
+  coinbase_country_attestation: 9,
   // v4: provider public input + MAX_PARTIAL_DATA_LENGTH 768.
   // v5: OIDC v2 (circuits a874776) -- aud_hash, nonce_mode, nonce_binding, now
   // appended (148 -> 214 public inputs), MAX_PARTIAL_DATA_LENGTH 2048. A v4
@@ -317,15 +337,22 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // v6: provider-key statement (circuits oidc-signature): ten private signer
   // inputs after signature_limbs; public inputs unchanged. Read from the
   // pinned ref in circuitArtifacts.ts, whose row carries the same version.
-  oidc_domain_attestation: 6,
+  // v9: Noir 1.0.0 / bb 6.0.0, above the old Android rows' 7 and 8.
+  oidc_domain_attestation: 9,
   // v2: the circuit signs an EIP-712 action when one is supplied, dropped
   // signal_hash from the nullifier, and grew from 128 to 192 public inputs.
-  giwa_attestation: 3,
+  // v4: Noir 1.0.0 / bb 6.0.0.
+  // v5: OPRF nullifier (132 public inputs), OPRF_CIRCUITS_REF.
+  giwa_attestation: 5,
   // v1: first release of the circuit (circuits 4bba5ed).
-  dojang_playground: 2,
+  // v3: Noir 1.0.0 / bb 6.0.0.
+  // v4: OPRF nullifier (100 public inputs, 2^19), OPRF_CIRCUITS_REF.
+  dojang_playground: 4,
   // v1: first release (circuits human-passport-score); read from the pinned
   // ref in circuitArtifacts.ts, whose row carries the same version.
-  human_passport_score: 1,
+  // v2: Noir 1.0.0 / bb 6.0.0.
+  // v3: OPRF nullifier (135 public inputs), OPRF_CIRCUITS_REF.
+  human_passport_score: 3,
 };
 
 /**

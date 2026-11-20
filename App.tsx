@@ -47,6 +47,7 @@ import {isUpdateRequired, useForceUpdate} from './src/hooks/useForceUpdate';
 import {answerRelayRequest, answerRequestsLeftOpen, rememberOpenRelayRequest} from './src/utils/relayAnswer';
 import {laboratoryRequestGate, type LaboratoryGate} from './src/utils/laboratory';
 import {reportInterruptedProof} from './src/utils/interruptedProof';
+import {ensureCircuitDirectory} from './src/utils/circuitDownload';
 import {isGenerationScreenIdle, onGenerationScreenIdle} from './src/stores/generationScreenStore';
 
 /** The responder never rejects; this only makes an impossible failure loud. */
@@ -392,6 +393,10 @@ const App: React.FC = () => {
     // A proof that was still running when an earlier run died is said out
     // loud (E2019) instead of leaving a History entry "in progress" forever.
     reportInterruptedProof().catch(error => console.error('[App] Reporting an interrupted proof failed:', error));
+    // Downloaded circuits can be fetched again, so on iOS their directory is
+    // flagged out of backup at every launch, an existing one included
+    // (circuitBackup.ts).
+    ensureCircuitDirectory().catch(error => console.error('[App] Preparing the circuits directory failed:', error));
   }, []);
 
   // Listen for deep links

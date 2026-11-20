@@ -33,6 +33,7 @@ import {CHAIN_KIND_PROBE, ensureAndroidChainKind, signStatementOnAndroid} from '
 import {isAndroidFactorySignerInputs} from '../androidSignerInputs';
 import {ANDROID_NATIVE_CODE} from '../nativeAndroidKeyAttestation';
 import rkp from '../../utils/__tests__/fixtures/androidChainVectors.json';
+const REQUEST_ID = '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f';
 
 const s = factory.synthetic;
 const tokens = s.tokens as unknown as Record<string, {relay: {protectedHeader: string; payload: string; signature: string}; payloadB64Padded: string; payloadB64Len: number; signatureLow: string}>;
@@ -194,7 +195,7 @@ describe('Coinbase KYC v2 on a factory phone', () => {
     // runs; the nonce is then this clientData's, which the verdict does not
     // carry -- refused as E2016, after exactly one verdict request.
     const code = await codeOf(prepareCoinbaseKycStatement(
-      {walletAddress: wallet, attestationUid: '0x' + 'cd'.repeat(32), scopeString: 'scope', log: () => {}},
+      {walletAddress: wallet, attestationUid: '0x' + 'cd'.repeat(32), scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {
         android: {native: phone.native as never, trust: TRUST, integrity},
         revocation: {

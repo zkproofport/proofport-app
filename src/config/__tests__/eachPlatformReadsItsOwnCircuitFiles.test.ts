@@ -37,6 +37,7 @@ jest.mock('react-native', () => ({NativeModules: {}, Platform: mockPlatform}));
 
 import {
   ANDROID_SIGNATURE_CIRCUITS_REF,
+  OPRF_CIRCUITS_REF,
   artifactSourceFor,
   circuitArtifactSource,
   circuitFilesDecidableNow,
@@ -100,6 +101,11 @@ describe('the platform and the Android chain kind', () => {
   });
 });
 
+// Coinbase KYC's Android rows read OPRF_CIRCUITS_REF since the OPRF nullifier
+// (one commit for every OPRF circuit, empty until it is pushed); OIDC's keep
+// ANDROID_SIGNATURE_CIRCUITS_REF.
+const ANDROID_REF = {coinbase_attestation: ['OPRF_CIRCUITS_REF', OPRF_CIRCUITS_REF], oidc_domain_attestation: ['ANDROID_SIGNATURE_CIRCUITS_REF', ANDROID_SIGNATURE_CIRCUITS_REF]} as const;
+
 describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s', id => {
   it('has a row for each signer: the iPhone package, and two Android packages with a split .srs', () => {
     const ios = artifactSourceFor(id, 'app_attest')!;
@@ -111,7 +117,7 @@ describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s'
     expect(factory.publicInputCount).toBe(ios.publicInputCount);
     expect(new Set([ios.dataVersion, android.dataVersion, factory.dataVersion]).size).toBe(3);
     expect(factory.srsParts).toBe(3);
-    expect(factory.ref).toBe(ANDROID_SIGNATURE_CIRCUITS_REF);
+    expect(factory.ref).toBe(ANDROID_REF[id][1]);
     expect(ios.variant).toBe('app_attest');
     expect(android.variant).toBe('android');
     expect(ios.srsParts).toBeNull();
@@ -124,8 +130,8 @@ describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s'
     // ceil(134,217,940 / 64 MiB) = 3: every part at most 64 MiB.
     expect(android.srsParts).toBe(3);
     expect(SRS_2_21_BYTES / android.srsParts!).toBeLessThanOrEqual(SRS_PART_MAX_BYTES);
-    expect(android.ref).toBe(ANDROID_SIGNATURE_CIRCUITS_REF);
-    expect(android.refName).toBe('ANDROID_SIGNATURE_CIRCUITS_REF');
+    expect(android.ref).toBe(ANDROID_REF[id][1]);
+    expect(android.refName).toBe(ANDROID_REF[id][0]);
   });
 
   it("this phone's platform and chain kind pick the row", () => {
@@ -153,13 +159,24 @@ describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s'
   });
 });
 
+describe('the OPRF circuits ref', () => {
+  it('is empty until the OPRF circuits are pushed, and every Coinbase KYC download ends at an error naming it', async () => {
+    expect(OPRF_CIRCUITS_REF).toBe('');
+    for (const kind of ['android', 'android_factory'] as const) {
+      mockPlatform.OS = 'android';
+      __setAndroidChainKindForTests(kind);
+      await expect(circuitBaseUrl('coinbase_attestation', 'staging')).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+    }
+  });
+});
+
 describe('the Android circuits ref', () => {
   it('is a full 40-hex commit -- never a branch, a tag or empty', () => {
     expect(ANDROID_SIGNATURE_CIRCUITS_REF).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it.each(['android', 'android_factory'])('refuses a branch name or a short sha on an %s row, naming the constant', variant => {
-    const row = artifactSourceFor('coinbase_attestation', variant)!;
+    const row = artifactSourceFor('oidc_domain_attestation', variant)!;
     expect(() => requireArtifactRef({...row, ref: 'android-signature'})).toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is 'android-signature': set it to the 40-hex/);
     expect(() => requireArtifactRef({...row, ref: 'abcdef1'})).toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is 'abcdef1'/);
     expect(() => requireArtifactRef({...row, ref: ''})).toThrow(/ANDROID_SIGNATURE_CIRCUITS_REF is empty/);
@@ -168,7 +185,7 @@ describe('the Android circuits ref', () => {
 
   it.each([
     ['android', 'oidc_domain_attestation', 'oidc-domain-attestation-android/target/oidc_domain_attestation_android'],
-    ['android_factory', 'coinbase_attestation', 'coinbase-attestation-v2-android-factory/target/coinbase_attestation_v2_android_factory'],
+    ['android_factory', 'oidc_domain_attestation', 'oidc-domain-attestation-android-factory/target/oidc_domain_attestation_android_factory'],
   ] as const)('an %s phone reads %s from the filled commit, under its own package', async (kind, id, file) => {
     const RAW = `https://raw.githubusercontent.com/zkproofport/circuits/${ANDROID_SIGNATURE_CIRCUITS_REF}`;
     mockPlatform.OS = 'android';
@@ -187,13 +204,20 @@ describe('the Android circuits ref', () => {
 describe('every other circuit', () => {
   it('never asks the platform', async () => {
     mockPlatform.OS = 'web'; // would throw if read
-    for (const id of ['giwa_attestation', 'dojang_playground', 'no_such_circuit', '__proto__']) {
+    // The Laboratory circuits have one signer-independent row (OPRF_CIRCUITS_REF since the OPRF nullifier).
+    for (const id of ['giwa_attestation', 'dojang_playground']) {
+      expect(hasPinnedArtifactSource(id)).toBe(true);
+      expect(circuitArtifactSource(id)?.refName).toBe('OPRF_CIRCUITS_REF');
+      expect(circuitFilesDecidableNow(id)).toBe(true);
+    }
+    for (const id of ['no_such_circuit', '__proto__']) {
       expect(hasPinnedArtifactSource(id)).toBe(false);
       expect(circuitArtifactSource(id)).toBeUndefined();
       expect(circuitFilesDecidableNow(id)).toBe(true);
     }
-    await downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {});
-    expect(mockDownloads[0]).toBe('https://raw.githubusercontent.com/zkproofport/circuits/main/giwa-attestation/target/giwa_attestation.json');
+    // Signer-independent: the download fails at the (empty) OPRF ref, not at the platform.
+    await expect(downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {})).rejects.toThrow(/OPRF_CIRCUITS_REF is empty/);
+    expect(mockDownloads).toHaveLength(0);
   });
 });
 

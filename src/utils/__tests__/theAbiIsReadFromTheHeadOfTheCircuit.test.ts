@@ -46,6 +46,20 @@ describe('the ABI comes from the head of the file', () => {
     expect(mockRangeReads).toEqual([{path: '/c/x.json', length: ABI_HEAD_BYTES, position: 0}]);
   });
 
+  it('nargo 1.0.0 order (artifact_version first): one read of the first window', async () => {
+    publish({
+      artifact_version: 1,
+      noir_version: '1.0.0+275d3ab1a5c916c6ea73e8d6b943f685f574500c',
+      hash: '14919626287629501664',
+      abi: abi(['signal_hash', 'scope']),
+      bytecode: 'A'.repeat(8_000_000),
+      debug_symbols: {},
+      file_map: {},
+    });
+    await expect(circuitAbiParameterNames('x')).resolves.toEqual(['signal_hash', 'scope']);
+    expect(mockRangeReads).toEqual([{path: '/c/x.json', length: ABI_HEAD_BYTES, position: 0}]);
+  });
+
   it('an ABI after the bytecode is still found, by growing the window', async () => {
     publish({bytecode: 'B'.repeat(300_000), abi: abi(['a', 'b'])});
     await expect(circuitAbiParameterNames('x')).resolves.toEqual(['a', 'b']);

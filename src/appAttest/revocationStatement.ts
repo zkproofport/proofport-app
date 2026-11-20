@@ -126,7 +126,7 @@ export interface RevocationStatementRequest {
   attestationUid: string;
   /** The 32 bytes the wallet will sign for this request. */
   requestDigest: string;
-  /** keccak256(scope string). */
+  /** keccak256(scope string) mod p, 32 bytes big-endian (the circuit's scope Field). */
   scope: Uint8Array;
   /**
    * Country v2 only, and required there: the country of the attestCountry
