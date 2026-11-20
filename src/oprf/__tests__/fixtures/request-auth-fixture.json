@@ -1,5 +1,5 @@
 {
- "source": "circuits/oprf-request-auth-poc Prover.toml (proofport-oprf/scripts/make-fixtures.sh: anvil account 0, deadline 1794926534) and target/proof/public_inputs from circuits/scripts/build.sh (nargo 1.0.0 / bb 6.0.0), copied 2026-11-20",
+ "source": "circuits/oprf-request-auth Prover.toml (proofport-oprf/scripts/make-fixtures.sh: anvil account 0, deadline 1794926534) and target/proof/public_inputs from circuits/scripts/build.sh (nargo 1.0.0 / bb 6.0.0), copied 2026-11-20",
  "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
  "domainName": "zkproofport.app",
  "scopeName": "oprf-fixture",

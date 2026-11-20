@@ -98,7 +98,7 @@ export type OprfAuthMode =
   | {kind: 'api-key'; apiKey: string}
   /**
    * The wallet signs the EIP-712 OprfRequest and the app proves the blinded
-   * query is that wallet's (circuits/oprf-request-auth-poc; checked by the
+   * query is that wallet's (circuits/oprf-request-auth; checked by the
    * request verifier beside each node, proofport-oprf/REQUEST-VERIFIER.md).
    */
   | {kind: 'request-auth-v1'; apiKey?: string};

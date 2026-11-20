@@ -304,7 +304,7 @@ MUTATIONS: list[Mutation] = [
              "  oidc_domain_attestation: 6,",
              SOURCE_TEST, "OIDC is at v9, the provider-key-statement circuit on Noir 1.0.0 / bb 6.0.0, in both tables"),
     Mutation("oidc-files-from-a-branch", ARTIFACTS,
-             "export const OIDC_SIGNATURE_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614ea85';",
+             "export const OIDC_SIGNATURE_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce2cb6';",
              "export const OIDC_SIGNATURE_CIRCUITS_REF = 'oidc-signature';",
              SOURCE_TEST, "is a full commit SHA, not a branch"),
     Mutation("oidc-verifier-from-broadcast", CONTRACTS,

@@ -4,7 +4,7 @@
  * environment / circuit / key-hash table (src/oprf/config.ts), the deadline
  * and typed data (core mirror), points (off-curve, outside the subgroup,
  * identity), and the request-proof witness against the circuit's own
- * Prover.toml (circuits/oprf-request-auth-poc, fixtures/request-auth-fixture.json).
+ * Prover.toml (circuits/oprf-request-auth, fixtures/request-auth-fixture.json).
  */
 import {ethers} from 'ethers';
 import {oprfNamesFor, IN_APP_OPRF_DOMAIN, OprfNameRefusedError, requesterDomainForDisplay} from '../requestNames';
@@ -206,7 +206,7 @@ describe('the request proof\'s witness', () => {
   });
   const hexB = (b: number[]) => b.map(x => '0x' + x.toString(16).padStart(2, '0'));
 
-  it('equals circuits/oprf-request-auth-poc/Prover.toml, input for input', () => {
+  it('equals circuits/oprf-request-auth/Prover.toml, input for input', () => {
     const inputs = requestAuthInputs({domainName: fixture.domainName, scopeName: fixture.scopeName, deadline: fixture.deadline, signature}, fixture.address, fixture.beta);
     expect(inputs).toEqual([
       ...hexB(fixture.digest), fixture.domain, fixture.scope,

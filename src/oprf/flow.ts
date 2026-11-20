@@ -56,7 +56,7 @@ export class OprfError extends Error {
 export interface OprfFlowDeps {
   /** eth_signTypedData_v4 with the JSON payload; resolves to the 65-byte signature. */
   signTypedData: (eip712Json: string) => Promise<string>;
-  /** Prove circuits/oprf-request-auth-poc on these inputs; bare proof + its public inputs. */
+  /** Prove circuits/oprf-request-auth on these inputs; bare proof + its public inputs. */
   proveRequestAuth: (inputs: string[]) => Promise<{proof: Uint8Array; publicInputs: string[]}>;
   connect: NodeConnector;
   nowSeconds: () => number;

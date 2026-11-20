@@ -85,7 +85,7 @@ describe('the request circuit\'s download entry', () => {
     expect(isAuxiliaryCircuitId('coinbase_attestation')).toBe(false);
     const row = artifactSourceFor(REQUEST_AUTH_CIRCUIT, 'android')!;
     expect(row).toBe(artifactSourceFor(REQUEST_AUTH_CIRCUIT, 'app_attest'));
-    expect(row).toMatchObject({refName: 'OPRF_CIRCUITS_REF', basePath: 'oprf-request-auth-poc/target', remoteFileName: 'oprf_request_auth_poc', publicInputCount: 36, srsParts: null});
+    expect(row).toMatchObject({refName: 'OPRF_CIRCUITS_REF', basePath: 'oprf-request-auth/target', remoteFileName: 'oprf_request_auth', publicInputCount: 36, srsParts: null});
     expect(circuitDataVersion(REQUEST_AUTH_CIRCUIT)).toBe(1);
   });
 

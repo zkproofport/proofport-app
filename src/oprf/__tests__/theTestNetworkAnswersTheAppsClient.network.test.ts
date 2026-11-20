@@ -11,7 +11,7 @@
  * key is the one pinned for staging. What it does not: that a node checks the
  * request proof -- the test network's `basic` module does not, so the proof
  * here is a placeholder of the right length and public inputs (the real one is
- * proved on the phone from circuits/oprf-request-auth-poc).
+ * proved on the phone from circuits/oprf-request-auth).
  */
 import {ethers} from 'ethers';
 import {webcrypto} from 'crypto';

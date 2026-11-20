@@ -79,8 +79,9 @@ import {
 } from './signerPlatform';
 
 /**
- * zkproofport/circuits ddf11f0 (branch toolchain-upgrade, 2026-11-20):
- * oidc_domain_attestation with the provider-key statement, rebuilt with nargo
+ * zkproofport/circuits 2181748 (branch toolchain-upgrade, 2026-11-20; the
+ * ddf11f0 artifacts plus the request circuit and the bb 6 testnet verifier
+ * records): oidc_domain_attestation with the provider-key statement, rebuilt with nargo
  * 1.0.0 / bb 6.0.0 and noir-bignum 0.10 (RSA signature limbs range-checked;
  * Barrett parameter 2^(2*2048+6), the shift rsaBarrett.ts uses), 2^20, 214
  * public inputs, checked against its target/SHA256SUMS and
@@ -88,7 +89,7 @@ import {
  * files no longer match this app's input builder or prover. The same commit
  * as OPRF_CIRCUITS_REF.
  */
-export const OIDC_SIGNATURE_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614ea85';
+export const OIDC_SIGNATURE_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce2cb6';
 
 /**
  * The zkproofport/circuits commit carrying the CI-built Android packages
@@ -100,11 +101,11 @@ export const OIDC_SIGNATURE_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614
  * .srs in three parts. Testnet verifiers: circuits e02e674.
  */
 // Now read only by the OIDC Android rows (Coinbase KYC's Android rows moved
-// to OPRF_CIRCUITS_REF). Moved 2026-11-20 to ddf11f0 (branch
+// to OPRF_CIRCUITS_REF). Moved 2026-11-20 to ddf11f0, then 2181748 (branch
 // toolchain-upgrade): nargo 1.0.0 / bb 6.0.0, noir-bignum 0.10, both OIDC
 // Android packages 2^21 with the .srs in three parts; the same commit as
 // OIDC_SIGNATURE_CIRCUITS_REF and OPRF_CIRCUITS_REF.
-export const ANDROID_SIGNATURE_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614ea85';
+export const ANDROID_SIGNATURE_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce2cb6';
 
 /**
  * The zkproofport/circuits commit carrying Coinbase Country v2's CI-built
@@ -156,16 +157,18 @@ export const LAB_CIRCUITS_REF = '9651df892c28fbeb9331ebc5358abfdf062c7c42';
 
 /**
  * The zkproofport/circuits commit carrying the OPRF circuits: the request
- * proof (`oprf-request-auth-poc`, package `oprf_request_auth_poc`) and the
+ * proof (`oprf-request-auth`, package `oprf_request_auth`) and the
  * wallet credential circuits rebuilt with the OPRF nullifier
  * (circuits-dev.md, "OPRF nullifier in every wallet credential circuit").
- * ddf11f0 (branch toolchain-upgrade, 2026-11-20): nargo 1.0.0 / bb 6.0.0,
+ * 2181748 (branch toolchain-upgrade, 2026-11-20): nargo 1.0.0 / bb 6.0.0,
  * every wallet credential package rebuilt with the OPRF nullifier, each
- * checked against its target/SHA256SUMS and target/vk/SHA256SUMS. A full
- * commit, never a branch. Verifier broadcast records read from it are still
- * the bb 4.2 contracts until the bb 6 verifiers are deployed and recorded.
+ * checked against its target/SHA256SUMS and target/vk/SHA256SUMS, the
+ * request circuit's artifacts (oprf-request-auth/target), and the bb 6.0.0
+ * verifier broadcast records on Base Sepolia, Ethereum Sepolia and GIWA
+ * Sepolia. A full commit, never a branch. Mainnet records are still the
+ * bb 4.2 contracts.
  */
-export const OPRF_CIRCUITS_REF = 'ddf11f03d6f0af70e42cea35b93f53f9c614ea85';
+export const OPRF_CIRCUITS_REF = '2181748bfb7216552ffdd9109486f7ebfbce2cb6';
 
 let oprfCircuitsRefForTests: string | null = null;
 /** OPRF_CIRCUITS_REF, or the commit a test set (rows read it through a getter). */
@@ -411,7 +414,7 @@ export function isAuxiliaryCircuitId(id: unknown): id is AuxiliaryCircuitId {
 }
 
 const AUXILIARY_CIRCUIT_SOURCES: Readonly<Record<AuxiliaryCircuitId, PerVariant>> = Object.freeze({
-  // circuits/oprf-request-auth-poc: 69,184 gates, 2^17, 36 public inputs
+  // circuits/oprf-request-auth: 69,184 gates, 2^17, 36 public inputs
   // (digest 32, domain, scope, blinded query x, y), 9,152-byte proofs
   // (proofport-oprf/README.md, REQUEST-VERIFIER.md). dataVersion 1: first set.
   oprf_request_auth: (() => {
@@ -419,10 +422,10 @@ const AUXILIARY_CIRCUIT_SOURCES: Readonly<Record<AuxiliaryCircuitId, PerVariant>
       variant: 'app_attest',
       get ref() { return oprfCircuitsRef(); },
       refName: 'OPRF_CIRCUITS_REF',
-      basePath: 'oprf-request-auth-poc/target',
-      vkPath: 'oprf-request-auth-poc/target/vk',
+      basePath: 'oprf-request-auth/target',
+      vkPath: 'oprf-request-auth/target/vk',
       vkFileName: 'vk',
-      remoteFileName: 'oprf_request_auth_poc',
+      remoteFileName: 'oprf_request_auth',
       dataVersion: 1,
       publicInputCount: 36,
       srsParts: null,

@@ -1,6 +1,6 @@
 /**
  * The proof attached to an OPRF request (`request-auth-v1`,
- * circuits/oprf-request-auth-poc): the wallet signed the EIP-712 OprfRequest,
+ * circuits/oprf-request-auth): the wallet signed the EIP-712 OprfRequest,
  * and the blinded query is beta * encode(Poseidon2(DS, that wallet, domain,
  * scope)). Without it the nodes would evaluate any point, so anyone could ask
  * for the value behind every public address's nullifier.
