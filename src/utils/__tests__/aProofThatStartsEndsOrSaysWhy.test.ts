@@ -197,7 +197,7 @@ describe('a proof the app died in is reported on the next launch', () => {
     await markProofInFlight({circuit: 'oidc_domain_attestation', startedAt: 1_793_000_000_000, historyId: 'h1', requestId: 'r1'});
     expect(await reportInterruptedProof()).toBe(true);
     expect(mockShowError).toHaveBeenCalledWith('E2019', expect.stringContaining('oidc_domain_attestation'));
-    expect(mockHistoryUpdate).toHaveBeenCalledWith('h1', {overallStatus: 'failed', offChainStatus: 'failed', onChainStatus: 'failed'});
+    expect(mockHistoryUpdate).toHaveBeenCalledWith('h1', {overallStatus: 'failed', offChainStatus: 'failed', onChainStatus: 'failed', failure: {kind: 'error', code: 'E2019'}});
     mockShowError.mockClear();
     expect(await reportInterruptedProof()).toBe(false);
     expect(mockShowError).not.toHaveBeenCalled();

@@ -36,6 +36,7 @@ import type {TypedAction} from '../../utils/typedAction';
 import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore, settingsStore} from '../../stores';
+import type {ProofFailure} from '../../stores/proofHistoryStore';
 import {getCircuitWallet, walletGroupKey} from '../../stores/circuitWalletStore';
 // `getNetworkConfig` is deliberately absent: this screen always resolves the
 // network PER CIRCUIT (GIWA is on chain 91342, the Coinbase verifiers on
@@ -611,13 +612,14 @@ export const ProofGenerationScreen: React.FC = () => {
   }, []);
 
   // Mark history as failed (idempotent via ref), with the log up to the failure.
-  const markHistoryFailed = useCallback(() => {
+  const markHistoryFailed = useCallback((failure: ProofFailure) => {
     if (failedMarkedRef.current || !historyIdRef.current) return;
     failedMarkedRef.current = true;
     proofHistoryStore.update(historyIdRef.current, {
       overallStatus: 'failed',
       offChainStatus: 'failed',
       onChainStatus: 'failed',
+      failure,
       ...attemptLog(),
     }).catch(console.error);
   }, [attemptLog]);
@@ -641,7 +643,7 @@ export const ProofGenerationScreen: React.FC = () => {
       // precise reason stays in the log line above (DETAILS_STAY_IN_LOGS).
       setErrorMessage(DETAILS_STAY_IN_LOGS.has(code) ? t(`host.errors.${code}.description`) : inline ?? error);
       showGlobalError(code, details ?? error);
-      markHistoryFailed();
+      markHistoryFailed({kind: 'error', code});
       if (proofRequest) {
         sendError(proofRequest, code, error, deviceCheckReason).catch(console.error);
         clearActiveProofRequest(proofRequest);
@@ -658,7 +660,7 @@ export const ProofGenerationScreen: React.FC = () => {
       addLog(`[Cancelled] ${reason}`);
       endAttemptTiming('cancelled');
       setErrorMessage(reason);
-      markHistoryFailed();
+      markHistoryFailed({kind: 'cancelled'});
       if (proofRequest) {
         sendCancelled(proofRequest, reason).catch(console.error);
         clearActiveProofRequest(proofRequest);
@@ -1315,7 +1317,7 @@ export const ProofGenerationScreen: React.FC = () => {
             refused[chainId] = code === 'E2021' ? 'none' : 'below';
             if (passportChainLeft(states, refused, minScoreUnits)) {
               addLog(`[HumanPassport] ${humanPassportChain(chainId).name} refused (${code}); back to the chain picker`);
-              markHistoryFailed();
+              markHistoryFailed({kind: 'error', code});
               endAttemptTiming('failed');
               // The request is still this screen's to answer: keep new reviews held.
               if (proofRequest) {

@@ -20,7 +20,7 @@ export async function reportInterruptedProof(): Promise<boolean> {
   );
   if (proof.historyId) {
     await proofHistoryStore
-      .update(proof.historyId, {overallStatus: 'failed', offChainStatus: 'failed', onChainStatus: 'failed'})
+      .update(proof.historyId, {overallStatus: 'failed', offChainStatus: 'failed', onChainStatus: 'failed', failure: {kind: 'error', code: 'E2019'}})
       .catch(e => console.error('[InterruptedProof] Could not mark History failed:', e));
   }
   showGlobalError('E2019', `${proof.circuit}, started ${new Date(proof.startedAt).toISOString()}`);

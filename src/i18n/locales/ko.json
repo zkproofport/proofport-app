@@ -198,7 +198,9 @@
         "proofLog": "증명 로그",
         "proofLogHint": "개발자 모드와 라이브 로그가 켜져 있어 남긴 로그입니다. 토큰·서명·키는 지웠습니다.",
         "copyLog": "로그 복사",
-        "logCopied": "복사했습니다"
+        "logCopied": "복사했습니다",
+        "failureTitle": "실패 이유",
+        "failureCancelled": "증명을 취소했어요."
       },
       "statusLabel": "상태",
       "dateLabel": "날짜",

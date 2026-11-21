@@ -32,7 +32,17 @@ export interface ProofHistoryItem {
    * record and across all records. Absent otherwise and on older records.
    */
   log?: string;
+  /**
+   * Why a failed attempt ended: the error code the person was shown, or that
+   * they declined. Written by the generation screen when it marks the record
+   * failed. Absent on records saved before 2026-11-21 and on attempts that did
+   * not fail.
+   */
+  failure?: ProofFailure;
 }
+
+/** How a failed attempt ended. `code` is a key of ErrorCodes (constants/errorCodes.ts). */
+export type ProofFailure = {kind: 'error'; code: string} | {kind: 'cancelled'};
 
 // Every write reads the list first, so two writes in flight (the generation
 // screen's and the completion screen's) would otherwise drop one another's

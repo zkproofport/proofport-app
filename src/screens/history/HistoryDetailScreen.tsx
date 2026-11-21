@@ -11,6 +11,7 @@ import {ProofUiIcon} from '../../components/ProofUiIcon';
 import {ActionReviewCard, ActionReviewDetails} from '../../components/ActionReviewCard';
 import {ReadonlyValue} from '../../components/ReadonlyValue';
 import {proofHistoryStore, type ProofHistoryItem} from '../../stores';
+import {failureText} from './failureText';
 import {useProofUiColors} from '../../theme/proofUi';
 import {formatHistoryDate} from '../../utils/historyPresentation';
 import {historyRecordText} from './historyRecordText';
@@ -194,6 +195,13 @@ const HistoryDetailScreen: React.FC = () => {
           </View>
         </View>
 
+        {proof.overallStatus === 'failed' && proof.failure &&
+          <View testID="history-failure" style={[styles.card, {backgroundColor: colors.card, borderColor: colors.border}]}>
+            <Text style={[styles.sectionTitle, {color: colors.text}]}>{t('host.history.detail.failureTitle')}</Text>
+            <Text testID="history-failure-text" selectable style={[styles.note, {color: colors.secondary}]}>
+              {failureText(proof.failure, t)}
+            </Text>
+          </View>}
         <View style={[styles.technicalCard, {backgroundColor: colors.card, borderColor: colors.border}]}>
           <TouchableOpacity testID="history-technical-toggle" accessibilityRole="button" accessibilityState={{expanded: technicalOpen}}
             onPress={() => setTechnicalOpen(open => !open)} style={styles.technicalHeader}>

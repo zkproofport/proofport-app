@@ -198,7 +198,9 @@
         "proofLog": "Proof log",
         "proofLogHint": "Kept because Developer Mode and live logs were on. Tokens, signatures and keys were removed.",
         "copyLog": "Copy log",
-        "logCopied": "Copied"
+        "logCopied": "Copied",
+        "failureTitle": "Why it failed",
+        "failureCancelled": "You cancelled this proof."
       },
       "statusLabel": "Status",
       "dateLabel": "Date",
