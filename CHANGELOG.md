@@ -1,3 +1,15 @@
+# [1.7.0](https://github.com/zkproofport/proofport-app/compare/app-v1.6.0...app-v1.7.0) (2026-11-21)
+
+
+### Bug Fixes
+
+* **ios:** start through the scene life cycle so iOS 27 SDK builds launch ([944eb7b](https://github.com/zkproofport/proofport-app/commit/944eb7b59ce78cf37a91c779cdc4834cb9e55079))
+
+
+### Features
+
+* **history:** keep why a failed proof ended and show it in the record ([a9fb7ee](https://github.com/zkproofport/proofport-app/commit/a9fb7eeabe426b32593bfe4e9255436bed865cec))
+
 # [1.6.0](https://github.com/zkproofport/proofport-app/compare/app-v1.5.0...app-v1.6.0) (2026-11-21)
 
 
