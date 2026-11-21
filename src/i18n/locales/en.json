@@ -362,10 +362,25 @@
           "attestation": "Find the attestation",
           "transaction": "Get the transaction",
           "signer": "Check the attester",
-          "signing": "Sign the request"
+          "signing": "Sign the request",
+          "reuse_guard": "Sign to prevent reuse"
         },
         "humanPassportTitle": "Human Passport score",
-        "humanPassportDescription": "Generate a zero-knowledge proof that your wallet's Human Passport score is at least the requested score. Connect the wallet that holds the score, then choose the chain it is recorded on."
+        "humanPassportDescription": "Generate a zero-knowledge proof that your wallet's Human Passport score is at least the requested score. Connect the wallet that holds the score, then choose the chain it is recorded on.",
+        "walletPrompt": {
+          "request": {
+            "title": "Approve the signature in your wallet app",
+            "body": "This signature confirms what the request asks for. Approve it in your wallet app, then come back to ZKProofport. You may be asked to sign once more."
+          },
+          "reuseGuard": {
+            "title": "Sign once more in your wallet app",
+            "body": "This signature keeps your proof from being counted twice for the same request. It carries no personal information. Approve it in your wallet app, then come back to ZKProofport."
+          },
+          "network": {
+            "title": "Approve the network switch in your wallet app",
+            "body": "This request has to be signed on a specific network. Approve the switch in your wallet app, then come back to ZKProofport."
+          }
+        }
       },
       "domain": {
         "heroLabel": "OIDC DOMAIN VERIFICATION",

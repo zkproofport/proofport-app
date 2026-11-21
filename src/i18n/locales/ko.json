@@ -362,10 +362,25 @@
           "attestation": "인증 기록 찾기",
           "transaction": "거래 내역 가져오기",
           "signer": "발급자 확인",
-          "signing": "요청에 서명"
+          "signing": "요청 내용에 서명",
+          "reuse_guard": "중복 사용 방지 서명"
         },
         "humanPassportTitle": "Human Passport 점수 증명",
-        "humanPassportDescription": "이 지갑의 Human Passport 점수가 요청한 점수 이상임을 영지식 증명으로 생성해요. 점수를 가진 지갑을 연결하고, 점수가 기록된 체인을 선택해 주세요."
+        "humanPassportDescription": "이 지갑의 Human Passport 점수가 요청한 점수 이상임을 영지식 증명으로 생성해요. 점수를 가진 지갑을 연결하고, 점수가 기록된 체인을 선택해 주세요.",
+        "walletPrompt": {
+          "request": {
+            "title": "지갑 앱에서 서명해 주세요",
+            "body": "증명 요청 내용을 확인하는 서명이에요. 지갑 앱에서 승인한 뒤 ZKProofport로 돌아와 주세요. 이어서 서명을 한 번 더 요청할 수 있어요."
+          },
+          "reuseGuard": {
+            "title": "지갑 앱에서 한 번 더 서명해 주세요",
+            "body": "이 요청에 같은 증명이 중복으로 쓰이지 않게 막는 서명이에요. 개인 정보는 담기지 않아요. 지갑 앱에서 승인한 뒤 ZKProofport로 돌아와 주세요."
+          },
+          "network": {
+            "title": "지갑 앱에서 네트워크 전환을 승인해 주세요",
+            "body": "이 요청은 정해진 네트워크에서 서명해야 해요. 지갑 앱에서 전환을 승인한 뒤 ZKProofport로 돌아와 주세요."
+          }
+        }
       },
       "domain": {
         "heroLabel": "OIDC 도메인 인증",

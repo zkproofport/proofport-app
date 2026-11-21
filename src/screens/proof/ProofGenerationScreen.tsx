@@ -18,6 +18,7 @@ import {useTranslation} from 'react-i18next';
 import {
   Button,
   Card,
+  Icon,
   StepIndicator,
   LiveLogsPanel,
   type StepData,
@@ -70,6 +71,7 @@ import {clearProofInFlight, markProofInFlight} from '../../utils/proofInFlight';
 import {claimGenerationScreen, markGenerationScreenBusy, markGenerationScreenIdle, releaseGenerationScreen} from '../../stores/generationScreenStore';
 import {markOpenRequestProving, unmarkOpenRequestProving} from '../../utils/relayAnswer';
 import {ProofProgressCard} from '../../components/ProofProgressCard';
+import {promptingRequest, type WalletPrompt} from '../../utils/walletPrompt';
 
 type ProofGenerationRouteProp = RouteProp<ProofStackParamList, 'ProofGeneration'>;
 
@@ -351,7 +353,7 @@ const progressStyles = StyleSheet.create({
 /** Step ids with a label under host.proof.generation.steps in every locale. */
 const TRANSLATED_STEP_IDS: ReadonlySet<string> = new Set([
   'google', 'download', 'vk', 'validate', 'jwks', 'inputs', 'storage', 'proof', 'parse', 'cleanup',
-  'wallet', 'attestation', 'transaction', 'signer', 'signing',
+  'wallet', 'attestation', 'transaction', 'signer', 'signing', 'reuse_guard',
 ]);
 
 const toUserSteps = (
@@ -365,13 +367,14 @@ const toUserSteps = (
     {id: 'transaction', label: 'Fetching raw transaction', status: 'pending', icon: 'download'},
     {id: 'signer', label: 'Verifying attester signer', status: 'pending', icon: 'shield'},
     {id: 'signing', label: 'Signing dApp challenge', status: 'pending', icon: 'edit-3'},
+    {id: 'reuse_guard', label: 'Signing to prevent reuse', status: 'pending', icon: 'lock'},
     {id: 'proof', label: 'Generating ZK proof', status: 'pending', icon: 'cpu'},
   ];
 
   const map: Record<string, string> = {
     validate: 'attestation', vk: 'transaction', inputs: 'transaction',
     signal: 'signer', pubkey: 'signer', country: 'signer',
-    sign: 'signing', storage: 'proof', proof: 'proof', parse: 'proof', cleanup: 'proof',
+    sign: 'signing', scope: 'reuse_guard', storage: 'proof', proof: 'proof', parse: 'proof', cleanup: 'proof',
   };
 
   for (const hs of hookSteps) {
@@ -433,6 +436,8 @@ export const ProofGenerationScreen: React.FC = () => {
 
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // What the wallet app is waiting on, while it waits (utils/walletPrompt.ts).
+  const [walletPrompt, setWalletPrompt] = useState<WalletPrompt | null>(null);
   // A dApp's Human Passport request proves from the chain the person chose
   // (only they know where they recorded their score). The picker is open
   // while `passportPick` is set; its Continue fills `passportChainRef` for
@@ -1247,8 +1252,7 @@ export const ProofGenerationScreen: React.FC = () => {
             action: route.params?.action ?? deep?.action,
           },
           {
-            request: async (args: {method: string; params?: unknown[]}) =>
-              provider.send(args.method, args.params || []),
+            request: promptingRequest((method, params) => provider.send(method, params), setWalletPrompt),
           },
           addLog,
         );
@@ -1353,8 +1357,7 @@ export const ProofGenerationScreen: React.FC = () => {
             action: route.params?.action ?? deep?.action,
           },
           {
-            request: async (args: {method: string; params?: unknown[]}) =>
-              provider.send(args.method, args.params || []),
+            request: promptingRequest((method, params) => provider.send(method, params), setWalletPrompt),
           },
           addLog,
         );
@@ -1396,8 +1399,7 @@ export const ProofGenerationScreen: React.FC = () => {
       }
 
       const ethereum = {
-        request: async (args: {method: string; params?: unknown[]}) =>
-          provider.send(args.method, args.params || []),
+        request: promptingRequest((method, params) => provider.send(method, params), setWalletPrompt),
       };
 
       if (isCountry) {
@@ -1786,8 +1788,22 @@ export const ProofGenerationScreen: React.FC = () => {
         {/*
           * Directly above the progress button: the screen keeps scrolling to
           * its end while a proof runs, and the notice and the bar have to
-          * stay in view together.
+          * stay in view together. The wallet notice sits with them: while it
+          * shows, nothing moves until the person approves in the wallet app.
           */}
+        {isProcessing && walletPrompt && (
+          <Card style={{marginBottom: 12, backgroundColor: themeColors.info.background, borderColor: themeColors.info[500]}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 6}}>
+              <Icon name="smartphone" size="md" color={themeColors.info[400]} />
+              <Text style={{marginLeft: 8, flex: 1, fontSize: 16, fontWeight: '700', color: themeColors.text.primary}}>
+                {t(`host.proof.generation.walletPrompt.${walletPrompt}.title`)}
+              </Text>
+            </View>
+            <Text style={{fontSize: 14, lineHeight: 20, color: themeColors.text.secondary}}>
+              {t(`host.proof.generation.walletPrompt.${walletPrompt}.body`)}
+            </Text>
+          </Card>
+        )}
         <ProofProgressCard />
 
         <View style={styles.btnWrap}>
