@@ -6,6 +6,8 @@ import ReactAppDependencyProvider
 
 @main
 class AppDelegate: ExpoAppDelegate {
+  // React Native reads application.delegate.window (RCTDeviceInfo, on every
+  // orientation change); SceneDelegate sets it.
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
@@ -25,18 +27,7 @@ class AppDelegate: ExpoAppDelegate {
     reactNativeFactory = factory
     bindReactNativeFactory(factory)
 
-    window = UIWindow(frame: UIScreen.main.bounds)
-    print("🔵 AppDelegate: Window created with frame: \(UIScreen.main.bounds)")
-
-    factory.startReactNative(
-      withModuleName: "ZKProofport",
-      in: window,
-      launchOptions: launchOptions
-    )
-
-    print("🔵 AppDelegate: React Native started with module: ZKProofport")
-    print("🔵 AppDelegate: Window visible: \(window?.isHidden == false)")
-
+    // The window and React Native start in SceneDelegate.
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -58,6 +49,62 @@ class AppDelegate: ExpoAppDelegate {
   ) -> Bool {
     print("🔵 AppDelegate: Universal link received")
     return RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
+  }
+}
+
+// Apps built with the iOS 27 SDK are stopped at launch unless they use the
+// scene life cycle, so the window and React Native start here, and links that
+// arrive through the scene are handed to the app delegate's handlers above.
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+  var window: UIWindow?
+
+  func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    guard let windowScene = scene as? UIWindowScene,
+          let appDelegate = UIApplication.shared.delegate as? AppDelegate,
+          let factory = appDelegate.reactNativeFactory else {
+      return
+    }
+
+    let window = UIWindow(windowScene: windowScene)
+    self.window = window
+    appDelegate.window = window
+
+    // A link that cold-starts the app arrives here, not in the app delegate's
+    // launch options; Linking.getInitialURL reads it from these.
+    var launchOptions: [UIApplication.LaunchOptionsKey: Any] = [:]
+    if let url = connectionOptions.urlContexts.first?.url {
+      launchOptions[.url] = url
+    } else if let activity = connectionOptions.userActivities.first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb }) {
+      launchOptions[.userActivityDictionary] = [
+        UIApplication.LaunchOptionsKey.userActivityType: activity.activityType,
+        "UIApplicationLaunchOptionsUserActivityKey": activity,
+      ] as [AnyHashable: Any]
+    }
+
+    factory.startReactNative(
+      withModuleName: "ZKProofport",
+      in: window,
+      launchOptions: launchOptions.isEmpty ? nil : launchOptions
+    )
+    print("🔵 SceneDelegate: React Native started with module: ZKProofport")
+  }
+
+  // zkproofport:// links while the app runs.
+  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+    for context in URLContexts {
+      _ = appDelegate.application(UIApplication.shared, open: context.url, options: [:])
+    }
+  }
+
+  // Universal links while the app runs.
+  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+    _ = appDelegate.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
   }
 }
 
