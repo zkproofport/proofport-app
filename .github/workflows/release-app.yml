@@ -117,14 +117,14 @@ jobs:
     # comparison below treats that as 'both', which is what a tag push means:
     # ship everywhere.
     if: inputs.platform == '' || inputs.platform == 'both' || inputs.platform == 'ios'
-    # macos-26, not macos-15. Apple stopped accepting uploads built with an
-    # older SDK: the first release to reach the upload step was rejected with
-    # "This app was built with the iOS 18.5 SDK. All iOS and iPadOS apps must be
-    # built with the iOS 26 SDK or later, included in Xcode 26 or later"
-    # (validation 409). macos-15 ships Xcode 16, which is that 18.5 SDK. The
-    # build itself took seventeen minutes and succeeded — only Apple's
-    # validation refused it, so nothing in the log before that line looks wrong.
-    runs-on: macos-26
+    # xcode-27: the Xcode 27 image (macOS 27, iOS 27 SDK). Apple's ITMS-90725
+    # warning on build 23 (2026-11) said uploads built with the iOS 26 SDK
+    # stop being accepted in April 2027; GitHub's label is documented at
+    # https://github.blog/changelog/2026-10-16-xcode-27-runner-image-generally-available/
+    # Before it, macos-26 replaced macos-15 because Apple refused an iOS 18.5
+    # SDK upload with validation 409 after a build that had succeeded --
+    # an SDK floor shows up only at the upload step.
+    runs-on: xcode-27
     steps:
       # See build-ios.yml (the beta workflow) for the full rationale:
       # proofport-app depends on three sibling OpenStoa packages via

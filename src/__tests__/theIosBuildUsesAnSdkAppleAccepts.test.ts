@@ -27,11 +27,17 @@ const workflowDir = path.join(__dirname, '..', '..', '.github', 'workflows');
 const read = (file: string) => fs.readFileSync(path.join(workflowDir, file), 'utf8');
 const workflows = fs.readdirSync(workflowDir).filter((f) => f.endsWith('.yml'));
 
-/** Images whose Xcode is older than the SDK floor Apple enforces today. */
-const TOO_OLD = ['macos-13', 'macos-14', 'macos-15'];
+/**
+ * Images whose Xcode is older than the SDK floor Apple enforces, or has
+ * announced. The 26 images carry the iOS 26 SDK, which Apple's ITMS-90725
+ * warning on build 23 (2026-11) said stops being accepted in April 2027; the
+ * iOS jobs moved to `xcode-27` then rather than wait for the refusal.
+ */
+const TOO_OLD = ['macos-13', 'macos-14', 'macos-15', 'macos-26', 'xcode-26'];
 
+/** macOS runners, by image (`macos-N`) or by Xcode (`xcode-N`). */
 const macRunners = (body: string) =>
-  [...body.matchAll(/^\s*runs-on:\s*(macos[\w.-]*)\s*$/gm)].map((m) => m[1]);
+  [...body.matchAll(/^\s*runs-on:\s*((?:macos|xcode)[\w.-]*)\s*$/gm)].map((m) => m[1]);
 
 describe('the iOS build targets an SDK Apple still accepts', () => {
   const macJobs = workflows.filter((f) => macRunners(read(f)).length > 0);
