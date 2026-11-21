@@ -271,6 +271,20 @@ jobs:
           echo "$ASC_API_KEY" | base64 -d > /tmp/asc_api_key_pkcs8.p8
           openssl ec -in /tmp/asc_api_key_pkcs8.p8 -out /tmp/asc_api_key.p8 2>/dev/null
 
+      # The signing repository's token goes in an Authorization header, never in
+      # the URL. On the xcode-27 image (git 2.56.0) GitHub answered the clone with
+      # a redirect and the user:token part of the URL was dropped on it ("could not
+      # read Username ... terminal prompts disabled", release run 44867010973). match
+      # sends MATCH_GIT_BASIC_AUTHORIZATION as http.extraheader, which git keeps on
+      # every request to the same host.
+      - name: Signing repository credentials
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_PAT" | base64 | tr -d '\n')
+          echo "::add-mask::$auth"
+          echo "MATCH_GIT_BASIC_AUTHORIZATION=$auth" >> "$GITHUB_ENV"
+
       - name: Build and upload to TestFlight
         if: inputs.dry_run == false
         working-directory: proofport-app/ios
@@ -279,7 +293,7 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY_PATH: /tmp/asc_api_key.p8
           ASC_API_KEY_PKCS8_PATH: /tmp/asc_api_key_pkcs8.p8
-          MATCH_GIT_URL: https://${{ secrets.GH_PAT }}@github.com/zkproofport/proofport-app-certificates.git
+          MATCH_GIT_URL: https://github.com/zkproofport/proofport-app-certificates.git
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         # The lane always uploads to TestFlight. It asks Apple for review only
         # when told to, and then it waits for the build to finish processing

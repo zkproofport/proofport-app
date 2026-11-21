@@ -78,3 +78,26 @@ describe('signing material has exactly one home', () => {
     }
   });
 });
+
+describe('the signing token travels in a header, not in the URL', () => {
+  /*
+   * On the xcode-27 image GitHub answered match's clone with a redirect and
+   * git dropped the user:token part of the URL on it: "could not read Username
+   * for 'https://github.com': terminal prompts disabled" (release run
+   * 44867010973). match sends MATCH_GIT_BASIC_AUTHORIZATION as an
+   * http.extraheader instead, which survives a same-host redirect.
+   */
+  it.each(WORKFLOWS)('%s puts no credential in MATCH_GIT_URL', (file) => {
+    const urls = [...read(file).matchAll(/MATCH_GIT_URL:\s*(\S+)/g)].map((m) => m[1]);
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) expect(url).toBe('https://github.com/zkproofport/proofport-app-certificates.git');
+  });
+
+  it.each(WORKFLOWS)('%s hands match the token as a masked basic-auth header', (file) => {
+    const body = read(file);
+    expect(body).toMatch(/echo "::add-mask::\$auth"/);
+    expect(body).toMatch(/echo "MATCH_GIT_BASIC_AUTHORIZATION=\$auth" >> "\$GITHUB_ENV"/);
+    // The header step comes before the step that runs match.
+    expect(body.indexOf('MATCH_GIT_BASIC_AUTHORIZATION=')).toBeLessThan(body.indexOf('bundle exec fastlane'));
+  });
+});
