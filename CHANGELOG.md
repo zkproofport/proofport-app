@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/zkproofport/proofport-app/compare/app-v1.5.0...app-v1.6.0) (2026-11-21)
+
+
+### Features
+
+* tell the person to approve each wallet signature in the wallet app ([70ef957](https://github.com/zkproofport/proofport-app/commit/70ef957a170afa7bf591652020f4ba08504e4d67))
+
 # [1.5.0](https://github.com/zkproofport/proofport-app/compare/app-v1.4.0...app-v1.5.0) (2026-11-20)
 
 
