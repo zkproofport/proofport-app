@@ -37,6 +37,7 @@ import {useThemeColors} from '../../context';
 import type {ProofStackParamList} from '../../navigation/types';
 import {proofHistoryStore, settingsStore} from '../../stores';
 import type {ProofFailure} from '../../stores/proofHistoryStore';
+import {runOnce} from '../../utils/runOnce';
 import {getCircuitWallet, walletGroupKey} from '../../stores/circuitWalletStore';
 // `getNetworkConfig` is deliberately absent: this screen always resolves the
 // network PER CIRCUIT (GIWA is on chain 91342, the Coinbase verifiers on
@@ -899,7 +900,7 @@ export const ProofGenerationScreen: React.FC = () => {
     });
   }, [addLog, refusedFor, surveyPassportChains]);
 
-  const handleGenerateProof = useCallback(async () => {
+  const runGenerateProof = useCallback(async () => {
     // A relay request has one answer. Once it is sent, another attempt could
     // only produce a proof nobody receives — say so instead of starting one.
     if (proofRequest && isRelayRequestAnswered(proofRequest.requestId)) {
@@ -1563,6 +1564,15 @@ export const ProofGenerationScreen: React.FC = () => {
     isCountry, isOidc, isGiwa, isDojang, isPassport, proofRequest, route.params, openPassportPicker,
     surveyPassportChains, refusedFor, markHistoryFailed, endAttemptTiming,
     circuitId, canonical, flow, account, failAttempt, cancelAttempt, t]);
+
+  // One attempt at a time: every start path goes through this lock, so two
+  // triggers firing together (request auto-start and the retry after a
+  // wallet connects) cannot run two attempts for one request.
+  const attemptLockRef = useRef(false);
+  const handleGenerateProof = useCallback(
+    () => runOnce(attemptLockRef, runGenerateProof, () => addLog('[Attempt] Already running; this start was ignored')),
+    [runGenerateProof, addLog],
+  );
 
   /**
    * The picker's Continue: the chosen chain, for the wallet it was looked up
