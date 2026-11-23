@@ -1,3 +1,10 @@
+## [1.7.2](https://github.com/zkproofport/proofport-app/compare/app-v1.7.1...app-v1.7.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **proof:** count any start of a dApp request as its start ([d588fba](https://github.com/zkproofport/proofport-app/commit/d588fbac4dc53d25326749ead6881368e67cf422))
+
 ## [1.7.1](https://github.com/zkproofport/proofport-app/compare/app-v1.7.0...app-v1.7.1) (2026-11-23)
 
 
