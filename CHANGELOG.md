@@ -1,3 +1,16 @@
+# [1.8.0](https://github.com/zkproofport/proofport-app/compare/app-v1.7.2...app-v1.8.0) (2026-11-23)
+
+
+### Bug Fixes
+
+* **proof:** show Checking wallet until the stored wallet is read ([fcd01d9](https://github.com/zkproofport/proofport-app/commit/fcd01d94b0ad8b6e74efbc01744510f0d3821cb2))
+* **wallet:** keep a remembered wallet while it is used ([be163dc](https://github.com/zkproofport/proofport-app/commit/be163dc09ca710584832d10551359b30c1c30ea6))
+
+
+### Features
+
+* **sign:** ask the wallet to sign a readable proof request ([393b0e3](https://github.com/zkproofport/proofport-app/commit/393b0e346b79e1e04313a124828314711b099cd0))
+
 ## [1.7.2](https://github.com/zkproofport/proofport-app/compare/app-v1.7.1...app-v1.7.2) (2026-11-23)
 
 
