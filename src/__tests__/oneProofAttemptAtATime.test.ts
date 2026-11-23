@@ -103,6 +103,19 @@ describe('the proof screen', () => {
     expect(autoStarts).toHaveLength(2);
   });
 
+  it('Connect wallet is not offered until the stored wallet for this circuit has been read', () => {
+    // 2026-11-23: on a cold start the stored wallet took about a second to
+    // read, and the screen offered Connect wallet to a person whose right
+    // wallet was already connected.
+    const checking = screen.indexOf("if (!isOidc && !walletChecked && !walletGate.isPostPicker)");
+    const connect = screen.indexOf("if (!isOidc && !circuitReady && !walletGate.isPostPicker)");
+    expect(checking).toBeGreaterThan(0);
+    expect(connect).toBeGreaterThan(checking);
+    expect(screen.slice(checking, connect)).toMatch(/checkingWallet'\), onPress: \(\) => \{\}, disabled: true/);
+    // The flag drops when the account or circuit changes and rises only once the read has answered.
+    expect(screen).toMatch(/setWalletChecked\(false\);\n\s+\(async \(\) => \{[\s\S]*?setCircuitReady\([\s\S]*?\);\n\s+setWalletChecked\(true\);/);
+  });
+
   it('the attempt body is not called anywhere but through the lock', () => {
     const uses = screen.match(/\brunGenerateProof\b/g) ?? [];
     // its declaration, the runOnce call, and the dependency list

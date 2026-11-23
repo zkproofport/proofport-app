@@ -320,6 +320,7 @@
         "coinbaseCountryDescription": "Generate a zero-knowledge proof of your country verification through Coinbase without revealing personal details.",
         "coinbaseKycDescription": "Generate a zero-knowledge proof of your Coinbase identity verification without revealing any personal information.",
         "connectWallet": "Connect Wallet",
+        "checkingWallet": "Checking wallet",
         "processing": "Processing",
         "generateButton": "Generate ZK Proof",
         "retryButton": "Retry",

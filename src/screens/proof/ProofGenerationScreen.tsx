@@ -538,26 +538,41 @@ export const ProofGenerationScreen: React.FC = () => {
   // when its GROUP's bound wallet is the one currently connected. Coinbase KYC
   // and Country share a group, so binding one makes the other ready too.
   const [circuitReady, setCircuitReady] = useState(false);
+  // False until the stored wallet for this circuit has been read for the
+  // current account. On a cold start that read took about a second on a
+  // Galaxy A23 (2026-11-23), and until it answered the screen offered
+  // Connect wallet to a person whose right wallet was already connected;
+  // tapping it started a second attempt beside the auto-start.
+  const [walletChecked, setWalletChecked] = useState(false);
   useEffect(() => {
     if (isOidc) {
       // OIDC is a web2 flow — no wallet binding, so the circuit is always
       // "ready" without a wallet gate.
       setCircuitReady(true);
+      setWalletChecked(true);
       return;
     }
     // An id this build does not serve has no wallet binding to look up, and
     // the effect below refuses it outright.
     if (!canonical) {
       setCircuitReady(false);
+      setWalletChecked(true);
       return;
     }
     let cancelled = false;
+    setWalletChecked(false);
     (async () => {
-      const bound = await getCircuitWallet(walletGroupKey(canonical));
+      let bound: string | null = null;
+      try {
+        bound = await getCircuitWallet(walletGroupKey(canonical));
+      } catch {
+        bound = null;
+      }
       if (cancelled) return;
       setCircuitReady(
         !!bound && !!account && bound.toLowerCase() === account.toLowerCase(),
       );
+      setWalletChecked(true);
     })();
     return () => {
       cancelled = true;
@@ -1664,11 +1679,11 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [isOidc, proofRequest, handleGenerateProof, addLog]);
 
   useEffect(() => {
-    if (proofRequest && !circuitReady && isWalletReady && !hasAutoStarted.current) {
+    if (proofRequest && walletChecked && !circuitReady && isWalletReady && !hasAutoStarted.current) {
       addLog(`[DeepLink] From: ${proofRequest.dappName || 'Unknown'}`);
       addLog(`[DeepLink] Connect wallet to continue`);
     }
-  }, [proofRequest, circuitReady, isWalletReady, addLog]);
+  }, [proofRequest, walletChecked, circuitReady, isWalletReady, addLog]);
 
   const isProcessing = hook.isLoading || isSearching;
 
@@ -1726,6 +1741,8 @@ export const ProofGenerationScreen: React.FC = () => {
       const progress = stepNum / userSteps.length;
       return {title, onPress: () => {}, disabled: true, loading: false, progress};
     }
+    if (!isOidc && !walletChecked && !walletGate.isPostPicker)
+      return {title: t('host.proof.generation.checkingWallet'), onPress: () => {}, disabled: true, loading: true};
     if (!isOidc && !circuitReady && !walletGate.isPostPicker)
       return {title: t('host.proof.generation.connectWallet'), onPress: handleGenerateProof, disabled: false, loading: false};
     if (errorMessage)

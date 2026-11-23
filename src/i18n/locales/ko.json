@@ -320,6 +320,7 @@
         "coinbaseCountryDescription": "개인 정보를 공개하지 않고 Coinbase를 통해 국가 인증의 영지식 증명을 생성해요.",
         "coinbaseKycDescription": "개인 정보를 전혀 공개하지 않고 Coinbase 신원 인증의 영지식 증명을 생성해요.",
         "connectWallet": "지갑 연결",
+        "checkingWallet": "지갑 확인 중",
         "processing": "처리 중",
         "generateButton": "ZK 증명 생성",
         "retryButton": "다시 시도",
