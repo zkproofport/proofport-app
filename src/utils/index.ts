@@ -31,5 +31,5 @@ export type { OidcCircuitInputs, PrepareOidcParams } from './oidcDomain';
 export {checkAction, parseAction} from './typedAction';
 export type {TypedAction} from './typedAction';
 export {ensureWalletOnChain} from './walletChain';
-export {whatTheWalletSigns, recoverSignerPubkey} from './signedAction';
+export {whatTheWalletSigns, walletSigning, recoverSignerPubkey} from './signedAction';
 export type {SignedThing} from './signedAction';

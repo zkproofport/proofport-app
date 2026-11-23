@@ -19,6 +19,8 @@ import {ethers} from 'ethers';
 import {buildClientData, COINBASE_ATTESTER, COINBASE_KYC_SCHEMA_UID, CLIENT_DATA_LEN} from '../clientData';
 import {AppAttestError} from '../appAttestError';
 import {coinbaseRequestDigest} from '../coinbaseKycStatement';
+import {signedDigestOf, whatTheWalletSigns, walletSigning} from '../../utils/signedAction';
+import {signalHashBytes} from '../../utils/signalHash';
 import {
   flattenCoinbaseAppAttestInputs,
   prepareCoinbaseAppAttestInputs,
@@ -59,6 +61,19 @@ const action: TypedAction = {
   message: (vector.eip712 as unknown as {message: Record<string, unknown>}).message,
 } as TypedAction;
 const actionOf = (m: Mode) => (m === 'action' ? action : undefined);
+/*
+ * The fixture's noAction vector is the circuit's signal mode: personal_sign
+ * over signal_hash. The app stopped asking for that on 2026-11-23 (a request
+ * with no dApp action now signs the readable ProofRequest, utils/signedAction
+ * walletSigning), but the circuit and this builder still take it, and the AI
+ * server still proves in it -- so the builder is held to that vector with the
+ * signal-mode digest written out here.
+ */
+const SIGNAL_MODE_DIGEST = signedDigestOf(
+  whatTheWalletSigns(ethers.utils.hexlify(signalHashBytes({scope: vector.scopeString, circuitId: 'coinbase_attestation', requestId: REQUEST_ID}))),
+);
+const digestFor = (m: Mode) =>
+  m === 'action' ? coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID, action) : SIGNAL_MODE_DIGEST;
 
 function clientDataFor(m: Mode, overrides: Partial<Parameters<typeof buildClientData>[0]> = {}) {
   const cd = bytesOf(str(toml(m).client_data));
@@ -69,7 +84,7 @@ function clientDataFor(m: Mode, overrides: Partial<Parameters<typeof buildClient
     attester: COINBASE_ATTESTER,
     attestationUid: ethers.utils.hexlify(cd.slice(128, 160)),
     revoked: false,
-    requestDigest: coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID, actionOf(m)),
+    requestDigest: digestFor(m),
     scope: oprfScopeBytesOf(vector.scopeString),
     ...overrides,
   });
@@ -115,7 +130,7 @@ describe.each(['noAction', 'action'] as Mode[])('%s mode', m => {
           circuit: 'coinbase_attestation',
           userAddress: wallet,
           scope: oprfScopeBytesOf(vector.scopeString),
-          signedDigest: coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID, actionOf(m)),
+          signedDigest: digestFor(m),
           publicHashes: m === 'action'
             ? {domainSeparator: str(t.domain_separator), actionHash: str(t.action_hash)}
             : undefined,
@@ -221,7 +236,7 @@ describe('the vector builder refuses a statement for another proof', () => {
       assertion: {authenticatorData: new Uint8Array(37), signature: new Uint8Array(64), counter: 1},
     },
   });
-  const digest = coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID);
+  const digest = SIGNAL_MODE_DIGEST;
   const scope = oprfScopeBytesOf(vector.scopeString);
 
   it('names another wallet', () => {
@@ -302,3 +317,16 @@ describe('the vector builder refuses a statement for another proof', () => {
     expect(codeOf(() => prepareCoinbaseAppAttestInputs(coinbase, request(), witness))).toMatch(/all-zero signal_hash/);
   });
 });
+
+describe('a request with no dApp action', () => {
+  it('signs the readable ProofRequest, not the signal-mode digest', () => {
+    const noAction = coinbaseRequestDigest(wallet, vector.scopeString, REQUEST_ID);
+    const signing = walletSigning({scope: vector.scopeString, circuitId: 'coinbase_attestation', requestId: REQUEST_ID});
+    expect(noAction).toBe(signedDigestOf(signing.signed));
+    expect(noAction).not.toBe(SIGNAL_MODE_DIGEST);
+    expect(signing.signed.method).toBe('eth_signTypedData_v4');
+    expect(Array.from(signing.signalHash)).toEqual(new Array(32).fill(0));
+    expect(signing.signed.publicHashes).toBeDefined();
+  });
+});
+

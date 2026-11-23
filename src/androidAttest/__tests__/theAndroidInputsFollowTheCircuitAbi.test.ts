@@ -17,7 +17,8 @@ import {ethers} from 'ethers';
 import abis from '../../utils/__tests__/fixtures/androidCircuitAbis.json';
 import vectors from '../../utils/__tests__/fixtures/androidChainVectors.json';
 import iosVector from '../../appAttest/__tests__/fixtures/generateProverTomlVector.json';
-import {coinbaseRequestDigest} from '../../appAttest/coinbaseKycStatement';
+import {signedDigestOf, whatTheWalletSigns} from '../../utils/signedAction';
+import {signalHashBytes} from '../../utils/signalHash';
 import {androidChainInputs, GOOGLE_KEY_ATTESTATION_CA1} from '../../utils/androidKeyAttestation';
 import {bytesToNoirInput, type AttesterCircuitInputs} from '../../utils/circuitHelpers';
 import {oprfPrivateInputs, oprfPublicInputs, oprfScopeBytesOf} from '../../oprf/circuitInputs';
@@ -191,12 +192,15 @@ describe('coinbase_attestation_v2_android', () => {
     circuit: 'coinbase_attestation' as const,
     userAddress: wallet,
     scope: oprfScopeBytesOf((iosVector as unknown as {scopeString: string}).scopeString),
-    // The iPhone vector's request (its own test refuses a vector without one).
-    signedDigest: coinbaseRequestDigest(
-      wallet,
-      (iosVector as unknown as {scopeString: string}).scopeString,
-      String((iosVector as unknown as {requestId?: string}).requestId),
-    ),
+    // The iPhone vector's request (its own test refuses a vector without one),
+    // signed in the circuit's signal mode -- what that noAction vector holds.
+    // The app now signs a no-action request as a readable ProofRequest
+    // (utils/signedAction walletSigning); the builder takes either digest.
+    signedDigest: signedDigestOf(whatTheWalletSigns(ethers.utils.hexlify(signalHashBytes({
+      scope: (iosVector as unknown as {scopeString: string}).scopeString,
+      circuitId: 'coinbase_attestation',
+      requestId: String((iosVector as unknown as {requestId?: string}).requestId),
+    })))),
   };
   const clientData = bytesOf(str(t.client_data));
   const attestedAt = Number(t.attested_at);

@@ -19,6 +19,7 @@
  */
 import {ethers} from 'ethers';
 import type {TypedAction} from '../config/circuitIds';
+import {signalHashBytes, type SignalHashRequest} from './signalHash';
 
 export interface SignedThing {
   /** What to ask the wallet for. */
@@ -57,6 +58,109 @@ const EIP712_DOMAIN_FIELDS = [
   {name: 'chainId', type: 'uint256'},
   {name: 'verifyingContract', type: 'address'},
 ];
+
+/**
+ * What a wallet credential request with no dApp action asks the wallet to
+ * sign: the request itself, as readable EIP-712 fields.
+ *
+ * It used to be personal_sign over the 32-byte signal_hash, which a wallet
+ * shows as unreadable bytes -- the kind of prompt a person should refuse
+ * (Coinbase Wallet, demo Coinbase KYC request, 2026-11-23). The circuits
+ * already take an EIP-712 digest (coinbase-libs signed_message.nr: action
+ * mode, signal_hash zero), so this needs no circuit change.
+ *
+ * The domain has no chainId on purpose: a chainId makes a wallet switch
+ * networks first, an extra prompt for a request that names no chain. The
+ * fields are exactly the signal_hash preimage (scope, circuit, request id),
+ * so a verifier that issued the request can rebuild the struct hash from
+ * what it already holds.
+ */
+export const PROOF_REQUEST_DOMAIN = Object.freeze({name: 'ZKProofport', version: '1'});
+export const PROOF_REQUEST_PRIMARY_TYPE = 'ProofRequest';
+export const PROOF_REQUEST_TYPES = Object.freeze({
+  ProofRequest: [
+    {name: 'statement', type: 'string'},
+    {name: 'scope', type: 'string'},
+    {name: 'proof', type: 'string'},
+    {name: 'requestId', type: 'string'},
+  ],
+});
+export const PROOF_REQUEST_STATEMENT = 'Approve this proof request in ZKProofport';
+
+const DOMAIN_FIELD_TYPES: Record<string, string> = {
+  name: 'string',
+  version: 'string',
+  chainId: 'uint256',
+  verifyingContract: 'address',
+};
+
+function typedSigned(
+  domain: Record<string, unknown>,
+  types: Record<string, Array<{name: string; type: string}>>,
+  primaryType: string,
+  message: Record<string, unknown>,
+): SignedThing {
+  // The wire EIP712Domain must list exactly the fields the domain has, in
+  // the standard order, or the wallet hashes a different domain.
+  const domainFields = Object.keys(DOMAIN_FIELD_TYPES)
+    .filter(k => domain[k] !== undefined)
+    .map(k => ({name: k, type: DOMAIN_FIELD_TYPES[k]}));
+  const unknown = Object.keys(domain).filter(k => !(k in DOMAIN_FIELD_TYPES));
+  if (unknown.length > 0) {
+    throw new Error(`Unsupported EIP-712 domain field(s): ${unknown.join(', ')}. Supported: ${Object.keys(DOMAIN_FIELD_TYPES).join(', ')}.`);
+  }
+  const mutableTypes = Object.fromEntries(Object.entries(types).map(([k, v]) => [k, v.map(f => ({...f}))]));
+  return {
+    method: 'eth_signTypedData_v4',
+    params: [
+      JSON.stringify({
+        domain,
+        types: {EIP712Domain: domainFields, ...mutableTypes},
+        primaryType,
+        message,
+      }),
+    ],
+    digest: ethers.utils._TypedDataEncoder.hash(domain, mutableTypes, message),
+    prefixed: false,
+    publicHashes: {
+      domainSeparator: ethers.utils._TypedDataEncoder.hashDomain(domain),
+      actionHash: ethers.utils._TypedDataEncoder.hashStruct(primaryType, mutableTypes, message),
+    },
+  };
+}
+
+/** The readable request a wallet signs when the dApp bound no action. Throws on a scope or request id outside the signal_hash rules. */
+export function proofRequestMessage(request: SignalHashRequest): Record<string, string> {
+  // Same rules as signal_hash (core's computeSignalHash): a request a
+  // verifier could not recompute is refused here, before any prompt.
+  signalHashBytes(request);
+  return {
+    statement: PROOF_REQUEST_STATEMENT,
+    scope: request.scope,
+    proof: request.circuitId,
+    requestId: request.requestId,
+  };
+}
+
+/**
+ * Everything a wallet credential hook needs about the signature, for both
+ * kinds of request: the signal_hash the circuit gets (always zero now -- the
+ * circuit refuses a proof that carries both) and what the wallet signs.
+ */
+export function walletSigning(
+  request: SignalHashRequest,
+  action?: TypedAction,
+): {signalHash: Uint8Array; signed: SignedThing} {
+  const signalHash = new Uint8Array(32);
+  if (action) {
+    return {signalHash, signed: whatTheWalletSigns(ethers.utils.hexlify(signalHash), action)};
+  }
+  const message = proofRequestMessage(request);
+  return {
+    signalHash,
+    signed: typedSigned({...PROOF_REQUEST_DOMAIN}, PROOF_REQUEST_TYPES as any, PROOF_REQUEST_PRIMARY_TYPE, message),
+  };
+}
 
 /**
  * Resolve, from the action alone, everything the three callers need.

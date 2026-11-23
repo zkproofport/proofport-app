@@ -21,7 +21,7 @@ import {verifyProofOffChainWithMopro, verifyProofOnChainWithCore} from '../utils
 import {
   getAssetPath,
   arrayBufferToHex,
-  whatTheWalletSigns,
+  walletSigning,
   recoverSignerPubkey,
   clearProofCache,
   ensureStorageAvailable,
@@ -36,7 +36,6 @@ import {
 } from '../utils/humanPassport';
 import type {TypedAction} from '../config/circuitIds';
 import {type CircuitName} from '../config';
-import {signalHashBytes} from '../utils/signalHash';
 import {assertOprfAvailable, oprfInputsForProof, oprfStepCode} from '../oprf/device';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
@@ -168,14 +167,18 @@ export const useHumanPassport = (): UseHumanPassportReturn => {
           currentSignalHash = new Uint8Array(32);
           addLog('[Signal] Action bound -- signal_hash goes out as zeros');
         } else {
-          currentSignalHash = signalHashBytes({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId});
+          // No dApp action: the wallet signs the readable proof request
+          // (utils/signedAction.ts, walletSigning), and signal_hash is zero.
+          currentSignalHash = new Uint8Array(32);
+          addLog('[Signal] No action -- the wallet signs the proof request as typed data; signal_hash goes out as zeros');
         }
         setSignalHash(currentSignalHash);
+        const signing = walletSigning({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId}, inputs.action);
         updateStep('signal', {status: 'completed', detail: ethers.utils.hexlify(currentSignalHash)});
 
         updateStep('sign', {status: 'in_progress'});
         if (!ethereum) throw new Error('Wallet provider not available');
-        const signed = whatTheWalletSigns(ethers.utils.hexlify(currentSignalHash), inputs.action);
+        const signed = signing.signed;
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
         if (inputs.action) {

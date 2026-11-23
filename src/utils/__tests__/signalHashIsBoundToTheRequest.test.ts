@@ -62,9 +62,18 @@ describe('computeSignalHash', () => {
     }
   });
 
-  it('the statement digest is the personal_sign digest of this request\'s signal_hash', () => {
+  it('the statement digest is the EIP-712 digest of this request as a readable ProofRequest, not personal_sign over signal_hash', () => {
+    // Since 2026-11-23 a request with no dApp action signs the ProofRequest
+    // (utils/signedAction walletSigning); the wallet showed personal_sign's
+    // 32 bytes as unreadable text.
     const signal = computeSignalHash({scope: 'scope', circuitId: 'coinbase_attestation', requestId: REQ});
-    expect(coinbaseRequestDigest(WALLET, 'scope', REQ)).toBe(ethers.utils.hashMessage(ethers.utils.arrayify(signal)));
+    const typed = ethers.utils._TypedDataEncoder.hash(
+      {name: 'ZKProofport', version: '1'},
+      {ProofRequest: [{name: 'statement', type: 'string'}, {name: 'scope', type: 'string'}, {name: 'proof', type: 'string'}, {name: 'requestId', type: 'string'}]},
+      {statement: 'Approve this proof request in ZKProofport', scope: 'scope', proof: 'coinbase_attestation', requestId: REQ},
+    );
+    expect(coinbaseRequestDigest(WALLET, 'scope', REQ)).toBe(typed);
+    expect(coinbaseRequestDigest(WALLET, 'scope', REQ)).not.toBe(ethers.utils.hashMessage(ethers.utils.arrayify(signal)));
     expect(coinbaseRequestDigest(WALLET, 'scope', OTHER_REQ)).not.toBe(coinbaseRequestDigest(WALLET, 'scope', REQ));
   });
 

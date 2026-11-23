@@ -13,7 +13,7 @@ import {
   arrayBufferToHex,
   prepareCircuitInputs,
   verifyAttestationTx,
-  whatTheWalletSigns,
+  walletSigning,
   recoverSignerPubkey,
   AUTHORIZED_SIGNERS,
   clearProofCache,
@@ -28,7 +28,6 @@ import type {TypedAction} from '../config/circuitIds';
 import {signedDigestOf} from '../utils/signedAction';
 import {assertOprfAvailable, oprfInputsForProof, oprfStepCode} from '../oprf/device';
 import {oprfScopeFieldBytes} from '../oprf/circuitInputs';
-import {signalHashBytes} from '../utils/signalHash';
 import {attestedCountryOfTx} from '../utils/attestCountryTx';
 import {
   flattenCoinbaseAndroidInputs,
@@ -402,9 +401,13 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         if (action) {
           currentSignalHash = new Uint8Array(32);
         } else {
-          currentSignalHash = signalHashBytes({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId});
+          // No dApp action: the wallet signs the readable proof request
+          // (utils/signedAction.ts, walletSigning), and signal_hash is zero.
+          currentSignalHash = new Uint8Array(32);
+          addLog('[Signal] No action -- the wallet signs the proof request as typed data; signal_hash goes out as zeros');
         }
         setSignalHash(currentSignalHash);
+        const signing = walletSigning({scope: inputs.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs.requestId}, action);
         const signalHashHex = Buffer.from(currentSignalHash).toString('hex');
 
         addLog(`[Signal] Signal hash: 0x${signalHashHex.slice(0, 32)}...`);
@@ -425,7 +428,7 @@ export const useCoinbaseCountry = (): UseCoinbaseCountryReturn => {
         const messageHex = ethers.utils.hexlify(currentSignalHash);
         // One description of what is signed, shared by the signing request and
         // the key recovery below.
-        const signed = whatTheWalletSigns(messageHex, action);
+        const signed = signing.signed;
         {
           // The statement App Attest signed names the digest this request
           // makes the wallet sign. Checked before the wallet is asked, so a

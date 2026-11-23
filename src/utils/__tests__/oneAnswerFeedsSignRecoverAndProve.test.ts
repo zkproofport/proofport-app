@@ -34,6 +34,12 @@ const ACTION = {
   message: {amount: '1000000'},
 };
 
+/** The proof request for the demo request below; the same literal is held by SDK core's tests. */
+const PROOF_REQUEST_VECTOR = {
+  domainSeparator: '0xfb55791a6a9498fe44192976708e3dd8fabca9a6957d4f4a3a4046bb1f9a560f',
+  actionHash: '0x769763eaeaa70539e93b7e787a806936097e39efc98701eda13e206a02e2ae77',
+};
+
 /** keccak256(0x19 ++ 0x01 ++ domainSeparator ++ actionHash) — the circuit's. */
 function circuitDigest(domainSeparator: string, actionHash: string): string {
   return ethers.utils.keccak256(
@@ -94,14 +100,18 @@ describe('one answer feeds sign, recover and prove', () => {
     );
   });
 
-  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts', 'useHumanPassport.ts'])('%s reads it in the wallet request, the recovery and the inputs — all three', file => {
+  it.each(['useGiwaKyc.ts', 'useDojangPlayground.ts', 'useHumanPassport.ts', 'useCoinbaseKyc.ts', 'useCoinbaseCountry.ts'])('%s reads it in the wallet request, the recovery and the inputs — all three', file => {
     const fs = require('fs');
     const path = require('path');
     const hook = fs.readFileSync(
       path.join(__dirname, '..', '..', 'hooks', file),
       'utf8',
     );
-    expect(hook).toContain('const signed = whatTheWalletSigns(');
+    // One answer for both kinds of request (utils/signedAction walletSigning).
+    expect(hook).toMatch(/const signing = walletSigning\(\{scope: inputs\.scopeString, circuitId: CIRCUIT_NAME, requestId: inputs\.requestId\}, /);
+    expect(hook).toContain('const signed = signing.signed;');
+    expect(hook).not.toContain('whatTheWalletSigns(');
+    expect(hook).not.toContain('signalHashBytes(');
     expect(hook).toContain('method: signed.method');            // the request
     expect(hook).toContain('recoverSignerPubkey(signed, userSignature)'); // the recovery
     expect(hook).toContain('signed.publicHashes,');             // the inputs
@@ -109,3 +119,54 @@ describe('one answer feeds sign, recover and prove', () => {
     expect(hook).not.toContain('inputs.action\n            ? await ethereum.request');
   });
 });
+
+describe('a request with no dApp action', () => {
+  const {walletSigning, signedDigestOf} = require('../signedAction');
+  const REQUEST = {scope: 'zkproofport-demo:common:kyc', circuitId: 'coinbase_attestation', requestId: 'dfc6f61c-fa7d-400e-b0f7-e9e302b9defc'};
+
+  it('asks the wallet for readable typed data, with signal_hash zero and the two public hashes', () => {
+    const {signalHash, signed} = walletSigning(REQUEST);
+    expect(Array.from(signalHash)).toEqual(new Array(32).fill(0));
+    expect(signed.method).toBe('eth_signTypedData_v4');
+    expect(signed.prefixed).toBe(false);
+    const wire = JSON.parse(signed.params[0]);
+    expect(wire.primaryType).toBe('ProofRequest');
+    expect(wire.domain).toEqual({name: 'ZKProofport', version: '1'});
+    // The wire domain type lists exactly the domain's fields, or the wallet hashes another domain.
+    expect(wire.types.EIP712Domain).toEqual([{name: 'name', type: 'string'}, {name: 'version', type: 'string'}]);
+    expect(wire.message).toEqual({statement: 'Approve this proof request in ZKProofport', scope: REQUEST.scope, proof: REQUEST.circuitId, requestId: REQUEST.requestId});
+    expect(signed.digest).toBe(circuitDigest(signed.publicHashes.domainSeparator, signed.publicHashes.actionHash));
+    expect(signedDigestOf(signed)).toBe(signed.digest);
+  });
+
+  it('a wallet signing the wire payload signs the digest the circuit rebuilds, and the signer recovers', async () => {
+    const {signed} = walletSigning(REQUEST);
+    const wire = JSON.parse(signed.params[0]);
+    const {EIP712Domain: _omit, ...types} = wire.types;
+    const sig = await WALLET._signTypedData(wire.domain, types, wire.message);
+    expect(ethers.utils.computeAddress(recoverSignerPubkey(signed, sig))).toBe(WALLET.address);
+  });
+
+  it('differs per request, scope and circuit, and refuses what signal_hash refuses', () => {
+    const base = walletSigning(REQUEST).signed.publicHashes.actionHash;
+    expect(walletSigning({...REQUEST, requestId: 'other-1'}).signed.publicHashes.actionHash).not.toBe(base);
+    expect(walletSigning({...REQUEST, scope: 'other'}).signed.publicHashes.actionHash).not.toBe(base);
+    expect(walletSigning({...REQUEST, circuitId: 'coinbase_country_attestation'}).signed.publicHashes.actionHash).not.toBe(base);
+    for (const bad of [{...REQUEST, scope: ''}, {...REQUEST, scope: '   '}, {...REQUEST, requestId: 'has space'}, {...REQUEST, requestId: ''}, {...REQUEST, circuitId: 'nope'}, {...REQUEST, circuitId: 'oidc_domain_attestation'}]) {
+      expect(() => walletSigning(bad)).toThrow();
+    }
+  });
+
+  it('a dApp action still wins over the proof request', () => {
+    const {signed} = walletSigning(REQUEST, ACTION);
+    expect(JSON.parse(signed.params[0]).primaryType).toBe('Deposit');
+  });
+
+  it('the struct hash matches the SDK core value for the shared vector', () => {
+    // core's computeProofRequestHash (packages/core/src/signalHash.ts) builds
+    // the same hash by hand; this literal is the value both must produce.
+    expect(walletSigning(REQUEST).signed.publicHashes.actionHash).toBe(PROOF_REQUEST_VECTOR.actionHash);
+    expect(walletSigning(REQUEST).signed.publicHashes.domainSeparator).toBe(PROOF_REQUEST_VECTOR.domainSeparator);
+  });
+});
+

@@ -20,9 +20,8 @@ import {ethers} from 'ethers';
 import type {TypedAction} from '../config/circuitIds';
 import {currentSignerPlatform, type SignerPlatform} from '../config/signerPlatform';
 import {oprfScopeBytesOf} from '../oprf/circuitInputs';
-import {signalHashBytes} from '../utils/signalHash';
 import type {CoinbaseStatementCircuit} from './coinbaseStatementKinds';
-import {signedDigestOf, whatTheWalletSigns} from '../utils/signedAction';
+import {signedDigestOf, walletSigning} from '../utils/signedAction';
 import {
   ANDROID_CIRCUIT_TRUST,
   relayIntegrityDecrypter,
@@ -79,8 +78,7 @@ export function coinbaseRequestDigestFor(
   requestId: string,
   action?: TypedAction,
 ): string {
-  const signal = action ? new Uint8Array(32) : signalHashBytes({scope: scopeString, circuitId: circuit, requestId});
-  return signedDigestOf(whatTheWalletSigns(ethers.utils.hexlify(signal), action));
+  return signedDigestOf(walletSigning({scope: scopeString, circuitId: circuit, requestId}, action).signed);
 }
 
 export interface CoinbaseKycStatementOverrides {
