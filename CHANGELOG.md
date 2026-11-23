@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/zkproofport/proofport-app/compare/app-v1.7.0...app-v1.7.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **proof:** run one proof attempt at a time ([068a0a8](https://github.com/zkproofport/proofport-app/commit/068a0a8ec54ec708e6edbccf64c3c5a86e3d0d29))
+
 # [1.7.0](https://github.com/zkproofport/proofport-app/compare/app-v1.6.0...app-v1.7.0) (2026-11-21)
 
 
