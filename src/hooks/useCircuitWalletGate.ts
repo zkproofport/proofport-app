@@ -192,6 +192,16 @@ export function useCircuitWalletGate(args: Args): CircuitWalletGate & {
 
       // --- P=0, C=1, W=1, M=1: cached + matches → proceed silently. -------
       if (C && W && M) {
+        // Using the remembered wallet keeps it remembered: the 7-day limit
+        // counts from the last proof, not from the day it was first chosen.
+        // Before 2026-11-23 a wallet proved with every day still expired a
+        // week after it was picked, and the next attempt dropped the
+        // connected wallet and opened the picker.
+        try {
+          await setCircuitWallet(key, W);
+        } catch (e) {
+          log(`[Gate] Could not refresh the remembered wallet: ${e instanceof Error ? e.message : e}`);
+        }
         log(`[Gate] Cached wallet ${C.address} matches connected for ${circuit} → proceed.`);
         return {address: W};
       }
