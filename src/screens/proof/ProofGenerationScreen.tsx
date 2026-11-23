@@ -901,6 +901,12 @@ export const ProofGenerationScreen: React.FC = () => {
   }, [addLog, refusedFor, surveyPassportChains]);
 
   const runGenerateProof = useCallback(async () => {
+    // Any start for a dApp request counts as its start. Without this, a
+    // request that arrived with no wallet connected was started twice: the
+    // Connect wallet button opened the picker, and when the wallet connected
+    // both the post-picker retry and the request auto-start below fired
+    // (2026-11-23, E4002 "Signing already in progress" sent to the dApp).
+    if (proofRequest) hasAutoStarted.current = true;
     // A relay request has one answer. Once it is sent, another attempt could
     // only produce a proof nobody receives — say so instead of starting one.
     if (proofRequest && isRelayRequestAnswered(proofRequest.requestId)) {

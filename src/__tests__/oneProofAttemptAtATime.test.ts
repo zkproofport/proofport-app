@@ -95,6 +95,14 @@ describe('the proof screen', () => {
     expect(screen.match(/const attemptLockRef = useRef\(false\)/g) ?? []).toHaveLength(1);
   });
 
+  it('any start for a dApp request marks it started, so the auto-start does not start it again', () => {
+    // The 2026-11-23 path: no wallet connected, Connect wallet tapped, and on
+    // connect the post-picker retry and the request auto-start both fired.
+    expect(screen).toMatch(/const runGenerateProof = useCallback\(async \(\) => \{\n(?:\s*\/\/.*\n)*\s*if \(proofRequest\) hasAutoStarted\.current = true;/);
+    const autoStarts = screen.match(/!hasAutoStarted\.current\) \{\n\s*hasAutoStarted\.current = true;/g) ?? [];
+    expect(autoStarts).toHaveLength(2);
+  });
+
   it('the attempt body is not called anywhere but through the lock', () => {
     const uses = screen.match(/\brunGenerateProof\b/g) ?? [];
     // its declaration, the runOnce call, and the dependency list
