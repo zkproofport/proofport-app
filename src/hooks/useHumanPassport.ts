@@ -86,7 +86,7 @@ export interface UseHumanPassportReturn {
 const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'vk', label: 'Load Verification Key', status: 'pending'},
   {id: 'validate', label: 'Check the Human Passport score', status: 'pending'},
-  {id: 'signal', label: 'Compute deterministic signal hash', status: 'pending'},
+  {id: 'signal', label: 'Prepare the request to sign', status: 'pending'},
   {id: 'sign', label: 'Sign with wallet', status: 'pending'},
   {id: 'pubkey', label: 'Recover public key', status: 'pending'},
   {id: 'scope', label: 'Obtain the private nullifier', status: 'pending'},

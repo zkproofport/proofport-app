@@ -201,7 +201,7 @@ export interface UseCoinbaseKycReturn {
 const INITIAL_PROOF_STEPS: Step[] = [
   {id: 'vk', label: 'Load Verification Key', status: 'pending'},
   {id: 'validate', label: 'Validate attestation transaction', status: 'pending'},
-  {id: 'signal', label: 'Compute deterministic signal hash', status: 'pending'},
+  {id: 'signal', label: 'Prepare the request to sign', status: 'pending'},
   {id: 'sign', label: 'Sign with wallet', status: 'pending'},
   {id: 'pubkey', label: 'Recover public key', status: 'pending'},
   {id: 'scope', label: 'Compute scope and nullifier', status: 'pending'},
@@ -366,10 +366,10 @@ export const useCoinbaseKyc = (): UseCoinbaseKycReturn => {
         });
         addLog(`Coinbase signer verified: ${validation.signerAddress}`);
 
-        // Step 3: Generate signal hash
+        // Step 3: Prepare what the wallet signs (the request, or the dApp's action)
         updateStep('signal', {status: 'in_progress'});
-        addLog('Step 3: Computing deterministic signal hash...');
-        addLog('[Signal] Computing deterministic signal hash...');
+        addLog('Step 3: Preparing the request for the wallet to sign...');
+        addLog('[Signal] Preparing the request for the wallet to sign...');
 
         // signal_hash = keccak256(scope ++ circuit ++ requestId) -- no wallet
         // address: it is public (utils/signalHash.ts). With an action there is
