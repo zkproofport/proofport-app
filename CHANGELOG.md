@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/zkproofport/proofport-app/compare/app-v1.8.2...app-v1.9.0) (2026-11-27)
+
+
+### Features
+
+* **proof:** GIWA KYC and Dojang Playground bind revocation and expiry in the circuit ([d6496fa](https://github.com/zkproofport/proofport-app/commit/d6496fa7af95cfc1e5990599828e2c03e46ac903))
+
 ## [1.8.2](https://github.com/zkproofport/proofport-app/compare/app-v1.8.1...app-v1.8.2) (2026-11-27)
 
 
