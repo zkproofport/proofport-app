@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/zkproofport/proofport-app/compare/app-v1.8.0...app-v1.8.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **proof:** name the step that prepares what the wallet signs ([559c529](https://github.com/zkproofport/proofport-app/commit/559c5296524f7410d46a53afdd23648279df79b5))
+
 # [1.8.0](https://github.com/zkproofport/proofport-app/compare/app-v1.7.2...app-v1.8.0) (2026-11-23)
 
 
