@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/zkproofport/proofport-app/compare/app-v1.8.1...app-v1.8.2) (2026-11-27)
+
+
+### Bug Fixes
+
+* **proof:** refuse a revoked or expired attestation before proving ([d34c279](https://github.com/zkproofport/proofport-app/commit/d34c279c10a5ab27687bfcc3f1ff41baf5ad3274))
+
 ## [1.8.1](https://github.com/zkproofport/proofport-app/compare/app-v1.8.0...app-v1.8.1) (2026-11-27)
 
 
