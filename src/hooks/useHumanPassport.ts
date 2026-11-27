@@ -39,7 +39,10 @@ import {type CircuitName} from '../config';
 import {assertOprfAvailable, oprfInputsForProof, oprfStepCode} from '../oprf/device';
 import type {ProofStatus} from '../types';
 import type {Step} from '../components';
-import type {EthereumProvider, ParsedProofData} from './useGiwaKyc';
+import type {EthereumProvider, ParsedProofData as StatementParsedProofData} from './useGiwaKyc';
+
+/** Human Passport has one package for every phone: no signer variant to report. */
+type ParsedProofData = Omit<StatementParsedProofData, 'signerVariant'>;
 
 const CIRCUIT_NAME = HUMAN_PASSPORT_CIRCUIT;
 

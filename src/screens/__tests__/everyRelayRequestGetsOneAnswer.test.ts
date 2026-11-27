@@ -68,7 +68,7 @@ const mockSettingsGet = jest.fn();
 const mockRunGate = jest.fn();
 const mockGetProvider = jest.fn();
 const mockFindAttestation = jest.fn();
-const mockRequireLiveGiwa = jest.fn();
+const mockGiwaStatement = jest.fn();
 const mockFindDojang = jest.fn();
 const mockFindPassport = jest.fn();
 const mockSurvey = jest.fn();
@@ -129,8 +129,9 @@ jest.mock('../../utils', () => {
     SELECTOR_ATTEST_ACCOUNT: '0x1', SELECTOR_ATTEST_COUNTRY: '0x2',
   };
 });
-jest.mock('../../utils/giwaAttestationSearch', () => ({
-  requireLiveGiwaAttestation: (...args: unknown[]) => mockRequireLiveGiwa(...args),
+// GIWA KYC / Dojang Playground v2's device statement (reads EAS, then the device signs).
+jest.mock('../../appAttest/giwaStatement', () => ({
+  prepareGiwaStatement: (...args: unknown[]) => mockGiwaStatement(...args),
 }));
 jest.mock('../../utils/humanPassport', () => {
   class HumanPassportError extends Error {
@@ -217,8 +218,8 @@ beforeEach(() => {
   mockRunGate.mockResolvedValue({address: ACCOUNT});
   mockGetProvider.mockResolvedValue({send: jest.fn()});
   mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
-  mockRequireLiveGiwa.mockResolvedValue({uid: `0x${'ab'.repeat(32)}`, expirationTime: 0, time: 1});
-  mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
+  mockGiwaStatement.mockResolvedValue({clientData: new Uint8Array(233), attestedAt: 1});
+  mockFindDojang.mockResolvedValue({rawTransaction: '0xraw', attestationUid: `0x${'cd'.repeat(32)}`});
   mockFindPassport.mockResolvedValue({request: {recipient: ACCOUNT}, head: {score: 300000}});
   mockSurvey.mockResolvedValue(SURVEY);
   mockStatement.mockResolvedValue({clientData: new Uint8Array(225), attestedAt: 1});
@@ -452,24 +453,47 @@ describe('every inline failure path answers once, with its code', () => {
     expect(mockGenerate).not.toHaveBeenCalled();
   });
 
-  // GIWA KYC: the attestation is read fresh from the chain before anything is
-  // signed; a revoked or expired one is answered with its own code.
-  it.each([['revoked', 'E2025'], ['expired', 'E2026'], ['lookup', 'E3002']] as const)(
-    'giwa_attestation whose attestation is %s -> %s, nothing signed or proved',
-    async (kind, code) => {
+  // GIWA KYC and the Dojang Playground: the device statement reads the
+  // attestation fresh before anything is signed; a revoked, expired or
+  // unreadable one is answered with its own code.
+  it.each([
+    ['giwa_attestation', 'revoked', 'E2025'], ['giwa_attestation', 'expired', 'E2026'], ['giwa_attestation', 'lookup', 'E3002'],
+    ['giwa_attestation', 'other_attester', 'E2007'],
+    ['dojang_playground', 'revoked', 'E2025'], ['dojang_playground', 'expired', 'E2026'], ['dojang_playground', 'lookup', 'E3002'],
+  ] as const)(
+    '%s whose attestation is %s -> %s, nothing signed or proved',
+    async (circuit, kind, code) => {
       const {AttestationNotLiveError} = jest.requireActual('../../utils/easAttestationStatus');
-      mockRequireLiveGiwa.mockRejectedValue(new AttestationNotLiveError(kind, `attestation ${kind}`));
-      await mount('giwa_attestation', request('giwa_attestation', {scope: 's', oprfDomain: 'Vote.Example'}));
+      mockGiwaStatement.mockRejectedValue(new AttestationNotLiveError(kind, `attestation ${kind}`));
+      await mount(circuit, request(circuit, {scope: 's', oprfDomain: 'Vote.Example'}));
       expectOneError(code);
       expect(mockGenerate).not.toHaveBeenCalled();
     },
   );
 
-  it('giwa_attestation: the live check is asked about the attestation the search found, for the gated wallet', async () => {
-    await mount('giwa_attestation', request('giwa_attestation', {scope: 's', oprfDomain: 'Vote.Example'}));
-    expect(mockRequireLiveGiwa).toHaveBeenCalledTimes(1);
-    expect(mockRequireLiveGiwa.mock.calls[0][0]).toEqual({id: `0x${'ab'.repeat(32)}`});
-    expect(mockRequireLiveGiwa.mock.calls[0][1]).toBe(ACCOUNT);
+  it.each(['giwa_attestation', 'dojang_playground'] as const)(
+    '%s: a device that cannot sign the statement is answered with the device code, nothing proved',
+    async circuit => {
+      const {AppAttestError} = jest.requireActual('../../appAttest/appAttestError');
+      mockGiwaStatement.mockRejectedValue(new AppAttestError('ios_device_unsupported', 'no App Attest on this device'));
+      await mount(circuit, request(circuit, {scope: 's', oprfDomain: 'Vote.Example'}));
+      expectOneError('E2009');
+      expect(mockGenerate).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['giwa_attestation', `0x${'ab'.repeat(32)}`],
+    ['dojang_playground', `0x${'cd'.repeat(32)}`],
+  ] as const)('%s: the statement is made for the attestation the search found, the gated wallet and this request, and handed to the hook', async (circuit, uid) => {
+    await mount(circuit, request(circuit, {scope: 's', oprfDomain: 'Vote.Example'}));
+    expect(mockGiwaStatement).toHaveBeenCalledTimes(1);
+    expect(mockGiwaStatement.mock.calls[0][0]).toBe(circuit);
+    expect(mockGiwaStatement.mock.calls[0][1]).toMatchObject({walletAddress: ACCOUNT, attestationUid: uid, scopeString: 's'});
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    const given = mockGenerate.mock.calls[0][0] as {appAttest: {witness: unknown}; requestId: string};
+    expect(given.appAttest.witness).toEqual({clientData: new Uint8Array(233), attestedAt: 1});
+    expect(given.requestId).toBe((mockGiwaStatement.mock.calls[0][1] as {requestId: string}).requestId);
   });
 
   it('the hook gets the request\'s own OPRF domain, unchanged', async () => {

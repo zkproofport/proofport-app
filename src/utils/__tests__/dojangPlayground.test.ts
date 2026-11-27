@@ -318,7 +318,11 @@ describe('finding the wallet\'s issuance', () => {
     // Order on the wire deliberately reversed; the pick must not depend on it.
     stub({pages: [ok([LEGACY_ROW, DEPLOY_ROW, EIP1559_ROW])]});
     const found = await findDojangPlaygroundIssuance(WALLET, noLog);
-    expect(found).toEqual({txHash: EIP1559_TX.hash, rawTransaction: EIP1559.expected.raw, txType: 2, blockNumber: 38562330});
+    expect(found).toEqual({
+      txHash: EIP1559_TX.hash, rawTransaction: EIP1559.expected.raw, txType: 2, blockNumber: 38562330,
+      // The uid of the receipt's Attested event: the attestation the device statement reads.
+      attestationUid: '0xd23b0491b926fadde67578ee997b76904b2bfc9b3960d03dfb586582d9069584',
+    });
     expect(calls).toEqual([expect.stringContaining('txlist'), 'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_call']);
   });
 

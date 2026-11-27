@@ -221,9 +221,14 @@ describe("the proof callback's signerVariant", () => {
     expect(proofSignerVariant(circuit, {signerVariant: v})).toBe(v);
   });
 
-  it('every other circuit is standard', () => {
-    expect(proofSignerVariant('giwa_attestation', {signerVariant: 'android'})).toBe('standard');
-    expect(proofSignerVariant('dojang_playground', {})).toBe('standard');
+  // GIWA KYC and the Dojang Playground v2 (2026-11-27): one package per
+  // statement signer, like Coinbase KYC v2, so the proof names its package.
+  it.each(['giwa_attestation', 'dojang_playground'])('%s v2 is per-signer: its proof says which package made it, or is E2016', circuit => {
+    for (const v of ['standard', 'android', 'android_factory']) {
+      expect(proofSignerVariant(circuit, {signerVariant: v})).toBe(v);
+    }
+    const e = (() => { try { proofSignerVariant(circuit, {}); } catch (x) { return x; } })() as {code?: string; reason?: string};
+    expect([e.code, e.reason]).toEqual(['E2016', 'proof_package_unstated']);
   });
 
   // TestFlight 1.4.6 (20), 2026-11-03: a dApp's Human Passport request proved
@@ -237,7 +242,13 @@ describe("the proof callback's signerVariant", () => {
 
   it('which circuits are per-signer comes from the artifact table, and an unknown id is an error', () => {
     const perSigner = ALL_CIRCUIT_IDS.filter((id: string) => circuitHasPerSignerPackages(id));
-    expect(perSigner.sort()).toEqual(['coinbase_attestation', 'coinbase_country_attestation', 'oidc_domain_attestation']);
+    expect(perSigner.sort()).toEqual([
+      'coinbase_attestation',
+      'coinbase_country_attestation',
+      'dojang_playground',
+      'giwa_attestation',
+      'oidc_domain_attestation',
+    ]);
     for (const id of ['not_a_circuit', '', '__proto__', 'constructor', 'coinbase-kyc', 'HUMAN_PASSPORT_SCORE']) {
       expect(() => circuitHasPerSignerPackages(id)).toThrow(/Unknown circuit .*Known: /);
       expect(() => proofSignerVariant(id, {signerVariant: 'standard'})).toThrow(/Unknown circuit/);
@@ -274,11 +285,33 @@ describe("the verifier an Android proof names", () => {
     expect(verifierForProof('oidc_domain_attestation', 'android', 'production')).toEqual({address: '0x3D99a36B39231Bc35f6E840f18AC443bf5D229de', chainId: 8453});
   });
 
+  it('GIWA KYC and the Dojang Playground v2: each Android package has its own GIWA Sepolia contract in every environment', () => {
+    const expected = {
+      giwa_attestation: {android: '0x428074597be3D784535e40F9b1cDfe048AF57F03', android_factory: '0x465FAB030D82241BD95268704537A782B8109807'},
+      dojang_playground: {android: '0x7fc2059a73cEF2b572C8deEe911c72963dCB4A8a', android_factory: '0x0b3Af3DFc67dC65E0145c37ee00230139d579F64'},
+    } as const;
+    for (const env of ['development', 'staging', 'production'] as const) {
+      for (const circuit of ['giwa_attestation', 'dojang_playground'] as const) {
+        for (const variant of ['android', 'android_factory'] as const) {
+          expect([env, circuit, variant, verifierForProof(circuit, variant, env)]).toEqual([
+            env, circuit, variant, {address: expected[circuit][variant], chainId: 91342},
+          ]);
+          expect(() => requireVerifierForVariant(circuit, variant, env)).not.toThrow();
+        }
+        expect(() => requireVerifierForVariant(circuit, 'app_attest', env)).not.toThrow();
+      }
+    }
+  });
+
+  // Human Passport score is one package for every phone, so it has no
+  // Android verifier row: the circuit these cases need. (GIWA KYC was this
+  // case until its v2 Android packages were deployed on 2026-11-27.)
   it.each(['android', 'android_factory'] as const)('a circuit with no %s package: E2018 before proving, never the standard address', variant => {
+    expect(circuitHasPerSignerPackages('human_passport_score')).toBe(false);
     for (const env of ['staging', 'production'] as const) {
       let code = '';
       try {
-        requireVerifierForVariant('giwa_attestation', variant, env);
+        requireVerifierForVariant('human_passport_score', variant, env);
       } catch (e) {
         code = e instanceof AppAttestError ? e.code : String(e);
       }

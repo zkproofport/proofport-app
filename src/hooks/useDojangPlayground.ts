@@ -31,9 +31,18 @@ import {
 } from '../utils';
 import {
   checkDojangIssuanceTx,
-  flattenDojangPlaygroundInputs,
   prepareDojangPlaygroundInputs,
 } from '../utils/dojangPlayground';
+import {flattenDojangV2Inputs} from '../utils/giwaStatementInputs';
+import type {GiwaStatementWitness} from '../appAttest/giwaStatement';
+import {checkStatementAge} from '../appAttest/revocationStatement';
+import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../appAttest/constants';
+import {signedDigestOf} from '../utils/signedAction';
+import {oprfScopeFieldBytes} from '../oprf/circuitInputs';
+import {artifactSourceFor} from '../config/circuitArtifacts';
+import {getCircuitDisplayName} from '../utils/circuit';
+import {currentSignerVariant, wireSignerVariant} from '../config/signerPlatform';
+import {requireVerifierForVariant} from '../utils/proofSignerVariant';
 import type {TypedAction} from '../config/circuitIds';
 import {
   type CircuitName,
@@ -64,6 +73,12 @@ export interface DojangPlaygroundProofInputs {
   oprfDomain: string;
   /** Optional EIP-712 action; with one, `signal_hash` goes out as zeros. */
   action?: TypedAction;
+  /**
+   * Required: the device statement that the issuance's attestation was
+   * neither revoked nor expired right before proving
+   * (src/appAttest/giwaStatement.ts).
+   */
+  appAttest: {witness: GiwaStatementWitness};
 }
 
 export interface UseDojangPlaygroundReturn {
@@ -137,6 +152,16 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
       addLog('=== Starting Dojang Playground Proof Generation ===');
 
       try {
+        const statement = inputs.appAttest;
+        if (!statement?.witness) {
+          throw new Error(`${getCircuitDisplayName(CIRCUIT_NAME)} needs a device statement; none was made for this request.`);
+        }
+        const signerVariant = currentSignerVariant();
+        requireVerifierForVariant(CIRCUIT_NAME, signerVariant);
+        const artifact = artifactSourceFor(CIRCUIT_NAME, signerVariant);
+        if (!artifact) throw new Error(`No pinned circuit files for ${CIRCUIT_NAME}`);
+        addLog(`[Statement] ${getCircuitDisplayName(CIRCUIT_NAME)}, ${signerVariant} signer (circuits ${artifact.ref}, ${artifact.remoteFileName})`);
+        checkStatementAge(statement.witness.attestedAt, Math.floor(Date.now() / 1000));
         // Always -- see the same line in useGiwaKyc.
         await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
@@ -171,6 +196,12 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         updateStep('sign', {status: 'in_progress'});
         if (!ethereum) throw new Error('Wallet provider not available');
         const signed = signing.signed;
+        {
+          const bound = ethers.utils.hexlify(statement.witness.clientData.slice(161, 193));
+          if (bound.toLowerCase() !== signedDigestOf(signed).toLowerCase()) {
+            throw new Error(`The device statement binds request ${bound}, this request signs ${signedDigestOf(signed)}`);
+          }
+        }
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
         if (inputs.action) {
@@ -222,7 +253,8 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         updateStep('scope', {status: 'completed', detail: `nullifier ${oprf.nullifier.slice(0, 18)}...`});
 
         updateStep('inputs', {status: 'in_progress'});
-        const flatInputs = flattenDojangPlaygroundInputs(
+        const flatInputs = flattenDojangV2Inputs(
+          signerVariant,
           prepareDojangPlaygroundInputs({
             signalHash: currentSignalHash,
             userAddress: inputs.userAddress,
@@ -232,6 +264,14 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
             oprf,
             action: signed.publicHashes,
           }),
+          {
+            circuit: CIRCUIT_NAME,
+            userAddress: inputs.userAddress,
+            scope: oprfScopeFieldBytes(oprf),
+            signedDigest: signedDigestOf(signed),
+            pinnedCaKeyHash: APPLE_APP_ATTEST_CA1_KEY_HASH,
+          },
+          statement.witness,
         );
         updateStep('inputs', {status: 'completed', detail: `${flatInputs.length} input values`});
 
@@ -245,7 +285,7 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
         const proofStart = Date.now();
-        const currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: 'standard', circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
+        const currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: signerVariant, circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
         setFullProof(currentProof);
         _cachedFullProof = currentProof;
         updateStep('proof', {
@@ -255,11 +295,17 @@ export const useDojangPlayground = (): UseDojangPlaygroundReturn => {
 
         updateStep('parse', {status: 'in_progress'});
         const numPublicInputs = await publicInputCountOf(circuitPath);
+        if (numPublicInputs !== artifact.publicInputCount) {
+          throw new Error(
+            `${CIRCUIT_NAME} has ${numPublicInputs} public inputs; this app reads ${artifact.publicInputCount}. The downloaded circuit is not the one the app was built for.`,
+          );
+        }
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(currentProof, numPublicInputs);
         const parsedData: ParsedProofData = {
           proofHex: '0x' + arrayBufferToHex(parsed.proof),
           publicInputsHex: parsed.publicInputs.map((pi: ArrayBuffer) => '0x' + arrayBufferToHex(pi)),
           numPublicInputs,
+          signerVariant: wireSignerVariant(signerVariant),
         };
         setParsedProof(parsedData);
         _cachedParsedProof = parsedData;

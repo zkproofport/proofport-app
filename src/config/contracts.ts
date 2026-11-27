@@ -228,14 +228,15 @@ export const BROADCAST_PATHS: Record<CircuitName, ((chainId: number) => string) 
   // which rejects every proof of the pinned circuit (circuitArtifacts.ts).
   // Restore the row when the record is on the ref this app reads.
   oidc_domain_attestation: null,
-  // Was `null` with a note that GIWA addresses come from the built-in
-  // fallbacks only. They do not have to: `forge script` writes this broadcast
-  // on every deploy exactly like the others, so a redeployed GIWA verifier now
-  // reaches a device instead of waiting for someone to edit a constant.
-  giwa_attestation: (chainId) =>
-    `DeployGiwaAttestation.s.sol/${chainId}/run-latest.json`,
-  dojang_playground: (chainId) =>
-    `DeployDojangPlayground.s.sol/${chainId}/run-latest.json`,
+  // GIWA KYC and the Dojang Playground v2 (2026-11-27): null for Coinbase KYC
+  // v2's reason. Each has three packages with their own deploy scripts
+  // (DeployGiwaAttestationV2, ...Android, ...AndroidFactory), so one record
+  // path cannot name the contract a proof verifies on; the address is the
+  // per-environment row below (iPhone) or variantVerifiers.ts (Android), which
+  // core pins. The old DeployGiwaAttestation / DeployDojangPlayground records
+  // name the contracts that checked only the issuing transaction.
+  giwa_attestation: null,
+  dojang_playground: null,
   // Human Passport score: null for Coinbase KYC v2's reason -- the record
   // (DeployHumanPassportScore) is read only from the ref circuitArtifacts.ts
   // pins; the address is the per-environment row below, which core pins.
@@ -343,11 +344,15 @@ export const CIRCUIT_DATA_VERSIONS: Record<CircuitName, number> = {
   // signal_hash from the nullifier, and grew from 128 to 192 public inputs.
   // v4: Noir 1.0.0 / bb 6.0.0.
   // v5: OPRF nullifier (132 public inputs), OPRF_CIRCUITS_REF.
-  giwa_attestation: 5,
+  // v6: the device status statement (133 public inputs), GIWA_V2_CIRCUITS_REF;
+  // the iPhone row (Android rows 7, 8).
+  giwa_attestation: 6,
   // v1: first release of the circuit (circuits 4bba5ed).
   // v3: Noir 1.0.0 / bb 6.0.0.
   // v4: OPRF nullifier (100 public inputs, 2^19), OPRF_CIRCUITS_REF.
-  dojang_playground: 4,
+  // v5: the device status statement (101 public inputs), GIWA_V2_CIRCUITS_REF;
+  // the iPhone row (Android rows 6, 7).
+  dojang_playground: 5,
   // v1: first release (circuits human-passport-score); read from the pinned
   // ref in circuitArtifacts.ts, whose row carries the same version.
   // v2: Noir 1.0.0 / bb 6.0.0.
@@ -450,16 +455,20 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     coinbase_country_attestation: '0xe88033179576869c8730160EcBfaa7e5b2c1A4a9',
     oidc_domain_attestation: '0x14a2241B0A24679825BeFAaa562d4A204262D84f',
     // GIWA and Dojang Playground are testnet-only (GIWA Sepolia) in every build.
-    giwa_attestation: '0xA272056866453F0182426A29B9Ca6382d6C6a060',
-    dojang_playground: '0x400474E78a793289D091A5F556F78158956B5D01',
+    // v2 with the device status statement (revocation and expiry bound in the
+    // circuit), iPhone package, deployed 2026-11-27: GiwaAttestationV2,
+    // DojangPlaygroundV2. The previous contracts (0xA272...a060, 0x4004...5D01)
+    // checked only the issuing transaction and reject every v2 proof.
+    giwa_attestation: '0x55E7b9d9F2E9ac0080B668514eE01F15b686bfCE',
+    dojang_playground: '0xC1c42ade7C31aFDf99FbaEDF97dA5b07fCCba724',
     human_passport_score: '0x223e372553739678365486a3Ded05310B5BCbc0C',
   },
   staging: {
     coinbase_attestation: '0xe78fCDc7562ce3afCEadaF29f4b8B96DC997C01A',
     coinbase_country_attestation: '0xe88033179576869c8730160EcBfaa7e5b2c1A4a9',
     oidc_domain_attestation: '0x14a2241B0A24679825BeFAaa562d4A204262D84f',
-    giwa_attestation: '0xA272056866453F0182426A29B9Ca6382d6C6a060',
-    dojang_playground: '0x400474E78a793289D091A5F556F78158956B5D01',
+    giwa_attestation: '0x55E7b9d9F2E9ac0080B668514eE01F15b686bfCE',
+    dojang_playground: '0xC1c42ade7C31aFDf99FbaEDF97dA5b07fCCba724',
     human_passport_score: '0x223e372553739678365486a3Ded05310B5BCbc0C',
   },
   production: {
@@ -477,8 +486,8 @@ export const FALLBACK_VERIFIERS: Record<Environment, Record<CircuitName, string>
     // OIDC with the provider-key statement (circuits 5081cfd), deployed
     // 2026-10-29: circuits da21683, broadcast/DeployOidcDomainAttestation.s.sol/8453.
     oidc_domain_attestation: '0xF1AA88aD844bFd1dc552526a67f5980aAd4E7f35',
-    giwa_attestation: '0xA272056866453F0182426A29B9Ca6382d6C6a060',
-    dojang_playground: '0x400474E78a793289D091A5F556F78158956B5D01',
+    giwa_attestation: '0x55E7b9d9F2E9ac0080B668514eE01F15b686bfCE',
+    dojang_playground: '0xC1c42ade7C31aFDf99FbaEDF97dA5b07fCCba724',
     // Human Passport score, Base mainnet, deployed 2026-10-30
     // (broadcast/DeployHumanPassportScore.s.sol/8453), the contract core pins.
     human_passport_score: '0x2d055c42a2B0c1024aC4aa83b4995fc8fD45662e',

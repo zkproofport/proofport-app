@@ -2,7 +2,8 @@
  * Verifier contracts of the Android packages, per environment, signer variant
  * and circuit id.
  *
- * An Android proof of `coinbase_attestation`, `coinbase_country_attestation` or `oidc_domain_attestation` is
+ * An Android proof of `coinbase_attestation`, `coinbase_country_attestation`, `oidc_domain_attestation`,
+ * `giwa_attestation` or `dojang_playground` is
  * made by another circuit than the iPhone's (`*_android`, `*_android_factory`:
  * other vk), so it verifies only on that package's own contract. The address
  * in FALLBACK_VERIFIERS is the iPhone circuit's and rejects every Android
@@ -47,17 +48,34 @@ export interface VariantVerifier {
 
 const BASE_SEPOLIA = 84532;
 const BASE = 8453;
+const GIWA_SEPOLIA = 91342;
+
+/*
+ * GIWA KYC and the Dojang Playground v2 (device status statement), Android
+ * packages, GIWA Sepolia in every build, deployed 2026-11-27 (circuits
+ * deployments/91342/GiwaAttestationV2Android*.json, DojangPlaygroundV2Android*.json).
+ */
+const GIWA_ANDROID = Object.freeze({
+  giwa_attestation: Object.freeze({address: '0x428074597be3D784535e40F9b1cDfe048AF57F03', chainId: GIWA_SEPOLIA}),
+  dojang_playground: Object.freeze({address: '0x7fc2059a73cEF2b572C8deEe911c72963dCB4A8a', chainId: GIWA_SEPOLIA}),
+});
+const GIWA_ANDROID_FACTORY = Object.freeze({
+  giwa_attestation: Object.freeze({address: '0x465FAB030D82241BD95268704537A782B8109807', chainId: GIWA_SEPOLIA}),
+  dojang_playground: Object.freeze({address: '0x0b3Af3DFc67dC65E0145c37ee00230139d579F64', chainId: GIWA_SEPOLIA}),
+});
 
 const TESTNET_ROWS: Readonly<Record<AndroidVerifierVariant, Readonly<Partial<Record<CircuitName, VariantVerifier>>>>> = Object.freeze({
   android: Object.freeze({
     oidc_domain_attestation: Object.freeze({address: '0x31feA05b9Fa197B591D66cFf0FEF5698e6A5D9C0', chainId: BASE_SEPOLIA}),
     coinbase_attestation: Object.freeze({address: '0x551AF332B494658eCe6124C1a5c48202c0580E28', chainId: BASE_SEPOLIA}),
     coinbase_country_attestation: Object.freeze({address: '0x8e86Cc23c908792AD4F2EB1Df9A485a518eeea0e', chainId: BASE_SEPOLIA}),
+    ...GIWA_ANDROID,
   }),
   android_factory: Object.freeze({
     oidc_domain_attestation: Object.freeze({address: '0xaef0AF1b129035B6CEEf40241fD75871D15A5f41', chainId: BASE_SEPOLIA}),
     coinbase_attestation: Object.freeze({address: '0xE0982A6ECfFc0eF1bD43d1D8bFE8C5089f3fF5BD', chainId: BASE_SEPOLIA}),
     coinbase_country_attestation: Object.freeze({address: '0x26D4Cfae6654C31d10D669C0EbC6428802ADF9d0', chainId: BASE_SEPOLIA}),
+    ...GIWA_ANDROID_FACTORY,
   }),
 });
 
@@ -70,11 +88,13 @@ export const ANDROID_VARIANT_VERIFIERS: Readonly<Record<Environment, Readonly<Re
         oidc_domain_attestation: Object.freeze({address: '0x3D99a36B39231Bc35f6E840f18AC443bf5D229de', chainId: BASE}),
         coinbase_attestation: Object.freeze({address: '0x836D8b0fd01Bed4e34220EBCeE6d63265951fbF9', chainId: BASE}),
         coinbase_country_attestation: Object.freeze({address: '0xB57182062141F59Ddbb98DA73764Ec1676689832', chainId: BASE}),
+        ...GIWA_ANDROID,
       }),
       android_factory: Object.freeze({
         oidc_domain_attestation: Object.freeze({address: '0x1b8E60dB8b51015CDB1983F64C1210AC40d8F532', chainId: BASE}),
         coinbase_attestation: Object.freeze({address: '0x87d9a66CAcaC95b2Bc43bAc8E610c59ACB67c5E0', chainId: BASE}),
         coinbase_country_attestation: Object.freeze({address: '0x1F2975abd0711Cf6B98084829e04712eE105d8f7', chainId: BASE}),
+        ...GIWA_ANDROID_FACTORY,
       }),
     }),
   });

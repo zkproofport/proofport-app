@@ -8,7 +8,7 @@ const mockT = (key: string) => key;
 
 jest.mock('../../components/ProofProgressCard', () => ({ProofProgressCard: 'ProofProgressCard'}));
 jest.mock('react-native', () => ({
-  NativeModules: {}, AppState: {addEventListener: () => ({remove: () => {}})},
+  NativeModules: {}, Platform: {OS: 'ios'}, AppState: {addEventListener: () => ({remove: () => {}})},
   StyleSheet: {create: (styles: unknown) => styles},
   ScrollView: 'ScrollView', Text: 'Text', View: 'View', SafeAreaView: 'SafeAreaView',
   TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
@@ -69,6 +69,7 @@ import {ActionInputScreen} from '../proof/ActionInputScreen';
 import {useGiwaKyc, type UseGiwaKycReturn} from '../../hooks/useGiwaKyc';
 import {whatTheWalletSigns} from '../../utils/signedAction';
 import type {TypedAction} from '../../utils/typedAction';
+import {giwaTestWitness} from '../../appAttest/__tests__/helpers/giwaWitness';
 
 let tree: TestRenderer.ReactTestRenderer;
 let errorSpy: jest.SpyInstance;
@@ -159,16 +160,20 @@ describe('GIWA wallet request', () => {
         throw new Error('Signature prompt captured; test stops before signing');
       },
     };
+    const action = {
+      domain: {name: 'MyVault', version: '1', chainId: 91342, verifyingContract: '0x0000000000000000000000000000000000000000'},
+      types: {Deposit: [{name: 'amount', type: 'uint256'}, {name: 'nonce', type: 'uint256'}]},
+      primaryType: 'Deposit', message: {amount: '1000000', nonce: '1'},
+    };
+    const userAddress = '0x2222222222222222222222222222222222222222';
+    const requestId = '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f';
     await act(async () => hook.generateProofWithSteps({
-      userAddress: '0x2222222222222222222222222222222222222222',
+      userAddress,
       rawTransaction: 'validated-by-fixture', signerIndex: 0, scopeString: 'standalone-test',
-      requestId: '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f',
+      requestId,
       oprfDomain: 'zkproofport.app',
-      action: {
-        domain: {name: 'MyVault', version: '1', chainId: 91342, verifyingContract: '0x0000000000000000000000000000000000000000'},
-        types: {Deposit: [{name: 'amount', type: 'uint256'}, {name: 'nonce', type: 'uint256'}]},
-        primaryType: 'Deposit', message: {amount: '1000000', nonce: '1'},
-      },
+      action,
+      appAttest: {witness: giwaTestWitness({circuit: 'giwa_attestation', wallet: userAddress, scope: 'standalone-test', requestId, action})},
     }, wallet, () => {}));
     expect(calls.map(c => c.method)).toEqual(['eth_chainId', 'wallet_switchEthereumChain', 'eth_signTypedData_v4']);
     expect(calls[1].params).toEqual([{chainId: '0x164ce'}]);

@@ -35,7 +35,16 @@ import {
   prepareGiwaCircuitInputs,
   GIWA_AUTHORIZED_SIGNERS,
 } from '../utils/giwaKyc';
-import {flattenCircuitInputs} from '../utils/circuitHelpers';
+import {flattenGiwaKycV2Inputs} from '../utils/giwaStatementInputs';
+import type {GiwaStatementWitness} from '../appAttest/giwaStatement';
+import {checkStatementAge} from '../appAttest/revocationStatement';
+import {APPLE_APP_ATTEST_CA1_KEY_HASH} from '../appAttest/constants';
+import {signedDigestOf} from '../utils/signedAction';
+import {oprfScopeFieldBytes} from '../oprf/circuitInputs';
+import {artifactSourceFor} from '../config/circuitArtifacts';
+import {getCircuitDisplayName} from '../utils/circuit';
+import {currentSignerVariant, wireSignerVariant, type WireSignerVariant} from '../config/signerPlatform';
+import {requireVerifierForVariant} from '../utils/proofSignerVariant';
 import type {TypedAction} from '../config/circuitIds';
 import {
   type CircuitName,
@@ -76,6 +85,13 @@ export interface GiwaKycProofInputs {
    * zeros. The circuit refuses a request that fills both.
    */
   action?: TypedAction;
+  /**
+   * Required: GIWA KYC v2 proves that this phone's hardware key (App Attest on
+   * iPhone, Android key attestation on Android) signed, right before proving,
+   * that the attestation was neither revoked nor expired. The screen makes it
+   * before the wallet is asked to sign (src/appAttest/giwaStatement.ts).
+   */
+  appAttest: {witness: GiwaStatementWitness};
 }
 
 export interface EthereumProvider {
@@ -88,6 +104,8 @@ export interface ParsedProofData {
   proofHex: string;
   publicInputsHex: string[];
   numPublicInputs: number;
+  /** Which package of the circuit id made it (the callback's `signerVariant`). */
+  signerVariant: WireSignerVariant;
 }
 
 export interface UseGiwaKycReturn {
@@ -211,6 +229,18 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         // files existing let a stale copy prove -- and since the startup
         // prefetch skips Laboratory circuits while the switch is off, this is
         // the one place a lab circuit's cache is brought up to date.
+        const statement = inputs.appAttest;
+        if (!statement?.witness) {
+          throw new Error(`${getCircuitDisplayName(CIRCUIT_NAME)} needs a device statement; none was made for this request.`);
+        }
+        const signerVariant = currentSignerVariant();
+        // A proof with no verifier in this build could be checked by nobody
+        // (E2018): refused before the circuit files are fetched.
+        requireVerifierForVariant(CIRCUIT_NAME, signerVariant);
+        const artifact = artifactSourceFor(CIRCUIT_NAME, signerVariant);
+        if (!artifact) throw new Error(`No pinned circuit files for ${CIRCUIT_NAME}`);
+        addLog(`[Statement] ${getCircuitDisplayName(CIRCUIT_NAME)}, ${signerVariant} signer (circuits ${artifact.ref}, ${artifact.remoteFileName})`);
+        checkStatementAge(statement.witness.attestedAt, Math.floor(Date.now() / 1000));
         await circuitFilesForProof(CIRCUIT_NAME, addLog);
 
         // Step 1: VK
@@ -283,6 +313,14 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         // Three separate reads of `inputs.action` is how the Coinbase flow
         // drifted apart twice in one day.
         const signed = signing.signed;
+        {
+          // The statement the device signed names the digest this request
+          // makes the wallet sign: checked before the wallet is asked.
+          const bound = ethers.utils.hexlify(statement.witness.clientData.slice(161, 193));
+          if (bound.toLowerCase() !== signedDigestOf(signed).toLowerCase()) {
+            throw new Error(`The device statement binds request ${bound}, this request signs ${signedDigestOf(signed)}`);
+          }
+        }
         const selectedAddr = await ethereum.getSelectedAddress?.();
         const from = selectedAddr || inputs.userAddress;
         if (inputs.action) {
@@ -358,7 +396,18 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           oprf,
           signed.publicHashes,
         );
-        const flatInputs = flattenCircuitInputs(circuitInputs);
+        const flatInputs = flattenGiwaKycV2Inputs(
+          signerVariant,
+          circuitInputs,
+          {
+            circuit: CIRCUIT_NAME,
+            userAddress: inputs.userAddress,
+            scope: oprfScopeFieldBytes(oprf),
+            signedDigest: signedDigestOf(signed),
+            pinnedCaKeyHash: APPLE_APP_ATTEST_CA1_KEY_HASH,
+          },
+          statement.witness,
+        );
         updateStep('inputs', {
           status: 'completed',
           detail: `${flatInputs.length} input values`,
@@ -377,7 +426,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         const circuitPath = await getAssetPath(`${CIRCUIT_NAME}.json`);
         const srsPath = await getAssetPath(`${CIRCUIT_NAME}.srs`);
         const proofStartTime = Date.now();
-        currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: 'standard', circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
+        currentProof = await proveCircuit({circuit: CIRCUIT_NAME, variant: signerVariant, circuitPath, srsPath, inputs: flatInputs, vk: currentVk, log: addLog});
         const proofElapsed = Date.now() - proofStartTime;
         setFullProof(currentProof);
         _cachedFullProof = currentProof;
@@ -389,6 +438,11 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
         // Step 10: parse
         updateStep('parse', {status: 'in_progress'});
         const numPublicInputs = await publicInputCountOf(circuitPath);
+        if (numPublicInputs !== artifact.publicInputCount) {
+          throw new Error(
+            `${CIRCUIT_NAME} has ${numPublicInputs} public inputs; this app reads ${artifact.publicInputCount}. The downloaded circuit is not the one the app was built for.`,
+          );
+        }
         const parsed: ProofWithPublicInputs = parseProofWithPublicInputs(
           currentProof!,
           numPublicInputs,
@@ -401,6 +455,7 @@ export const useGiwaKyc = (): UseGiwaKycReturn => {
           proofHex: '0x' + proofHex,
           publicInputsHex,
           numPublicInputs,
+          signerVariant: wireSignerVariant(signerVariant),
         };
         setParsedProof(parsedData);
         _cachedParsedProof = parsedData;

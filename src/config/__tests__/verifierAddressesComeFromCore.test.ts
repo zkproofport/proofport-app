@@ -239,7 +239,10 @@ describe('Android package verifiers', () => {
   it('an unknown variant, environment or circuit is an error, never a default', () => {
     expect(() => androidVerifierFor('oidc_domain_attestation', 'staging', 'standard')).toThrow(/Unknown Android signer variant 'standard'/);
     expect(() => androidVerifierFor('oidc_domain_attestation', 'mainnet', 'android')).toThrow(/Unknown environment 'mainnet'/);
-    expect(() => androidVerifierFor('giwa_attestation', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
+    // Human Passport score has one package for every phone, so no Android
+    // row (GIWA KYC was this case until its v2 Android packages, 2026-11-27).
+    expect(() => androidVerifierFor('human_passport_score', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
+    expect(() => androidVerifierFor('human_passport_score', 'production', 'android_factory')).toThrow(AndroidVerifierMissingError);
     expect(() => androidVerifierFor('__proto__', 'staging', 'android')).toThrow(AndroidVerifierMissingError);
   });
 
@@ -288,6 +291,67 @@ describe('Android package verifiers', () => {
       }
     }
   });
+
+  /*
+   * GIWA KYC and the Dojang Playground v2 (device status statement,
+   * 2026-11-27): one contract per Android package on GIWA Sepolia, the same in
+   * every environment (both ids are testnet-only). Each is held to the
+   * published core's PINNED_VARIANT_VERIFIERS (core 0.4.0-beta.12 pins them;
+   * an older core fails here, which is the point) and, with circuits checked
+   * out beside this app, to circuits' deployments/91342 records.
+   */
+  const GIWA_CIRCUITS = ['giwa_attestation', 'dojang_playground'] as const;
+  const GIWA_SEPOLIA_ROWS: Record<string, Record<string, string>> = {
+    android: {giwa_attestation: '0x428074597be3d784535e40f9b1cdfe048af57f03', dojang_playground: '0x7fc2059a73cef2b572c8deee911c72963dcb4a8a'},
+    android_factory: {giwa_attestation: '0x465fab030d82241bd95268704537a782b8109807', dojang_playground: '0x0b3af3dfc67dc65e0145c37ee00230139d579f64'},
+  };
+
+  it.each(['development', 'staging', 'production'] as const)("%s: GIWA / Dojang Android packages verify on their own GIWA Sepolia contracts, never the iPhone address", env => {
+    for (const v of VARIANTS) {
+      for (const c of GIWA_CIRCUITS) {
+        const row = androidVerifierFor(c, env, v);
+        expect([env, v, c, row.address.toLowerCase(), row.chainId]).toEqual([env, v, c, GIWA_SEPOLIA_ROWS[v][c], 91342]);
+        expect(row.address).toBe(ethers.utils.getAddress(row.address));
+        expect(CIRCUIT_NETWORKS[env][c].chainId).toBe(91342);
+        expect(row.address.toLowerCase()).not.toBe(FALLBACK[env][c].toLowerCase());
+      }
+    }
+    expect(new Set(VARIANTS.flatMap(v => GIWA_CIRCUITS.map(c => androidVerifierFor(c, env, v).address))).size).toBe(4);
+  });
+
+  it("GIWA / Dojang Android rows are the published core's pinned GIWA Sepolia contracts", () => {
+    for (const v of VARIANTS) {
+      for (const c of GIWA_CIRCUITS) {
+        expect([v, c, coreClaim(c, 91342, v)]).toEqual([v, c, {kind: 'pinned', address: GIWA_SEPOLIA_ROWS[v][c]}]);
+      }
+    }
+  });
+
+  const GIWA_RECORD: Record<string, Record<string, string>> = {
+    android: {giwa_attestation: 'GiwaAttestationV2Android', dojang_playground: 'DojangPlaygroundV2Android'},
+    android_factory: {giwa_attestation: 'GiwaAttestationV2AndroidFactory', dojang_playground: 'DojangPlaygroundV2AndroidFactory'},
+  };
+  const giwaDeployments = path.join(PARENT, 'circuits', 'deployments', '91342');
+  (fs.existsSync(path.join(giwaDeployments, `${GIWA_RECORD.android.giwa_attestation}.json`)) ? it : it.skip)(
+    "GIWA / Dojang Android rows are the circuits repository's own GIWA Sepolia deployment records (circuits checkout beside this app)",
+    () => {
+      for (const v of VARIANTS) {
+        for (const c of GIWA_CIRCUITS) {
+          const record = JSON.parse(fs.readFileSync(path.join(giwaDeployments, `${GIWA_RECORD[v][c]}.json`), 'utf8'));
+          expect([v, c, record.contract, String(record.address).toLowerCase()]).toEqual([v, c, 'HonkVerifier', GIWA_SEPOLIA_ROWS[v][c]]);
+        }
+      }
+      // And the iPhone package's address in every environment.
+      const IPHONE_RECORD = {giwa_attestation: 'GiwaAttestationV2', dojang_playground: 'DojangPlaygroundV2'} as const;
+      for (const c of GIWA_CIRCUITS) {
+        const record = JSON.parse(fs.readFileSync(path.join(giwaDeployments, `${IPHONE_RECORD[c]}.json`), 'utf8'));
+        expect([c, record.contract]).toEqual([c, 'HonkVerifier']);
+        for (const env of ['development', 'staging', 'production'] as const) {
+          expect([env, c, FALLBACK[env][c].toLowerCase()]).toEqual([env, c, String(record.address).toLowerCase()]);
+        }
+      }
+    },
+  );
 
   const BROADCAST: Record<string, Record<string, string>> = {
     android: {oidc_domain_attestation: 'DeployOidcDomainAttestationAndroid', coinbase_attestation: 'DeployCoinbaseAttestationV2Android', coinbase_country_attestation: 'DeployCoinbaseCountryAttestationV2Android'},

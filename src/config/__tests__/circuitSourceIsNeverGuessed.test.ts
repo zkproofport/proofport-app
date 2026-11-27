@@ -8,8 +8,10 @@
  * and verifiers -- apps whose input builders predate them included. Decided
  * 2026-10-27: each app version pins one exact tag (CIRCUITS_RELEASE_TAG) for
  * the official circuits; development and staging read `main`. Since
- * 2026-11-17 the Laboratory circuits read the exact commit LAB_CIRCUITS_REF
- * everywhere, not `main` (everyCircuitIsReadFromAPinnedRef.test.ts). A pinned
+ * 2026-11-17 the Laboratory circuits read an exact commit everywhere, not
+ * `main` -- GIWA_V2_CIRCUITS_REF since their v2 packages (2026-11-27) --
+ * and since then no circuit reads a verifier record: every address is the
+ * table core pins (everyCircuitIsReadFromAPinnedRef.test.ts). A pinned
  * tag that does not answer is an error naming the tag, never a fallback to
  * `main` or another release.
  *
@@ -62,9 +64,10 @@ const {
   syncDeployments,
 } = require('../deployments');
 const {circuitBaseUrl} = require('../../utils/circuitDownload');
+const {GIWA_V2_CIRCUITS_REF} = require('../circuitArtifacts');
 const {CIRCUITS_RELEASE_TAG, CIRCUITS_WITH_BROADCAST, FALLBACK_VERIFIERS, STATIC_CONFIGS} = require('../contracts');
-// Coinbase Country v2 and the Laboratory circuits (files and verifier
-// records) read OPRF_CIRCUITS_REF since the OPRF nullifier. It is empty until
+// Coinbase Country v2 reads OPRF_CIRCUITS_REF since the OPRF nullifier (GIWA
+// and the Dojang Playground did too, until their v2 packages). It is empty until
 // those circuits are pushed (everyCircuitIsReadFromAPinnedRef.test.ts holds
 // that); these cases run the pinned-ref paths with a test commit in its place.
 const OPRF_REF = 'c0ffee'.repeat(6) + 'c0ff';
@@ -128,23 +131,20 @@ describe('one exact circuits tag per app version', () => {
     },
   );
 
-  it('a whole production sync touches only pinned refs, never main or the API', async () => {
+  it('a whole production sync reads no record at all: every address is the table core pins', async () => {
     const fetchMock = github({
       ...releaseRecords(),
+      // v1 GIWA records at every ref an older build read: answering, and still never asked.
       [`/${OPRF_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
+      [`/${GIWA_V2_CIRCUITS_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
+      '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': '0xF6Edb9d6114B2546B6E559997fdDE08CAeEA83b3',
     });
-    await syncDeployments('production').catch(() => undefined);
-    const urls = urlsOf(fetchMock);
-    // One deployment record per circuit that has one -- so the loop below
-    // cannot pass by having looked at nothing.
-    expect(CIRCUITS_WITH_BROADCAST.length).toBeGreaterThan(0);
-    expect(urls).toHaveLength(CIRCUITS_WITH_BROADCAST.length);
-    for (const u of urls) {
-      expect(u).not.toMatch(/api\.github\.com|releases/);
-      expect(u.startsWith(`${RAW}/${TAG}/`) || u.startsWith(`${RAW}/${OPRF_REF}/`)).toBe(true);
-    }
-    // No circuit reads main in production.
-    expect(urls.filter(u => u.includes('/main/'))).toEqual([]);
+    await expect(syncDeployments('production')).resolves.toBe(false);
+    // GIWA and the Dojang Playground were the last circuits with a record
+    // path; since v2 (2026-11-27) there is none, so nothing is fetched --
+    // not main, not the tag, not the API.
+    expect(CIRCUITS_WITH_BROADCAST).toEqual([]);
+    expect(urlsOf(fetchMock)).toEqual([]);
   });
 
   it('a "latest" tag remembered by an older app version changes nothing', async () => {
@@ -171,11 +171,12 @@ describe('one exact circuits tag per app version', () => {
 
 describe('the pinned tag is missing', () => {
   it('cannot stop a production sync: no circuit reads a record at the tag', async () => {
-    const giwa = '0xf6edb9d6114b2546b6e559997fdde08caeea83b3';
-    const fetchMock = github({[`/${OPRF_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: giwa});
-    await expect(syncDeployments('production')).resolves.toBeDefined();
+    const fetchMock = github({[`/${OPRF_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: '0xf6edb9d6114b2546b6e559997fdde08caeea83b3'});
+    await expect(syncDeployments('production')).resolves.toBe(false);
     expect(urlsOf(fetchMock).filter(u => u.startsWith(`${RAW}/${TAG}/`))).toEqual([]);
-    expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBe(giwa);
+    expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBeNull();
+    expect(await getVerifierAddress('giwa_attestation', 'production')).toBe(FALLBACK_VERIFIERS.production.giwa_attestation);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('offline is not a missing tag: no error, built-in addresses answer', async () => {
@@ -190,7 +191,7 @@ describe('development and staging', () => {
     const fetchMock = github();
     expect(resolveCircuitBaseUrl(env)).toBe(`${RAW}/main`);
     for (const circuit of ['giwa_attestation', 'dojang_playground']) {
-      expect(await circuitBaseUrl(circuit, env)).toBe(`${RAW}/${OPRF_REF}`);
+      expect(await circuitBaseUrl(circuit, env)).toBe(`${RAW}/${GIWA_V2_CIRCUITS_REF}`);
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -201,33 +202,39 @@ describe('development and staging', () => {
 });
 
 describe('the Laboratory circuits (not in any release tag)', () => {
-  it.each(['giwa_attestation', 'dojang_playground'])('%s reads OPRF_REF on a production build, with no tag or main involved', async circuit => {
+  it.each(['giwa_attestation', 'dojang_playground'])('%s reads GIWA_V2_CIRCUITS_REF on a production build, with no tag, main or OPRF ref involved', async circuit => {
     const fetchMock = github({}, {offline: true});
-    expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/${OPRF_REF}`);
+    expect(await circuitBaseUrl(circuit, 'production')).toBe(`${RAW}/${GIWA_V2_CIRCUITS_REF}`);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
 describe('a verifier follows the circuit bytes', () => {
-  // The bb 6.0.0 GIWA Sepolia contract (circuits 954eb90 record), the app's fallback.
-  const giwa = '0xa272056866453f0182426a29b9ca6382d6c6a060';
+  // GIWA KYC v2's iPhone contract on GIWA Sepolia (2026-11-27), the app's
+  // address in every environment, which core pins.
+  const giwa = '0x55e7b9d9f2e9ac0080b668514ee01f15b686bfce';
+  // v1 contracts (bb 6.0.0 OPRF-era, and older): they reject every v2 proof.
+  const v1Giwa = '0xa272056866453f0182426a29b9ca6382d6c6a060';
   const oldGiwa = '0xeb9eb5452790cfe549ff83ceb3dbe1c432231492';
 
   // main answers with another address: reading it would be visible.
   const mainGiwa = '0x3333333333333333333333333333333333333333';
-  function broadcasts(currentGiwa = giwa) {
+  function broadcasts(currentGiwa = v1Giwa) {
     return github({
       [`/${OPRF_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: currentGiwa,
+      [`/${GIWA_V2_CIRCUITS_REF}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: currentGiwa,
       '/main/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json': mainGiwa,
       [`/${TAG}/broadcast/DeployGiwaAttestation.s.sol/91342/run-latest.json`]: oldGiwa,
     });
   }
 
-  it.each(['development', 'staging', 'production'])('%s resolves GIWA to the verifier recorded at the pinned commit, not main', async env => {
+  it.each(['development', 'staging', 'production'])('%s resolves GIWA and Dojang to their v2 configured addresses, never a broadcast (v1 records answer and are not asked)', async env => {
     const fetchMock = broadcasts();
-    expect(await fetchDeploymentAddress('giwa_attestation', env)).toBe(giwa);
-    expect(urlsOf(fetchMock).length).toBeGreaterThan(0);
-    expect(urlsOf(fetchMock).every(url => url.includes(`/${OPRF_REF}/broadcast/`))).toBe(true);
+    expect(await fetchDeploymentAddress('giwa_attestation', env)).toBeNull();
+    expect(await fetchDeploymentAddress('dojang_playground', env)).toBeNull();
+    expect((await getVerifierAddress('giwa_attestation', env)).toLowerCase()).toBe(giwa);
+    expect((await getVerifierAddress('dojang_playground', env)).toLowerCase()).toBe('0xc1c42ade7c31afdf99fbaedf97da5b07fccba724');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('reads Coinbase KYC v2 from its configured address, never a broadcast or an old cache', async () => {
@@ -256,12 +263,14 @@ describe('a verifier follows the circuit bytes', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('keeps a refreshed experimental verifier available offline', async () => {
-    const redeployed = '0x2222222222222222222222222222222222222222';
-    broadcasts(redeployed);
-    expect(await fetchDeploymentAddress('giwa_attestation', 'production')).toBe(redeployed);
+  it('a v1 GIWA address cached by an earlier build, under any ref, is never read back', async () => {
+    // v1 was refreshed from DeployGiwaAttestation records and cached under
+    // `<id>@<ref>`; those contracts reject every v2 proof.
+    for (const ref of ['9651df892c28fbeb9331ebc5358abfdf062c7c42', OPRF_REF, GIWA_V2_CIRCUITS_REF, 'main', TAG]) {
+      mockDisk.set(`@proofport/deployment/production/giwa_attestation@${ref}`, JSON.stringify({address: v1Giwa}));
+    }
     github({}, {offline: true});
-    expect(await getVerifierAddress('giwa_attestation', 'production')).toBe(redeployed);
+    expect((await getVerifierAddress('giwa_attestation', 'production')).toLowerCase()).toBe(giwa);
   });
 
   it('ignores a cache for an earlier experimental circuit data version', async () => {

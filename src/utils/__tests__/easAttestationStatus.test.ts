@@ -42,7 +42,7 @@ async function refusal(p: Promise<unknown>): Promise<AttestationNotLiveError> {
 }
 
 const base = {uid: UID, schema: SCHEMA, time: ISSUED, expirationTime: EXPIRES, revocationTime: 0, recipient: WALLET};
-const q = (nowSeconds: number, over: Partial<{recipient: string; schemaUid: string; uid: string}> = {}) =>
+const q = (nowSeconds: number, over: Partial<{recipient: string; schemaUid: string; uid: string; attester: string}> = {}) =>
   ({uid: UID, recipient: WALLET, nowSeconds, ...over});
 
 describe('judging one record', () => {
@@ -81,8 +81,22 @@ describe('judging one record', () => {
     expect(() => judgeAttestation(base, q(ISSUED, {schemaUid: '0x' + '22'.repeat(32)}))).toThrow(/is schema/);
     expect(judgeAttestation(base, q(ISSUED, {schemaUid: SCHEMA.toUpperCase().replace('0X', '0x')})).uid).toBe(UID);
   });
+  it("another attester's record: refused when an attester is required, any case of the same address accepted", () => {
+    const FAUCET = '0x63CCe2b569A7bC35895ee24306c1512fefc06121';
+    const withAttester = {...base, attester: FAUCET.toLowerCase()};
+    expect(judgeAttestation(withAttester, q(ISSUED, {attester: FAUCET})).uid).toBe(UID);
+    const e = (() => { try { judgeAttestation(withAttester, q(ISSUED, {attester: '0x6646d970499BBeD728636823A5A7e551E811b414'})); } catch (x) { return x as AttestationNotLiveError; } throw new Error('not refused'); })();
+    expect(e.kind).toBe('other_attester');
+    expect(e.code).toBe('E2007');
+    expect(e.message).toMatch(/was made by 0x63cce2b5/i);
+    // A record that names no attester cannot satisfy a required one.
+    expect(() => judgeAttestation(base, q(ISSUED, {attester: FAUCET}))).toThrow(/names no attester/);
+    expect(() => judgeAttestation({...base, attester: 'not-an-address'}, q(ISSUED, {attester: FAUCET}))).toThrow(/names no attester/);
+    // Not asked: the attester is not judged.
+    expect(judgeAttestation({...base, attester: '0x1111111111111111111111111111111111111111'}, q(ISSUED)).uid).toBe(UID);
+  });
   it('every refusal has a modal code', () => {
-    expect(ATTESTATION_REFUSAL_CODE).toEqual({missing: 'E2007', revoked: 'E2025', expired: 'E2026', other_wallet: 'E2007', wrong_schema: 'E2007', lookup: 'E3002'});
+    expect(ATTESTATION_REFUSAL_CODE).toEqual({missing: 'E2007', revoked: 'E2025', expired: 'E2026', other_wallet: 'E2007', wrong_schema: 'E2007', other_attester: 'E2007', lookup: 'E3002'});
   });
 });
 
@@ -92,6 +106,12 @@ describe('reading the record from the chain', () => {
     expect(live).toEqual({uid: UID, expirationTime: EXPIRES, time: ISSUED});
     const e = await refusal(requireLiveAttestation({rpcUrl: 'https://rpc.test', eas: EAS, uid: UID, recipient: WALLET, nowSeconds: 1795763969, fetchImpl: rpcAnswer(REAL_ANSWER)}, noLog));
     expect(e.kind).toBe('expired');
+  });
+  it("decodes the real answer's attester: the Playground faucet passes, the GIWA KYC attester is refused", async () => {
+    const ok = await requireLiveAttestation({rpcUrl: 'https://rpc.test', eas: EAS, uid: UID, recipient: WALLET, attester: '0x63CCe2b569A7bC35895ee24306c1512fefc06121', nowSeconds: ISSUED, fetchImpl: rpcAnswer(REAL_ANSWER)}, noLog);
+    expect(ok.uid).toBe(UID);
+    const e = await refusal(requireLiveAttestation({rpcUrl: 'https://rpc.test', eas: EAS, uid: UID, recipient: WALLET, attester: '0x6646d970499BBeD728636823A5A7e551E811b414', nowSeconds: ISSUED, fetchImpl: rpcAnswer(REAL_ANSWER)}, noLog));
+    expect(e.kind).toBe('other_attester');
   });
   it('asks eth_call getAttestation(uid) on the EAS contract at latest', async () => {
     const f = rpcAnswer(REAL_ANSWER);

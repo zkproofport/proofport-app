@@ -155,9 +155,10 @@ describe('the proof screen', () => {
     expect(screen).toContain('requestId: attemptRequestId,\n          review');
   });
 
-  it('passes that id to every wallet circuit and both device statements', () => {
-    // History, then Dojang, Human Passport, Country (statement + hook), GIWA, KYC (statement + hook).
-    expect(screen.split('requestId: attemptRequestId,').length - 1).toBe(8);
+  it('passes that id to every wallet circuit and every device statement', () => {
+    // History, then Dojang (statement + hook), Human Passport, Country (statement + hook),
+    // GIWA (statement + hook), KYC (statement + hook).
+    expect(screen.split('requestId: attemptRequestId,').length - 1).toBe(10);
   });
 
 });

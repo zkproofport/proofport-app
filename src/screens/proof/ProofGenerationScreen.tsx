@@ -55,7 +55,7 @@ import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
 import {AttestationNotLiveError} from '../../utils/easAttestationStatus';
-import {requireLiveGiwaAttestation} from '../../utils/giwaAttestationSearch';
+import {prepareGiwaStatement, type GiwaStatementWitness} from '../../appAttest/giwaStatement';
 import type {DeviceCheckReason} from '../../appAttest/deviceCheckReasons';
 import {prepareCoinbaseCountryStatement, prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
 import {attestedCountryOfTx} from '../../utils/attestCountryTx';
@@ -1272,6 +1272,19 @@ export const ProofGenerationScreen: React.FC = () => {
         const scopeStr = route.params?.scope ?? deep?.scope ?? 'proofport:dojang-playground';
         const oprfDomain = oprfDomainFor(scopeStr);
         if (oprfDomain === null) return;
+        const dojangAction = route.params?.action ?? deep?.action;
+        // Dojang Playground v2: the attestation is read again and this
+        // phone's hardware key signs that it is neither revoked nor expired
+        // (E2025 / E2026), before the wallet is asked.
+        addLog('=== Device signer: checking revocation and expiry and signing the statement ===');
+        const dojangWitness: GiwaStatementWitness = await timer.step('device: Dojang statement', () => prepareGiwaStatement('dojang_playground', {
+          walletAddress,
+          attestationUid: issuance.attestationUid,
+          scopeString: scopeStr,
+          requestId: attemptRequestId,
+          action: dojangAction,
+          log: addLog,
+        }));
         await generateDojangProof(
           {
             userAddress: walletAddress,
@@ -1279,7 +1292,8 @@ export const ProofGenerationScreen: React.FC = () => {
             scopeString: scopeStr,
             requestId: attemptRequestId,
             oprfDomain,
-            action: route.params?.action ?? deep?.action,
+            action: dojangAction,
+            appAttest: {witness: dojangWitness},
           },
           {
             request: promptingRequest((method, params) => provider.send(method, params), setWalletPrompt),
@@ -1421,25 +1435,6 @@ export const ProofGenerationScreen: React.FC = () => {
       addLog('Attestation found!');
       addLog(`TX length: ${txResult.rawTransaction.length} chars`);
 
-      // GIWA KYC: the circuit proves the issuing transaction only, so a
-      // revoked or expired attestation is refused here, from a fresh read of
-      // the chain. (Coinbase is checked inside its device statement.)
-      if (isGiwa) {
-        try {
-          await timer.step('attestation status', () => requireLiveGiwaAttestation(txResult.attestation, walletAddress, addLog));
-        } catch (e) {
-          const details = e instanceof Error ? e.message : String(e);
-          addLog(details);
-          const code: ErrorCode = e instanceof AttestationNotLiveError ? e.code : 'E3002';
-          failAttempt({
-            code,
-            error: details,
-            inline: `[${code}] ${t(`host.errors.${code}.description`, {defaultValue: ErrorCodes[code].description})}`,
-          });
-          return;
-        }
-      }
-
       const provider = await getProvider();
       if (!provider) {
         addLog('No wallet provider available');
@@ -1526,6 +1521,24 @@ export const ProofGenerationScreen: React.FC = () => {
         const scopeStr = deep?.scope || 'proofport:giwa-poc';
         const oprfDomain = oprfDomainFor(scopeStr);
         if (oprfDomain === null) return;
+        // Optional: the GIWA circuit signs the typed action when one arrives.
+        // Passing it is what makes the request's action reach the wallet
+        // screen instead of being dropped on the way.
+        const giwaAction =
+          route.params?.action ??
+          (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action;
+        // GIWA KYC v2: the attestation is read again and this phone's
+        // hardware key signs that it is neither revoked nor expired
+        // (E2025 / E2026), before the wallet is asked.
+        addLog('=== Device signer: checking revocation and expiry and signing the statement ===');
+        const giwaWitness: GiwaStatementWitness = await timer.step('device: GIWA statement', () => prepareGiwaStatement('giwa_attestation', {
+          walletAddress,
+          attestationUid: txResult.attestation.id,
+          scopeString: scopeStr,
+          requestId: attemptRequestId,
+          action: giwaAction,
+          log: addLog,
+        }));
 
         await generateGiwaProof(
           {
@@ -1535,12 +1548,8 @@ export const ProofGenerationScreen: React.FC = () => {
             scopeString: scopeStr,
             requestId: attemptRequestId,
             oprfDomain,
-            // Optional: the GIWA circuit signs the typed action when one
-            // arrives and its signal hash when none does. Passing it is what makes the request's action reach the
-            // wallet screen instead of being dropped on the way.
-            action:
-              route.params?.action ??
-              (proofRequest?.inputs as {action?: TypedAction} | undefined)?.action,
+            action: giwaAction,
+            appAttest: {witness: giwaWitness},
           },
           ethereum, addLog,
         );
@@ -1598,6 +1607,16 @@ export const ProofGenerationScreen: React.FC = () => {
       // Device-signer failures carry the code for their cause (unsupported
       // device, an Android chain the circuit refuses, revoked, Apple
       // unreachable, ...).
+      if (error instanceof AttestationNotLiveError) {
+        // Revoked / expired / missing / unread, from a device statement's
+        // fresh read of the attestation (GIWA KYC, Dojang Playground).
+        failAttempt({
+          code: error.code,
+          error: msg,
+          inline: `[${error.code}] ${t(`host.errors.${error.code}.description`, {defaultValue: ErrorCodes[error.code].description})}`,
+        });
+        return;
+      }
       failAttempt(error instanceof AppAttestError
         ? {code: error.code, error: msg, deviceCheckReason: error.reason}
         : {code: 'E2001', error: msg});

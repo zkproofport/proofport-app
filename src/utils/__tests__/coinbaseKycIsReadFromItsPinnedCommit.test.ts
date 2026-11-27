@@ -35,14 +35,13 @@ jest.mock('react-native-fs', () => ({
   },
 }));
 
-import {__setOprfCircuitsRefForTests, circuitArtifactSource, coinbaseKycArtifact, OPRF_CIRCUITS_REF} from '../../config/circuitArtifacts';
+import {__setOprfCircuitsRefForTests, circuitArtifactSource, coinbaseKycArtifact, GIWA_V2_CIRCUITS_REF, OPRF_CIRCUITS_REF} from '../../config/circuitArtifacts';
 
 // Coinbase KYC v2 (and every wallet credential circuit) reads OPRF_CIRCUITS_REF
 // since the OPRF nullifier. These cases run with a test commit, so they hold
 // the download paths independently of the value the app pins.
 const OPRF_REF = 'c0ffee'.repeat(6) + 'c0ff';
 __setOprfCircuitsRefForTests(OPRF_REF);
-const LAB_CIRCUITS_REF = OPRF_REF;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {downloadCircuitFiles, circuitBaseUrl, circuitDataVersion} = require('../circuitDownload');
 
@@ -96,10 +95,18 @@ describe('coinbase_attestation (v2)', () => {
     expect(circuitDataVersion('coinbase_attestation')).toBe(coinbaseKycArtifact().dataVersion);
   });
 
-  it('leaves every other circuit on its own pinned ref, never main', async () => {
+  it('leaves every other circuit on its own pinned ref, never main or Coinbase KYC\'s', async () => {
     expect(circuitArtifactSource('__proto__')).toBeUndefined();
+    // GIWA KYC v2 (iPhone package here) reads GIWA_V2_CIRCUITS_REF, not the
+    // OPRF ref Coinbase KYC v2 reads.
     await downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {});
-    expect(mockDownloads[0].fromUrl).toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${LAB_CIRCUITS_REF}/giwa-attestation/target/giwa_attestation.json`);
+    expect(mockDownloads[0].fromUrl).toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${GIWA_V2_CIRCUITS_REF}/giwa-attestation-v2/target/giwa_attestation_v2.json`);
+    expect(mockDownloads.map(d => d.toFile)).toEqual([
+      '/tmp/documents/circuits/giwa_attestation.json',
+      '/tmp/documents/circuits/giwa_attestation.srs',
+      '/tmp/documents/circuits/giwa_attestation.vk',
+    ]);
+    expect(mockDownloads.every(d => !d.fromUrl.includes(`/${OPRF_REF}/`) && !d.fromUrl.includes('/main/'))).toBe(true);
   });
 });
 

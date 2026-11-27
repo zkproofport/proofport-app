@@ -359,8 +359,18 @@ describe('the derived lists cannot be shorter than what they derive from', () =>
      * refreshed off the build-time fallback.
      */
     const expected = ALL_CIRCUIT_IDS.filter(c => BROADCAST_PATHS[c] !== null);
-    expect(expected.length).toBeGreaterThan(0);
     expect([...CIRCUITS_WITH_BROADCAST].sort()).toEqual([...expected].sort());
+    // Since GIWA KYC and the Dojang Playground v2 (2026-11-27) no circuit
+    // reads a broadcast record: every address is the per-environment table
+    // (FALLBACK_VERIFIERS, variantVerifiers.ts), which core pins. Named here so
+    // the equality above is not silently comparing two empty lists by
+    // accident: a path added back changes this line on purpose.
+    expect(expected).toEqual([]);
+    // And every id is in the table the filter reads, so an id missing from
+    // BROADCAST_PATHS cannot drop out of the derived list unseen.
+    for (const id of ALL_CIRCUIT_IDS) {
+      expect(Object.prototype.hasOwnProperty.call(BROADCAST_PATHS, id)).toBe(true);
+    }
     // And the deriving is what deployments.ts actually uses — a literal array
     // of circuit names reappearing there is the whole defect returning.
     const deployments = codeOf(path.join(SRC, 'config', 'deployments.ts'));

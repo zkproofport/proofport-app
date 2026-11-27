@@ -213,7 +213,7 @@ export async function circuitBaseUrl(
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuitName as CircuitName)) {
     throw new Error(
       `Laboratory circuit '${circuitName}' has no pinned row in CIRCUIT_ARTIFACT_SOURCES ` +
-        '(src/config/circuitArtifacts.ts, LAB_CIRCUITS_REF). It is never read from a branch.',
+        '(src/config/circuitArtifacts.ts). It is never read from a branch.',
     );
   }
   return resolveCircuitBaseUrl(env);

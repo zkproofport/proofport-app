@@ -36,7 +36,7 @@ jest.mock('react-native', () => ({Platform: {OS: 'ios'}}));
 import {syncDeploymentsAtLaunch} from '../launchDeploymentSync';
 import {CircuitsReleaseMissingError} from '../../config/deployments';
 import {downloadCircuitFiles} from '../circuitDownload';
-import {__setOprfCircuitsRefForTests} from '../../config/circuitArtifacts';
+import {__setOprfCircuitsRefForTests, GIWA_V2_CIRCUITS_REF} from '../../config/circuitArtifacts';
 
 // Every wallet credential circuit reads OPRF_CIRCUITS_REF since the OPRF
 // nullifier (empty until pushed); these cases run with a test commit there.
@@ -110,12 +110,12 @@ describe('a circuit download from the pinned release', () => {
     expect(mockFiles.has('/docs/circuits/coinbase_attestation.json')).toBe(false);
   });
 
-  // GIWA and the Dojang Playground read LAB_CIRCUITS_REF (circuitArtifacts.ts)
-  // in every environment since 2026-11-17, not main.
+  // GIWA and the Dojang Playground read GIWA_V2_CIRCUITS_REF (circuitArtifacts.ts)
+  // in every environment since their v2 packages (2026-11-27); a pinned commit, never main.
   it.each(['staging', 'production'] as const)('a 404 for a Laboratory circuit in %s names its pinned commit, never main or the release', async env => {
     mockStatus = 404;
     const err = await downloadCircuitFiles('giwa_attestation', env, undefined, () => {}).catch((e: Error) => e);
-    const ref = OPRF_REF;
+    const ref = GIWA_V2_CIRCUITS_REF;
     expect((err as Error).message).toContain(`HTTP 404 from https://raw.githubusercontent.com/zkproofport/circuits/${ref}/`);
     expect((err as Error).message).toContain(`circuits ref ${ref} (src/config/circuitArtifacts.ts) does not contain this file`);
     expect((err as Error).message).not.toContain('/circuits/main/');

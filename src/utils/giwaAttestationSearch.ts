@@ -9,7 +9,6 @@
 import {ethers} from 'ethers';
 import type {AttestationInfo} from './attestationSearch';
 import {getNetworkConfigForCircuit} from '../config/environment';
-import {requireLiveAttestation, type LiveAttestation} from './easAttestationStatus';
 
 // Single source of truth for the GIWA endpoints — the same lookup the
 // proof-generation pipeline uses. Asked per circuit AND per environment,
@@ -517,23 +516,4 @@ export async function findGiwaAttestationTransaction(
     log(`[GIWA Search] Tx fetch/parse failed: ${e instanceof Error ? e.message : e}`);
     return null;
   }
-}
-
-/**
- * Refuses a GIWA KYC attestation that is no longer good: read fresh from the
- * EAS predeploy (never from the 10-minute search cache), it must exist, be
- * this wallet's, carry the Verified Account schema, not be revoked, and not be
- * past its expiry. Throws AttestationNotLiveError (E2025 revoked, E2026
- * expired, E3002 lookup did not finish, E2007 otherwise).
- */
-export async function requireLiveGiwaAttestation(
-  attestation: AttestationInfo,
-  walletAddress: string,
-  addLog: (msg: string) => void,
-  check: typeof requireLiveAttestation = requireLiveAttestation,
-): Promise<LiveAttestation> {
-  return check(
-    {rpcUrl: GIWA_RPC, eas: EAS_CONTRACT, uid: attestation.id, recipient: walletAddress, schemaUid: GIWA_VERIFIED_ACCOUNT_SCHEMA_UID},
-    addLog,
-  );
 }

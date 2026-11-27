@@ -32,7 +32,7 @@ import {
   GITHUB_RAW,
 } from './contracts';
 import {ALL_CIRCUIT_IDS, MAIN_BRANCH_CIRCUIT_IDS, isCircuitId} from './circuitIds';
-import {signerIndependentArtifactRef} from './circuitArtifacts';
+import {sharedArtifactRef} from './circuitArtifacts';
 import type {CircuitName, Environment} from './contracts';
 
 const CACHE_PREFIX = '@proofport/deployment';
@@ -93,12 +93,12 @@ export function circuitsRef(circuit: CircuitName, env: Environment): string {
   if (!isCircuitId(circuit)) {
     throw new Error(`Unknown circuit '${circuit}'. Known: ${ALL_CIRCUIT_IDS.join(', ')}.`);
   }
-  const pinned = signerIndependentArtifactRef(circuit);
+  const pinned = sharedArtifactRef(circuit);
   if (pinned !== undefined) return pinned;
   if (MAIN_BRANCH_CIRCUIT_IDS.includes(circuit)) {
     throw new Error(
       `Laboratory circuit '${circuit}' has no pinned row in CIRCUIT_ARTIFACT_SOURCES ` +
-        '(src/config/circuitArtifacts.ts, LAB_CIRCUITS_REF). Its verifier record is never read from a branch.',
+        '(src/config/circuitArtifacts.ts). Its verifier record is never read from a branch.',
     );
   }
   return environmentCircuitsRef(env);

@@ -141,11 +141,24 @@ describe('reading the OPRF values out of a proof (installed core, as ProofGenera
     expect(BigInt(got.oprfKeyHash)).toBe(BigInt(l.keyHash));
     expect(BigInt(got.nullifier)).toBe(BigInt(l.nullifier));
     expect([l.domain, l.scope]).toEqual([l.keyHash + 1, l.keyHash + 2]);
-    expect(() => readOprfPublicInputs(circuit, vec(l.count + 61))).toThrow(/public inputs; got/);
-    expect(() => readOprfPublicInputs(circuit, vec(l.count - 1))).toThrow(/public inputs; got/);
+    // A count core names as an earlier circuit version (core 0.4.0-beta.12:
+    // GIWA KYC 132 / Dojang 100, made before the device status statement) is
+    // refused by that name; any other wrong count by the plain count error.
+    const superseded: Readonly<Record<number, string>> = (l as {superseded?: Record<number, string>}).superseded ?? {};
+    for (const n of [l.count + 61, l.count - 1, l.count - 2, ...Object.keys(superseded).map(Number)]) {
+      if (Object.prototype.hasOwnProperty.call(superseded, n)) {
+        expect(() => readOprfPublicInputs(circuit, vec(n))).toThrow(`This is a ${superseded[n]} (${n} public inputs). Only current ${circuit} proofs (${l.count} public inputs)`);
+      } else {
+        expect(() => readOprfPublicInputs(circuit, vec(n))).toThrow(/public inputs; got/);
+      }
+    }
     const atP = vec(l.count);
     atP[l.nullifier] = '0x' + P.toString(16);
     expect(() => readOprfPublicInputs(circuit, atP)).toThrow(/not below the field modulus/);
+  });
+  it('GIWA KYC and Dojang v1 proofs (no device status statement) are refused by name', () => {
+    expect(() => readOprfPublicInputs('giwa_attestation', vec(132))).toThrow(/GIWA KYC proof made before the device status statement/);
+    expect(() => readOprfPublicInputs('dojang_playground', vec(100))).toThrow(/Dojang Playground proof made before the device status statement/);
   });
   it('an unknown circuit throws', () => {
     expect(() => readOprfPublicInputs('oidc_domain_attestation', vec(214))).toThrow(/has no OPRF nullifier/);

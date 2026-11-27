@@ -1,9 +1,10 @@
 /**
- * Coinbase KYC v2 and the OIDC domain proof are each two circuits under one
- * id: the iPhone package (App Attest) and the Android package (Android key
- * attestation). The phone's platform picks the row; a platform or variant the
- * table does not hold is an error naming it, never the other platform's
- * files. Every other circuit never asks the platform at all.
+ * Coinbase KYC v2, the OIDC domain proof, and GIWA KYC / the Dojang
+ * Playground v2 are each several circuits under one id: the iPhone package
+ * (App Attest) and the Android packages (Android key attestation). The
+ * phone's platform picks the row; a platform or variant the table does not
+ * hold is an error naming it, never the other platform's files. A circuit
+ * with one package for every phone (Human Passport) never asks the platform.
  */
 const mockDisk = new Map<string, string>();
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -37,6 +38,8 @@ jest.mock('react-native', () => ({NativeModules: {}, Platform: mockPlatform}));
 
 import {
   ANDROID_SIGNATURE_CIRCUITS_REF,
+  GIWA_V2_CIRCUITS_REF,
+  LAB_CIRCUITS_REF,
   OPRF_CIRCUITS_REF,
   __setOprfCircuitsRefForTests,
   artifactSourceFor,
@@ -105,9 +108,16 @@ describe('the platform and the Android chain kind', () => {
 // Coinbase KYC's Android rows read OPRF_CIRCUITS_REF since the OPRF nullifier
 // (one commit for every OPRF circuit, empty until it is pushed); OIDC's keep
 // ANDROID_SIGNATURE_CIRCUITS_REF.
-const ANDROID_REF = {coinbase_attestation: ['OPRF_CIRCUITS_REF', OPRF_CIRCUITS_REF], oidc_domain_attestation: ['ANDROID_SIGNATURE_CIRCUITS_REF', ANDROID_SIGNATURE_CIRCUITS_REF]} as const;
+// GIWA KYC and the Dojang Playground v2 read every package from
+// GIWA_V2_CIRCUITS_REF.
+const ANDROID_REF = {
+  coinbase_attestation: ['OPRF_CIRCUITS_REF', OPRF_CIRCUITS_REF],
+  oidc_domain_attestation: ['ANDROID_SIGNATURE_CIRCUITS_REF', ANDROID_SIGNATURE_CIRCUITS_REF],
+  giwa_attestation: ['GIWA_V2_CIRCUITS_REF', GIWA_V2_CIRCUITS_REF],
+  dojang_playground: ['GIWA_V2_CIRCUITS_REF', GIWA_V2_CIRCUITS_REF],
+} as const;
 
-describe.each(['coinbase_attestation', 'oidc_domain_attestation'] as const)('%s', id => {
+describe.each(['coinbase_attestation', 'oidc_domain_attestation', 'giwa_attestation', 'dojang_playground'] as const)('%s', id => {
   it('has a row for each signer: the iPhone package, and two Android packages with a split .srs', () => {
     const ios = artifactSourceFor(id, 'app_attest')!;
     const android = artifactSourceFor(id, 'android')!;
@@ -215,24 +225,121 @@ describe('the Android circuits ref', () => {
   });
 });
 
-describe('every other circuit', () => {
+describe('a circuit with one package for every phone', () => {
   it('never asks the platform', async () => {
     mockPlatform.OS = 'web'; // would throw if read
-    // The Laboratory circuits have one signer-independent row (OPRF_CIRCUITS_REF since the OPRF nullifier).
-    for (const id of ['giwa_attestation', 'dojang_playground']) {
-      expect(hasPinnedArtifactSource(id)).toBe(true);
-      expect(circuitArtifactSource(id)?.refName).toBe('OPRF_CIRCUITS_REF');
-      expect(circuitFilesDecidableNow(id)).toBe(true);
-    }
+    // Human Passport score is the one signer-independent row (OPRF_CIRCUITS_REF).
+    // GIWA KYC and the Dojang Playground were too, until their v2 packages
+    // (2026-11-27): they are per-signer now and covered above and below.
+    expect(hasPinnedArtifactSource('human_passport_score')).toBe(true);
+    expect(circuitArtifactSource('human_passport_score')?.refName).toBe('OPRF_CIRCUITS_REF');
+    expect(circuitFilesDecidableNow('human_passport_score')).toBe(true);
     for (const id of ['no_such_circuit', '__proto__']) {
       expect(hasPinnedArtifactSource(id)).toBe(false);
       expect(circuitArtifactSource(id)).toBeUndefined();
       expect(circuitFilesDecidableNow(id)).toBe(true);
     }
-    // Signer-independent: the download goes to the OPRF ref without reading
-    // the platform (which is 'web' here and would throw if asked).
-    await downloadCircuitFiles('giwa_attestation', 'development', undefined, () => {});
-    expect(mockDownloads[0]).toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${OPRF_CIRCUITS_REF}/giwa-attestation/target/giwa_attestation.json`);
+    // The download goes to the OPRF ref without reading the platform. Its
+    // .srs is published in parts and the fetch mock has no SHA256SUMS, so the
+    // download stops there -- after the json was requested from the right place.
+    await expect(downloadCircuitFiles('human_passport_score', 'development', undefined, () => {})).rejects.toThrow(/No SHA256SUMS/);
+    expect(mockDownloads[0]).toBe(`https://raw.githubusercontent.com/zkproofport/circuits/${OPRF_CIRCUITS_REF}/human-passport-score/target/human_passport_score.json`);
+  });
+
+  it('GIWA KYC and the Dojang Playground v2 do ask: on an Android phone whose chain kind is unknown their files are not decidable', () => {
+    for (const id of ['giwa_attestation', 'dojang_playground']) {
+      mockPlatform.OS = 'web';
+      expect(() => circuitArtifactSource(id)).toThrow("No statement signer for platform 'web'");
+      mockPlatform.OS = 'android';
+      __setAndroidChainKindForTests(null);
+      expect(circuitFilesDecidableNow(id)).toBe(false);
+      expect(() => circuitArtifactSource(id)).toThrow(/attestation chain kind is not known yet/);
+    }
+  });
+});
+
+/*
+ * GIWA KYC / Dojang Playground v2 (device status statement, 2026-11-27):
+ * three packages each, every one read from GIWA_V2_CIRCUITS_REF -- never
+ * circuits main, never LAB_CIRCUITS_REF (v1's files), never OPRF_CIRCUITS_REF
+ * (the OPRF-era v1 files, which take no statement).
+ */
+const GIWA_V2_FILES = {
+  giwa_attestation: {
+    app_attest: 'giwa-attestation-v2/target/giwa_attestation_v2',
+    android: 'giwa-attestation-v2-android/target/giwa_attestation_v2_android',
+    android_factory: 'giwa-attestation-v2-android-factory/target/giwa_attestation_v2_android_factory',
+  },
+  dojang_playground: {
+    app_attest: 'dojang-playground-v2/target/dojang_playground_v2',
+    android: 'dojang-playground-v2-android/target/dojang_playground_v2_android',
+    android_factory: 'dojang-playground-v2-android-factory/target/dojang_playground_v2_android_factory',
+  },
+} as const;
+const GIWA_V2_COUNTS = {giwa_attestation: 133, dojang_playground: 101} as const;
+const GIWA_V2_VERSIONS = {
+  giwa_attestation: {app_attest: 6, android: 7, android_factory: 8},
+  dojang_playground: {app_attest: 5, android: 6, android_factory: 7},
+} as const;
+
+describe.each(['giwa_attestation', 'dojang_playground'] as const)('%s v2 packages', id => {
+  const RAW = `https://raw.githubusercontent.com/zkproofport/circuits/${GIWA_V2_CIRCUITS_REF}`;
+  const FORBIDDEN_REFS = ['/circuits/main/', `/circuits/${LAB_CIRCUITS_REF}/`, `/circuits/${OPRF_CIRCUITS_REF}/`];
+
+  it('the pin is its own full commit, distinct from main, LAB_CIRCUITS_REF and OPRF_CIRCUITS_REF', () => {
+    expect(GIWA_V2_CIRCUITS_REF).toBe('9993bc5d263b78817b637830ab093af9e0258c31');
+    expect([LAB_CIRCUITS_REF, OPRF_CIRCUITS_REF, 'main']).not.toContain(GIWA_V2_CIRCUITS_REF);
+  });
+
+  it.each(['app_attest', 'android', 'android_factory'] as const)('the %s package is its own files at GIWA_V2_CIRCUITS_REF', variant => {
+    const row = artifactSourceFor(id, variant)!;
+    expect(row.variant).toBe(variant);
+    expect(row.ref).toBe(GIWA_V2_CIRCUITS_REF);
+    expect(row.refName).toBe('GIWA_V2_CIRCUITS_REF');
+    expect(requireArtifactRef(row)).toBe(GIWA_V2_CIRCUITS_REF);
+    expect(`${row.basePath}/${row.remoteFileName}`).toBe(GIWA_V2_FILES[id][variant]);
+    expect(row.vkPath).toBe(`${row.basePath}/vk`);
+    expect(row.vkFileName).toBe('vk');
+    expect(row.publicInputCount).toBe(GIWA_V2_COUNTS[id]);
+    expect(row.dataVersion).toBe(GIWA_V2_VERSIONS[id][variant]);
+    // iPhone 2^20: one .srs. Android 2^21: three parts, each at most 64 MiB.
+    expect(row.srsParts).toBe(variant === 'app_attest' ? null : 3);
+    if (row.srsParts !== null) expect(SRS_2_21_BYTES / row.srsParts).toBeLessThanOrEqual(SRS_PART_MAX_BYTES);
+  });
+
+  it('an iPhone downloads json, .srs and vk from GIWA_V2_CIRCUITS_REF in every environment, and nothing anywhere else', async () => {
+    mockPlatform.OS = 'ios';
+    for (const env of ['development', 'staging', 'production'] as const) {
+      mockDownloads.length = 0;
+      expect(await circuitBaseUrl(id, env)).toBe(RAW);
+      await downloadCircuitFiles(id, env, undefined, () => {});
+      const base = `${RAW}/${GIWA_V2_FILES[id].app_attest}`;
+      expect(mockDownloads).toEqual(expect.arrayContaining([`${base}.json`, `${base}.srs`, `${RAW}/${GIWA_V2_FILES[id].app_attest.replace(/\/[^/]+$/, '')}/vk/vk`]));
+      for (const url of mockDownloads) {
+        expect([env, url.startsWith(`${RAW}/`)]).toEqual([env, true]);
+        for (const bad of FORBIDDEN_REFS) expect(url).not.toContain(bad);
+      }
+    }
+  });
+
+  it.each(['android', 'android_factory'] as const)('an %s phone reads its own package from GIWA_V2_CIRCUITS_REF, its .srs in 3 parts', async kind => {
+    mockPlatform.OS = 'android';
+    __setAndroidChainKindForTests(kind);
+    for (const env of ['development', 'staging', 'production'] as const) {
+      mockDownloads.length = 0;
+      expect(await circuitBaseUrl(id, env)).toBe(RAW);
+      expect(circuitDataVersion(id)).toBe(GIWA_V2_VERSIONS[id][kind]);
+      // No SHA256SUMS in the fetch mock, so the split .srs is never joined:
+      // the download stops after the json was requested from the right place.
+      // The SHA256SUMS the parts are checked against is named at the same
+      // ref, in the package's own directory.
+      const dir = GIWA_V2_FILES[id][kind].replace(/\/[^/]+$/, '');
+      await expect(downloadCircuitFiles(id, env, undefined, () => {})).rejects.toThrow(
+        `No SHA256SUMS at ${RAW}/${dir}/SHA256SUMS: a .srs published in parts is never joined unchecked`,
+      );
+      expect(mockDownloads[0]).toBe(`${RAW}/${GIWA_V2_FILES[id][kind]}.json`);
+      for (const url of mockDownloads) for (const bad of FORBIDDEN_REFS) expect(url).not.toContain(bad);
+    }
   });
 });
 

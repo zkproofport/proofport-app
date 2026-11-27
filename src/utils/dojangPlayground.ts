@@ -89,6 +89,8 @@ export interface DojangIssuance {
   rawTransaction: string;
   txType: number;
   blockNumber: number;
+  /** The EAS uid the issuance's receipt names: the attestation the device statement reads. */
+  attestationUid: string;
 }
 
 function sameAddress(a: string | null | undefined, b: string): boolean {
@@ -402,7 +404,7 @@ export async function findDojangPlaygroundIssuance(
       const found = attestedUidInReceipt(receipt.logs ?? [], GIWA_EAS, wallet);
       if (!found) throw new Error(`its receipt has no Attested event from ${GIWA_EAS} for ${wallet}`);
       uid = found;
-      candidate = {txHash: row.hash, rawTransaction: raw, txType, blockNumber: Number(row.blockNumber)};
+      candidate = {txHash: row.hash, rawTransaction: raw, txType, blockNumber: Number(row.blockNumber), attestationUid: found};
     } catch (e) {
       const why = e instanceof Error ? e.message : String(e);
       rejected.push(`${row.hash}: ${why}`);

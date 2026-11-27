@@ -15,7 +15,7 @@
  * At the circuits 1.0.0 release every ref here moves: the Coinbase KYC iPhone
  * row, ANDROID_SIGNATURE_CIRCUITS_REF, COUNTRY_V2_CIRCUITS_REF,
  * OIDC_SIGNATURE_CIRCUITS_REF, HUMAN_PASSPORT_CIRCUITS_REF and
- * LAB_CIRCUITS_REF (app-dev.md "Noir 1.0.0 / bb 6.0.0 prover", "At release
+ * GIWA_V2_CIRCUITS_REF (app-dev.md "Noir 1.0.0 / bb 6.0.0 prover", "At release
  * time").
  *
  * Coinbase KYC v2 (`coinbase_attestation`: revocation bound by an Apple App
@@ -133,7 +133,11 @@ export const COUNTRY_V2_CIRCUITS_REF = '75bec01f877aa8a500974dc65321b0455c677654
 export const HUMAN_PASSPORT_CIRCUITS_REF = '197104cb01d7987d29e9c89fe8d242a2cf87537b';
 
 /**
- * The zkproofport/circuits commit the Laboratory circuits (GIWA KYC and the
+ * READ BY NO ROW since 2026-11-27: GIWA KYC and the Dojang Playground v2 read
+ * GIWA_V2_CIRCUITS_REF. Kept as the commit of their v1 files so the tests can
+ * hold that nothing reads them any more (everyCircuitIsReadFromAPinnedRef).
+ *
+ * Until then: the zkproofport/circuits commit the Laboratory circuits (GIWA KYC and the
  * Dojang Playground: MAIN_BRANCH_CIRCUIT_IDS) read their files AND their
  * verifier broadcast records from, in every environment.
  *
@@ -147,14 +151,20 @@ export const HUMAN_PASSPORT_CIRCUITS_REF = '197104cb01d7987d29e9c89fe8d242a2cf87
  * bytes pass this commit's SHA256SUMS. Until 2026-11-17 these two circuits
  * read `main` itself, so a push to circuits main changed what every installed
  * app downloaded.
- *
- * THE ONE PLACE TO MOVE at the circuits 1.0.0 release, to the commit or tag
- * carrying the 1.0.0 GIWA / Dojang files and their redeployed verifiers'
- * broadcasts. Moving it changes the download base URL, which by itself
- * replaces the files on every phone (cacheInvalidation); the verifier cache is
- * keyed by it too.
  */
 export const LAB_CIRCUITS_REF = '9651df892c28fbeb9331ebc5358abfdf062c7c42';
+
+/**
+ * The zkproofport/circuits commit carrying GIWA KYC v2 and the Dojang
+ * Playground v2 (2026-11-27): the device status statement that binds
+ * revocation and expiry in the circuit, three packages per id
+ * (giwa-attestation-v2, -android, -android-factory; dojang-playground-v2,
+ * -android, -android-factory), built by CI (build-circuits.yml) from source
+ * commit 951f273 (artifacts commit 9993bc5; every key and verifier .sol equal
+ * to the local build the deployed contracts came from, sha256 2026-11-27). Their verifiers are GIWA Sepolia contracts named in
+ * contracts.ts (iPhone) and variantVerifiers.ts (Android), which core pins.
+ */
+export const GIWA_V2_CIRCUITS_REF = '9993bc5d263b78817b637830ab093af9e0258c31';
 
 /**
  * The zkproofport/circuits commit carrying the OPRF circuits: the request
@@ -230,7 +240,8 @@ type PerVariant = Readonly<Record<StatementSignerVariant, CircuitArtifactSource>
  * 133, Country 215 -> 155, HP 195 -> 135, GIWA 192 -> 132, Dojang 160 -> 100)
  * and a bumped dataVersion, so a phone holding the keccak-nullifier files
  * replaces them. The rows' older comments below describe the files they
- * replaced. OIDC is unchanged.
+ * replaced. OIDC is unchanged. GIWA and the Dojang Playground moved again on
+ * 2026-11-27, to their v2 packages at GIWA_V2_CIRCUITS_REF.
  */
 export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerVariant>>> = Object.freeze({
   coinbase_attestation: Object.freeze({
@@ -381,23 +392,23 @@ export const CIRCUIT_ARTIFACT_SOURCES: Readonly<Partial<Record<CircuitName, PerV
     });
     return Object.freeze({app_attest: source, android: source, android_factory: source});
   })(),
-  // The Laboratory circuits: one package for every phone (no device
-  // statement), read from LAB_CIRCUITS_REF. dataVersion = the id's
-  // CIRCUIT_DATA_VERSIONS entry. Public inputs counted from each file's ABI at
-  // that commit (192 / 160).
-  giwa_attestation: laboratoryRow({
-    basePath: 'giwa-attestation/target',
-    remoteFileName: 'giwa_attestation',
-    dataVersion: 5,
-    publicInputCount: 132,
-    oprf: true,
+  // GIWA KYC and the Dojang Playground v2: the device status statement
+  // (revocation and expiry in the circuit), one package per statement signer
+  // like Coinbase KYC v2. 133 / 101 public inputs (attested_at last). The
+  // iPhone packages are 2^20 (one .srs), the Android ones 2^21 (three parts).
+  // dataVersion moves past v1's 5 / 4; the iPhone row's version is the id's
+  // CIRCUIT_DATA_VERSIONS entry.
+  giwa_attestation: giwaV2Rows({
+    stem: 'giwa-attestation-v2',
+    file: 'giwa_attestation_v2',
+    dataVersions: {app_attest: 6, android: 7, android_factory: 8},
+    publicInputCount: 133,
   }),
-  dojang_playground: laboratoryRow({
-    basePath: 'dojang-playground/target',
-    remoteFileName: 'dojang_playground',
-    dataVersion: 4,
-    publicInputCount: 100,
-    oprf: true,
+  dojang_playground: giwaV2Rows({
+    stem: 'dojang-playground-v2',
+    file: 'dojang_playground_v2',
+    dataVersions: {app_attest: 5, android: 6, android_factory: 7},
+    publicInputCount: 101,
   }),
 });
 
@@ -436,24 +447,25 @@ const AUXILIARY_CIRCUIT_SOURCES: Readonly<Record<AuxiliaryCircuitId, PerVariant>
   })(),
 });
 
-/** A signer-independent row read from LAB_CIRCUITS_REF; one .srs file. */
-function laboratoryRow(p: {basePath: string; remoteFileName: string; dataVersion: number; publicInputCount: number; oprf: boolean}): PerVariant {
-  // `oprf`: the files carry the OPRF nullifier and are read from
-  // OPRF_CIRCUITS_REF; the verifier broadcast records stay on LAB_CIRCUITS_REF
-  // until the redeployed verifiers' records are published with them.
-  const source: CircuitArtifactSource = Object.freeze({
-    variant: 'app_attest',
-    get ref() { return p.oprf ? oprfCircuitsRef() : LAB_CIRCUITS_REF; },
-    refName: p.oprf ? 'OPRF_CIRCUITS_REF' : 'LAB_CIRCUITS_REF',
-    basePath: p.basePath,
-    vkPath: `${p.basePath}/vk`,
-    vkFileName: 'vk',
-    remoteFileName: p.remoteFileName,
-    dataVersion: p.dataVersion,
-    publicInputCount: p.publicInputCount,
-    srsParts: null,
-  });
-  return Object.freeze({app_attest: source, android: source, android_factory: source});
+/** GIWA KYC / Dojang Playground v2: three packages read from GIWA_V2_CIRCUITS_REF. */
+function giwaV2Rows(p: {stem: string; file: string; dataVersions: Readonly<Record<StatementSignerVariant, number>>; publicInputCount: number}): PerVariant {
+  const SUFFIX: Readonly<Record<StatementSignerVariant, string>> = {app_attest: '', android: '-android', android_factory: '-android-factory'};
+  const row = (variant: StatementSignerVariant): CircuitArtifactSource => {
+    const dir = `${p.stem}${SUFFIX[variant]}`;
+    return Object.freeze({
+      variant,
+      ref: GIWA_V2_CIRCUITS_REF,
+      refName: 'GIWA_V2_CIRCUITS_REF',
+      basePath: `${dir}/target`,
+      vkPath: `${dir}/target/vk`,
+      vkFileName: 'vk',
+      remoteFileName: `${p.file}${SUFFIX[variant].replace(/-/g, '_')}`,
+      dataVersion: p.dataVersions[variant],
+      publicInputCount: p.publicInputCount,
+      srsParts: variant === 'app_attest' ? null : Math.ceil(SRS_2_21_BYTES / SRS_PART_MAX_BYTES),
+    });
+  };
+  return Object.freeze({app_attest: row('app_attest'), android: row('android'), android_factory: row('android_factory')});
 }
 
 /**
@@ -557,17 +569,18 @@ export function requireArtifactRef(source: CircuitArtifactSource): string {
 }
 
 /**
- * The ref a circuit's verifier broadcast record is read from, when the record
- * belongs to its pinned files: a row that is the same source on every signer
- * (Laboratory circuits, Human Passport). Undefined for a circuit with no row
- * and for a per-signer row (whose records the app does not read: their
- * BROADCAST_PATHS entries are null). Throws, naming the constant, for an
- * empty or branch-shaped ref.
+ * The one ref every package of `circuit` is read from: a signer-independent
+ * row, or a per-signer row whose three packages share a commit (GIWA KYC and
+ * the Dojang Playground v2). Undefined for a circuit with no row, or whose
+ * packages are read from different refs. Reads no platform, so it answers on
+ * any phone before the Android chain kind is known. Throws, naming the
+ * constant, when any package's ref is empty or branch-shaped.
  */
-export function signerIndependentArtifactRef(circuit: string): string | undefined {
+export function sharedArtifactRef(circuit: string): string | undefined {
   const row = ownRow(circuit);
-  if (!row || !signerIndependent(row)) return undefined;
-  return requireArtifactRef(row.app_attest);
+  if (!row) return undefined;
+  const refs = new Set([row.app_attest, row.android, row.android_factory].map(requireArtifactRef));
+  return refs.size === 1 ? [...refs][0] : undefined;
 }
 
 /** Coinbase Country v2's source on this phone. Required: the app proves only v2 for this id. */

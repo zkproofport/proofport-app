@@ -26,7 +26,7 @@ const EAS = new ethers.utils.Interface(EAS_ABI);
 const LOOKUP_TIMEOUT_MS = 15_000;
 const ZERO_UID = ethers.constants.HashZero;
 
-export type AttestationRefusal = 'missing' | 'revoked' | 'expired' | 'other_wallet' | 'wrong_schema' | 'lookup';
+export type AttestationRefusal = 'missing' | 'revoked' | 'expired' | 'other_wallet' | 'wrong_schema' | 'other_attester' | 'lookup';
 
 /** One table from cause to the modal code; a cause without a row cannot be raised. */
 export const ATTESTATION_REFUSAL_CODE: Readonly<Record<AttestationRefusal, ErrorCode>> = Object.freeze({
@@ -35,6 +35,7 @@ export const ATTESTATION_REFUSAL_CODE: Readonly<Record<AttestationRefusal, Error
   expired: 'E2026',
   other_wallet: 'E2007',
   wrong_schema: 'E2007',
+  other_attester: 'E2007',
   lookup: 'E3002',
 });
 
@@ -58,6 +59,8 @@ export interface LiveAttestationQuery {
   recipient: string;
   /** When given, the record's schema must be it. */
   schemaUid?: string;
+  /** When given, the record's attester (the address that called EAS.attest) must be it. */
+  attester?: string;
   /** Unix seconds; injectable for tests. */
   nowSeconds?: number;
   fetchImpl?: typeof fetch;
@@ -72,8 +75,8 @@ export interface LiveAttestation {
 
 /** Pure decision on one decoded record, so every rule is testable without a network. */
 export function judgeAttestation(
-  record: {uid: string; schema: string; time: number; expirationTime: number; revocationTime: number; recipient: string},
-  query: {uid: string; recipient: string; schemaUid?: string; nowSeconds: number},
+  record: {uid: string; schema: string; time: number; expirationTime: number; revocationTime: number; recipient: string; attester?: string},
+  query: {uid: string; recipient: string; schemaUid?: string; attester?: string; nowSeconds: number},
 ): LiveAttestation {
   if (record.uid.toLowerCase() === ZERO_UID || record.time === 0) {
     throw new AttestationNotLiveError('missing', `EAS has no attestation ${query.uid}.`);
@@ -86,6 +89,14 @@ export function judgeAttestation(
   }
   if (query.schemaUid !== undefined && record.schema.toLowerCase() !== query.schemaUid.toLowerCase()) {
     throw new AttestationNotLiveError('wrong_schema', `Attestation ${query.uid} is schema ${record.schema}, not ${query.schemaUid}.`);
+  }
+  if (query.attester !== undefined) {
+    if (typeof record.attester !== 'string' || !ethers.utils.isAddress(record.attester)) {
+      throw new AttestationNotLiveError('other_attester', `Attestation ${query.uid} names no attester; ${query.attester} is required.`);
+    }
+    if (ethers.utils.getAddress(record.attester) !== ethers.utils.getAddress(query.attester)) {
+      throw new AttestationNotLiveError('other_attester', `Attestation ${query.uid} was made by ${record.attester}, not ${query.attester}.`);
+    }
   }
   if (record.revocationTime !== 0) {
     throw new AttestationNotLiveError(
@@ -155,8 +166,9 @@ export async function requireLiveAttestation(q: LiveAttestationQuery, log: (m: s
       expirationTime: Number(decoded.expirationTime),
       revocationTime: Number(decoded.revocationTime),
       recipient: decoded.recipient,
+      attester: decoded.attester,
     },
-    {uid: q.uid, recipient: q.recipient, schemaUid: q.schemaUid, nowSeconds: q.nowSeconds ?? Math.floor(Date.now() / 1000)},
+    {uid: q.uid, recipient: q.recipient, schemaUid: q.schemaUid, attester: q.attester, nowSeconds: q.nowSeconds ?? Math.floor(Date.now() / 1000)},
   );
   log(`[Attestation] ${q.uid} is live (not revoked; ${live.expirationTime === 0 ? 'no expiry' : `expires ${new Date(live.expirationTime * 1000).toISOString()}`})`);
   return live;

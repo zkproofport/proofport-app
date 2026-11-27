@@ -48,14 +48,19 @@ jest.mock('../../utils/giwaKyc', () => ({
   verifyGiwaAttestationTx: () => ({valid: true, signerAddress: '0x1111111111111111111111111111111111111111'}),
   prepareGiwaCircuitInputs: (...a: unknown[]) => mockPrepare(...a),
 }));
-jest.mock('../../utils/circuitHelpers', () => ({flattenCircuitInputs: () => ['0x01']}));
+jest.mock('../../utils/giwaStatementInputs', () => ({flattenGiwaKycV2Inputs: () => ['0x01']}));
 
 import {useGiwaKyc, type UseGiwaKycReturn} from '../useGiwaKyc';
 import {OprfTransportError} from '../../oprf/transport';
 import {vectorOprf} from '../../oprf/__tests__/helpers/oprfFixture';
+import {giwaTestWitness} from '../../appAttest/__tests__/helpers/giwaWitness';
 
 const WALLET = '0x2222222222222222222222222222222222222222';
-const inputs = {userAddress: WALLET, rawTransaction: 'validated', signerIndex: 0, scopeString: 'vote-2026', requestId: '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f', oprfDomain: 'vote.example'};
+const REQUEST_ID = '3f2b8c1e-9d4a-4f6b-8e2c-1a7d5b9c0e4f';
+const inputs = {
+  userAddress: WALLET, rawTransaction: 'validated', signerIndex: 0, scopeString: 'vote-2026', requestId: REQUEST_ID, oprfDomain: 'vote.example',
+  appAttest: {witness: giwaTestWitness({circuit: 'giwa_attestation', wallet: WALLET, scope: 'vote-2026', requestId: REQUEST_ID})},
+};
 const wallet = {request: async () => '0x' + '11'.repeat(65), getSelectedAddress: async () => WALLET};
 
 let hook!: UseGiwaKycReturn;
