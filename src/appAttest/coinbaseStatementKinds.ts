@@ -27,6 +27,7 @@ export type CoinbaseStatementCircuit = 'coinbase_attestation' | 'coinbase_countr
 
 export interface LookupReasons {
   revoked: DeviceCheckReason;
+  expired: DeviceCheckReason;
   uidMalformed: DeviceCheckReason;
   missing: DeviceCheckReason;
   wrongSchema: DeviceCheckReason;
@@ -64,6 +65,7 @@ export const COINBASE_STATEMENT_KINDS: Readonly<Record<CoinbaseStatementCircuit,
     carriesCountry: false,
     reasons: Object.freeze({
       revoked: 'kyc_record_revoked',
+      expired: 'kyc_record_expired',
       uidMalformed: 'kyc_record_uid_malformed',
       missing: 'kyc_record_missing',
       wrongSchema: 'kyc_record_wrong_schema',
@@ -83,6 +85,7 @@ export const COINBASE_STATEMENT_KINDS: Readonly<Record<CoinbaseStatementCircuit,
     carriesCountry: true,
     reasons: Object.freeze({
       revoked: 'country_record_revoked',
+      expired: 'country_record_expired',
       uidMalformed: 'country_record_uid_malformed',
       missing: 'country_record_missing',
       wrongSchema: 'country_record_wrong_schema',

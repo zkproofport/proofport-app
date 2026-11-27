@@ -62,7 +62,7 @@ const KYC_TAG = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('coinbase_attest
 const abiString = (v: string) => ethers.utils.defaultAbiCoder.encode(['string'], [v]);
 
 const record = (o: Partial<AttestationStatus> = {}): AttestationStatus => ({
-  uid: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false, data: KR_DATA, ...o,
+  uid: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false, expirationTime: 0, data: KR_DATA, ...o,
 });
 
 function codeOf(e: unknown): string {
@@ -217,6 +217,8 @@ describe('the lookup half', () => {
 
   it.each([
     ['revoked', record({revoked: true}), 'E2011/country_record_revoked'],
+    ['expired one second ago', record({expirationTime: NOW - 1}), 'E2026/country_record_expired'],
+    ['expired at exactly now', record({expirationTime: NOW}), 'E2026/country_record_expired'],
     ["KYC's schema", record({schemaId: COINBASE_KYC_SCHEMA_UID}), 'E2005/country_record_wrong_schema'],
     ['another issuer', record({attester: '0x' + '33'.repeat(20)}), 'E2005/country_record_wrong_issuer'],
     ['another wallet', record({recipient: '0x' + '11'.repeat(20)}), 'E2005/country_record_other_wallet'],
@@ -224,6 +226,13 @@ describe('the lookup half', () => {
     ['no data', record({data: null}), 'E3002/country_lookup_incomplete'],
   ])('refuses a %s record', async (_l, status, expected) => {
     expect(await settle(lookup(status).run())).toBe(expected);
+  });
+
+  it('accepts a record that expires later, and one that never expires (0)', async () => {
+    for (const expirationTime of [NOW + 1, 0]) {
+      const {clientData} = await lookup(record({expirationTime})).run();
+      expect(clientData).toHaveLength(227);
+    }
   });
 
   it('carries a lookup failure through with its own code', async () => {
@@ -255,11 +264,13 @@ describe("the lookup asks for the record's data, with Country's reasons", () => 
   const reasons = COINBASE_STATEMENT_KINDS.coinbase_country_attestation.reasons;
 
   it('asks for data and returns it', async () => {
-    const f = answer({data: {attestation: {id: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false, data: KR_DATA}}});
+    const f = answer({data: {attestation: {id: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false, expirationTime: 0, data: KR_DATA}}});
     const s = await fetchAttestationStatus(UID, () => {}, reasons, f);
     expect(s.data).toBe(KR_DATA);
+    expect(s.expirationTime).toBe(0);
     const sent = JSON.parse((f.mock.calls[0] as unknown as [string, {body: string}])[1].body);
     expect(sent.query).toMatch(/\bdata\b/);
+    expect(sent.query).toMatch(/\bexpirationTime\b/);
   });
 
   it('raises each failure under Country\'s reason', async () => {
@@ -267,6 +278,11 @@ describe("the lookup asks for the record's data, with Country's reasons", () => 
     expect(await settle(fetchAttestationStatus(UID, () => {}, reasons, answer({errors: [{message: 'x'}]})))).toBe('E3002/country_lookup_errors');
     expect(await settle(fetchAttestationStatus(UID, () => {}, reasons, answer({data: {attestation: null}})))).toBe('E2005/country_record_missing');
     expect(await settle(fetchAttestationStatus(UID, () => {}, reasons, answer({data: {attestation: {id: UID}}})))).toBe('E3002/country_lookup_incomplete');
+    // A record that does not say when it expires is not "never expires".
+    const noExpiry = {id: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false, data: KR_DATA};
+    for (const expirationTime of [undefined, null, -1, 'soon', 1.5]) {
+      expect(await settle(fetchAttestationStatus(UID, () => {}, reasons, answer({data: {attestation: {...noExpiry, expirationTime}}})))).toBe('E3002/country_lookup_incomplete');
+    }
     const f = answer({});
     expect(await settle(fetchAttestationStatus("0x12' OR 1=1", () => {}, reasons, f))).toBe('E2005/country_record_uid_malformed');
     expect(f).not.toHaveBeenCalled();
@@ -338,6 +354,7 @@ describe('the statement on an Android phone', () => {
 
   it.each([
     ['revoked', record({revoked: true}), 'E2011/country_record_revoked'],
+    ['expired', record({expirationTime: NOW - 1}), 'E2026/country_record_expired'],
     ['another country', record({data: abiString('US')}), 'E2020/country_record_differs_from_transaction'],
     ['KYC instead of Country', record({schemaId: COINBASE_KYC_SCHEMA_UID}), 'E2005/country_record_wrong_schema'],
   ])('signs nothing for a %s record', async (_l, status, expected) => {

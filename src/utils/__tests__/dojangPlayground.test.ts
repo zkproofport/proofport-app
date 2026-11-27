@@ -28,6 +28,7 @@ import {
   type ExplorerTxRow,
   type RpcTransaction,
 } from '../dojangPlayground';
+import {AttestationNotLiveError} from '../easAttestationStatus';
 
 const WALLET = '0x5A3E649208Ae15ec52496c1Ae23b2Ff89Ac02f0c';
 const OTHER_WALLET = '0x1111111111111111111111111111111111111234';
@@ -238,7 +239,17 @@ interface Stub {
   rpc?: 'down';
   txs?: Record<string, RpcTransaction | null>;
   receipts?: Record<string, string>;
+  /** Per issuance hash: the state of the attestation it issued (default live). */
+  attestation?: Record<string, 'live' | 'revoked' | 'expired' | 'no-event'>;
+  /** The on-chain attestation read fails. */
+  easCall?: 'down';
 }
+const EAS_PREDEPLOY = '0x4200000000000000000000000000000000000021';
+const ATTESTED = '0x8bf46bf4cfd674fa735a3d63ec1c9ad4153f033c290341f3a588b75685141b35';
+const EAS_IFACE = new ethers.utils.Interface([
+  'function getAttestation(bytes32 uid) view returns (tuple(bytes32 uid, bytes32 schema, uint64 time, uint64 expirationTime, uint64 revocationTime, bytes32 refUID, address recipient, address attester, bool revocable, bytes data))',
+]);
+const uidOf = (hash: string) => ethers.utils.keccak256(hash);
 let calls: string[];
 function stub(s: Stub) {
   calls = [];
@@ -256,10 +267,27 @@ function stub(s: Stub) {
     const req = JSON.parse(init!.body!);
     calls.push(req.method);
     if (s.rpc === 'down') throw new Error('Network request failed');
+    if (req.method === 'eth_call') {
+      if (s.easCall === 'down') throw new Error('Network request failed');
+      const uid = EAS_IFACE.decodeFunctionData('getAttestation', req.params[0].data)[0];
+      const hash = Object.keys(txs).find(h => uidOf(h) === uid)!;
+      const state = s.attestation?.[hash] ?? 'live';
+      const now = Math.floor(Date.now() / 1000);
+      const result = EAS_IFACE.encodeFunctionResult('getAttestation', [[
+        uid, '0x' + '07'.repeat(32), now - 100, state === 'expired' ? now - 10 : now + 86400, state === 'revoked' ? now - 50 : 0,
+        ethers.constants.HashZero, WALLET, DOJANG_PLAYGROUND_FAUCET, true, '0x',
+      ]]);
+      return {ok: true, status: 200, json: async () => ({jsonrpc: '2.0', id: 1, result})};
+    }
     const [hash] = req.params;
+    const logs = s.attestation?.[hash] === 'no-event' ? [] : [{
+      address: EAS_PREDEPLOY,
+      topics: [ATTESTED, ethers.utils.hexZeroPad(WALLET, 32).toLowerCase(), ethers.utils.hexZeroPad(DOJANG_PLAYGROUND_FAUCET, 32)],
+      data: uidOf(hash),
+    }];
     const result = req.method === 'eth_getTransactionByHash'
       ? txs[hash] ?? null
-      : receipts[hash] === undefined ? null : {status: receipts[hash]};
+      : receipts[hash] === undefined ? null : {status: receipts[hash], logs};
     return {ok: true, status: 200, json: async () => ({jsonrpc: '2.0', id: 1, result})};
   }) as unknown as typeof fetch;
 }
@@ -291,7 +319,7 @@ describe('finding the wallet\'s issuance', () => {
     stub({pages: [ok([LEGACY_ROW, DEPLOY_ROW, EIP1559_ROW])]});
     const found = await findDojangPlaygroundIssuance(WALLET, noLog);
     expect(found).toEqual({txHash: EIP1559_TX.hash, rawTransaction: EIP1559.expected.raw, txType: 2, blockNumber: 38562330});
-    expect(calls).toEqual([expect.stringContaining('txlist'), 'eth_getTransactionByHash', 'eth_getTransactionReceipt']);
+    expect(calls).toEqual([expect.stringContaining('txlist'), 'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_call']);
   });
 
   it('the newest failed on chain per its receipt: falls back to the older successful one', async () => {
@@ -299,6 +327,38 @@ describe('finding the wallet\'s issuance', () => {
     const found = await findDojangPlaygroundIssuance(WALLET, noLog);
     expect(found.txHash).toBe(LEGACY_TX.hash);
     expect(found.rawTransaction).toBe(LEGACY.expected.raw);
+  });
+
+  it('the newest issuance\'s attestation was revoked: the older live one is used', async () => {
+    stub({pages: [ok([EIP1559_ROW, LEGACY_ROW])], attestation: {[EIP1559_TX.hash]: 'revoked'}});
+    expect((await findDojangPlaygroundIssuance(WALLET, noLog)).txHash).toBe(LEGACY_TX.hash);
+  });
+
+  it('the newest issuance\'s attestation expired: the older live one is used', async () => {
+    stub({pages: [ok([EIP1559_ROW, LEGACY_ROW])], attestation: {[EIP1559_TX.hash]: 'expired'}});
+    expect((await findDojangPlaygroundIssuance(WALLET, noLog)).txHash).toBe(LEGACY_TX.hash);
+  });
+
+  it.each([['expired', 'E2026'], ['revoked', 'E2025']] as const)(
+    'every issuance\'s attestation %s: refused with %s, not "none"',
+    async (state, code) => {
+      stub({pages: [ok([EIP1559_ROW, LEGACY_ROW])], attestation: {[EIP1559_TX.hash]: state, [LEGACY_TX.hash]: state}});
+      let caught: unknown;
+      try { await findDojangPlaygroundIssuance(WALLET, noLog); } catch (e) { caught = e; }
+      expect(caught).toBeInstanceOf(AttestationNotLiveError);
+      expect((caught as AttestationNotLiveError).code).toBe(code);
+    },
+  );
+
+  it('an issuance whose receipt carries no Attested event for the wallet: skipped', async () => {
+    stub({pages: [ok([EIP1559_ROW, LEGACY_ROW])], attestation: {[EIP1559_TX.hash]: 'no-event'}});
+    expect((await findDojangPlaygroundIssuance(WALLET, noLog)).txHash).toBe(LEGACY_TX.hash);
+  });
+
+  it('the attestation read does not finish: "lookup", never a proof from an unchecked attestation', async () => {
+    stub({pages: [ok([EIP1559_ROW])], easCall: 'down'});
+    const e = await failure(findDojangPlaygroundIssuance(WALLET, noLog));
+    expect(e.kind).toBe('lookup');
   });
 
   it('the RPC answers with bytes that do not hash back: skipped, not used', async () => {

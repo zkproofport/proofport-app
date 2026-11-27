@@ -57,7 +57,7 @@ function harness(opts: {supported?: boolean; development?: boolean} = {}) {
   const status = (s: Partial<AttestationStatus> | Error) => async () => {
     calls.status++;
     if (s instanceof Error) throw s;
-    return {uid: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET.toLowerCase(), revoked: false, ...s};
+    return {uid: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET.toLowerCase(), revoked: false, expirationTime: 0, ...s};
   };
   const run = (s: Partial<AttestationStatus> | Error, scopeString = 'proofport') =>
     prepareCoinbaseKycStatement(
@@ -79,7 +79,7 @@ function harness(opts: {supported?: boolean; development?: boolean} = {}) {
         revocation: {
           fetchStatus: (async () => {
             calls.status++;
-            return {uid: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET.toLowerCase(), revoked: false,
+            return {uid: UID, schemaId: COINBASE_COUNTRY_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET.toLowerCase(), revoked: false, expirationTime: 0,
               data: ethers.utils.defaultAbiCoder.encode(['string'], ['KR']), ...s};
           }) as never,
           now: () => NOW,
@@ -186,7 +186,7 @@ describe('the lookup itself', () => {
     jest.fn(async () => ({ok, status, json: async () => body}));
 
   it('asks for the one uid, every time (no cache)', async () => {
-    const f = answer({data: {attestation: {id: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false}}});
+    const f = answer({data: {attestation: {id: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false, expirationTime: 0}}});
     await fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, f);
     await fetchAttestationStatus(UID, () => {}, COINBASE_STATEMENT_KINDS.coinbase_attestation.reasons, f);
     expect(f).toHaveBeenCalledTimes(2);

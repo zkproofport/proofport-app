@@ -902,6 +902,14 @@
         "title": "Private Identifier Check Failed",
         "description": "The private identifier for this proof did not pass its check, so no proof was generated. Please try again."
       },
+      "E2025": {
+        "title": "Verification Revoked",
+        "description": "The issuer has revoked this wallet's verification, so no proof was generated. Get verified again, then try again."
+      },
+      "E2026": {
+        "title": "Verification Expired",
+        "description": "This wallet's verification has expired, so no proof was generated. Get verified again, then try again."
+      },
       "E3010": {
         "title": "Private Identifier Unreachable",
         "description": "The private identifier for this proof could not be obtained. Check your connection and try again. Nothing was generated."

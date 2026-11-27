@@ -33,6 +33,7 @@ import {
 } from './circuitHelpers';
 import type {OprfCircuitInputs} from '@zkproofport-app/core';
 import {oprfPrivateInputs, oprfPublicInputs} from '../oprf/circuitInputs';
+import {AttestationNotLiveError, attestedUidInReceipt, requireLiveAttestation} from './easAttestationStatus';
 
 const CIRCUIT_ID = 'dojang_playground';
 
@@ -50,6 +51,14 @@ export const DOJANG_PLAYGROUND_MAX_TX_LEN = 300;
 
 /** The two transaction shapes the circuit parses. Anything else it refuses. */
 const ACCEPTED_TX_TYPES: ReadonlySet<number> = new Set([0, 2]);
+
+/** GIWA's EAS predeploy: the Playground faucet's issuance attests through it. */
+const GIWA_EAS = '0x4200000000000000000000000000000000000021';
+
+interface RpcReceipt {
+  status?: string;
+  logs?: Array<{address?: string; topics?: string[]; data?: string}>;
+}
 
 const TXLIST_PAGE_SIZE = 100;
 const TXLIST_MAX_PAGES = 10;
@@ -339,6 +348,8 @@ async function readWalletTxList(
 export async function findDojangPlaygroundIssuance(
   wallet: string,
   addLog: (msg: string) => void,
+  /** Test seam for the on-chain attestation check. */
+  deps: {requireLive?: typeof requireLiveAttestation} = {},
 ): Promise<DojangIssuance> {
   if (!ethers.utils.isAddress(wallet)) {
     throw new Error(`'${wallet}' is not a wallet address.`);
@@ -364,32 +375,62 @@ export async function findDojangPlaygroundIssuance(
       (rejected.length ? `, ${rejected.length} faucet call(s) refused: ${rejected.join('; ')}` : ''),
   );
 
+  // The newest issuance whose attestation is still live wins. A revoked or
+  // expired one is skipped for an older live one; when every issuance was
+  // refused for that reason, the person is told so (E2025 / E2026) rather
+  // than "you have none".
+  let notLive: AttestationNotLiveError | null = null;
   for (const row of candidates) {
     let tx: RpcTransaction | null;
-    let receipt: {status?: string} | null;
+    let receipt: RpcReceipt | null;
     try {
       tx = await rpc<RpcTransaction | null>(rpcUrl, 'eth_getTransactionByHash', [row.hash]);
-      receipt = await rpc<{status?: string} | null>(rpcUrl, 'eth_getTransactionReceipt', [row.hash]);
+      receipt = await rpc<RpcReceipt | null>(rpcUrl, 'eth_getTransactionReceipt', [row.hash]);
     } catch (e) {
       throw new DojangIssuanceError(
         'lookup',
         `The GIWA RPC did not answer for ${row.hash} (${e instanceof Error ? e.message : String(e)}).`,
       );
     }
+    let candidate: DojangIssuance;
+    let uid: string;
     try {
       if (!tx) throw new Error('the RPC does not know this transaction');
       if (!receipt || receipt.status !== '0x1') throw new Error('its receipt does not show success');
       const {raw, txType} = rawTransactionFromRpc(tx);
       checkDojangIssuanceTx(raw, wallet);
-      addLog(`[Dojang] using issuance ${row.hash} (type ${txType}, block ${row.blockNumber})`);
-      return {txHash: row.hash, rawTransaction: raw, txType, blockNumber: Number(row.blockNumber)};
+      const found = attestedUidInReceipt(receipt.logs ?? [], GIWA_EAS, wallet);
+      if (!found) throw new Error(`its receipt has no Attested event from ${GIWA_EAS} for ${wallet}`);
+      uid = found;
+      candidate = {txHash: row.hash, rawTransaction: raw, txType, blockNumber: Number(row.blockNumber)};
     } catch (e) {
       const why = e instanceof Error ? e.message : String(e);
       rejected.push(`${row.hash}: ${why}`);
       addLog(`[Dojang] skipping ${row.hash}: ${why}`);
+      continue;
     }
+    try {
+      await (deps.requireLive ?? requireLiveAttestation)({rpcUrl, eas: GIWA_EAS, uid, recipient: wallet}, addLog);
+    } catch (e) {
+      if (e instanceof AttestationNotLiveError && (e.kind === 'revoked' || e.kind === 'expired')) {
+        notLive = e;
+        rejected.push(`${row.hash}: ${e.message}`);
+        addLog(`[Dojang] skipping ${row.hash}: ${e.message}`);
+        continue;
+      }
+      if (e instanceof AttestationNotLiveError && e.kind === 'lookup') {
+        throw new DojangIssuanceError('lookup', e.message);
+      }
+      const why = e instanceof Error ? e.message : String(e);
+      rejected.push(`${row.hash}: ${why}`);
+      addLog(`[Dojang] skipping ${row.hash}: ${why}`);
+      continue;
+    }
+    addLog(`[Dojang] using issuance ${row.hash} (type ${candidate.txType}, block ${row.blockNumber}, attestation ${uid})`);
+    return candidate;
   }
 
+  if (notLive) throw notLive;
   throw new DojangIssuanceError(
     'none',
     `No usable Dojang Playground issuance by ${wallet}.` +

@@ -63,7 +63,7 @@ function fakeAndroid() {
 }
 
 const appAttestSpy = () => ({isSupported: jest.fn(), generateKey: jest.fn(), attestKey: jest.fn(), generateAssertion: jest.fn()});
-const fetchStatus = jest.fn(async (uid: string) => ({uid, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false}));
+const fetchStatus = jest.fn(async (uid: string) => ({uid, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: false, expirationTime: 0}));
 
 async function codeOf(p: Promise<unknown>): Promise<string> {
   try {
@@ -105,7 +105,7 @@ describe('Coinbase KYC v2 on Android', () => {
 
   it('a revoked verification is refused (E2011) and nothing is signed', async () => {
     const android = fakeAndroid();
-    fetchStatus.mockResolvedValueOnce({uid: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: true});
+    fetchStatus.mockResolvedValueOnce({uid: UID, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: WALLET, revoked: true, expirationTime: 0});
     expect(await codeOf(prepareCoinbaseKycStatement(
       {walletAddress: WALLET, attestationUid: UID, scopeString: 'scope', requestId: REQUEST_ID, log: () => {}},
       {android: {native: android.native as never, trust: TRUST, integrity: NO_INTEGRITY}, revocation: {fetchStatus, now: () => NOW}},

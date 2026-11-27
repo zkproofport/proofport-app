@@ -54,6 +54,8 @@ import {showGlobalError} from '../../utils/errorBridge';
 import {isRelayRequestAnswered} from '../../utils/relayAnswer';
 import {rejectedInWallet} from '../../utils/walletRejection';
 import {AppAttestError} from '../../appAttest/appAttestError';
+import {AttestationNotLiveError} from '../../utils/easAttestationStatus';
+import {requireLiveGiwaAttestation} from '../../utils/giwaAttestationSearch';
 import type {DeviceCheckReason} from '../../appAttest/deviceCheckReasons';
 import {prepareCoinbaseCountryStatement, prepareCoinbaseKycStatement, type CoinbaseStatementWitness} from '../../appAttest/coinbaseKycStatement';
 import {attestedCountryOfTx} from '../../utils/attestCountryTx';
@@ -1243,7 +1245,11 @@ export const ProofGenerationScreen: React.FC = () => {
           // `none` is an answer about this wallet; anything else is a lookup
           // that did not finish, and must not read as "you have none".
           const noIssuance = e instanceof DojangIssuanceError && e.kind === 'none';
-          const code = noIssuance ? 'E2007' : 'E3002';
+          // Revoked / expired (E2025 / E2026) is an answer too: the issuance
+          // exists but its attestation is no longer good.
+          let code: ErrorCode = 'E3002';
+          if (e instanceof AttestationNotLiveError) code = e.code;
+          else if (noIssuance) code = 'E2007';
           if (noIssuance) await recordLookupFailure(configName, walletAddress);
           addLog(details);
           failAttempt({
@@ -1414,6 +1420,25 @@ export const ProofGenerationScreen: React.FC = () => {
       // attestation success is just observed, not bound.
       addLog('Attestation found!');
       addLog(`TX length: ${txResult.rawTransaction.length} chars`);
+
+      // GIWA KYC: the circuit proves the issuing transaction only, so a
+      // revoked or expired attestation is refused here, from a fresh read of
+      // the chain. (Coinbase is checked inside its device statement.)
+      if (isGiwa) {
+        try {
+          await timer.step('attestation status', () => requireLiveGiwaAttestation(txResult.attestation, walletAddress, addLog));
+        } catch (e) {
+          const details = e instanceof Error ? e.message : String(e);
+          addLog(details);
+          const code: ErrorCode = e instanceof AttestationNotLiveError ? e.code : 'E3002';
+          failAttempt({
+            code,
+            error: details,
+            inline: `[${code}] ${t(`host.errors.${code}.description`, {defaultValue: ErrorCodes[code].description})}`,
+          });
+          return;
+        }
+      }
 
       const provider = await getProvider();
       if (!provider) {

@@ -199,7 +199,7 @@ describe('Coinbase KYC v2 on a factory phone', () => {
       {
         android: {native: phone.native as never, trust: TRUST, integrity},
         revocation: {
-          fetchStatus: async uid => ({uid, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: wallet, revoked: false}),
+          fetchStatus: async uid => ({uid, schemaId: COINBASE_KYC_SCHEMA_UID, attester: COINBASE_ATTESTER, recipient: wallet, revoked: false, expirationTime: 0}),
           now: () => NOW,
         },
       },

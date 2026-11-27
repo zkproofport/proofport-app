@@ -232,6 +232,23 @@ export const ErrorCodes = {
       "The private identifier for this proof did not pass its check, so no proof was generated. Please try again.",
   },
 
+  // The credential's EAS attestation, read fresh from the chain right before
+  // proving, is revoked (E2025) or past its expiry (E2026):
+  // src/utils/easAttestationStatus.ts (GIWA KYC, Dojang Playground) and the
+  // Coinbase lookup's expiry check (src/appAttest/revocationStatement.ts).
+  E2025: {
+    code: 'E2025',
+    title: 'Verification Revoked',
+    description:
+      "The issuer has revoked this wallet's verification, so no proof was generated. Get verified again, then try again.",
+  },
+  E2026: {
+    code: 'E2026',
+    title: 'Verification Expired',
+    description:
+      "This wallet's verification has expired, so no proof was generated. Get verified again, then try again.",
+  },
+
   // Network errors
   E3001: {
     code: 'E3001',

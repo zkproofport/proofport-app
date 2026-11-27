@@ -51,6 +51,7 @@ export const DEVICE_CHECK_REASONS = Object.freeze({
   ios_assertion_counter_zero: 'E2014',
   ios_assertion_high_s: 'E2014',
   kyc_record_revoked: 'E2011',
+  kyc_record_expired: 'E2026',
   kyc_record_uid_malformed: 'E2005',
   kyc_record_missing: 'E2005',
   kyc_record_wrong_schema: 'E2005',
@@ -61,6 +62,7 @@ export const DEVICE_CHECK_REASONS = Object.freeze({
   kyc_lookup_incomplete: 'E3002',
   // Coinbase Country v2's lookup (src/appAttest/coinbaseStatementKinds.ts).
   country_record_revoked: 'E2011',
+  country_record_expired: 'E2026',
   country_record_uid_malformed: 'E2005',
   country_record_missing: 'E2005',
   country_record_wrong_schema: 'E2005',

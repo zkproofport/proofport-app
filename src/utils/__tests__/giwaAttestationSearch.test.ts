@@ -251,3 +251,29 @@ describe('GIWA attestation lookup', () => {
     expect(asked.easSearches).toBe(1);
   });
 });
+
+describe('requireLiveGiwaAttestation: the fresh on-chain check before a GIWA KYC proof', () => {
+  it("asks about this attestation, on GIWA's EAS predeploy, for this wallet and the Verified Account schema", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {requireLiveGiwaAttestation} = require('../giwaAttestationSearch');
+    const check = jest.fn(async () => ({uid: '0x' + 'ab'.repeat(32), expirationTime: 0, time: 1}));
+    const attestation = {id: '0x' + 'ab'.repeat(32), txHash: '0x' + 'cd'.repeat(32), attester: '0x' + '11'.repeat(20), recipient: '0x' + '22'.repeat(20), time: 1};
+    await requireLiveGiwaAttestation(attestation, '0x' + '22'.repeat(20), () => {}, check);
+    expect(check).toHaveBeenCalledTimes(1);
+    expect((check.mock.calls[0] as unknown[])[0]).toEqual({
+      rpcUrl: expect.stringMatching(/^https:\/\//),
+      eas: '0x4200000000000000000000000000000000000021',
+      uid: attestation.id,
+      recipient: '0x' + '22'.repeat(20),
+      schemaUid: '0xbda8dd64efa4c537514cfe4c96ab5d5f14a8ec0c9105b799b47a010e89c0c72d',
+    });
+  });
+
+  it('passes a refusal through unchanged (revoked stays E2025)', async () => {
+    const {requireLiveGiwaAttestation} = require('../giwaAttestationSearch');
+    const {AttestationNotLiveError} = require('../easAttestationStatus');
+    const check = jest.fn(async () => { throw new AttestationNotLiveError('revoked', 'revoked'); });
+    await expect(requireLiveGiwaAttestation({id: '0x' + 'ab'.repeat(32), txHash: '', attester: '', recipient: '', time: 1}, '0x' + '22'.repeat(20), () => {}, check))
+      .rejects.toMatchObject({code: 'E2025', kind: 'revoked'});
+  });
+});

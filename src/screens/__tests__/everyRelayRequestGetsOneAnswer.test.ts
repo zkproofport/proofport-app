@@ -68,6 +68,7 @@ const mockSettingsGet = jest.fn();
 const mockRunGate = jest.fn();
 const mockGetProvider = jest.fn();
 const mockFindAttestation = jest.fn();
+const mockRequireLiveGiwa = jest.fn();
 const mockFindDojang = jest.fn();
 const mockFindPassport = jest.fn();
 const mockSurvey = jest.fn();
@@ -128,6 +129,9 @@ jest.mock('../../utils', () => {
     SELECTOR_ATTEST_ACCOUNT: '0x1', SELECTOR_ATTEST_COUNTRY: '0x2',
   };
 });
+jest.mock('../../utils/giwaAttestationSearch', () => ({
+  requireLiveGiwaAttestation: (...args: unknown[]) => mockRequireLiveGiwa(...args),
+}));
 jest.mock('../../utils/humanPassport', () => {
   class HumanPassportError extends Error {
     code: string;
@@ -213,6 +217,7 @@ beforeEach(() => {
   mockRunGate.mockResolvedValue({address: ACCOUNT});
   mockGetProvider.mockResolvedValue({send: jest.fn()});
   mockFindAttestation.mockResolvedValue({rawTransaction: '0xraw', attestation: {id: `0x${'ab'.repeat(32)}`}});
+  mockRequireLiveGiwa.mockResolvedValue({uid: `0x${'ab'.repeat(32)}`, expirationTime: 0, time: 1});
   mockFindDojang.mockResolvedValue({rawTransaction: '0xraw'});
   mockFindPassport.mockResolvedValue({request: {recipient: ACCOUNT}, head: {score: 300000}});
   mockSurvey.mockResolvedValue(SURVEY);
@@ -445,6 +450,26 @@ describe('every inline failure path answers once, with its code', () => {
     await mount(circuit, {...request(circuit as ProofRequest['circuit']), inputs} as ProofRequest);
     expectOneError('E1010');
     expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  // GIWA KYC: the attestation is read fresh from the chain before anything is
+  // signed; a revoked or expired one is answered with its own code.
+  it.each([['revoked', 'E2025'], ['expired', 'E2026'], ['lookup', 'E3002']] as const)(
+    'giwa_attestation whose attestation is %s -> %s, nothing signed or proved',
+    async (kind, code) => {
+      const {AttestationNotLiveError} = jest.requireActual('../../utils/easAttestationStatus');
+      mockRequireLiveGiwa.mockRejectedValue(new AttestationNotLiveError(kind, `attestation ${kind}`));
+      await mount('giwa_attestation', request('giwa_attestation', {scope: 's', oprfDomain: 'Vote.Example'}));
+      expectOneError(code);
+      expect(mockGenerate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('giwa_attestation: the live check is asked about the attestation the search found, for the gated wallet', async () => {
+    await mount('giwa_attestation', request('giwa_attestation', {scope: 's', oprfDomain: 'Vote.Example'}));
+    expect(mockRequireLiveGiwa).toHaveBeenCalledTimes(1);
+    expect(mockRequireLiveGiwa.mock.calls[0][0]).toEqual({id: `0x${'ab'.repeat(32)}`});
+    expect(mockRequireLiveGiwa.mock.calls[0][1]).toBe(ACCOUNT);
   });
 
   it('the hook gets the request\'s own OPRF domain, unchanged', async () => {

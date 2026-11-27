@@ -33,6 +33,8 @@ export interface AttestationStatus {
   attester: string;
   recipient: string;
   revoked: boolean;
+  /** Unix seconds; 0 = never expires. Coinbase's records carry 0 today. */
+  expirationTime: number;
   /**
    * The attestation's ABI-encoded data, as the indexer returns it (hex);
    * null when the answer left it out. Only Country v2 reads it, and refuses
@@ -68,7 +70,7 @@ export async function fetchAttestationStatus(
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        query: 'query($id:String!){attestation(where:{id:$id}){id schemaId attester recipient revoked data}}',
+        query: 'query($id:String!){attestation(where:{id:$id}){id schemaId attester recipient revoked expirationTime data}}',
         variables: {id: uid},
       }),
       signal: controller.signal,
@@ -91,11 +93,12 @@ export async function fetchAttestationStatus(
     throw new AppAttestError(reasons.missing, `EAS has no attestation ${uid}`);
   }
   if (!a || typeof a.revoked !== 'boolean' || typeof a.schemaId !== 'string'
-    || typeof a.attester !== 'string' || typeof a.recipient !== 'string') {
+    || typeof a.attester !== 'string' || typeof a.recipient !== 'string'
+    || typeof a.expirationTime !== 'number' || !Number.isSafeInteger(a.expirationTime) || a.expirationTime < 0) {
     // A record that does not say whether it is revoked is not "unrevoked".
     throw new AppAttestError(reasons.incomplete, `EAS answered without a complete record for ${uid}: ${JSON.stringify(a)}`);
   }
-  return {uid: String(a.id ?? uid), schemaId: a.schemaId, attester: a.attester, recipient: a.recipient, revoked: a.revoked, data: typeof a.data === 'string' ? a.data : null};
+  return {uid: String(a.id ?? uid), schemaId: a.schemaId, attester: a.attester, recipient: a.recipient, revoked: a.revoked, expirationTime: Number(a.expirationTime), data: typeof a.data === 'string' ? a.data : null};
 }
 
 /**
@@ -204,7 +207,16 @@ export async function revocationClientData(
       `Attestation ${status.uid} is for ${status.recipient}, not the connected wallet ${req.wallet}`,
     );
   }
-  log(`[Revocation] Attestation ${status.uid}: revoked=${status.revoked}`);
+  log(`[Revocation] Attestation ${status.uid}: revoked=${status.revoked}, expirationTime=${status.expirationTime}`);
+  const nowSeconds = Math.floor((deps.now ?? (() => Date.now() / 1000))());
+  // Coinbase records carry no expiry today (0); one past its expiry is
+  // refused (E2026) before anything is signed, like a revoked one.
+  if (status.expirationTime !== 0 && status.expirationTime <= nowSeconds) {
+    throw new AppAttestError(
+      r.expired,
+      `Attestation ${status.uid} expired at ${new Date(status.expirationTime * 1000).toISOString()}`,
+    );
+  }
 
   let country: string | undefined;
   if (kind.carriesCountry && !status.revoked) {
